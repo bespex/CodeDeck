@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodeDeck logo candidates</title>
+<style>
+:root{color-scheme:dark}
+body{margin:0;background:#020617;color:#e2e8f0;font:15px/1.5 system-ui,sans-serif;padding:32px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:28px 0 12px;color:#c7d2fe}p.lead{color:#94a3b8;margin:0 0 28px;max-width:70ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px}
+.card{background:#0f172a;border:1px solid #1e293b;border-radius:16px;overflow:hidden}
+.show{display:flex;gap:14px;align-items:flex-end;padding:22px}
+.show.light{background:#e2e8f0}
+.show img:nth-child(1){width:112px}.show img:nth-child(2){width:48px}.show img:nth-child(3){width:24px}.show img:nth-child(4){width:16px}
+.word{font-weight:650;font-size:18px;letter-spacing:-.02em;margin-left:auto;align-self:center}
+.light .word{color:#0f172a}
+.txt{padding:14px 22px 18px;border-top:1px solid #1e293b}
+.txt b{display:block;font-size:16px}.txt span{color:#94a3b8;font-size:14px}
+</style></head><body>
+<h1>CodeDeck logo candidates</h1>
+<p class="lead">Each shown at 112, 48, 24 and 16 px on a dark and a light desktop.</p>
+<h2>Round 5: Stack with the be spex orange (#f26500)</h2>
+<div class="grid" id="r5"></div>
+<h2>Round 4: Stack with more pep</h2>
+<div class="grid" id="r4"></div>
+<h2>Round 3: Planks with the prompt in front, Pile with a code symbol</h2>
+<div class="grid" id="r3"></div>
+<h2>Round 2: variants of Stack, Fan and Planks</h2>
+<div class="grid" id="r2"></div>
+<h2>Round 1</h2>
+<div class="grid" id="r1"></div>
+<script>
+const R5=[["3f-orange-indigo-dark-grey","3f · Indigo stack, dark grey tile","3b's stack on a graphite tile instead of the indigo one."],
+["3g-orange-indigo-grey","3g · Indigo stack, grey tile","On the be spex grey; darker indigo so the stack stands out."],
+["3h-orange-indigo-light-grey","3h · Indigo stack, light grey tile","Light tile: the stack is the only dark shape."],
+["3a-stack-orange-grey","3a · Orange on grey","2a in the be spex colours: orange top layer, grey stack, neutral dark tile."],
+["3b-stack-orange-indigo","3b · Orange on indigo","2a with the app's indigo: orange as the complementary accent."],
+["3c-prompt-orange-grey","3c · Prompt, orange on grey","2d with a bold white prompt on the orange layer, be spex colours."],
+["3d-prompt-orange-indigo","3d · Prompt, orange on indigo","2d with a bold white prompt, indigo tile."],
+["3e-prompt-orange-tile","3e · Orange tile","The tile itself is orange; light stack, orange prompt on the white top layer."]];
+const R4=[["2a-stack-accent","2a · Accent top","Top layer in the cyan accent with a soft glow; the rest stays indigo."],
+["2b-stack-lifted","2b · Lifted","The top layer floats and its light falls on the layer below: the AI works on top of your code."],
+["2c-stack-slabs","2c · Slabs","Layers with thickness, like boards in a deck; the top slab has cyan edges."],
+["2d-stack-prompt","2d · Prompt on top","A shell prompt lies on the top layer, drawn in its plane."],
+["2e-stack-spark","2e · Spark","Plain stack with an AI sparkle above it."]];
+const R3=[["6d-prompt-d","6d · Prompt + D","The chevron stands in front of the planks, white, like a shell prompt before its input."],
+["6e-prompt-d-calm","6e · Prompt + D, calm","Chevron in the cyan accent, planks in indigo only."],
+["6f-prompt-d-tight","6f · Prompt + D, tight","Larger and closer: chevron and D read as one mark."],
+["1c-pile-code","1c · Pile, code","Pile with the code symbol &lt;&gt; on the front card."],
+["1d-pile-code-slash","1d · Pile, code slash","Same, with a slash: &lt;/&gt;."]];
+const R2=[["1a-stack-solid","1a · Stack, solid","Three solid layers from light to dark instead of outlines. Holds up better when small."],
+["1b-pile","1b · Pile","The stack seen from the front: cards behind a front card with a prompt. Between Stack and Fan."],
+["4a-fan-bold","4a · Fan, bold","Larger cards, lighter back cards, a white front card. More contrast at small sizes."],
+["4b-fan-dot","4b · Fan, dot","No code symbol; the front card carries only the cyan marker."],
+["6a-planks-notch","6a · Planks, notch","The D's left edge is cut as a chevron: a prompt in the negative space."],
+["6b-pills","6b · Pills","Four rounded bars that outline a D. Softer, closest to a stack."],
+["6c-planks-three","6c · Planks, three","Three thick planks, no accent colour. The calmest version."]];
+const R1=[["1-stack","1 · Stack","Three layers, the top one lit, with the cyan marker."],
+["2-monogram","2 · Monogram","C and D."],
+["3-columns","3 · Columns","The app's own layout: files, deck with its history trail, assistant."],
+["4-fan","4 · Fan","A fan of cards with code on the front card."],
+["5-prompt","5 · Prompt","A shell prompt whose cursor is a stack."],
+["6-planks","6 · Planks","A D built from deck planks; one plank lit in the accent."]];
+const card=([f,t,d])=>`<div class="card">
+<div class="show">${('<img src="'+f+'.svg" alt="">').repeat(4)}<div class="word">CodeDeck</div></div>
+<div class="show light">${('<img src="'+f+'.svg" alt="">').repeat(4)}<div class="word">CodeDeck</div></div>
+<div class="txt"><b>${t}</b><span>${d}</span></div></div>`;
+r5.innerHTML=R5.map(card).join("");r4.innerHTML=R4.map(card).join("");r3.innerHTML=R3.map(card).join("");r2.innerHTML=R2.map(card).join("");r1.innerHTML=R1.map(card).join("");
+</script></body></html>

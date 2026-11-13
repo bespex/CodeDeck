@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: system-ui, "Inter", "Noto Sans", "Ubuntu", sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", "Fira Code", "DejaVu Sans Mono", monospace;
+
+  /*
+   * Colours come from the logo: its grey tile, its indigo layers and its orange top layer.
+   *   grey    surfaces and text - the app is grey first, not blue
+   *   indigo  selection, focus and everything the assistant does
+   *   orange  the accent: where you are and the one main action
+   */
+
+  /* The grey of the logo tile (#3a3f46 to #1b1e22) as the neutral scale; replaces Tailwind's bluish slate */
+  --color-slate-50: #f5f6f7;
+  --color-slate-100: #e8eaec;
+  --color-slate-200: #d2d6da;
+  --color-slate-300: #b9bec4;
+  --color-slate-400: #a9afb5;
+  /* Quiet text (times, counts, notes): still at least 4 : 1 on every surface, popups included */
+  --color-slate-500: #959ca4;
+  /* Decoration only (separators, prompt signs, placeholders), never information */
+  --color-slate-600: #757c84;
+  --color-slate-700: #3a3f46;
+  --color-slate-800: #30343a;
+  --color-slate-900: #282b31;
+  --color-slate-950: #1b1e22;
+
+  /* Surfaces, darkest in the middle: the deck is the stage, the side columns stand in front of it */
+  --color-base: #1b1e22;
+  --color-panel: #24272c;
+  --color-raised: #2e3238;
+  --color-line: #3a3f46;
+
+  /* Floating surfaces (menus, popups, tooltips) sit one step closer to you: lighter, with a
+     lighter edge and a deep shadow, so they never blend into the panel below */
+  --color-overlay: #363b42;
+  --color-overlay-hover: #424850;
+  --color-overlay-line: #4d545c;
+
+  /* Accent: the orange of the logo's top layer */
+  --color-brand: #f26500;
+  --color-brand-soft: #ff8a3c;
+  /* Orange as a filled button under white text: deeper, so the label reads (4.5 : 1) */
+  --color-brand-fill: #c75300;
+  --color-brand-fill-hover: #b34a00;
+
+  /* The assistant: the indigo of the logo's middle layer */
+  --color-ai: #818cf8;
+
+  /*
+   * Status: three muted tones that sit with the greys - Git state, warnings, errors.
+   * Together with the accent and the assistant's indigo they are all the colour there is;
+   * a status shows as a symbol in its tone, the label beside it stays neutral.
+   */
+  --color-changed: #e0a868; /* modified, needs attention: a calm relative of the accent */
+  --color-added: #9cc39a; /* new, untracked, fine */
+  --color-problem: #e08a80; /* deleted, conflict, failed */
+  --color-moved: #8fb1cf; /* renamed, moved, copied: the same content in another place */
+}
+
+/*
+ * While another window has the focus, CodeDeck steps back: the accents lose their colour and
+ * the edge dims. Whichever CodeDeck window is active is the one that is fully in colour.
+ */
+:root.inactive {
+  --color-brand: #a07a5e;
+  --color-brand-soft: #b08a6e;
+  --color-brand-fill: #6e5a4c;
+  --color-brand-fill-hover: #6e5a4c;
+  --color-ai: #8a8eb8;
+}
+
+/* A fine light edge around the whole window: on a dark desktop it keeps the window apart from
+   the dark ones next to it (the same idea as the hairline of dark windows on macOS) */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  border: 1px solid rgb(255 255 255 / 0.13);
+  transition: border-color 150ms;
+}
+:root.inactive body::after {
+  border-color: rgb(255 255 255 / 0.05);
+}
+
+@utility surface-overlay {
+  background: var(--color-overlay);
+  border: 1px solid var(--color-overlay-line);
+  box-shadow:
+    0 14px 36px -6px rgb(0 0 0 / 0.6),
+    0 2px 6px rgb(0 0 0 / 0.35);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-base);
+  color: var(--color-slate-300);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* Text that should stay selectable */
+.selectable {
+  user-select: text;
+}
+
+/* Thin, quiet scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-slate-700) transparent;
+}
+
+/* Marker for files the AI has touched recently */
+.ai-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-ai);
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--color-ai) 70%, transparent);
+  animation: ai-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes ai-pulse {
+  50% {
+    opacity: 0.45;
+    box-shadow: 0 0 2px 0 color-mix(in srgb, var(--color-ai) 40%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-dot {
+    animation: none;
+  }
+}

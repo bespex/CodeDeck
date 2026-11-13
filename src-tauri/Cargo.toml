@@ -1,0 +1,33 @@
+[package]
+name = "codedeck"
+version = "0.1.0"
+description = "Lightweight AI coding deck: files, changes and an AI assistant around one project directory"
+authors = ["Skrrytch <skrrytch@speckels.net>"]
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/be-spex/CodeDeck"
+publish = false
+
+[lib]
+# The `_lib` suffix keeps the lib name from clashing with the bin name
+# (an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519).
+name = "codedeck_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+notify = "8"
+tauri-plugin-dialog = "2"
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

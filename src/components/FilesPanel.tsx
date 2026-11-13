@@ -1,0 +1,319 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Braces,
+  ChevronDown,
+  ChevronRight,
+  CodeXml,
+  File,
+  FileText,
+  Folder,
+  FolderGit2,
+  FolderInput,
+  GitBranch,
+  GitFork,
+  FolderOpen,
+  Pin,
+  Search,
+  Settings2,
+} from "lucide-react";
+import { onFsChanged, readDir, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
+import type { GitState } from "../backend";
+import { aheadBehind, stateMeaning, stateSymbol, type GitView } from "../git";
+import { Tooltip } from "./Tooltip";
+import { RepoTooltip } from "./RepoTooltip";
+import { ProjectHeader, type OpenProject } from "./ProjectHeader";
+
+/** MIME type used when dragging a file or folder onto the context area. */
+export const DRAG_TYPE = "application/x-codedeck-entry";
+
+/** How long a changed file keeps its dot. */
+const RECENT_MS = 2 * 60 * 1000;
+
+/** The three status tones, see index.css. */
+export const stateColor: Record<GitState, string> = {
+  M: "text-changed",
+  R: "text-moved",
+  A: "text-added",
+  "?": "text-added",
+  D: "text-problem",
+  U: "text-problem",
+};
+
+function iconFor(name: string) {
+  if (name.endsWith(".json")) return Braces;
+  if (name.endsWith(".xml")) return CodeXml;
+  if (name.endsWith(".md")) return FileText;
+  if (name.endsWith(".toml")) return Settings2;
+  return File;
+}
+
+interface Props {
+  project: ProjectInfo | null;
+  git: GitView;
+  selected: string | null;
+  pinned: Set<string>;
+  onSelect: (path: string) => void;
+  onPin: (entry: Entry) => void;
+  onOpenProject: OpenProject;
+  /** Open the Git actions of a repository at the given element */
+  onRepoActions: (repo: string, at: HTMLElement, above: boolean) => void;
+}
+
+/** Listings by directory path. Only directories that were opened are in here. */
+type Listings = Record<string, Entry[]>;
+
+export function FilesPanel(props: Props) {
+  const [listings, setListings] = useState<Listings>({});
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [recent, setRecent] = useState<Record<string, number>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  // What is loaded, readable from the change listener without re-subscribing
+  const loaded = useRef<Set<string>>(new Set());
+
+  const load = useCallback(async (dir: string) => {
+    try {
+      const entries = await readDir(dir);
+      loaded.current.add(dir);
+      setListings((current) => ({ ...current, [dir]: entries }));
+    } catch (e) {
+      // The directory is gone: forget it and everything below
+      const below = (path: string) => path === dir || path.startsWith(`${dir}/`);
+      loaded.current.forEach((path) => below(path) && loaded.current.delete(path));
+      setListings((current) => Object.fromEntries(Object.entries(current).filter(([p]) => !below(p))));
+      setOpen((current) => new Set([...current].filter((p) => !below(p))));
+      if (dir === "") setError(String(e));
+    }
+  }, []);
+
+  useEffect(() => {
+    load("");
+    return onFsChanged((change) => {
+      change.dirs.filter((dir) => loaded.current.has(dir)).forEach(load);
+      const now = Date.now();
+      setRecent((current) => ({
+        ...current,
+        ...Object.fromEntries(change.paths.map((path) => [path, now])),
+      }));
+    });
+  }, [load]);
+
+  // Let the dots expire
+  const hasRecent = Object.keys(recent).length > 0;
+  useEffect(() => {
+    if (!hasRecent) return;
+    const timer = setInterval(() => {
+      const limit = Date.now() - RECENT_MS;
+      setRecent((current) => Object.fromEntries(Object.entries(current).filter(([, t]) => t > limit)));
+    }, 10_000);
+    return () => clearInterval(timer);
+  }, [hasRecent]);
+
+  const toggle = (dir: string) => {
+    const next = new Set(open);
+    if (next.delete(dir)) {
+      setOpen(next);
+      return;
+    }
+    next.add(dir);
+    setOpen(next);
+    if (!loaded.current.has(dir)) load(dir);
+  };
+
+  const needle = query.trim().toLowerCase();
+  const recentPaths = Object.keys(recent);
+  const tree: TreeState = { ...props, listings, open, recentPaths, needle, toggle };
+
+  return (
+    <aside className="flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
+      <ProjectHeader project={props.project} onOpen={props.onOpenProject} />
+
+      <div className="px-2 pt-2">
+        <label className="flex items-center gap-2 rounded-md border border-line bg-base px-2 py-1.5 focus-within:border-indigo-500">
+          <Search className="size-3.5 text-slate-500" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter open folders"
+            className="w-full bg-transparent text-slate-200 outline-none placeholder:text-slate-600"
+          />
+        </label>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-1 py-2" role="tree">
+        {error ? (
+          <p className="selectable px-2 text-problem">{error}</p>
+        ) : (
+          <Rows dir="" depth={0} tree={tree} />
+        )}
+      </div>
+
+      {recentPaths.length > 0 && (
+        <footer className="flex shrink-0 items-center gap-2 border-t border-line px-3 py-2 text-[11px] text-slate-500">
+          <span className="ai-dot" />
+          {recentPaths.length} changed recently
+        </footer>
+      )}
+    </aside>
+  );
+}
+
+interface TreeState extends Props {
+  listings: Listings;
+  open: Set<string>;
+  recentPaths: string[];
+  /** Lower-case filter text, empty for none */
+  needle: string;
+  toggle: (dir: string) => void;
+}
+
+/** With a filter: files that match, and folders with a match somewhere in what is loaded. */
+function matches(entry: Entry, tree: TreeState): boolean {
+  if (!tree.needle) return true;
+  if (!entry.isDir) return entry.name.toLowerCase().includes(tree.needle);
+  return (tree.listings[entry.path] ?? []).some((child) => matches(child, tree));
+}
+
+function Rows({ dir, depth, tree }: { dir: string; depth: number; tree: TreeState }) {
+  const entries = tree.listings[dir];
+  if (!entries) return null;
+  if (entries.length === 0 && depth > 0) {
+    return (
+      <div style={{ paddingLeft: 26 + depth * 14 }} className="h-[26px] text-slate-500 italic">
+        empty
+      </div>
+    );
+  }
+  return entries
+    .filter((entry) => matches(entry, tree))
+    .map((entry) => <Row key={entry.path} entry={entry} depth={depth} tree={tree} />);
+}
+
+function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeState }) {
+  const isOpen = entry.isDir && (tree.open.has(entry.path) || (!!tree.needle && !!tree.listings[entry.path]));
+  const isSelected = tree.selected === entry.path;
+  const isPinned = tree.pinned.has(entry.path);
+  const changed = entry.isDir
+    ? !isOpen && tree.recentPaths.some((path) => path.startsWith(`${entry.path}/`))
+    : tree.recentPaths.includes(entry.path);
+  const repo = entry.isDir ? tree.git.repoAt.get(entry.path) : undefined;
+  const state = tree.git.stateOf(entry.path);
+  // A plain folder has no symbol of its own: while closed, its name says that changes lie inside
+  const inside = entry.isDir && !repo && !state && !isOpen ? tree.git.changesIn(entry.path) : 0;
+  const Icon = repo ? (repo.worktreeOf ? GitFork : FolderGit2) : entry.isDir ? (isOpen ? FolderOpen : Folder) : iconFor(entry.name);
+  const Chevron = isOpen ? ChevronDown : ChevronRight;
+  const openAsProject = (e: React.MouseEvent, newWindow: boolean) => {
+    e.stopPropagation();
+    tree.onOpenProject(`${tree.project!.path}/${entry.path}`, newWindow).catch(() => {});
+  };
+
+  return (
+    <>
+      <div
+        role="treeitem"
+        aria-selected={isSelected}
+        aria-expanded={entry.isDir ? isOpen : undefined}
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(entry));
+          e.dataTransfer.effectAllowed = "copy";
+        }}
+        onClick={() => (entry.isDir ? tree.toggle(entry.path) : tree.onSelect(entry.path))}
+        style={{ paddingLeft: 6 + depth * 14 }}
+        className={`group flex h-[26px] cursor-default items-center gap-1.5 rounded-md pr-1.5 ${
+          isSelected ? "bg-indigo-500/25 text-slate-50" : "hover:bg-raised"
+        }`}
+      >
+        {entry.isDir ? (
+          <Chevron className="size-3.5 shrink-0 text-slate-500" />
+        ) : (
+          <span className="w-3.5 shrink-0" />
+        )}
+        <Icon className={`size-4 shrink-0 ${entry.isDir ? "text-slate-300" : "text-slate-500"}`} />
+        <span
+          className={`truncate ${inside ? "text-changed" : ""}`}
+          title={inside ? `${inside} uncommitted change${inside === 1 ? "" : "s"} inside` : undefined}
+        >
+          {entry.name}
+        </span>
+        {/* Right at the name, away from the pin: opening a project by mistake would be a jump */}
+        {entry.isDir && tree.project && (
+          <button
+            type="button"
+            title="Open this folder as project · Ctrl+click: in a new window"
+            aria-label={`Open ${entry.name} as project`}
+            onClick={(e) => openAsProject(e, e.ctrlKey || e.metaKey)}
+            onAuxClick={(e) => e.button === 1 && openAsProject(e, true)}
+            className="shrink-0 rounded p-0.5 text-slate-500 opacity-0 hover:bg-slate-700 hover:text-slate-100 focus-visible:opacity-100 group-hover:opacity-100"
+          >
+            <FolderInput className="size-3.5" />
+          </button>
+        )}
+
+        <span className="ml-auto flex shrink-0 items-center gap-1.5">
+          {repo && <RepoBadge repo={repo} tree={tree} />}
+          {changed && (
+            <span
+              className={`ai-dot ${entry.isDir ? "opacity-60" : ""}`}
+              title={entry.isDir ? "Changed on disk just now, somewhere inside" : "Changed on disk just now"}
+            />
+          )}
+          <button
+            type="button"
+            title={isPinned ? "In the assistant's context" : "Add to the assistant's context"}
+            aria-label={isPinned ? "In context" : `Add ${entry.name} to context`}
+            disabled={isPinned}
+            onClick={(e) => {
+              e.stopPropagation();
+              tree.onPin(entry);
+            }}
+            className={`rounded p-0.5 ${
+              isPinned
+                ? "text-brand-soft"
+                : "text-slate-500 opacity-0 hover:bg-slate-700 hover:text-slate-100 focus-visible:opacity-100 group-hover:opacity-100"
+            }`}
+          >
+            <Pin className="size-3.5" fill={isPinned ? "currentColor" : "none"} />
+          </button>
+          {state && (
+            <span
+              className={`w-3 text-center font-mono text-[11px] ${stateColor[state]}`}
+              title={entry.isDir && state === "?" ? "New folder: nothing in it is in Git yet" : stateMeaning[state]}
+            >
+              {stateSymbol(state)}
+            </span>
+          )}
+        </span>
+      </div>
+      {isOpen && <Rows dir={entry.path} depth={depth + 1} tree={tree} />}
+    </>
+  );
+}
+
+/**
+ * On the row of a repository's folder: its branch, tinted when there are uncommitted changes.
+ * A click opens the Git actions right here.
+ */
+function RepoBadge({ repo, tree }: { repo: RepoStatus; tree: TreeState }) {
+  const sync = aheadBehind(repo);
+  const dirty = repo.files.length > 0;
+  return (
+    <Tooltip content={<RepoTooltip repo={repo} runs={tree.git.runs} />}>
+      <button
+        type="button"
+        aria-label={`Git actions for ${repo.name}, branch ${repo.branch ?? "detached"}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          tree.onRepoActions(repo.path, e.currentTarget, false);
+        }}
+        className={`flex max-w-32 items-center gap-1 rounded px-1 font-mono text-[11px] hover:bg-slate-700 ${
+          repo.error ? "text-problem" : dirty ? "text-changed" : "text-slate-500"
+        }`}
+      >
+        <GitBranch className="size-3 shrink-0" />
+        <span className="truncate">{repo.error ? "error" : (repo.branch ?? "detached")}</span>
+        {sync && <span className="shrink-0 text-slate-500">{sync}</span>}
+      </button>
+    </Tooltip>
+  );
+}
