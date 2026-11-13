@@ -92,7 +92,7 @@ export function Trail({ commits, repos, point, onSelect, focusRepo }: Props) {
             />
           </li>
 
-          {commits.map(({ repo, commit }) => {
+          {commits.map(({ repo, repoName, commit }) => {
             const day = dayLabel(commit.at);
             const showDay = day !== lastDay;
             lastDay = day;
@@ -122,6 +122,7 @@ export function Trail({ commits, repos, point, onSelect, focusRepo }: Props) {
                   time={clock(commit.at)}
                   files={commit.files}
                   title={commit.subject}
+                  repo={several ? repoName : undefined}
                 />
               </li>
             );
@@ -148,6 +149,8 @@ function TrailRow(props: {
   time: string;
   files: number;
   title: string;
+  /** With several repositories: whose commit it is */
+  repo?: string;
 }) {
   return (
     <button
@@ -175,6 +178,7 @@ function TrailRow(props: {
               props.selected ? "text-slate-50" : "text-slate-200"
             }`}
           >
+            {props.repo && <span className="mr-1.5 font-semibold text-slate-500">{props.repo}</span>}
             {props.title}
           </span>
         </>

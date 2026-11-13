@@ -9,6 +9,7 @@ import {
   RefreshCw,
   SquareTerminal,
   X,
+  Plus,
 } from "lucide-react";
 import { gitAction, type RepoStatus } from "../backend";
 import {
@@ -18,6 +19,8 @@ import {
   fetchSteps,
   pullSteps,
   pushSteps,
+  remoteOf,
+  addRemoteSteps,
   stateMeaning,
   stateSymbol,
   syncSummary,
@@ -113,10 +116,13 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
   const pull = pullSteps();
   const push = pushSteps(repo);
   const fetch = fetchSteps();
-  const pushTitle = !repo.branch
+  const noRemote = repo.remotes.length === 0;
+  const pushTitle = noRemote
+    ? "No remote to push to: add one below"
+    : !repo.branch
     ? "No branch checked out"
     : !repo.upstream
-      ? `Publish branch ${repo.branch} to origin`
+      ? `Publish branch ${repo.branch} to ${remoteOf(repo)}`
       : repo.ahead > 0
         ? `Send ${repo.ahead} commit${repo.ahead === 1 ? "" : "s"} to ${repo.upstream}`
         : "Nothing to push";
@@ -225,19 +231,20 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
             icon={ArrowUp}
             label="Push"
             title={pushTitle}
-            disabled={!repo.branch || (!!repo.upstream && repo.ahead === 0) || running}
+            disabled={noRemote || !repo.branch || (!!repo.upstream && repo.ahead === 0) || running}
             onClick={() => run(push)}
             {...showing(push)}
           />
           <ActionButton
             icon={RefreshCw}
             label="Fetch"
-            title="Look for new commits on the remote; your files stay as they are"
-            disabled={running}
+            title={noRemote ? "No remote to fetch from" : "Look for new commits on the remote; your files stay as they are"}
+            disabled={noRemote || running}
             onClick={() => run(fetch)}
             {...showing(fetch)}
           />
         </div>
+        {noRemote && <AddRemote running={running} onRun={(steps) => run(steps)} showing={showing} />}
       </section>
 
       {/* The command line: what an action will run, or what ran. Room for two commands from the
@@ -272,6 +279,47 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
         )}
       </section>
     </div>
+  );
+}
+
+/** Without a remote there is nowhere to push: the place to add one, as `origin`. */
+function AddRemote(props: {
+  running: boolean;
+  onRun: (steps: Steps) => void;
+  showing: (steps: Steps) => Record<string, () => void>;
+}) {
+  const [url, setUrl] = useState("");
+  const steps = addRemoteSteps(url || "<url>");
+  const ready = url.trim().length > 0 && !url.trim().startsWith("-") && !props.running;
+  return (
+    <form
+      className="flex flex-col gap-1"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (ready) props.onRun(addRemoteSteps(url));
+      }}
+    >
+      <span className="text-[11px] text-slate-500">No remote yet: this repository exists only here.</span>
+      <div className="flex gap-2">
+        <input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="Remote URL, e.g. git@github.com:you/repo.git"
+          spellCheck={false}
+          className="selectable min-w-0 flex-1 rounded-md border border-overlay-line bg-base px-2 py-1 font-mono text-[11px] text-slate-200 outline-none placeholder:font-sans placeholder:text-slate-600 focus:border-brand"
+        />
+        <button
+          type="submit"
+          aria-disabled={!ready}
+          title="Adds it as origin; then Push publishes the branch there"
+          {...props.showing(steps)}
+          className="flex items-center gap-1 rounded-md border border-overlay-line px-2 py-1 text-slate-300 not-aria-disabled:hover:bg-overlay-hover not-aria-disabled:hover:text-slate-100 aria-disabled:cursor-default aria-disabled:opacity-40"
+        >
+          <Plus className="size-3.5" />
+          Add remote
+        </button>
+      </div>
+    </form>
   );
 }
 

@@ -40,7 +40,12 @@ pub struct Commit {
     /// The author is the one whose Git identity is configured here
     by_you: bool,
     pub(crate) subject: String,
+    /// The body without trailers, for reading
     body: String,
+    /// The whole message as written, trailers included, for editing
+    message: String,
+    /// On no remote: its message can still be changed without rewriting shared history
+    pub(crate) local: bool,
     /// The co-author that marks it as made with an assistant, if any
     pub(crate) assistant: Option<String>,
     files: u32,
@@ -49,6 +54,8 @@ pub struct Commit {
     /// On no remote yet
     pub(crate) unpushed: bool,
     merge: bool,
+    /// The first commit: it has no parent
+    root: bool,
 }
 
 #[derive(Serialize)]
@@ -146,20 +153,26 @@ impl Git {
             .run(report, repo, &["config", "user.email"])
             .map(|o| String::from_utf8_lossy(&o).trim().to_lowercase())
             .unwrap_or_default();
-        let unpushed = self.unpushed(report, repo);
+        let (has_remote, unpushed) = self.unpushed(report, repo);
         log.commits = parse_log(&String::from_utf8_lossy(&out), &me, &unpushed);
+        if !has_remote {
+            log.commits.iter_mut().for_each(|c| c.local = true);
+        }
         log
     }
 
-    /// Commits on no remote. Without any remote nothing counts as unpushed: there is nowhere to push.
-    fn unpushed(&self, report: Report, repo: &Repo) -> Vec<String> {
+    /// Whether there is any remote, and the commits on none. Without a remote nothing counts as
+    /// unpushed (there is nowhere to push), though every commit is local.
+    fn unpushed(&self, report: Report, repo: &Repo) -> (bool, Vec<String>) {
         let remotes = self.run(report, repo, &["remote"]).unwrap_or_default();
         if remotes.iter().all(u8::is_ascii_whitespace) {
-            return Vec::new();
+            return (false, Vec::new());
         }
-        self.run(report, repo, &["rev-list", "-n", LOG_LIMIT, "HEAD", "--not", "--remotes"])
+        let list = self
+            .run(report, repo, &["rev-list", "-n", LOG_LIMIT, "HEAD", "--not", "--remotes"])
             .map(|o| String::from_utf8_lossy(&o).lines().map(String::from).collect())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        (true, list)
     }
 
     /// The uncommitted changes of a repository against its last commit, staged and unstaged
@@ -327,8 +340,11 @@ fn parse_log(text: &str, me: &str, unpushed: &[String]) -> Vec<Commit> {
                 author: f[3].to_string(),
                 by_you: !me.is_empty() && f[4].to_lowercase() == me,
                 merge: f[5].split(' ').filter(|p| !p.is_empty()).count() > 1,
+                root: f[5].trim().is_empty(),
                 subject: f[6].to_string(),
                 body: strip_trailers(f[7]),
+                message: if f[7].trim().is_empty() { f[6].to_string() } else { format!("{}\n\n{}", f[6], f[7].trim()) },
+                local: unpushed.iter().any(|h| h == f[0].trim()),
                 assistant,
                 files,
                 insertions,
@@ -371,6 +387,7 @@ fn parse_shortstat(stat: &str) -> (u32, u32, u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::git::allowed;
     use std::process::Command;
     use std::sync::Mutex;
 
@@ -496,6 +513,64 @@ mod tests {
         assert_eq!(patch.new_dirs, ["src/new"]);
         assert_eq!(patch.gone_dirs, ["src/old"]);
         assert_eq!(index_before, index_after);
+    }
+
+    /// Rewording the newest and an older local commit with the commands the frontend builds,
+    /// while files are modified and staged: those stay as they are.
+    #[test]
+    fn rewords_local_commits() {
+        let base = std::env::temp_dir().join(format!("codedeck-reword-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        let git = |args: &[&str]| Command::new("git").args(args).current_dir(&base).output().unwrap();
+        git(&["init", "-q", "-b", "main"]);
+        git(&["config", "user.name", "Ada"]);
+        git(&["config", "user.email", "ada@x.org"]);
+        for i in 1..=3 {
+            fs::write(base.join(format!("f{i}")), format!("{i}\n")).unwrap();
+            git(&["add", "-A"]);
+            git(&["commit", "-q", "-m", &format!("Commit {i}"), "-m", "Co-authored-by: Claude <noreply@anthropic.com>"]);
+        }
+        fs::write(base.join("f1"), "dirty\n").unwrap();
+        fs::write(base.join("staged"), "s\n").unwrap();
+        git(&["add", "staged"]);
+
+        let project = Project::open(&base).unwrap();
+        let report = |_: &crate::git::GitRun| {};
+        let g = Git::new();
+        g.status(&report, &project, true);
+        let act = |args: &[&str]| {
+            let args: Vec<String> = args.iter().map(|a| a.to_string()).collect();
+            let r = g.action(&report, &project, "", &args);
+            assert!(r.ok, "git {}: {}", args.join(" "), r.output);
+        };
+        let logs = g.history(&report, &project, &[String::new()]);
+        assert!(logs[0].commits.iter().all(|c| c.local));
+        let second = logs[0].commits[1].hash.clone();
+        let first = logs[0].commits[2].hash.clone();
+
+        act(&["commit", "--amend", "--only", "-m", "Third, better", "-m", "Co-authored-by: Claude <noreply@anthropic.com>"]);
+        act(&["commit", "--allow-empty", "--only", "-m", &format!("amend! {second}"), "-m", "Second, better"]);
+        act(&["rebase", "-i", "--autosquash", "--autostash", &format!("{second}^")]);
+        act(&["commit", "--allow-empty", "--only", "-m", &format!("amend! {first}"), "-m", "First, better"]);
+        act(&["rebase", "-i", "--autosquash", "--autostash", "--root"]);
+
+        let logs = g.history(&report, &project, &[String::new()]);
+        let (repos, _) = g.status(&report, &project, false);
+        let staged = git(&["diff", "--cached", "--name-only"]);
+        let _ = fs::remove_dir_all(&base);
+        let subjects: Vec<&str> = logs[0].commits.iter().map(|c| c.subject.as_str()).collect();
+        assert_eq!(subjects, ["Third, better", "Second, better", "First, better"]);
+        assert_eq!(logs[0].commits[0].assistant.as_deref(), Some("Claude"));
+        assert_eq!(String::from_utf8_lossy(&staged.stdout), "staged\n");
+        assert_eq!(repos[0].files.len(), 2, "modified f1 and staged file stay");
+        assert!(!allowed(&["rebase".into(), "-i".into(), "--exec".into(), "rm -rf /".into(), "HEAD~3".into()]));
+        assert!(!allowed(&["rebase".into(), "origin/main".into()]));
+        let a = |v: &[&str]| allowed(&v.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+        assert!(a(&["remote", "add", "origin", "git@github.com:you/codedeck.git"]));
+        assert!(!a(&["remote", "remove", "origin"]));
+        assert!(!a(&["remote", "add", "origin", "--mirror=fetch"]));
+        assert!(!a(&["remote", "add", "-f", "origin", "url"]));
     }
 
     /// The commands the Changes view and the Git actions build, in the order one uses them,

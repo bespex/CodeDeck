@@ -27,7 +27,7 @@ const SKIP: &[&str] = &["node_modules", "target", "dist", "build", "vendor", "ve
 
 /// Git subcommands the frontend may run as actions. Everything else is refused, and the ones
 /// that remove something are held to their narrow use, see [`allowed`].
-const ACTIONS: &[&str] = &["add", "commit", "pull", "push", "fetch", "restore", "rm", "clean"];
+const ACTIONS: &[&str] = &["add", "commit", "pull", "push", "fetch", "restore", "rm", "clean", "rebase", "remote"];
 
 /// How many commands the log keeps.
 const LOG_LIMIT: usize = 300;
@@ -91,6 +91,8 @@ pub struct RepoStatus {
     /// The commit checked out; `None` before the first commit
     head: Option<String>,
     upstream: Option<String>,
+    /// Names of the remotes; empty when there is nowhere to push or fetch from
+    remotes: Vec<String>,
     ahead: u32,
     pub(crate) behind: u32,
     pub(crate) files: Vec<FileStatus>,
@@ -201,11 +203,15 @@ impl Git {
             branch: None,
             head: None,
             upstream: None,
+            remotes: Vec::new(),
             ahead: 0,
             behind: 0,
             files: Vec::new(),
             error: None,
         };
+        if let (true, out, _) = self.execute_logged(report, repo, &["remote"], &[], Logged::OnFailure) {
+            status.remotes = String::from_utf8_lossy(&out).lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect();
+        }
         // The status is read every few seconds: only a failure is worth a line in the log
         match self.execute_logged(report, repo, &["status", "--porcelain=v2", "--branch", "-z"], &[], Logged::OnFailure) {
             (true, out, _) => parse_status(&out, repo, &mut status),
@@ -412,7 +418,7 @@ fn size(bytes: usize) -> String {
 
 /// Whether an action may run. Removing commands only in their narrow, path-bound form:
 /// `rm` only from the index (`--cached`), `clean` only for named paths, never a whole tree.
-fn allowed(args: &[String]) -> bool {
+pub(crate) fn allowed(args: &[String]) -> bool {
     let Some(sub) = args.first() else { return false };
     if !ACTIONS.contains(&sub.as_str()) {
         return false;
@@ -422,6 +428,19 @@ fn allowed(args: &[String]) -> bool {
         "rm" => args.iter().any(|a| a == "--cached") && paths > 0,
         "clean" => paths > 0,
         "restore" => paths > 0,
+        // Only adding one: `remote add <name> <url>`
+        "remote" => {
+            let name_ok = |n: &str| !n.is_empty() && n.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c));
+            args.len() == 4 && args[1] == "add" && name_ok(&args[2]) && !args[3].starts_with('-') && !args[3].is_empty()
+        }
+        // Only the one form that rewords commits: replays them up to a base, folding in the
+        // `amend!` commits made just before; local changes are stashed and put back
+        "rebase" => {
+            let base = args.get(4).map(String::as_str).unwrap_or_default();
+            args.len() == 5
+                && args[1..4] == ["-i", "--autosquash", "--autostash"]
+                && (base == "--root" || base.strip_suffix('^').is_some_and(|h| h.len() >= 7 && h.chars().all(|c| c.is_ascii_hexdigit())))
+        }
         _ => true,
     }
 }
@@ -570,6 +589,7 @@ mod tests {
             branch: None,
             head: None,
             upstream: None,
+            remotes: Vec::new(),
             ahead: 0,
             behind: 0,
             files: Vec::new(),

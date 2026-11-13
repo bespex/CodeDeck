@@ -12,14 +12,19 @@ import {
   GitBranch,
   GitFork,
   FolderOpen,
+  Eye,
+  FolderSearch,
   Pin,
+  PinOff,
   Search,
+  SquarePen,
   Settings2,
 } from "lucide-react";
-import { onFsChanged, readDir, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
+import { onFsChanged, openPath, readDir, showInFileManager, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
 import type { GitState } from "../backend";
 import { aheadBehind, stateMeaning, stateSymbol, type GitView } from "../git";
 import { Tooltip } from "./Tooltip";
+import { pathItems, useContextMenu } from "./ContextMenu";
 import { RepoTooltip } from "./RepoTooltip";
 import { ProjectHeader, type OpenProject } from "./ProjectHeader";
 
@@ -54,6 +59,8 @@ interface Props {
   pinned: Set<string>;
   onSelect: (path: string) => void;
   onPin: (entry: Entry) => void;
+  /** Takes a file or folder out of the assistant's context again */
+  onUnpin: (path: string) => void;
   onOpenProject: OpenProject;
   /** Open the Git actions of a repository at the given element */
   onRepoActions: (repo: string, at: HTMLElement, above: boolean) => void;
@@ -122,7 +129,8 @@ export function FilesPanel(props: Props) {
 
   const needle = query.trim().toLowerCase();
   const recentPaths = Object.keys(recent);
-  const tree: TreeState = { ...props, listings, open, recentPaths, needle, toggle };
+  const contextMenu = useContextMenu();
+  const tree: TreeState = { ...props, listings, open, recentPaths, needle, toggle, menu: contextMenu.open };
 
   return (
     <aside className="flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
@@ -146,6 +154,7 @@ export function FilesPanel(props: Props) {
         ) : (
           <Rows dir="" depth={0} tree={tree} />
         )}
+        {contextMenu.element}
       </div>
 
       {recentPaths.length > 0 && (
@@ -165,6 +174,7 @@ interface TreeState extends Props {
   /** Lower-case filter text, empty for none */
   needle: string;
   toggle: (dir: string) => void;
+  menu: ReturnType<typeof useContextMenu>["open"];
 }
 
 /** With a filter: files that match, and folders with a match somewhere in what is loaded. */
@@ -202,10 +212,7 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
   const inside = entry.isDir && !repo && !state && !isOpen ? tree.git.changesIn(entry.path) : 0;
   const Icon = repo ? (repo.worktreeOf ? GitFork : FolderGit2) : entry.isDir ? (isOpen ? FolderOpen : Folder) : iconFor(entry.name);
   const Chevron = isOpen ? ChevronDown : ChevronRight;
-  const openAsProject = (e: React.MouseEvent, newWindow: boolean) => {
-    e.stopPropagation();
-    tree.onOpenProject(`${tree.project!.path}/${entry.path}`, newWindow).catch(() => {});
-  };
+
 
   return (
     <>
@@ -219,8 +226,9 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
           e.dataTransfer.effectAllowed = "copy";
         }}
         onClick={() => (entry.isDir ? tree.toggle(entry.path) : tree.onSelect(entry.path))}
+        onContextMenu={(e) => tree.menu(e, entry.path || entry.name, pathItems(entry.path, entry.isDir))}
         style={{ paddingLeft: 6 + depth * 14 }}
-        className={`group flex h-[26px] cursor-default items-center gap-1.5 rounded-md pr-1.5 ${
+        className={`group relative flex h-[26px] cursor-default items-center gap-1.5 rounded-md pr-1.5 ${
           isSelected ? "bg-indigo-500/25 text-slate-50" : "hover:bg-raised"
         }`}
       >
@@ -236,21 +244,8 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
         >
           {entry.name}
         </span>
-        {/* Right at the name, away from the pin: opening a project by mistake would be a jump */}
-        {entry.isDir && tree.project && (
-          <button
-            type="button"
-            title="Open this folder as project · Ctrl+click: in a new window"
-            aria-label={`Open ${entry.name} as project`}
-            onClick={(e) => openAsProject(e, e.ctrlKey || e.metaKey)}
-            onAuxClick={(e) => e.button === 1 && openAsProject(e, true)}
-            className="shrink-0 rounded p-0.5 text-slate-500 opacity-0 hover:bg-slate-700 hover:text-slate-100 focus-visible:opacity-100 group-hover:opacity-100"
-          >
-            <FolderInput className="size-3.5" />
-          </button>
-        )}
-
         <span className="ml-auto flex shrink-0 items-center gap-1.5">
+          <RowTools entry={entry} tree={tree} pinned={isPinned} />
           {repo && <RepoBadge repo={repo} tree={tree} />}
           {changed && (
             <span
@@ -258,23 +253,6 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
               title={entry.isDir ? "Changed on disk just now, somewhere inside" : "Changed on disk just now"}
             />
           )}
-          <button
-            type="button"
-            title={isPinned ? "In the assistant's context" : "Add to the assistant's context"}
-            aria-label={isPinned ? "In context" : `Add ${entry.name} to context`}
-            disabled={isPinned}
-            onClick={(e) => {
-              e.stopPropagation();
-              tree.onPin(entry);
-            }}
-            className={`rounded p-0.5 ${
-              isPinned
-                ? "text-brand-soft"
-                : "text-slate-500 opacity-0 hover:bg-slate-700 hover:text-slate-100 focus-visible:opacity-100 group-hover:opacity-100"
-            }`}
-          >
-            <Pin className="size-3.5" fill={isPinned ? "currentColor" : "none"} />
-          </button>
           {state && (
             <span
               className={`w-3 text-center font-mono text-[11px] ${stateColor[state]}`}
@@ -283,12 +261,104 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
               {stateSymbol(state)}
             </span>
           )}
+          {/* At rest only a pinned entry shows its pin; on hover it is the toolbar's last tool */}
+          <span className="grid w-5 place-items-center group-hover:hidden group-has-[:focus-visible]:hidden">
+            {isPinned && <Pin className="size-3.5 text-brand-soft" fill="currentColor" />}
+          </span>
         </span>
       </div>
       {isOpen && <Rows dir={entry.path} depth={depth + 1} tree={tree} />}
     </>
   );
 }
+
+/**
+ * The tools of a row, shown while the mouse is on it, before the branch and status (those stay
+ * clickable). From the right: the pin (again to unpin), open as project (folders), show in the file manager, and for
+ * files view and edit. The pin is where a pinned entry shows it at rest.
+ */
+function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinned: boolean }) {
+  const report = (e: unknown) => console.error(e);
+  const openAsProject = (e: React.MouseEvent, newWindow: boolean) => {
+    e.stopPropagation();
+    tree.onOpenProject(`${tree.project!.path}/${entry.path}`, newWindow).catch(() => {});
+  };
+  return (
+    <span
+      onClick={(e) => e.stopPropagation()}
+      className="hidden h-[22px] items-center gap-0.5 rounded-md border border-overlay-line bg-raised px-1 group-hover:flex group-has-[:focus-visible]:flex"
+    >
+      {!entry.isDir && (
+        <>
+          <Tool icon={Eye} label="View" says="Opens it in its default program" onClick={() => openPath(entry.path).catch(report)} />
+          <Tool icon={SquarePen} label="Edit" says="Opens it in its default program" onClick={() => openPath(entry.path).catch(report)} />
+          <Gap />
+        </>
+      )}
+      <Tool
+        icon={FolderSearch}
+        label="Show in file manager"
+        says={entry.isDir ? "Opens this folder in the file manager" : "Opens its folder in the file manager, with it selected"}
+        onClick={() => (entry.isDir ? openPath(entry.path) : showInFileManager(entry.path)).catch(report)}
+      />
+      {entry.isDir && tree.project && (
+        <>
+          <Gap />
+          <Tool
+            icon={FolderInput}
+            label="Open as project"
+            says="Opens this folder as the project of this window · Ctrl+click: in a new window"
+            onClick={(e) => openAsProject(e, e.ctrlKey || e.metaKey)}
+            onAuxClick={(e) => e.button === 1 && openAsProject(e, true)}
+          />
+        </>
+      )}
+      <Gap />
+      <Tool
+        icon={pinned ? PinOff : Pin}
+        label={pinned ? "Unpin" : "Pin"}
+        says={pinned ? "Takes it out of the assistant's context" : "Adds it to the assistant's context"}
+        active={pinned}
+        onClick={() => (pinned ? tree.onUnpin(entry.path) : tree.onPin(entry))}
+      />
+    </span>
+  );
+}
+
+function Tool(props: {
+  icon: typeof Pin;
+  label: string;
+  says: string;
+  active?: boolean;
+  onClick: (e: React.MouseEvent) => void;
+  onAuxClick?: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <Tooltip
+      className="flex"
+      content={
+        <>
+          <span className="font-semibold text-slate-100">{props.label}</span>
+          <span>{props.says}</span>
+        </>
+      }
+    >
+      <button
+        type="button"
+        aria-label={props.label}
+        onClick={props.onClick}
+        onAuxClick={props.onAuxClick}
+        className={`grid size-5 place-items-center rounded hover:bg-slate-700 hover:text-slate-100 ${
+          props.active ? "text-brand-soft" : "text-slate-400"
+        }`}
+      >
+        <props.icon className="size-3.5" />
+      </button>
+    </Tooltip>
+  );
+}
+
+const Gap = () => <span className="mx-0.5 h-3.5 w-px bg-slate-600" />;
 
 /**
  * On the row of a repository's folder: its branch, tinted when there are uncommitted changes.

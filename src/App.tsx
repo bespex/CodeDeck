@@ -97,6 +97,7 @@ export default function App() {
           pinned={new Set(pins.map((p) => p.id))}
           onSelect={setSelected}
           onPin={pin}
+          onUnpin={unpin}
           onOpenProject={open}
           onRepoActions={openActions}
         />

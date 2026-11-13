@@ -105,6 +105,7 @@ export function Deck({ project, git, selected }: Props) {
               commits={commits}
               selected={selected}
               onShowNow={() => setPoint({ kind: "now" })}
+              onSelect={setPoint}
             />
           )}
           {view === "docs" && (

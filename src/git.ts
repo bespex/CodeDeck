@@ -8,6 +8,7 @@ import {
   onFsChanged,
   onGitChanged,
   onGitRan,
+  type Commit,
   type GitRun,
   type GitState,
   type RepoStatus,
@@ -183,6 +184,7 @@ export function changeSummary(repo: RepoStatus): string {
 /** Where the branch stands against its upstream, in plain words. */
 export function syncSummary(repo: RepoStatus): string {
   if (!repo.branch) return "Detached HEAD: no branch checked out";
+  if (repo.remotes.length === 0) return "Local only: no remote to push to yet";
   if (!repo.upstream) return "Not published yet: the branch has no upstream";
   const parts = [
     repo.ahead > 0 && `${plural(repo.ahead, "commit")} to push`,
@@ -212,11 +214,44 @@ export function commitSteps(repo: RepoStatus, message: string): Steps {
   return [add, ["commit", "-m", msg]];
 }
 
+/**
+ * Changing the message of a commit not yet on any remote. The newest one is amended (`--only`
+ * leaves staged changes out). An older one gets an `amend!` commit with the new message, which
+ * a rebase then folds into it; local changes are stashed meanwhile and put back.
+ *
+ * @param commits the repository's commits, newest first, as on the trail
+ * @param head the commit checked out: only that one can simply be amended
+ * @returns the steps, or why it cannot be done
+ */
+export function rewordSteps(commits: Commit[], head: string | null, hash: string, text: string): Steps | string {
+  const at = commits.findIndex((c) => c.hash === hash);
+  const target = commits[at];
+  if (!target) return "This commit is not in the history shown";
+  if (!target.local) return "Already pushed: changing it would rewrite history others may have";
+  if (commits.slice(0, at + 1).some((c) => c.merge)) {
+    return "A merge lies between this commit and now; its message cannot be changed here";
+  }
+  const [subject, ...rest] = text.trim().split(/\n\s*\n/);
+  const messages = [subject.trim(), rest.join("\n\n").trim()].filter(Boolean).flatMap((m) => ["-m", m]);
+  if (!subject.trim()) return "The message needs a first line";
+  if (hash === head) return [["commit", "--amend", "--only", ...messages]];
+  return [
+    ["commit", "--allow-empty", "--only", "-m", `amend! ${hash}`, ...messages],
+    ["rebase", "-i", "--autosquash", "--autostash", target.root ? "--root" : `${hash}^`],
+  ];
+}
+
 export const pullSteps = (): Steps => [["pull", "--ff-only"]];
 export const fetchSteps = (): Steps => [["fetch"]];
+/** The remote a new branch is published to: `origin` if there is one, else the only one. */
+export const remoteOf = (repo: RepoStatus) => (repo.remotes.includes("origin") ? "origin" : repo.remotes[0]);
+
 export function pushSteps(repo: RepoStatus): Steps {
-  return repo.upstream || !repo.branch ? [["push"]] : [["push", "-u", "origin", repo.branch]];
+  const remote = remoteOf(repo);
+  return repo.upstream || !repo.branch || !remote ? [["push"]] : [["push", "-u", remote, repo.branch]];
 }
+
+export const addRemoteSteps = (url: string): Steps => [["remote", "add", "origin", url.trim()]];
 
 export function ago(at: number): string {
   const s = Math.round((Date.now() - at) / 1000);

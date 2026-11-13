@@ -12,6 +12,7 @@ mod watch;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
+use tauri_plugin_opener::OpenerExt;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
@@ -55,6 +56,26 @@ fn read_dir(path: &str, current: State<Arc<Current>>, watch: State<Watch>) -> Re
 #[tauri::command]
 fn path_stats(path: &str, current: State<Arc<Current>>) -> Result<PathStats, String> {
     current.get().stats(path)
+}
+
+/// Opens a file of the project in its default program, a folder in the default file manager.
+#[tauri::command]
+fn open_path(path: &str, app: AppHandle, current: State<Arc<Current>>) -> Result<(), String> {
+    let full = current.get().resolve(path)?;
+    app.opener().open_path(full.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
+}
+
+/// Shows a file in the default file manager, selected in its folder; a folder is opened itself.
+#[tauri::command]
+fn show_in_file_manager(path: &str, app: AppHandle, current: State<Arc<Current>>) -> Result<(), String> {
+    let full = current.get().resolve(path)?;
+    let opener = app.opener();
+    if full.is_dir() {
+        opener.open_path(full.to_string_lossy(), None::<&str>)
+    } else {
+        opener.reveal_item_in_dir(&full)
+    }
+    .map_err(|e| e.to_string())
 }
 
 /// Switches this window to another directory.
@@ -204,6 +225,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
             set_title(app.handle(), &project);
             let current = Arc::new(Current(RwLock::new(project)));
@@ -215,6 +237,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             project_info,
             read_dir,
+            open_path,
+            show_in_file_manager,
             path_stats,
             open_project,
             open_window,

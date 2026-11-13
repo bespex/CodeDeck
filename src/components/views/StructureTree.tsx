@@ -30,6 +30,7 @@ import {
   type Node,
 } from "../../structure";
 import { Tooltip, TooltipHint } from "../Tooltip";
+import { pathItems, useContextMenu } from "../ContextMenu";
 import { DiffBody, FileButtons, inUntrackedDir, LineCounts, type Working } from "./DiffParts";
 
 /** A new folder with more files than this opens collapsed. */
@@ -94,7 +95,9 @@ export function StructureTree({ patch, files, repo, onDone, selected }: Props) {
       return next;
     });
 
+  const contextMenu = useContextMenu();
   const ctx: Ctx = {
+    menu: contextMenu.open,
     repo,
     diffs,
     open,
@@ -112,6 +115,7 @@ export function StructureTree({ patch, files, repo, onDone, selected }: Props) {
           <TreeNode key={node.path + node.type} node={node} depth={0} ctx={ctx} />
         ))}
       </ul>
+      {contextMenu.element}
       {patch.truncated && (
         <p className="border-t border-line px-3 py-1.5 text-[12px] text-changed">
           The diff is very long: the files are all listed, the code only of the first ones.
@@ -128,6 +132,7 @@ interface Ctx {
   open: Set<string>;
   toggle: (key: string, open: boolean) => void;
   working?: (path: string) => Working;
+  menu: ReturnType<typeof useContextMenu>["open"];
 }
 
 /** Counts per kind, each a filter: click to see only those, again to see all. */
@@ -224,6 +229,10 @@ function DirRow({ dir, depth, ctx }: { dir: DirNode; depth: number; ctx: Ctx }) 
       <button
         type="button"
         onClick={() => ctx.toggle(key, !isOpen)}
+        onContextMenu={(e) => {
+          const path = toProject(ctx.repo, dir.path);
+          ctx.menu(e, `${path}/`, pathItems(path, true, dir.state === "gone"));
+        }}
         style={{ paddingLeft: 8 + depth * 16 }}
         className="flex h-7 w-full items-center gap-1.5 pr-3 text-left hover:bg-raised"
       >
@@ -285,6 +294,10 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
         className={`group flex h-7 w-full cursor-pointer items-center gap-1.5 pr-2 hover:bg-raised ${isOpen ? "bg-raised/60" : ""}`}
         style={{ paddingLeft: 8 + depth * 16 + 18 }}
         onClick={() => ctx.toggle(key, !isOpen)}
+        onContextMenu={(e) => {
+          const path = toProject(ctx.repo, file.path);
+          ctx.menu(e, path, pathItems(path, false, file.kind === "deleted"));
+        }}
       >
         <Hint text={look.says}>
           <look.icon className={`size-4 shrink-0 ${look.color}`} />

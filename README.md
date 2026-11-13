@@ -38,10 +38,19 @@ The counts on top filter the tree; a click on a file opens its diff in place. **
 diff, file after file. Each file can be staged, unstaged or discarded (after asking); hovering an
 action shows its command. The same view shows a commit picked on the trail.
 
+The message of a commit not on any remote yet can be changed in place (the pencil next to it):
+the newest one with `git commit --amend --only`, an older one with an `amend!` commit and
+`git rebase -i --autosquash --autostash`, which runs without an editor. Pushed commits and
+commits behind a merge are left alone.
+
 **Git commands** (click the last command in the status bar, or Ctrl+Shift+G) lists every git
 command CodeDeck ran with what git printed and its exit code. Commands that changed something stand
 out and can be shown alone; the status check every few seconds only appears when it fails; failed commands
 open by themselves.
+
+Hovering a row of the file list shows its tools: view and edit (default program), show in the
+file manager, open a folder as project, and pin or unpin it for the assistant. A right click on a
+file or folder (in the file list and in the structure view) offers the same outside actions.
 
 The right mouse button is kept for CodeDeck's own menus; Shift + right click opens the web view's
 menu (developer tools).

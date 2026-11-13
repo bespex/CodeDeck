@@ -63,6 +63,8 @@ export interface RepoStatus {
   /** The commit checked out; null before the first commit */
   head: string | null;
   upstream: string | null;
+  /** Names of the remotes; empty when there is nowhere to push or fetch from */
+  remotes: string[];
   ahead: number;
   behind: number;
   files: FileStatus[];
@@ -115,6 +117,20 @@ export function projectInfo(): Promise<ProjectInfo> {
 export function openProject(path: string): Promise<ProjectInfo> {
   if (live) return invoke("open_project", { path });
   return Promise.resolve(mockInfo(path));
+}
+
+/** Opens a file (project-relative) in its default program, a folder in the file manager. */
+export function openPath(path: string): Promise<void> {
+  if (live) return invoke("open_path", { path });
+  console.info("would open", path);
+  return Promise.resolve();
+}
+
+/** Shows a file selected in its folder in the default file manager; a folder is opened itself. */
+export function showInFileManager(path: string): Promise<void> {
+  if (live) return invoke("show_in_file_manager", { path });
+  console.info("would show in the file manager", path);
+  return Promise.resolve();
 }
 
 /** Opens a directory in a new, independent CodeDeck window. */
@@ -200,8 +216,9 @@ export function gitStatus(rescan: boolean): Promise<RepoStatus[]> {
     prefix: "",
     worktreeOf: path === "fixtures" ? "orbit-api" : null,
     branch,
-    head: `${path}-head`,
+    head: `${path || "root"}0`.padEnd(40, "0"),
     upstream: `origin/${branch}`,
+    remotes: ["origin"],
     ahead: changed.length ? 1 : 0,
     behind: 0,
     files: changed.map((p) => ({ path: `${path}/${p}`, state: "M", staged: false, dir: false })),
@@ -237,7 +254,12 @@ export interface Commit {
   /** The author is the Git identity configured here */
   byYou: boolean;
   subject: string;
+  /** The body without trailers, for reading */
   body: string;
+  /** The whole message as written, trailers included, for editing */
+  message: string;
+  /** On no remote (or there is no remote): its message can still be changed */
+  local: boolean;
   /** The co-author that marks it as made with an assistant, if any */
   assistant: string | null;
   files: number;
@@ -246,6 +268,8 @@ export interface Commit {
   /** On no remote yet */
   unpushed: boolean;
   merge: boolean;
+  /** The first commit: it has no parent */
+  root: boolean;
 }
 
 export interface RepoLog {
@@ -389,12 +413,15 @@ function mockCommits(repo: string): Commit[] {
       byYou: i !== 2,
       subject,
       body: i === 0 ? "Token bucket per client, configured in limits.toml." : "",
+      message: `${subject}${i === 0 ? "\n\nToken bucket per client, configured in limits.toml." : ""}${assistant ? "\n\nCo-authored-by: Claude <noreply@anthropic.com>" : ""}`,
+      local: unpushed,
       assistant,
       files: 2 + i,
       insertions: 40 - i * 5,
       deletions: i * 3,
       unpushed,
       merge: false,
+      root: i === rows.length - 1,
     };
   });
 }

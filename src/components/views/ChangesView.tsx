@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronRight, Code, FolderGit2, GitBranch, ListTree, Sparkles } from "lucide-react";
-import { gitCommitDiff, gitWorkingDiff, onFsChanged, type Patch, type RepoStatus } from "../../backend";
-import { changeSummary, commitSteps, commandLine, stateMeaning, stateSymbol, type GitView, type Steps } from "../../git";
+import { Check, ChevronDown, ChevronRight, Code, FolderGit2, GitBranch, ListTree, Pencil, Sparkles } from "lucide-react";
+import { gitCommitDiff, gitWorkingDiff, onFsChanged, type Commit, type Patch, type RepoStatus } from "../../backend";
+import { changeSummary, commitSteps, commandLine, rewordSteps, stateMeaning, stateSymbol, type GitView, type Steps } from "../../git";
 import { diffSize, parsePatch, type FileDiff } from "../../diff";
 import { toProject, useGitRun, type Done, type TrailCommit } from "../../history";
 import { LOCALE, type Point } from "../Trail";
@@ -20,6 +20,7 @@ interface Props {
   /** Selected in the file list: its diff is scrolled into view */
   selected: string | null;
   onShowNow: () => void;
+  onSelect: (point: Point) => void;
 }
 
 /** Structure: which files and folders changed, as a tree. Code: every diff, one after another. */
@@ -34,7 +35,18 @@ function savedMode(): Mode {
   }
 }
 
-export function ChangesView({ git, point, commits, selected, onShowNow }: Props) {
+export function ChangesView({ git, point, commits, selected, onShowNow, onSelect }: Props) {
+  // After a message was changed the commit has a new hash: the one at the same place is shown
+  const [rewritten, setRewritten] = useState<{ repo: string; index: number; hashes: string } | null>(null);
+  useEffect(() => {
+    if (!rewritten) return;
+    const ofRepo = commits.filter((c) => c.repo === rewritten.repo);
+    if (ofRepo.map((c) => c.commit.hash).join() === rewritten.hashes) return; // not read again yet
+    const next = ofRepo[rewritten.index];
+    setRewritten(null);
+    if (next) onSelect({ kind: "commit", repo: rewritten.repo, hash: next.commit.hash });
+  }, [commits, rewritten, onSelect]);
+
   const [mode, setModeState] = useState<Mode>(savedMode);
   const setMode = (m: Mode) => {
     setModeState(m);
@@ -65,7 +77,17 @@ export function ChangesView({ git, point, commits, selected, onShowNow }: Props)
     );
     body =
       entry && repo ? (
-        <CommitChanges entry={entry} repo={repo} several={git.repos.length > 1} mode={mode} selected={selected} onShowNow={onShowNow} />
+        <CommitChanges
+          entry={entry}
+          repo={repo}
+          repoCommits={commits.filter((c) => c.repo === repo.path).map((c) => c.commit)}
+          several={git.repos.length > 1}
+          mode={mode}
+          selected={selected}
+          onShowNow={onShowNow}
+          onDone={git.refresh}
+          onRewritten={(index, hashes) => setRewritten({ repo: repo.path, index, hashes })}
+        />
       ) : (
         <Empty>That commit is no longer in the history shown.</Empty>
       );
@@ -298,18 +320,62 @@ export function CommandLine({ preview, done, running }: { preview: Steps | null;
 function CommitChanges(props: {
   entry: TrailCommit;
   repo: RepoStatus;
+  /** The repository's commits, newest first */
+  repoCommits: Commit[];
   several: boolean;
   mode: Mode;
   selected: string | null;
   onShowNow: () => void;
+  onDone: () => void;
+  /** The message was changed: the commit at this place (newest first) is the new one */
+  onRewritten: (index: number, oldHashes: string) => void;
 }) {
   const c = props.entry.commit;
   const { patch, error } = usePatch(() => gitCommitDiff(props.repo.path, c.hash), `${props.repo.path}:${c.hash}`);
   const files = useMemo(() => (patch ? parsePatch(patch.text) : []), [patch]);
+  const [editing, setEditing] = useState(false);
   return (
     <div className="p-4">
-      <header className="mb-3">
-        <h2 className="text-[15px] font-semibold text-slate-50">{c.subject}</h2>
+      <header className="group mb-3">
+        {editing ? (
+          <MessageEditor
+            commit={c}
+            repo={props.repo}
+            commits={props.repoCommits}
+            onCancel={() => setEditing(false)}
+            onDone={props.onDone}
+            onSaved={() => {
+              setEditing(false);
+              props.onRewritten(
+                props.repoCommits.findIndex((x) => x.hash === c.hash),
+                props.repoCommits.map((x) => x.hash).join(),
+              );
+            }}
+          />
+        ) : (
+          <div className="flex items-start gap-2">
+            <h2 className="text-[15px] font-semibold text-slate-50">{c.subject}</h2>
+            {c.local && (
+              <Tooltip
+                content={
+                  <>
+                    <span>Change the message</span>
+                    <span className="text-slate-400">Not pushed yet, so it can still be changed without rewriting what others have</span>
+                  </>
+                }
+              >
+                <button
+                  type="button"
+                  aria-label="Change the commit message"
+                  onClick={() => setEditing(true)}
+                  className="mt-0.5 rounded p-1 text-slate-500 opacity-0 group-hover:opacity-100 hover:bg-raised hover:text-slate-100 focus-visible:opacity-100"
+                >
+                  <Pencil className="size-3.5" />
+                </button>
+              </Tooltip>
+            )}
+          </div>
+        )}
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-slate-400">
           <code className="selectable rounded bg-panel px-1.5 font-mono text-[11px] text-slate-200">{c.short}</code>
           {props.several && <span className="font-semibold text-slate-300">{props.repo.name}</span>}
@@ -329,7 +395,7 @@ function CommitChanges(props: {
             Back to uncommitted
           </button>
         </div>
-        {c.body && <p className="selectable mt-2 whitespace-pre-line text-slate-300">{c.body}</p>}
+        {c.body && !editing && <p className="selectable mt-2 whitespace-pre-line text-slate-300">{c.body}</p>}
       </header>
       {error && <p className="selectable text-problem">{error}</p>}
       {patch && props.mode === "structure" && (
@@ -343,6 +409,77 @@ function CommitChanges(props: {
           {patch.truncated && <p className="text-[12px] text-changed">The diff is very long and was cut off here.</p>}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The whole message (trailers included, so a co-author stays) in a text field, with the git
+ * commands that will change it shown below as one types.
+ */
+function MessageEditor(props: {
+  commit: Commit;
+  repo: RepoStatus;
+  commits: Commit[];
+  onCancel: () => void;
+  onDone: () => void;
+  onSaved: () => void;
+}) {
+  const [text, setText] = useState(props.commit.message);
+  const { run, running, done } = useGitRun(props.repo.path, props.onDone);
+  const steps = rewordSteps(props.commits, props.repo.head, props.commit.hash, text);
+  const refused = typeof steps === "string" ? steps : null;
+  const unchanged = text.trim() === props.commit.message.trim();
+  const ready = !refused && !unchanged && !running;
+  const newer = props.commits.findIndex((c) => c.hash === props.commit.hash);
+  const save = async () => {
+    if (ready && (await run(steps as Steps))) props.onSaved();
+  };
+
+  return (
+    <div className="rounded-lg border border-line bg-panel">
+      <textarea
+        autoFocus
+        spellCheck={false}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") props.onCancel();
+          if (e.key === "Enter" && e.ctrlKey) {
+            e.preventDefault();
+            save();
+          }
+        }}
+        rows={Math.min(14, Math.max(3, text.split("\n").length + 1))}
+        disabled={running}
+        className="selectable block w-full resize-y rounded-t-lg bg-base px-3 py-2 font-mono text-[12px] leading-[18px] text-slate-100 outline-none"
+      />
+      <div className="flex items-center gap-2 border-t border-line px-2 py-1.5 text-[12px]">
+        <span className={refused ? "text-problem" : "text-slate-500"}>
+          {refused ??
+            (props.repo.head === props.commit.hash
+              ? "The newest commit is amended; staged changes stay out of it"
+              : `The ${newer} newer commit${newer === 1 ? "" : "s"} get${newer === 1 ? "s" : ""} new hashes too; your uncommitted changes are put aside and back`)}
+        </span>
+        <button
+          type="button"
+          onClick={props.onCancel}
+          className="ml-auto rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          aria-disabled={!ready}
+          onClick={save}
+          title="Ctrl+Enter"
+          className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-0.5 font-medium text-white not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
+        >
+          <Check className="size-3.5" />
+          Change message
+        </button>
+      </div>
+      <CommandLine preview={!refused && !running && done.length === 0 ? (steps as Steps) : null} done={done} running={running} />
     </div>
   );
 }
