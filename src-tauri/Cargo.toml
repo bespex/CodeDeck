@@ -1,7 +1,7 @@
 [package]
 name = "codedeck"
-version = "0.1.0"
-description = "Lightweight AI coding deck: files, changes and an AI assistant around one project directory"
+version = "0.1.1"
+description = "AI coding deck: project, changes and assistant side by side – by be-spex"
 authors = ["Skrrytch <skrrytch@speckels.net>"]
 edition = "2024"
 license = "MIT"

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name={{name}}
+GenericName=AI Coding Deck
+GenericName[de]=KI-Coding-Deck
+Comment={{comment}}
+Comment[de]=KI-Coding-Deck: Projekt, Änderungen und Assistent nebeneinander – by be-spex
+Keywords=ai;coding;git;claude;assistant;be-spex;bespex;spex;
+Keywords[de]=ki;coding;git;claude;assistent;be-spex;bespex;spex;
+Exec={{exec}}
+Icon={{icon}}
+Terminal=false
+Categories=Development;
