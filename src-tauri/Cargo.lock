@@ -485,6 +485,7 @@ dependencies = [
 name = "codedeck"
 version = "0.1.1"
 dependencies = [
+ "gio",
  "notify",
  "serde",
  "serde_json",

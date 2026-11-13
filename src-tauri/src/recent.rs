@@ -28,11 +28,7 @@ pub struct RecentProject {
 }
 
 fn file() -> Option<PathBuf> {
-    let config = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .filter(|p| p.is_absolute())
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
-    Some(config.join("codedeck").join("recent.json"))
+    crate::config::file("recent.json")
 }
 
 fn load(file: &Path) -> Vec<Stored> {
@@ -48,14 +44,7 @@ pub fn remember(root: &Path) {
     list.insert(0, Stored { path: root.to_path_buf(), opened });
     list.truncate(LIMIT);
 
-    let Some(dir) = file.parent() else { return };
-    let temp = dir.join(format!(".recent.{}.json", std::process::id()));
-    let written = fs::create_dir_all(dir)
-        .and_then(|_| fs::write(&temp, serde_json::to_vec_pretty(&list).unwrap_or_default()))
-        .and_then(|_| fs::rename(&temp, &file));
-    if written.is_err() {
-        let _ = fs::remove_file(&temp);
-    }
+    let _ = crate::config::write(&file, &serde_json::to_vec_pretty(&list).unwrap_or_default());
 }
 
 /// Recent projects that still exist, newest first, without the one given.

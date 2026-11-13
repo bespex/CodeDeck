@@ -23,8 +23,9 @@ import {
 import { onFsChanged, openPath, readDir, showInFileManager, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
 import type { GitState } from "../backend";
 import { aheadBehind, stateMeaning, stateSymbol, type GitView } from "../git";
-import { Tooltip } from "./Tooltip";
+import { Tooltip, TooltipHint } from "./Tooltip";
 import { pathItems, useContextMenu } from "./ContextMenu";
+import { AppName, openAs } from "../apps";
 import { RepoTooltip } from "./RepoTooltip";
 import { ProjectHeader, type OpenProject } from "./ProjectHeader";
 
@@ -226,6 +227,10 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
           e.dataTransfer.effectAllowed = "copy";
         }}
         onClick={() => (entry.isDir ? tree.toggle(entry.path) : tree.onSelect(entry.path))}
+        onDoubleClick={() => !entry.isDir && openAs(entry.path, "view")}
+        // Middle button: edit. Its press would otherwise start the scrolling mode
+        onMouseDown={(e) => e.button === 1 && !entry.isDir && e.preventDefault()}
+        onAuxClick={(e) => e.button === 1 && !entry.isDir && openAs(entry.path, "edit")}
         onContextMenu={(e) => tree.menu(e, entry.path || entry.name, pathItems(entry.path, entry.isDir))}
         style={{ paddingLeft: 6 + depth * 14 }}
         className={`group relative flex h-[26px] cursor-default items-center gap-1.5 rounded-md pr-1.5 ${
@@ -286,12 +291,26 @@ function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinn
   return (
     <span
       onClick={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onAuxClick={(e) => e.stopPropagation()}
       className="hidden h-[22px] items-center gap-0.5 rounded-md border border-overlay-line bg-raised px-1 group-hover:flex group-has-[:focus-visible]:flex"
     >
       {!entry.isDir && (
         <>
-          <Tool icon={Eye} label="View" says="Opens it in its default program" onClick={() => openPath(entry.path).catch(report)} />
-          <Tool icon={SquarePen} label="Edit" says="Opens it in its default program" onClick={() => openPath(entry.path).catch(report)} />
+          <Tool
+            icon={Eye}
+            label="View"
+            says={<>Opens it in <AppName path={entry.path} role="view" /></>}
+            hint="Also: double-click the file"
+            onClick={() => openAs(entry.path, "view")}
+          />
+          <Tool
+            icon={SquarePen}
+            label="Edit"
+            says={<>Opens it in <AppName path={entry.path} role="edit" /></>}
+            hint="Also: middle-click the file"
+            onClick={() => openAs(entry.path, "edit")}
+          />
           <Gap />
         </>
       )}
@@ -328,7 +347,9 @@ function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinn
 function Tool(props: {
   icon: typeof Pin;
   label: string;
-  says: string;
+  says: React.ReactNode;
+  /** How else to reach it, in its own quiet line */
+  hint?: string;
   active?: boolean;
   onClick: (e: React.MouseEvent) => void;
   onAuxClick?: (e: React.MouseEvent) => void;
@@ -340,6 +361,7 @@ function Tool(props: {
         <>
           <span className="font-semibold text-slate-100">{props.label}</span>
           <span>{props.says}</span>
+          {props.hint && <TooltipHint>{props.hint}</TooltipHint>}
         </>
       }
     >

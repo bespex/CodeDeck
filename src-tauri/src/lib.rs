@@ -3,6 +3,8 @@
 //! The project directory, its file list and a file watcher. Each window is its own process with
 //! its own project; several can run side by side. The tool socket and Git arrive in later phases.
 
+mod apps;
+mod config;
 mod git;
 mod history;
 mod project;
@@ -16,6 +18,7 @@ use tauri_plugin_opener::OpenerExt;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
+use apps::{FileApps, Role};
 use git::{ActionResult, Git, GitRun, RepoStatus};
 use history::{Patch, RepoLog};
 use project::{Entry, PathStats, Project, ProjectInfo};
@@ -63,6 +66,29 @@ fn path_stats(path: &str, current: State<Arc<Current>>) -> Result<PathStats, Str
 fn open_path(path: &str, app: AppHandle, current: State<Arc<Current>>) -> Result<(), String> {
     let full = current.get().resolve(path)?;
     app.opener().open_path(full.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
+}
+
+/// Opens a file of the project in its program for viewing or editing: the one chosen in CodeDeck,
+/// else the system's default for the type.
+#[tauri::command]
+fn open_file(path: &str, role: Role, app: AppHandle, current: State<Arc<Current>>) -> Result<(), String> {
+    let full = current.get().resolve(path)?;
+    if apps::open(&full, role)? {
+        return Ok(());
+    }
+    app.opener().open_path(full.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
+}
+
+/// The programs for viewing and editing a file, and every program installed for its type.
+#[tauri::command]
+fn file_apps(path: &str, current: State<Arc<Current>>) -> Result<FileApps, String> {
+    Ok(apps::for_file(&current.get().resolve(path)?))
+}
+
+/// Remembers a program for viewing or editing this kind of file; `None` goes back to the system's.
+#[tauri::command]
+fn choose_file_app(path: &str, role: Role, app: Option<String>, current: State<Arc<Current>>) -> Result<(), String> {
+    apps::choose(&current.get().resolve(path)?, role, app)
 }
 
 /// Shows a file in the default file manager, selected in its folder; a folder is opened itself.
@@ -238,6 +264,9 @@ pub fn run() {
             project_info,
             read_dir,
             open_path,
+            open_file,
+            file_apps,
+            choose_file_app,
             show_in_file_manager,
             path_stats,
             open_project,

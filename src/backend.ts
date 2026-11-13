@@ -119,10 +119,70 @@ export function openProject(path: string): Promise<ProjectInfo> {
   return Promise.resolve(mockInfo(path));
 }
 
-/** Opens a file (project-relative) in its default program, a folder in the file manager. */
+/** Opens a file (project-relative) in the system's default program, a folder in the file manager. */
 export function openPath(path: string): Promise<void> {
   if (live) return invoke("open_path", { path });
   console.info("would open", path);
+  return Promise.resolve();
+}
+
+/** Viewing or editing: CodeDeck keeps a program for each, per kind of file. */
+export type Role = "view" | "edit";
+
+export interface App {
+  /** Desktop file id, e.g. `org.gnome.TextEditor.desktop` */
+  id: string;
+  name: string;
+  /** Registered for exactly this type, not just a broader one such as `text/plain` */
+  recommended: boolean;
+  /** Chosen in CodeDeck before, for any kind of file */
+  used: boolean;
+}
+
+export interface FileApps {
+  /** The kind of file a choice is remembered for, e.g. `*.md` */
+  kind: string;
+  mime: string;
+  /** The system's default program for the type */
+  system: App | null;
+  /** `chosen`: picked in CodeDeck, else it is the system's default */
+  view: { app: App | null; chosen: boolean };
+  edit: { app: App | null; chosen: boolean };
+  /** Every program installed for the type, the system's default first */
+  candidates: App[];
+}
+
+/** Opens a file (project-relative) in its program for viewing or editing. */
+export function openFile(path: string, role: Role): Promise<void> {
+  if (live) return invoke("open_file", { path, role });
+  console.info(`would ${role}`, path);
+  return Promise.resolve();
+}
+
+const mockApps: App[] = [
+  { id: "org.gnome.TextEditor.desktop", name: "Text Editor", recommended: true, used: false },
+  { id: "code.desktop", name: "Visual Studio Code", recommended: false, used: false },
+];
+const mockChoices: Record<Role, Record<string, string>> = { view: {}, edit: {} };
+
+export function fileApps(path: string): Promise<FileApps> {
+  if (live) return invoke("file_apps", { path });
+  const name = path.split("/").pop() ?? path;
+  const kind = name.lastIndexOf(".") > 0 ? `*${name.slice(name.lastIndexOf(".")).toLowerCase()}` : name;
+  const pick = (role: Role) => {
+    const app = mockApps.find((a) => a.id === mockChoices[role][kind]);
+    return { app: app ?? mockApps[0], chosen: !!app };
+  };
+  return Promise.resolve({ kind, mime: "text/plain", system: mockApps[0], view: pick("view"), edit: pick("edit"), candidates: mockApps });
+}
+
+/** Remembers a program for viewing or editing this kind of file; `null`: the system's default. */
+export function chooseFileApp(path: string, role: Role, app: string | null): Promise<void> {
+  if (live) return invoke("choose_file_app", { path, role, app });
+  const name = path.split("/").pop() ?? path;
+  const kind = name.lastIndexOf(".") > 0 ? `*${name.slice(name.lastIndexOf(".")).toLowerCase()}` : name;
+  if (app) mockChoices[role][kind] = app;
+  else delete mockChoices[role][kind];
   return Promise.resolve();
 }
 

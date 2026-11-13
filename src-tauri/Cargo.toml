@@ -24,6 +24,8 @@ serde_json = "1"
 notify = "8"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
+# Already part of Tauri on Linux: which programs open which file type
+gio = "0.18"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]
