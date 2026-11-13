@@ -72,4 +72,13 @@ immediately, Rust changes rebuild and restart the window.
 npm run tauri build    # .deb and AppImage
 ```
 
+A package built locally only runs on systems with the same or a newer glibc. Releases are
+therefore built by GitHub Actions on Ubuntu 24.04 ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
+
+1. Bump `version` in `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and `package.json`.
+2. Commit, then tag and push: `git tag v0.2.0 && git push origin v0.2.0`
+3. The workflow tests, builds the `.deb` and the AppImage and publishes a GitHub release with
+   both and `SHA256SUMS`. Started by hand (Actions → Release → Run workflow) it only builds and
+   keeps the packages as workflow artifacts.
+
 Logo candidates: `design/logos/index.html`.
