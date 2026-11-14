@@ -20,9 +20,11 @@ Radar“, hat keinen eigenen Editor. Die weitere Umsetzung steht in `docs/PLAN.m
 | `src/git.ts`, `src/history.ts`, `src/assistant.ts` | React-Hooks: Git-Status, Trail/Snapshots, Sitzungen |
 | `src/components/Trail.tsx` | Zeitleiste (Zonen, Remote-Chip, Snapshots) |
 | `src/components/views/ChangesView.tsx` | Diffs für jetzt / Commit / Snapshot |
-| `src/components/views/DocsView.tsx` | Marker-Liste, Auftrag kopieren/übergeben |
-| `src/components/AssistantStatus.tsx` | Claude in der Statusleiste: Sitzungen, Hooks verbinden |
-| `src/mock.ts`, `AssistantPanel.tsx`, `WorkspaceView.tsx` | Noch Beispieldaten |
+| `src/components/views/DocsView.tsx` | Marker, Übergabe-Fortschritt, zuletzt geschriebene Dokumente |
+| `src/components/SessionsPanel.tsx` | Rechte Spalte: Sitzungen + Fokus (Pins, „Hand to Claude“) |
+| `src/components/AssistantStatus.tsx` | Claude in der Statusleiste, `HookPanel` (Hooks verbinden) |
+| `src/focus.ts`, `src/markers.ts` | Pin-Typ und Fokus-Text; Marker laden und „erledigt“ erkennen |
+| `src/mock.ts`, `WorkspaceView.tsx` | Beispieldaten (Vorschau; Workspace noch unecht) |
 
 ## Regeln
 

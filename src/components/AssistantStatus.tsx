@@ -1,26 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Plug, Sparkles } from "lucide-react";
-import { live, setClaudeHooks, type AssistantState, type HookSetup, type Session } from "../backend";
-import { shortId, useHookSetup } from "../assistant";
+import { live, setClaudeHooks, type AssistantState, type HookSetup } from "../backend";
+import { useHookSetup } from "../assistant";
 import { plural } from "../git";
 
-const STATUS_WORDS: Record<Session["status"], string> = {
-  working: "working",
-  waiting: "waiting for you",
-  idle: "turn done",
-  ended: "ended",
-};
-
-const STATUS_COLOR: Record<Session["status"], string> = {
-  working: "bg-ai",
-  waiting: "bg-changed",
-  idle: "bg-slate-500",
-  ended: "bg-slate-700",
-};
-
 /**
- * Claude Code in the status bar: how many sessions work in the project and whether one waits;
- * a click shows them, and sets up the hooks through which CodeDeck hears of them.
+ * Claude Code in the status bar: how many sessions work in the project and whether one waits
+ * (the sessions themselves are in the right column); a click sets up the hooks through which
+ * CodeDeck hears of them.
  */
 export function AssistantStatus({ state }: { state: AssistantState }) {
   const [open, setOpen] = useState(false);
@@ -61,8 +48,7 @@ export function AssistantStatus({ state }: { state: AssistantState }) {
         {label}
       </button>
       {open && (
-        <div className="surface-overlay absolute right-0 bottom-6 z-30 flex max-h-[60vh] w-[420px] flex-col overflow-y-auto rounded-lg p-3 text-[12px] text-slate-300">
-          <Sessions state={state} />
+        <div className="surface-overlay absolute right-0 bottom-6 z-30 flex max-h-[60vh] w-[420px] flex-col overflow-y-auto rounded-lg p-3 pt-0 text-[12px] text-slate-300">
           <HookPanel setup={setup} onChange={setSetup} heard={state.heard} />
         </div>
       )}
@@ -70,35 +56,7 @@ export function AssistantStatus({ state }: { state: AssistantState }) {
   );
 }
 
-function Sessions({ state }: { state: AssistantState }) {
-  if (state.sessions.length === 0) {
-    return <p className="mb-3 text-slate-500">No Claude Code session has worked in this project since CodeDeck opened it.</p>;
-  }
-  return (
-    <ul className="mb-3 flex flex-col gap-2">
-      {state.sessions.map((s) => (
-        <li key={s.id} className={`rounded-md border border-overlay-line p-2 ${s.status === "ended" ? "opacity-50" : ""}`}>
-          <div className="flex items-center gap-2">
-            <span className={`size-2 shrink-0 rounded-full ${STATUS_COLOR[s.status]} ${s.status === "working" ? "animate-pulse" : ""}`} />
-            <span className="font-medium text-slate-100">{STATUS_WORDS[s.status]}</span>
-            <code className="font-mono text-[11px] text-slate-500">{shortId(s.id)}</code>
-            <span className="ml-auto text-slate-500">{s.cwd === "" ? "project root" : s.cwd}</span>
-          </div>
-          {s.message && <p className="mt-1 text-changed">{s.message}</p>}
-          {s.prompt && <p className="mt-1 line-clamp-2 text-slate-400 italic">“{s.prompt}”</p>}
-          {s.handed && <p className="mt-1 text-ai">Got the hand-over with this prompt</p>}
-          {s.touched.length > 0 && (
-            <p className="mt-1 truncate font-mono text-[11px] text-slate-500" title={s.touched.map((t) => t.path).join("\n")}>
-              wrote {s.touched.length === 1 ? s.touched[0].path : `${s.touched.length} files: ${s.touched.slice(0, 3).map((t) => t.path).join(", ")}${s.touched.length > 3 ? ", …" : ""}`}
-            </p>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function HookPanel(props: { setup: HookSetup | null; onChange: (s: HookSetup) => void; heard: boolean }) {
+export function HookPanel(props: { setup: HookSetup | null; onChange: (s: HookSetup) => void; heard: boolean }) {
   const { setup } = props;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +74,7 @@ function HookPanel(props: { setup: HookSetup | null; onChange: (s: HookSetup) =>
   };
   const button = "rounded-md px-2.5 py-1 font-medium disabled:opacity-40";
   return (
-    <div className="border-t border-overlay-line pt-3">
+    <div className="pt-3">
       {setup.installed ? (
         <>
           <p className="text-slate-400">

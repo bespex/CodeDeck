@@ -484,8 +484,16 @@ export interface AssistantState {
   /** A hook event arrived since this window started */
   heard: boolean;
   sessions: Session[];
-  /** Text waiting for the next prompt */
-  handover: { text: string; label: string } | null;
+  /** What waits for the next prompt, in parts that can be taken back one by one */
+  handovers: Handover[];
+}
+
+/** One part of what the assistant gets with the next prompt. */
+export interface Handover {
+  /** `markers` (Docs view) or `focus` (the focus list) */
+  key: string;
+  text: string;
+  label: string;
 }
 
 const mockAssistant: AssistantState = {
@@ -519,7 +527,7 @@ const mockAssistant: AssistantState = {
       handed: false,
     },
   ],
-  handover: null,
+  handovers: [],
 };
 const mockAssistantListeners = new Set<(state: AssistantState) => void>();
 
@@ -537,10 +545,11 @@ export function onAssistantChanged(callback: (state: AssistantState) => void): (
   return () => mockAssistantListeners.delete(callback);
 }
 
-/** Text for the assistant with the next prompt in this project; `null` takes it back. */
-export function handOver(text: string | null, label?: string): Promise<void> {
-  if (live) return invoke("hand_over", { text, label: label ?? null });
-  mockAssistant.handover = text === null ? null : { text, label: label ?? "" };
+/** One part of the text for the assistant with the next prompt; `null` takes that part back. */
+export function handOver(key: string, text: string | null, label?: string): Promise<void> {
+  if (live) return invoke("hand_over", { key, text, label: label ?? null });
+  const rest = mockAssistant.handovers.filter((h) => h.key !== key);
+  mockAssistant.handovers = text === null ? rest : [...rest, { key, text, label: label ?? "" }];
   mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
   return Promise.resolve();
 }

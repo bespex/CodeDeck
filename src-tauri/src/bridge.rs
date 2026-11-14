@@ -75,6 +75,8 @@ pub struct Touch {
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Handover {
+    /// Which part it is, e.g. `markers` or `focus`; each can be set and taken back on its own
+    key: String,
     /// The text the assistant gets with the next prompt
     text: String,
     /// What it is, in a few words, for the interface
@@ -87,7 +89,8 @@ pub struct AssistantState {
     /// A hook event arrived since this window started
     heard: bool,
     sessions: Vec<Session>,
-    handover: Option<Handover>,
+    /// What waits for the next prompt, in the order it was handed over
+    handovers: Vec<Handover>,
 }
 
 #[derive(Default)]
@@ -96,7 +99,7 @@ struct Inner {
     sessions: HashMap<String, Session>,
     /// Per session: the repositories (top-level paths) with a snapshot in the current turn
     turn: HashMap<String, HashSet<PathBuf>>,
-    handover: Option<Handover>,
+    handovers: Vec<Handover>,
 }
 
 pub struct Bridge {
@@ -142,7 +145,7 @@ impl Bridge {
         let inner = self.inner.lock().unwrap();
         let mut sessions: Vec<Session> = inner.sessions.values().cloned().collect();
         sessions.sort_by(|a, b| b.last.cmp(&a.last));
-        AssistantState { heard: inner.heard, sessions, handover: inner.handover.clone() }
+        AssistantState { heard: inner.heard, sessions, handovers: inner.handovers.clone() }
     }
 
     /// A new project: what was known about the old one does not apply.
@@ -151,14 +154,15 @@ impl Bridge {
             let mut inner = self.inner.lock().unwrap();
             inner.sessions.clear();
             inner.turn.clear();
-            inner.handover = None;
+            inner.handovers.clear();
         }
         let _ = app.emit(ASSISTANT_CHANGED, self.state());
     }
 
-    /// Text for the assistant with the next prompt in this project; `None` takes it back.
-    pub fn hand_over(&self, app: &AppHandle, handover: Option<(String, String)>) {
-        self.inner.lock().unwrap().handover = handover.map(|(text, label)| Handover { text, label });
+    /// One part of the text for the assistant with the next prompt in this project; `None`
+    /// takes that part back. All parts go together with the next prompt.
+    pub fn hand_over(&self, app: &AppHandle, key: String, part: Option<(String, String)>) {
+        set_part(&mut self.inner.lock().unwrap().handovers, key, part);
         let _ = app.emit(ASSISTANT_CHANGED, self.state());
     }
 
@@ -246,8 +250,8 @@ impl Bridge {
             };
             if e.event == "UserPromptSubmit" {
                 inner.turn.remove(&e.session);
-                if let Some(h) = inner.handover.take() {
-                    context = Some(h.text);
+                if let Some(text) = take_parts(&mut inner.handovers) {
+                    context = Some(text);
                     if let Some(s) = inner.sessions.get_mut(&e.session) {
                         s.handed = true;
                     }
@@ -298,6 +302,20 @@ impl Bridge {
     }
 }
 
+/// Sets, replaces or (with `None`) removes one part of the hand-over.
+fn set_part(list: &mut Vec<Handover>, key: String, part: Option<(String, String)>) {
+    match (list.iter_mut().find(|h| h.key == key), part) {
+        (Some(h), Some((text, label))) => (h.text, h.label) = (text, label),
+        (None, Some((text, label))) => list.push(Handover { key, text, label }),
+        (_, None) => list.retain(|h| h.key != key),
+    }
+}
+
+/// All parts as one text for the prompt, in the order they were handed over; empties the list.
+fn take_parts(list: &mut Vec<Handover>) -> Option<String> {
+    (!list.is_empty()).then(|| std::mem::take(list).into_iter().map(|h| h.text).collect::<Vec<_>>().join("\n\n"))
+}
+
 /// Sockets of windows that were killed and could not remove theirs: `<pid>.sock` without a
 /// process of that number.
 fn remove_stale(dir: &Path) {
@@ -326,4 +344,23 @@ fn shorten(text: &str) -> String {
 
 fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hand_over_parts_go_together_once() {
+        let mut list = Vec::new();
+        let part = |t: &str| Some((t.to_string(), "label".to_string()));
+        set_part(&mut list, "markers".into(), part("comments"));
+        set_part(&mut list, "focus".into(), part("old focus"));
+        set_part(&mut list, "focus".into(), part("focus"));
+        assert_eq!(take_parts(&mut list).as_deref(), Some("comments\n\nfocus"));
+        assert!(take_parts(&mut list).is_none());
+        set_part(&mut list, "focus".into(), part("focus"));
+        set_part(&mut list, "focus".into(), None);
+        assert!(list.is_empty());
+    }
 }

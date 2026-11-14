@@ -2,44 +2,14 @@ import { useEffect, useState } from "react";
 import { FilesPanel } from "./components/FilesPanel";
 import { GitLog } from "./components/GitLog";
 import { Deck } from "./components/Deck";
-import { AssistantPanel } from "./components/AssistantPanel";
+import { SessionsPanel } from "./components/SessionsPanel";
 import { StatusBar } from "./components/StatusBar";
-import {
-  live,
-  openProject,
-  openWindow,
-  pathStats,
-  projectInfo,
-  tokensFor,
-  type Entry,
-  type ProjectInfo,
-} from "./backend";
-import { config, initialPins, type Pin } from "./mock";
+import { live, openProject, openWindow, projectInfo, type Entry, type ProjectInfo } from "./backend";
+import { initialPins } from "./mock";
+import { pinFromEntry, type Pin } from "./focus";
 import { useGit } from "./git";
 import { touchedFiles, useAssistant } from "./assistant";
 import { RepoActions, type Anchor } from "./components/RepoActions";
-
-async function pinFromEntry(entry: Entry): Promise<Pin> {
-  if (!entry.isDir) {
-    const slash = entry.path.lastIndexOf("/");
-    return {
-      id: entry.path,
-      kind: "file",
-      label: entry.name,
-      detail: slash < 0 ? "project root" : entry.path.slice(0, slash),
-      tokens: tokensFor(entry.size),
-    };
-  }
-  const stats = await pathStats(entry.path);
-  const count = `${stats.truncated ? "over " : ""}${stats.files} file${stats.files === 1 ? "" : "s"}`;
-  return {
-    id: entry.path,
-    kind: "folder",
-    label: `${entry.name}/`,
-    detail: count,
-    tokens: tokensFor(stats.bytes),
-  };
-}
 
 export default function App() {
   const [project, setProject] = useState<ProjectInfo | null>(null);
@@ -105,12 +75,13 @@ export default function App() {
           touched={touchedFiles(assistant)}
         />
         <Deck key={`deck:${project?.path}`} project={project} git={git} selected={selected} assistant={assistant} />
-        <AssistantPanel
+        <SessionsPanel
+          assistant={assistant}
           pins={pins}
-          budget={config.assistant.contextBudget}
           onPin={pin}
           onUnpin={unpin}
           onClear={() => setPins([])}
+          onShowFile={setSelected}
         />
       </div>
       <StatusBar

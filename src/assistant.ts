@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { assistantState, claudeHooks, onAssistantChanged, type AssistantState, type HookSetup } from "./backend";
 
-const EMPTY: AssistantState = { heard: false, sessions: [], handover: null };
+const EMPTY: AssistantState = { heard: false, sessions: [], handovers: [] };
 
 export function useAssistant(): AssistantState {
   const [state, setState] = useState<AssistantState>(EMPTY);

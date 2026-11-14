@@ -8,7 +8,7 @@ braucht man nur bei Grundsatzfragen.
 
 ## Stand (2026-11-14, Commit `3db551a`)
 
-Fertig: Trail mit drei Zonen (nicht committet / nicht gepusht / gepusht) und Remote-Chip · Hook-Brücke
+Fertig (dazu P2, P3, siehe Pakete): Trail mit drei Zonen (nicht committet / nicht gepusht / gepusht) und Remote-Chip · Hook-Brücke
 `codedeck hook` → Socket je Fenster · Sitzungsliste in der Statusleiste, von der KI geschriebene Dateien
 im Dateibaum markiert · Sicherungspunkte vor dem ersten Schreiben einer Runde, im Trail sichtbar, mit
 „Go back“ · Docs-Ansicht für `@ai`-Marker, die man kopieren oder an den nächsten Prompt übergeben kann ·
@@ -58,7 +58,7 @@ eine Beispiel-`.jsonl`.
 **Achtung:** Das jsonl-Format ist intern und kann sich ändern. Fehlertolerant parsen, unbekannte Zeilen
 ignorieren und keine Inhalte speichern.
 
-### P2 Spalte „Sessions & Focus“ `[L]` · offen
+### P2 Spalte „Sessions & Focus“ `[L]` · ✅ erledigt 2026-11-14
 **Ziel:** Die rechte Spalte wird echt. Oben stehen die Sitzungen (Spuren), unten der Fokus: angeheftete
 Dateien, Ordner und Ausschnitte, die man an Claude übergeben kann.
 **Dateien:** `App.tsx` (Zustand `pins`, `pinFromEntry`), `AssistantPanel.tsx` (wird ersetzt),
@@ -77,7 +77,7 @@ sinnvolle Vorschau; die Chat-Mocks sind weg.
 zusammenfassen, statt sich gegenseitig zu überschreiben. Dafür `hand_over` erweitern, z. B. mehrere
 benannte Teile.
 
-### P3 Docs-Radar `[S]` · offen
+### P3 Docs-Radar `[S]` · ✅ erledigt 2026-11-14
 **Ziel:** Neu entstandene Ergebnisdokumente sofort sehen; erkennen, wann Marker erledigt sind.
 **Dateien:** `DocsView.tsx`, `Deck.tsx` (Badge am Tab), `assistant.ts` (`touchedFiles`).
 **Schritte:** (a) Abschnitt „Recently written“: von Sitzungen geschriebene `.md`/`.html`/`.txt`/`.adoc`-Dateien
@@ -172,3 +172,7 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
 ## Notizen
 
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
+- P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
+  alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,
+  Marker-Zustand in `src/markers.ts` (`useMarkers`, erledigt = übergebener Marker fehlt). Ob die
+  Übergabe in einer echten Sitzung ankommt, prüft weiterhin P0.

@@ -15,6 +15,7 @@ import { DocsView } from "./views/DocsView";
 import type { AssistantState, ProjectInfo } from "../backend";
 import type { GitView } from "../git";
 import { useHistory, useSnapshots } from "../history";
+import { useMarkers } from "../markers";
 
 type ViewId = "workspace" | "map" | "changes" | "docs" | "tests";
 
@@ -39,6 +40,8 @@ export function Deck({ project, git, selected, assistant }: Props) {
   const [point, setPoint] = useState<Point>({ kind: "now" });
   const commits = useHistory(git.repos);
   const { snapshots, reload: reloadSnapshots } = useSnapshots(git.repos);
+  const marks = useMarkers();
+  const openMarkers = marks.markers?.length ?? 0;
   const changed = git.changed;
 
   // The repository of the selection: on the trail its commits stay bright, others fade
@@ -63,7 +66,8 @@ export function Deck({ project, git, selected, assistant }: Props) {
       >
         {views.map(({ id, label, icon: Icon }) => {
           const active = id === view;
-          const badge = id === "changes" && changed > 0 ? changed : undefined;
+          const badge =
+            id === "changes" && changed > 0 ? changed : id === "docs" && openMarkers > 0 ? openMarkers : undefined;
           return (
             <button
               key={id}
@@ -116,7 +120,7 @@ export function Deck({ project, git, selected, assistant }: Props) {
               onSelect={setPoint}
             />
           )}
-          {view === "docs" && <DocsView assistant={assistant} />}
+          {view === "docs" && <DocsView assistant={assistant} marks={marks} />}
           {view === "tests" && (
             <ComingView
               icon={FlaskConical}

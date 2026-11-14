@@ -270,10 +270,11 @@ fn assistant_state(bridge: State<Arc<Bridge>>) -> AssistantState {
     bridge.state()
 }
 
-/// Text handed to the assistant with the next prompt in this project; `None` takes it back.
+/// One part (`key`) of the text handed to the assistant with the next prompt in this project;
+/// `None` takes that part back.
 #[tauri::command]
-fn hand_over(text: Option<String>, label: Option<String>, app: AppHandle, bridge: State<Arc<Bridge>>) {
-    bridge.hand_over(&app, text.map(|t| (t, label.unwrap_or_default())));
+fn hand_over(key: String, text: Option<String>, label: Option<String>, app: AppHandle, bridge: State<Arc<Bridge>>) {
+    bridge.hand_over(&app, key, text.map(|t| (t, label.unwrap_or_default())));
 }
 
 /// Whether CodeDeck's hooks are in Claude Code's settings.
