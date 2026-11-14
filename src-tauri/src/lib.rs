@@ -13,6 +13,7 @@ pub mod hook;
 mod markers;
 mod project;
 mod recent;
+mod sessions;
 mod snapshot;
 mod watch;
 
@@ -277,16 +278,16 @@ fn hand_over(key: String, text: Option<String>, label: Option<String>, app: AppH
     bridge.hand_over(&app, key, text.map(|t| (t, label.unwrap_or_default())));
 }
 
-/// Whether CodeDeck's hooks are in Claude Code's settings.
+/// Whether CodeDeck's hooks are in the settings, per Claude Code configuration.
 #[tauri::command]
-fn claude_hooks() -> HookSetup {
+fn claude_hooks() -> Vec<HookSetup> {
     hook::status()
 }
 
-/// Puts CodeDeck's hooks into Claude Code's settings, or takes them out.
+/// Puts CodeDeck's hooks into one configuration's settings, or takes them out.
 #[tauri::command]
-fn set_claude_hooks(install: bool) -> Result<HookSetup, String> {
-    hook::set(install)
+fn set_claude_hooks(dir: String, install: bool) -> Result<Vec<HookSetup>, String> {
+    hook::set(&dir, install)
 }
 
 /// The git commands run so far, oldest first.

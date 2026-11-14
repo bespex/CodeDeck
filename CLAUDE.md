@@ -13,8 +13,9 @@ Radar“, hat keinen eigenen Editor. Die weitere Umsetzung steht in `docs/PLAN.m
 | `src-tauri/src/history.rs` | Log, Diffs, `ScratchIndex`, `worktree_diff(base)` |
 | `src-tauri/src/snapshot.rs` | Sicherungspunkte unter `refs/codedeck/snapshots/`, Diff, Zurückgehen |
 | `src-tauri/src/bridge.rs` | Socket je Fenster, Sitzungen, Snapshot vor erstem Schreiben, Übergabe an nächsten Prompt |
-| `src-tauri/src/hook.rs` | `codedeck hook` (Weiterleitung) + Hooks in Claude-Settings ein-/austragen |
+| `src-tauri/src/hook.rs` | `codedeck hook` (Weiterleitung), `config_dirs` (alle Claude-Konfigurationen), Hooks je Konfiguration ein-/austragen |
 | `src-tauri/src/markers.rs` | `@ai`-Marker per `git grep` |
+| `src-tauri/src/sessions.rs` | Claude-Code-Logs lesen (Titel, Modell, Prompt, Writes) |
 | `src-tauri/src/{watch,project,apps,recent,config}.rs` | Dateiwächter, Projektpfade, externe Programme, letzte Projekte, Config-Dateien |
 | `src/backend.ts` | Alle `invoke`-Wrapper **mit Mock** für die Browser-Vorschau |
 | `src/git.ts`, `src/history.ts`, `src/assistant.ts` | React-Hooks: Git-Status, Trail/Snapshots, Sitzungen |

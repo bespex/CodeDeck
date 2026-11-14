@@ -8,7 +8,7 @@ braucht man nur bei Grundsatzfragen.
 
 ## Stand (2026-11-14, Commit `3db551a`)
 
-Fertig (dazu P2, P3, siehe Pakete): Trail mit drei Zonen (nicht committet / nicht gepusht / gepusht) und Remote-Chip · Hook-Brücke
+Fertig (dazu P1, P2, P3, siehe Pakete): Trail mit drei Zonen (nicht committet / nicht gepusht / gepusht) und Remote-Chip · Hook-Brücke
 `codedeck hook` → Socket je Fenster · Sitzungsliste in der Statusleiste, von der KI geschriebene Dateien
 im Dateibaum markiert · Sicherungspunkte vor dem ersten Schreiben einer Runde, im Trail sichtbar, mit
 „Go back“ · Docs-Ansicht für `@ai`-Marker, die man kopieren oder an den nächsten Prompt übergeben kann ·
@@ -36,7 +36,9 @@ P0 → P3 → P2 → P1 → P5 → P4 → P6 → P7 → P8. P9 und P10 sind zur�
 ### P0 Praxistest der Brücke `[S]` · offen · braucht den Nutzer
 **Ziel:** Prüfen, ob die Annahmen über die Hook-Daten von Claude Code stimmen.
 **Dateien:** `hook.rs` (`extract`, `EVENTS`), `bridge.rs` (`handle`).
-**Schritte:** Der Nutzer klickt im Dev-Build auf „Connect Claude Code“ und arbeitet eine Runde mit Claude.
+**Schritte:** Der Nutzer verbindet im Dev-Build (Statusleiste → Claude) **jede** Konfiguration, mit der er
+arbeitet. Er hat mindestens `~/.claude` und `~/.claude-private` (`CLAUDE_CONFIG_DIR`). Dann eine Runde
+mit Claude arbeiten.
 Dann prüfen: Sitzung erscheint, Status wechselt (working → waiting bei einer Berechtigungsfrage → idle),
 Dateien werden markiert, Snapshot erscheint im Trail, Docs → „Hand to Claude“ kommt beim nächsten Prompt
 an (Claude soll den Text wiedergeben). Weicht etwas ab, die Hook-Felder mit dem Agenten `claude-code-guide`
@@ -44,7 +46,7 @@ klären (`session_id`, `hook_event_name`, `tool_input.file_path`, `prompt`, `mes
 **Fertig wenn:** Alle fünf Punkte funktionieren in einer echten Sitzung.
 **Achtung:** Beim Testen nur über die Oberfläche verbinden, `settings.json` nie von Hand bearbeiten.
 
-### P1 Sitzungen von vor dem Start `[S–L]` · offen
+### P1 Sitzungen von vor dem Start `[S–L]` · ✅ erledigt 2026-11-14
 **Ziel:** CodeDeck kennt auch Sitzungen, die schon liefen, bevor das Fenster oder die Hooks da waren.
 **Dateien:** neu `src-tauri/src/sessions.rs`; `bridge.rs` (Sitzungen zusammenführen); `Session` in `backend.ts`.
 **Schritte:** `~/.claude/projects/<kodierter Pfad>/*.jsonl` lesen: das Projekt und seine Elternordner, nur
@@ -176,3 +178,9 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,
   Marker-Zustand in `src/markers.ts` (`useMarkers`, erledigt = übergebener Marker fehlt). Ob die
   Übergabe in einer echten Sitzung ankommt, prüft weiterhin P0.
+- P1: Es gibt mehrere Claude-Konfigurationen (`hook::config_dirs`: `~/.claude`, `$CLAUDE_CONFIG_DIR`,
+  `~/.claude-*`). Hooks werden je Konfiguration verbunden, Logs aus allen gelesen. Aus dem Log kommen
+  `ai-title` (Titel), Modell, letzter Prompt und Writes. Bei neuer Sitzung und nach jedem `Stop` liest
+  CodeDeck das Log über `transcript_path` aus dem Hook. Logs ohne Hook-Ereignis haben den Status `idle`
+  (aus dem Log ist nicht ablesbar, ob gerade gearbeitet wird). Probelauf gegen echte Logs:
+  `CODEDECK_ROOT=<pfad> cargo test real_logs -- --ignored --nocapture`.

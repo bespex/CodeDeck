@@ -116,6 +116,7 @@ fn extract(hook: &Value) -> Value {
         "tool": hook["tool_name"].as_str(),
         "file": file,
         "prompt": cut(&hook["prompt"], 300),
+        "transcript": hook["transcript_path"].as_str(),
         "message": cut(&hook["message"], 300),
     })
 }
@@ -123,7 +124,9 @@ fn extract(hook: &Value) -> Value {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HookSetup {
-    /// Claude Code's settings file
+    /// The Claude Code configuration directory (`~/.claude`, or one chosen by `CLAUDE_CONFIG_DIR`)
+    dir: String,
+    /// Its settings file
     settings: String,
     /// CodeDeck's hooks are in it
     installed: bool,
@@ -133,11 +136,29 @@ pub struct HookSetup {
     command: String,
 }
 
-fn settings_path() -> PathBuf {
-    let dir = std::env::var_os("CLAUDE_CONFIG_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::home_dir().unwrap_or_default().join(".claude"));
-    dir.join("settings.json")
+/// Every Claude Code configuration on this machine: `~/.claude`, the one `CLAUDE_CONFIG_DIR`
+/// points to, and other `~/.claude-*` folders that are one (with `projects/` or `settings.json`).
+/// Several are common: one per account, each started with its own `CLAUDE_CONFIG_DIR`. A
+/// CodeDeck started from the desktop menu does not see that variable, so all are looked for.
+pub fn config_dirs() -> Vec<PathBuf> {
+    let home = std::env::home_dir().unwrap_or_default();
+    let is_config = |d: &std::path::Path| d.join("projects").is_dir() || d.join("settings.json").is_file();
+    let mut dirs = vec![home.join(".claude")];
+    if let Some(dir) = std::env::var_os("CLAUDE_CONFIG_DIR").filter(|d| !d.is_empty()) {
+        dirs.push(PathBuf::from(dir));
+    }
+    let mut others: Vec<PathBuf> = std::fs::read_dir(&home)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with(".claude-")) && p.is_dir() && is_config(p))
+        .collect();
+    others.sort();
+    dirs.extend(others);
+    let mut seen = std::collections::HashSet::new();
+    dirs.retain(|d| seen.insert(d.canonicalize().unwrap_or_else(|_| d.clone())));
+    dirs
 }
 
 fn our_command() -> String {
@@ -155,9 +176,13 @@ fn is_ours(command: &str) -> bool {
     command.trim_end().ends_with(" hook") && command.to_lowercase().contains("codedeck")
 }
 
-/// Whether CodeDeck's hooks are in Claude Code's settings.
-pub fn status() -> HookSetup {
-    let path = settings_path();
+/// Whether CodeDeck's hooks are in the settings, for every Claude Code configuration.
+pub fn status() -> Vec<HookSetup> {
+    config_dirs().iter().map(|d| status_of(d)).collect()
+}
+
+fn status_of(dir: &std::path::Path) -> HookSetup {
+    let path = dir.join("settings.json");
     let settings = read_settings(&path).unwrap_or(Value::Null);
     let command = our_command();
     let found: Vec<String> = EVENTS
@@ -166,6 +191,7 @@ pub fn status() -> HookSetup {
         .filter(|c| is_ours(c))
         .collect();
     HookSetup {
+        dir: dir.display().to_string(),
         settings: path.display().to_string(),
         installed: !found.is_empty(),
         other: found.iter().find(|c| **c != command).cloned(),
@@ -192,10 +218,15 @@ fn read_settings(path: &PathBuf) -> Result<Value, String> {
     }
 }
 
-/// Puts CodeDeck's hooks into Claude Code's settings, or takes them out. Everything else in
-/// the file stays as it is; the file as it was is kept next to it once.
-pub fn set(install: bool) -> Result<HookSetup, String> {
-    let path = settings_path();
+/// Puts CodeDeck's hooks into the settings of one Claude Code configuration (one of
+/// [`config_dirs`]), or takes them out. Everything else in the file stays as it is; the file as
+/// it was is kept next to it once.
+pub fn set(dir: &str, install: bool) -> Result<Vec<HookSetup>, String> {
+    let dir = config_dirs()
+        .into_iter()
+        .find(|d| d.display().to_string() == dir)
+        .ok_or_else(|| format!("{dir}: not a Claude Code configuration CodeDeck knows"))?;
+    let path = dir.join("settings.json");
     let before = std::fs::read_to_string(&path).ok();
     let mut settings = read_settings(&path)?;
     if !settings.is_object() {
@@ -207,8 +238,9 @@ pub fn set(install: bool) -> Result<HookSetup, String> {
     if before.as_deref() == Some(text.as_str()) {
         return Ok(status());
     }
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    // Only an existing configuration: a new folder would be one Claude Code never reads
+    if !dir.is_dir() {
+        return Err(format!("{}: no such folder", dir.display()));
     }
     if let Some(before) = &before {
         let backup = path.with_extension("json.before-codedeck");

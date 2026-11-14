@@ -46,15 +46,19 @@ commits behind a merge are left alone.
 ## Claude Code
 
 CodeDeck does not run the assistant; Claude Code does, in its terminal or desktop app. CodeDeck
-watches alongside. **Connect Claude Code** (click *Claude* in the status bar) adds hooks to
-`~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR`) that run `codedeck hook`. That passes each
+watches alongside. **Connect** (click *Claude* in the status bar) adds hooks to a Claude Code
+configuration's `settings.json` that run `codedeck hook`. Every configuration is listed and
+connected on its own: `~/.claude`, the one `$CLAUDE_CONFIG_DIR` names, and other `~/.claude-*`
+folders that are one, since a session only reports through the configuration it runs with. That passes each
 event, without file contents, to the socket every CodeDeck window keeps in
 `$XDG_RUNTIME_DIR/codedeck/`; a window only takes in what concerns its project. Nothing else in
 the settings changes, the file as it was is kept as `settings.json.before-codedeck`, and
 *Disconnect* takes the hooks out again. Without a CodeDeck window open the hook does nothing.
 
-- **Sessions:** the right column lists the sessions working in the project with their latest
-  prompt and the files they wrote; those files carry the dot in the file list. The status bar counts
+- **Sessions:** the right column lists the sessions working in the project with the title Claude
+  Code gave them, their latest prompt, model and the files they wrote; those files carry the dot in
+  the file list. Sessions of the last day are read from Claude Code's logs
+  (`<configuration>/projects/`), so they appear even when they started before CodeDeck. The status bar counts
   them and shows when one waits for you.
 - **Snapshots:** before a session writes for the first time in a turn (a file edit, or any shell
   command), CodeDeck keeps the repository's working tree, untracked files included, as a commit

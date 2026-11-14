@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Plug, Sparkles } from "lucide-react";
-import { live, setClaudeHooks, type AssistantState, type HookSetup } from "../backend";
-import { useHookSetup } from "../assistant";
+import { live, setClaudeHooks, type AssistantState } from "../backend";
+import { useHooks, type Hooks } from "../assistant";
 import { plural } from "../git";
 
 /**
@@ -11,7 +11,7 @@ import { plural } from "../git";
  */
 export function AssistantStatus({ state }: { state: AssistantState }) {
   const [open, setOpen] = useState(false);
-  const [setup, setSetup] = useHookSetup();
+  const hooks = useHooks();
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -28,7 +28,7 @@ export function AssistantStatus({ state }: { state: AssistantState }) {
   const active = state.sessions.filter((s) => s.status !== "ended");
   const working = active.filter((s) => s.status === "working").length;
   const waiting = active.filter((s) => s.status === "waiting").length;
-  const label = !setup?.installed
+  const label = !hooks.connected
     ? "Claude: not connected"
     : active.length === 0
       ? "Claude: no session"
@@ -44,77 +44,80 @@ export function AssistantStatus({ state }: { state: AssistantState }) {
           open ? "bg-raised text-slate-200" : waiting ? "text-changed" : working ? "text-ai" : "text-slate-500"
         }`}
       >
-        {setup?.installed ? <Sparkles className="size-3" /> : <Plug className="size-3" />}
+        {hooks.connected ? <Sparkles className="size-3" /> : <Plug className="size-3" />}
         {label}
       </button>
       {open && (
         <div className="surface-overlay absolute right-0 bottom-6 z-30 flex max-h-[60vh] w-[420px] flex-col overflow-y-auto rounded-lg p-3 pt-0 text-[12px] text-slate-300">
-          <HookPanel setup={setup} onChange={setSetup} heard={state.heard} />
+          <HookPanel hooks={hooks} heard={state.heard} />
         </div>
       )}
     </div>
   );
 }
 
-export function HookPanel(props: { setup: HookSetup | null; onChange: (s: HookSetup) => void; heard: boolean }) {
-  const { setup } = props;
-  const [busy, setBusy] = useState(false);
+/**
+ * Connecting per Claude Code configuration: several are common (one per account, each used
+ * with its own `CLAUDE_CONFIG_DIR`); a session only reports through the one it runs with.
+ */
+export function HookPanel({ hooks, heard }: { hooks: Hooks; heard: boolean }) {
+  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  if (!setup) return null;
-  const change = async (install: boolean) => {
-    setBusy(true);
+  if (!hooks.setups) return null;
+  const change = async (dir: string, install: boolean) => {
+    setBusy(dir);
     setError(null);
     try {
-      props.onChange(await setClaudeHooks(install));
+      hooks.update(await setClaudeHooks(dir, install));
     } catch (e) {
       setError(String(e));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
-  const button = "rounded-md px-2.5 py-1 font-medium disabled:opacity-40";
+  const button = "shrink-0 rounded-md px-2.5 py-1 font-medium disabled:opacity-40";
+  const command = hooks.setups[0]?.command;
   return (
     <div className="pt-3">
-      {setup.installed ? (
-        <>
-          <p className="text-slate-400">
-            Claude Code tells CodeDeck what it does through hooks in <code className="font-mono text-[11px]">{setup.settings}</code>.
-            {!props.heard && " Sessions started before connecting report from their next step on."}
-          </p>
-          {setup.other && (
-            <p className="mt-1 text-changed">
-              They run another CodeDeck: <code className="font-mono text-[11px]">{setup.other}</code>
-            </p>
-          )}
-          <div className="mt-2 flex gap-2">
-            {setup.other && (
-              <button type="button" disabled={busy} onClick={() => change(true)} className={`${button} bg-brand-fill text-white hover:bg-brand-fill-hover`}>
-                Use this CodeDeck
+      <p className="text-slate-400">
+        {hooks.connected
+          ? "Claude Code tells CodeDeck what it does through hooks in its settings."
+          : "Connecting adds hooks to Claude Code's settings for every session."}{" "}
+        They run <code className="font-mono text-[11px]">{command}</code>, which tells the open CodeDeck windows which
+        session works where and which files it writes, and lets CodeDeck keep a snapshot before an assistant's first
+        write in a turn. Nothing else in the file changes; the file as it was is kept next to it.
+        {hooks.connected && !heard && " Sessions started before connecting report from their next step on."}
+      </p>
+      <ul className="mt-2 flex flex-col gap-1.5">
+        {hooks.setups.map((s) => (
+          <li key={s.dir} className="flex items-center gap-2 rounded-md border border-overlay-line px-2 py-1.5">
+            <span className={`size-2 shrink-0 rounded-full ${s.installed ? "bg-added" : "bg-slate-600"}`} />
+            <div className="min-w-0 flex-1">
+              <code className="block truncate font-mono text-[11px] text-slate-200">{s.dir}</code>
+              {s.other && <span className="block truncate text-[11px] text-changed">runs another CodeDeck: {s.other}</span>}
+            </div>
+            {s.other && (
+              <button type="button" disabled={!!busy} onClick={() => change(s.dir, true)} className={`${button} bg-brand-fill text-white hover:bg-brand-fill-hover`}>
+                Use this one
               </button>
             )}
-            <button type="button" disabled={busy} onClick={() => change(false)} className={`${button} border border-overlay-line hover:bg-overlay-hover`}>
-              Disconnect
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <p className="text-slate-400">
-            Connecting adds hooks to <code className="font-mono text-[11px]">{setup.settings}</code> for every Claude Code
-            session. They run <code className="font-mono text-[11px]">{setup.command}</code>, which tells the open CodeDeck
-            windows which session works where and which files it writes, and lets CodeDeck keep a snapshot before an
-            assistant's first write in a turn. Nothing else in the file changes; the file as it was is kept next to it.
-          </p>
-          <button
-            type="button"
-            disabled={busy || !live}
-            onClick={() => change(true)}
-            className={`${button} mt-2 bg-brand-fill text-white hover:bg-brand-fill-hover`}
-          >
-            Connect Claude Code
-          </button>
-        </>
-      )}
+            {s.installed ? (
+              <button type="button" disabled={!!busy} onClick={() => change(s.dir, false)} className={`${button} border border-overlay-line hover:bg-overlay-hover`}>
+                Disconnect
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={!!busy || !live}
+                onClick={() => change(s.dir, true)}
+                className={`${button} bg-brand-fill text-white hover:bg-brand-fill-hover`}
+              >
+                Connect
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
       {error && <p className="selectable mt-2 text-problem">{error}</p>}
     </div>
   );

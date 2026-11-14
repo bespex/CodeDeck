@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Check, ClipboardCopy, Eye, ExternalLink, FileText, MessageSquareText, Send, Sparkles, X } from "lucide-react";
 import { handOver, openFile, type AssistantState, type Marker } from "../../backend";
-import { touchedFiles, useHookSetup } from "../../assistant";
+import { touchedFiles, useHooks } from "../../assistant";
 import { markerKey, type Markers } from "../../markers";
 import { LOCALE } from "../Trail";
 import { plural } from "../../git";
@@ -15,7 +15,7 @@ import { Tooltip } from "../Tooltip";
 export function DocsView({ assistant, marks }: { assistant: AssistantState; marks: Markers }) {
   const { markers, error, handed, done, markHanded } = marks;
   const [copied, setCopied] = useState<string | null>(null);
-  const [setup] = useHookSetup();
+  const { connected } = useHooks();
   const written = recentDocs(assistant);
   const waiting = assistant.handovers.find((h) => h.key === MARKERS_KEY);
 
@@ -30,7 +30,6 @@ export function DocsView({ assistant, marks }: { assistant: AssistantState; mark
     setCopied(what);
     setTimeout(() => setCopied((c) => (c === what ? null : c)), 1800);
   };
-  const connected = !!setup?.installed;
 
   return (
     <div className="flex min-h-full flex-col">

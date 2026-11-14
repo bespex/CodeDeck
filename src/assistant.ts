@@ -22,15 +22,31 @@ export function useAssistant(): AssistantState {
   return state;
 }
 
-/** Whether CodeDeck's hooks are in Claude Code's settings; `null` while asking. */
-export function useHookSetup(): [HookSetup | null, (setup: HookSetup) => void] {
-  const [setup, setSetup] = useState<HookSetup | null>(null);
+/** CodeDeck's hooks per Claude Code configuration, shared by every component that shows them. */
+export interface Hooks {
+  /** `null` while asking */
+  setups: HookSetup[] | null;
+  /** In at least one configuration */
+  connected: boolean;
+  /** After connecting or disconnecting: the new state for everyone */
+  update: (setups: HookSetup[]) => void;
+}
+
+let shared: HookSetup[] | null = null;
+const listeners = new Set<(s: HookSetup[]) => void>();
+const publish = (setups: HookSetup[]) => {
+  shared = setups;
+  listeners.forEach((l) => l(setups));
+};
+
+export function useHooks(): Hooks {
+  const [setups, setSetups] = useState<HookSetup[] | null>(shared);
   useEffect(() => {
-    claudeHooks()
-      .then(setSetup)
-      .catch(() => {});
+    listeners.add(setSetups);
+    if (!shared) claudeHooks().then(publish).catch(() => {});
+    return () => void listeners.delete(setSetups);
   }, []);
-  return [setup, setSetup];
+  return { setups, connected: !!setups?.some((s) => s.installed), update: publish };
 }
 
 /** Files the assistant wrote, project-relative, with the time (ms) of the latest write. */

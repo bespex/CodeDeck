@@ -42,6 +42,8 @@ struct Event {
     file: Option<String>,
     prompt: Option<String>,
     message: Option<String>,
+    /// Claude Code's log of the session
+    transcript: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -58,6 +60,10 @@ pub struct Session {
     /// The latest prompt, shortened
     prompt: Option<String>,
     prompts: u32,
+    /// The title Claude Code gave the session, from its log
+    title: Option<String>,
+    /// The model of its latest answer, from its log
+    model: Option<String>,
     /// What it is waiting for
     message: Option<String>,
     /// Files it wrote, project-relative, newest first
@@ -100,6 +106,8 @@ struct Inner {
     /// Per session: the repositories (top-level paths) with a snapshot in the current turn
     turn: HashMap<String, HashSet<PathBuf>>,
     handovers: Vec<Handover>,
+    /// Sessions whose log was read since their turn ended
+    looked_up: HashSet<String>,
 }
 
 pub struct Bridge {
@@ -126,6 +134,7 @@ impl Bridge {
         std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o600))?;
         let bridge = Arc::new(Self { inner: Mutex::new(Inner::default()), snapshotting: Mutex::new(()), socket });
 
+        bridge.load_recent(&app);
         let me = bridge.clone();
         std::thread::spawn(move || {
             for stream in listener.incoming().flatten() {
@@ -149,14 +158,45 @@ impl Bridge {
     }
 
     /// A new project: what was known about the old one does not apply.
-    pub fn clear(&self, app: &AppHandle) {
+    pub fn clear(self: &Arc<Self>, app: &AppHandle) {
         {
             let mut inner = self.inner.lock().unwrap();
             inner.sessions.clear();
             inner.turn.clear();
             inner.handovers.clear();
+            inner.looked_up.clear();
         }
         let _ = app.emit(ASSISTANT_CHANGED, self.state());
+        self.load_recent(app);
+    }
+
+    /// Sessions of the last day from Claude Code's logs, read in the background: the ones that
+    /// ran before this window (or its hooks) were there.
+    fn load_recent(self: &Arc<Self>, app: &AppHandle) {
+        let (me, app) = (self.clone(), app.clone());
+        std::thread::spawn(move || {
+            let root = app.state::<Arc<Current>>().get().root.clone();
+            let found = crate::sessions::recent(&root);
+            {
+                let mut inner = me.inner.lock().unwrap();
+                if app.state::<Arc<Current>>().get().root != root {
+                    return; // the project changed meanwhile
+                }
+                for seen in found {
+                    inner.looked_up.insert(seen.id.clone());
+                    let session = inner.sessions.entry(seen.id.clone()).or_insert_with(|| new_session(&seen.id, seen.last));
+                    if let Some(c) = &seen.cwd {
+                        if session.cwd.is_empty() {
+                            session.cwd = relative(&root, c).unwrap_or_else(|| c.display().to_string());
+                        }
+                    }
+                    session.last = session.last.max(seen.last);
+                    apply(session, seen, &root);
+                }
+                trim(&mut inner);
+            }
+            let _ = app.emit(ASSISTANT_CHANGED, me.state());
+        });
     }
 
     /// One part of the text for the assistant with the next prompt in this project; `None`
@@ -193,6 +233,7 @@ impl Bridge {
 
         let mut context = None;
         let mut snapshot_repos: Vec<PathBuf> = Vec::new();
+        let mut log: Option<PathBuf> = None;
         let label;
         {
             let mut inner = self.inner.lock().unwrap();
@@ -200,18 +241,7 @@ impl Bridge {
                 return None;
             }
             inner.heard = true;
-            let session = inner.sessions.entry(e.session.clone()).or_insert_with(|| Session {
-                id: e.session.clone(),
-                cwd: String::new(),
-                status: "idle",
-                started: now,
-                last: now,
-                prompt: None,
-                prompts: 0,
-                message: None,
-                touched: Vec::new(),
-                handed: false,
-            });
+            let session = inner.sessions.entry(e.session.clone()).or_insert_with(|| new_session(&e.session, now));
             if let Some(c) = &cwd {
                 session.cwd = relative(root, c).unwrap_or_else(|| c.display().to_string());
             }
@@ -269,11 +299,19 @@ impl Bridge {
                 let done = inner.turn.entry(e.session.clone()).or_default();
                 snapshot_repos = wanted.into_iter().filter(|top| done.insert(top.clone())).collect();
             }
-            if inner.sessions.len() > SESSIONS_KEPT {
-                if let Some(oldest) = inner.sessions.values().min_by_key(|s| s.last).map(|s| s.id.clone()) {
-                    inner.sessions.remove(&oldest);
-                    inner.turn.remove(&oldest);
-                }
+            trim(&mut inner);
+            // The log has the title and model: read it for a new session and after each turn
+            if e.event == "Stop" {
+                inner.looked_up.remove(&e.session);
+            }
+            if let Some(t) = e.transcript.as_deref().filter(|_| !inner.looked_up.contains(&e.session)) {
+                inner.looked_up.insert(e.session.clone());
+                log = Some(PathBuf::from(t));
+            }
+        }
+        if let Some(seen) = log.and_then(|p| crate::sessions::read(&p)) {
+            if let Some(session) = self.inner.lock().unwrap().sessions.get_mut(&e.session) {
+                apply(session, seen, root);
             }
         }
 
@@ -299,6 +337,51 @@ impl Bridge {
         }
         let _ = app.emit(ASSISTANT_CHANGED, self.state());
         context
+    }
+}
+
+fn new_session(id: &str, now: u64) -> Session {
+    Session {
+        id: id.to_string(),
+        cwd: String::new(),
+        status: "idle",
+        started: now,
+        last: now,
+        prompt: None,
+        prompts: 0,
+        title: None,
+        model: None,
+        message: None,
+        touched: Vec::new(),
+        handed: false,
+    }
+}
+
+/// Takes in what a session's log says: title, model, and writes the hooks did not report.
+fn apply(session: &mut Session, seen: crate::sessions::Seen, root: &Path) {
+    session.title = seen.title.or(session.title.take());
+    session.model = seen.model.or(session.model.take());
+    if session.prompt.is_none() {
+        session.prompt = seen.prompt.as_deref().map(shorten);
+    }
+    for (file, at) in seen.writes {
+        if let Some(path) = relative(root, &file) {
+            if !session.touched.iter().any(|t| t.path == path) {
+                session.touched.push(Touch { path, at });
+            }
+        }
+    }
+    session.touched.sort_by(|a, b| b.at.cmp(&a.at));
+    session.touched.truncate(TOUCHED_KEPT);
+}
+
+/// Forgets the sessions heard of longest ago beyond [`SESSIONS_KEPT`].
+fn trim(inner: &mut Inner) {
+    while inner.sessions.len() > SESSIONS_KEPT {
+        let Some(oldest) = inner.sessions.values().min_by_key(|s| s.last).map(|s| s.id.clone()) else { break };
+        inner.sessions.remove(&oldest);
+        inner.turn.remove(&oldest);
+        inner.looked_up.remove(&oldest);
     }
 }
 

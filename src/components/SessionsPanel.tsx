@@ -4,7 +4,7 @@ import { DRAG_TYPE } from "./FilesPanel";
 import { HookPanel } from "./AssistantStatus";
 import { Tooltip } from "./Tooltip";
 import { handOver, type AssistantState, type Entry, type Session } from "../backend";
-import { shortId, useHookSetup } from "../assistant";
+import { shortId, useHooks } from "../assistant";
 import { FOCUS_KEY, focusText, type Pin } from "../focus";
 import { plural } from "../git";
 import { LOCALE } from "./Trail";
@@ -49,7 +49,7 @@ const STATUS_COLOR: Record<Session["status"], string> = {
 };
 
 function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (path: string) => void }) {
-  const [setup, setSetup] = useHookSetup();
+  const hooks = useHooks();
   const active = state.sessions.filter((s) => s.status !== "ended").length;
   return (
     <section className="flex min-h-0 flex-col border-b border-line">
@@ -65,9 +65,9 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
               <SessionItem key={s.id} session={s} onShowFile={onShowFile} />
             ))}
           </ul>
-        ) : setup && !setup.installed ? (
+        ) : hooks.setups && !hooks.connected ? (
           <div className="p-1 text-[12px] text-slate-300">
-            <HookPanel setup={setup} onChange={setSetup} heard={state.heard} />
+            <HookPanel hooks={hooks} heard={state.heard} />
           </div>
         ) : (
           <p className="grid h-full place-items-center px-6 text-center text-slate-500">
@@ -88,16 +88,16 @@ function SessionItem({ session: s, onShowFile }: { session: Session; onShowFile:
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-2 py-1.5 text-left">
         <Chevron className="size-3.5 shrink-0 text-slate-500" />
         <span className={`size-2 shrink-0 rounded-full ${STATUS_COLOR[s.status]} ${s.status === "working" ? "animate-pulse" : ""}`} />
-        <span className="font-medium text-slate-100">{STATUS_WORDS[s.status]}</span>
-        <code className="font-mono text-[11px] text-slate-500">{shortId(s.id)}</code>
-        <span className="ml-auto truncate text-[11px] text-slate-500">{s.cwd === "" ? "project root" : s.cwd}</span>
+        <span className="min-w-0 truncate font-medium text-slate-100">{s.title ?? `Session ${shortId(s.id)}`}</span>
+        <span className="ml-auto shrink-0 text-[11px] text-slate-500">{STATUS_WORDS[s.status]}</span>
       </button>
       {open && (
         <div className="px-2 pb-2 pl-[30px] text-[12px]">
           {s.message && <p className="text-changed">{s.message}</p>}
           {s.prompt && <p className="line-clamp-3 text-slate-400 italic">“{s.prompt}”</p>}
           <p className="mt-0.5 text-[11px] text-slate-500">
-            {plural(s.prompts, "prompt")} · last step {new Date(s.last).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" })}
+            {s.cwd === "" ? "project root" : s.cwd}
+            {s.model && ` · ${s.model.replace(/^claude-/, "")}`} · last step {new Date(s.last).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" })}
             {s.handed && <span className="text-ai"> · got the hand-over</span>}
           </p>
           {s.touched.length > 0 && (
@@ -135,7 +135,7 @@ function Focus({ assistant, pins, onPin, onUnpin, onClear }: Props) {
   const share = Math.min(1, used / CONTEXT_TOKENS);
   const barColor = share > 0.5 ? "bg-problem" : share > 0.25 ? "bg-changed" : "bg-ai";
   const waiting = assistant.handovers.find((h) => h.key === FOCUS_KEY);
-  const [setup] = useHookSetup();
+  const { connected } = useHooks();
 
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
@@ -167,13 +167,13 @@ function Focus({ assistant, pins, onPin, onUnpin, onClear }: Props) {
               content={
                 <>
                   <span>Give the focus to Claude with the next prompt you send in this project</span>
-                  {!setup?.installed && <span className="text-slate-400">Needs Claude Code connected (status bar)</span>}
+                  {!connected && <span className="text-slate-400">Needs Claude Code connected (status bar)</span>}
                 </>
               }
             >
               <button
                 type="button"
-                disabled={!setup?.installed}
+                disabled={!connected}
                 onClick={() => handOver(FOCUS_KEY, focusText(pins), plural(pins.length, "item"))}
                 className="flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-[12px] text-slate-300 hover:bg-raised hover:text-slate-100 disabled:opacity-40"
               >
