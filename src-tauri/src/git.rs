@@ -186,6 +186,19 @@ impl Git {
         ActionResult { ok, output: output.into_iter().filter(|o| !o.is_empty()).collect::<Vec<_>>().join("\n") }
     }
 
+    /// Every repository of the project, from the last search, or searched now.
+    pub(crate) fn repos(&self, project: &Project) -> Vec<Repo> {
+        let mut cache = self.repos.lock().unwrap();
+        match cache.as_ref() {
+            Some((root, repos)) if *root == project.root => repos.clone(),
+            _ => {
+                let repos = discover(&project.root);
+                *cache = Some((project.root.clone(), repos.clone()));
+                repos
+            }
+        }
+    }
+
     /// A repository of the project by its project-relative path, as found by the last search.
     pub(crate) fn find(&self, project: &Project, repo: &str) -> Option<Repo> {
         let cache = self.repos.lock().unwrap();

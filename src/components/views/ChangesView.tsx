@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronRight, Code, FolderGit2, GitBranch, ListTree, Pencil, Sparkles } from "lucide-react";
-import { gitCommitDiff, gitWorkingDiff, onFsChanged, type Commit, type Patch, type RepoStatus } from "../../backend";
-import { changeSummary, commitSteps, commandLine, rewordSteps, stateMeaning, stateSymbol, type GitView, type Steps } from "../../git";
+import { Anchor, Check, ChevronDown, ChevronRight, Code, FolderGit2, GitBranch, ListTree, Pencil, Sparkles, Undo2 } from "lucide-react";
+import {
+  gitCommitDiff,
+  gitRestoreSnapshot,
+  gitSnapshotDiff,
+  gitWorkingDiff,
+  onFsChanged,
+  type Commit,
+  type Patch,
+  type RepoStatus,
+  type Snapshot,
+} from "../../backend";
+import { shortId } from "../../assistant";
+import { changeSummary, commitSteps, commandLine, plural, rewordSteps, stateMeaning, stateSymbol, type GitView, type Steps } from "../../git";
 import { diffSize, parsePatch, type FileDiff } from "../../diff";
 import { toProject, useGitRun, type Done, type TrailCommit } from "../../history";
 import { LOCALE, type Point } from "../Trail";
@@ -17,6 +28,9 @@ interface Props {
   git: GitView;
   point: Point;
   commits: TrailCommit[];
+  snapshots: Snapshot[];
+  /** The working tree was put back as in a snapshot */
+  onRestored: () => void;
   /** Selected in the file list: its diff is scrolled into view */
   selected: string | null;
   onShowNow: () => void;
@@ -35,7 +49,7 @@ function savedMode(): Mode {
   }
 }
 
-export function ChangesView({ git, point, commits, selected, onShowNow, onSelect }: Props) {
+export function ChangesView({ git, point, commits, snapshots, onRestored, selected, onShowNow, onSelect }: Props) {
   // After a message was changed the commit has a new hash: the one at the same place is shown
   const [rewritten, setRewritten] = useState<{ repo: string; index: number; hashes: string } | null>(null);
   useEffect(() => {
@@ -90,6 +104,33 @@ export function ChangesView({ git, point, commits, selected, onShowNow, onSelect
         />
       ) : (
         <Empty>That commit is no longer in the history shown.</Empty>
+      );
+  } else if (point.kind === "snapshot") {
+    const snapshot = snapshots.find((s) => s.repo === point.repo && s.hash === point.hash);
+    const repo = git.repos.find((r) => r.path === point.repo);
+    title = (
+      <>
+        <span>Since snapshot</span>
+        {snapshot && <code className="font-mono text-[11px] text-slate-300">{snapshot.short}</code>}
+      </>
+    );
+    body =
+      snapshot && repo ? (
+        <SnapshotChanges
+          key={snapshot.hash}
+          snapshot={snapshot}
+          repo={repo}
+          several={git.repos.length > 1}
+          mode={mode}
+          selected={selected}
+          onShowNow={onShowNow}
+          onRestored={() => {
+            onRestored();
+            onShowNow();
+          }}
+        />
+      ) : (
+        <Empty>That snapshot is gone: snapshots are kept for 14 days, 50 per repository.</Empty>
       );
   } else {
     const dirty = git.repos.filter((r) => r.files.length > 0);
@@ -405,6 +446,140 @@ function CommitChanges(props: {
         <div className="flex flex-col gap-2">
           {files.map((file) => (
             <FileSection key={file.path} id={`diff:${toProject(props.repo, file.path)}`} file={file} />
+          ))}
+          {patch.truncated && <p className="text-[12px] text-changed">The diff is very long and was cut off here.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A snapshot: what it was taken before, what changed since, and going back to it. Going back
+ * keeps the present as a snapshot first, so it can be undone from the trail the same way.
+ */
+function SnapshotChanges(props: {
+  snapshot: Snapshot;
+  repo: RepoStatus;
+  several: boolean;
+  mode: Mode;
+  selected: string | null;
+  onShowNow: () => void;
+  onRestored: () => void;
+}) {
+  const { snapshot: s, repo } = props;
+  // What changed since depends on the disk: read again when it changes
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const stop = onFsChanged(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setTick((t) => t + 1), 400);
+    });
+    return () => {
+      clearTimeout(timer);
+      stop();
+    };
+  }, []);
+  const { patch, error } = usePatch(() => gitSnapshotDiff(repo.path, s.hash), `${repo.path}:${s.hash}:${tick}`);
+  const files = useMemo(() => (patch ? parsePatch(patch.text) : []), [patch]);
+  const [asking, setAsking] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const changed = patch?.changes.length ?? 0;
+
+  const goBack = async () => {
+    setRunning(true);
+    setFailed(null);
+    try {
+      await gitRestoreSnapshot(repo.path, s.hash);
+      props.onRestored();
+    } catch (e) {
+      setFailed(String(e));
+    } finally {
+      setRunning(false);
+      setAsking(false);
+    }
+  };
+
+  return (
+    <div className="p-4">
+      <header className="mb-3">
+        <div className="flex items-start gap-2">
+          {s.back ? <Undo2 className="mt-1 size-4 shrink-0 text-slate-400" /> : <Anchor className="mt-1 size-4 shrink-0 text-changed" />}
+          <h2 className="selectable text-[15px] font-semibold text-slate-50">{s.label}</h2>
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-slate-400">
+          <code className="selectable rounded bg-panel px-1.5 font-mono text-[11px] text-slate-200">{s.short}</code>
+          {props.several && <span className="font-semibold text-slate-300">{repo.name}</span>}
+          <span>{new Date(s.at * 1000).toLocaleString(LOCALE)}</span>
+          {s.session && (
+            <span className="flex items-center gap-1 text-ai">
+              <Sparkles className="size-3" /> session {shortId(s.session)}
+            </span>
+          )}
+          {s.tool && <code className="font-mono text-[11px] text-slate-500">{s.tool}</code>}
+          <button
+            type="button"
+            onClick={props.onShowNow}
+            className="ml-auto rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised hover:text-slate-100"
+          >
+            Back to uncommitted
+          </button>
+        </div>
+        <div className="mt-3 rounded-lg border border-line bg-panel p-3">
+          {!asking ? (
+            <div className="flex items-center gap-3">
+              <p className="flex-1 text-slate-400">
+                {changed === 0
+                  ? "Nothing changed since this snapshot."
+                  : `${plural(changed, "file")} changed since this snapshot${s.back ? "" : " was taken, before the assistant wrote"}.`}
+              </p>
+              <button
+                type="button"
+                disabled={changed === 0 || running}
+                onClick={() => setAsking(true)}
+                className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-white not-disabled:hover:bg-brand-fill-hover disabled:opacity-40"
+              >
+                <Undo2 className="size-3.5" />
+                Go back to here
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <p className="flex-1 text-slate-300">
+                Puts {plural(changed, "file")} back as they were in {repo.name}; files that are new since then are
+                deleted. What is there now is kept as a snapshot first, so you can come back to it.
+              </p>
+              <button
+                type="button"
+                onClick={() => setAsking(false)}
+                className="rounded-md border border-line px-2.5 py-1 text-slate-300 hover:bg-raised"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={running}
+                onClick={goBack}
+                className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-white not-disabled:hover:bg-brand-fill-hover disabled:opacity-40"
+              >
+                <Undo2 className="size-3.5" />
+                {running ? "Going back…" : "Go back"}
+              </button>
+            </div>
+          )}
+          {failed && <p className="selectable mt-2 text-problem">{failed}</p>}
+        </div>
+      </header>
+      {error && <p className="selectable text-problem">{error}</p>}
+      {patch && props.mode === "structure" && (
+        <StructureTree patch={patch} files={files} repo={repo} selected={props.selected} />
+      )}
+      {patch && props.mode === "code" && (
+        <div className="flex flex-col gap-2">
+          {files.map((file) => (
+            <FileSection key={file.path} id={`diff:${toProject(repo, file.path)}`} file={file} />
           ))}
           {patch.truncated && <p className="text-[12px] text-changed">The diff is very long and was cut off here.</p>}
         </div>

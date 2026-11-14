@@ -16,6 +16,7 @@ import {
 } from "./backend";
 import { config, initialPins, type Pin } from "./mock";
 import { useGit } from "./git";
+import { touchedFiles, useAssistant } from "./assistant";
 import { RepoActions, type Anchor } from "./components/RepoActions";
 
 async function pinFromEntry(entry: Entry): Promise<Pin> {
@@ -45,6 +46,7 @@ export default function App() {
   const [pins, setPins] = useState<Pin[]>(live ? [] : initialPins);
   const [selected, setSelected] = useState<string | null>(null);
   const git = useGit(project?.path);
+  const assistant = useAssistant();
   // Git actions of one repository, hanging at the element that opened them
   const [actions, setActions] = useState<{ repo: string; anchor: Anchor } | null>(null);
   const [logOpen, setLogOpen] = useState(false);
@@ -100,8 +102,9 @@ export default function App() {
           onUnpin={unpin}
           onOpenProject={open}
           onRepoActions={openActions}
+          touched={touchedFiles(assistant)}
         />
-        <Deck key={`deck:${project?.path}`} project={project} git={git} selected={selected} />
+        <Deck key={`deck:${project?.path}`} project={project} git={git} selected={selected} assistant={assistant} />
         <AssistantPanel
           pins={pins}
           budget={config.assistant.contextBudget}
@@ -110,7 +113,13 @@ export default function App() {
           onClear={() => setPins([])}
         />
       </div>
-      <StatusBar git={git} onRepoActions={openActions} logOpen={logOpen} onToggleLog={() => setLogOpen(!logOpen)} />
+      <StatusBar
+        git={git}
+        onRepoActions={openActions}
+        logOpen={logOpen}
+        onToggleLog={() => setLogOpen(!logOpen)}
+        assistant={assistant}
+      />
       {logOpen && <GitLog runs={git.runs} onClose={() => setLogOpen(false)} />}
       {actions && actionsRepo && (
         <RepoActions

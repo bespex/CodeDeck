@@ -11,9 +11,10 @@ import { Trail, type Point } from "./Trail";
 import { WorkspaceView } from "./views/WorkspaceView";
 import { ComingView } from "./views/ComingView";
 import { ChangesView } from "./views/ChangesView";
-import type { ProjectInfo } from "../backend";
+import { DocsView } from "./views/DocsView";
+import type { AssistantState, ProjectInfo } from "../backend";
 import type { GitView } from "../git";
-import { useHistory } from "../history";
+import { useHistory, useSnapshots } from "../history";
 
 type ViewId = "workspace" | "map" | "changes" | "docs" | "tests";
 
@@ -30,12 +31,14 @@ interface Props {
   git: GitView;
   /** Selected in the file list */
   selected: string | null;
+  assistant: AssistantState;
 }
 
-export function Deck({ project, git, selected }: Props) {
+export function Deck({ project, git, selected, assistant }: Props) {
   const [view, setView] = useState<ViewId>("changes");
   const [point, setPoint] = useState<Point>({ kind: "now" });
   const commits = useHistory(git.repos);
+  const { snapshots, reload: reloadSnapshots } = useSnapshots(git.repos);
   const changed = git.changed;
 
   // The repository of the selection: on the trail its commits stay bright, others fade
@@ -87,7 +90,7 @@ export function Deck({ project, git, selected }: Props) {
       </nav>
 
       <div className="flex min-h-0 flex-1">
-        <Trail commits={commits} repos={git.repos} point={point} onSelect={select} focusRepo={focusRepo} />
+        <Trail commits={commits} snapshots={snapshots} repos={git.repos} point={point} onSelect={select} focusRepo={focusRepo} />
         <section className="min-w-0 flex-1 overflow-y-auto" role="tabpanel">
           {view === "workspace" && <WorkspaceView project={project} />}
           {view === "map" && (
@@ -103,19 +106,17 @@ export function Deck({ project, git, selected }: Props) {
               git={git}
               point={point}
               commits={commits}
+              snapshots={snapshots}
+              onRestored={() => {
+                reloadSnapshots();
+                git.refresh();
+              }}
               selected={selected}
               onShowNow={() => setPoint({ kind: "now" })}
               onSelect={setPoint}
             />
           )}
-          {view === "docs" && (
-            <ComingView
-              icon={BookOpen}
-              title="Docs"
-              text="The project's Markdown, opened in marq or previewed here."
-              phase="after Phase 5"
-            />
-          )}
+          {view === "docs" && <DocsView assistant={assistant} />}
           {view === "tests" && (
             <ComingView
               icon={FlaskConical}

@@ -7,15 +7,15 @@ Part of [be spex](https://be-spex.github.io) – small, focused apps for Linux. 
 [Jayq, Xaq and Marq](https://github.com/be-spex/Qiew).
 
 > Early development. Real: the file list, Git (status, changes, history and the everyday actions)
-> for every repository in the project. Still sample data: the Workspace view, the context and the
-> assistant.
+> for every repository in the project, and the bridge to Claude Code (sessions, snapshots, comments
+> for the assistant). Still sample data: the Workspace view, the context and the assistant chat.
 
 ## Layout
 
 | Column | What it is |
 | --- | --- |
 | **Files** | The project tree. A cyan dot marks files the assistant changed. The project name at the top switches to a recent project or opens a folder (`Ctrl+O`) here or in a new window (`Ctrl+Shift+O`); every folder in the path above it, and every folder in the tree, can become the project. `Ctrl+click` opens it in a new window instead. |
-| **Deck** | The working surface, with views (Workspace, Map, Changes, Docs, Tests) and the **Trail**: the Git history of all repositories as one vertical line. Hovering opens it to the left, over the file list, into a timeline; a point shows what that commit changed, with its details on top. A spark marks commits made with an assistant (from their `Co-authored-by` trailer), a dashed ring commits not pushed yet. |
+| **Deck** | The working surface, with views (Workspace, Map, Changes, Docs, Tests) and the **Trail**: the Git history of all repositories as one vertical line. Hovering opens it to the left, over the file list, into a timeline; a point shows what that commit changed, with its details on top. The line shows how safe the work is: amber while not committed, dashed amber with hollow amber rings while committed but not pushed, quiet grey with filled points once on a remote. The newest pushed commit of each repository carries its remote's name with what is left to push and pull (`origin ↑2`). A spark marks commits made with an assistant (from their `Co-authored-by` trailer); an anchor marks a snapshot (see below). |
 | **Context** and **Assistant** | What the AI gets to see (pinned files, folders, snippets, with a token meter) and the chat with it. |
 
 A project is a directory with an optional `.codedeck.toml`. No index, no project folder. Each window is
@@ -42,6 +42,31 @@ The message of a commit not on any remote yet can be changed in place (the penci
 the newest one with `git commit --amend --only`, an older one with an `amend!` commit and
 `git rebase -i --autosquash --autostash`, which runs without an editor. Pushed commits and
 commits behind a merge are left alone.
+
+## Claude Code
+
+CodeDeck does not run the assistant; Claude Code does, in its terminal or desktop app. CodeDeck
+watches alongside. **Connect Claude Code** (click *Claude* in the status bar) adds hooks to
+`~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR`) that run `codedeck hook`. That passes each
+event, without file contents, to the socket every CodeDeck window keeps in
+`$XDG_RUNTIME_DIR/codedeck/`; a window only takes in what concerns its project. Nothing else in
+the settings changes, the file as it was is kept as `settings.json.before-codedeck`, and
+*Disconnect* takes the hooks out again. Without a CodeDeck window open the hook does nothing.
+
+- **Sessions:** the status bar counts the sessions working in the project and shows when one waits
+  for you; a click lists them with their latest prompt and the files they wrote. Those files carry
+  the dot in the file list.
+- **Snapshots:** before a session writes for the first time in a turn (a file edit, or any shell
+  command), CodeDeck keeps the repository's working tree, untracked files included, as a commit
+  under `refs/codedeck/snapshots/`. That goes through a copy of the index: the real index, the
+  branches and what you push stay untouched (`git log --all` does show them). Snapshots since a
+  repository's last commit appear on the trail; picking one shows what changed since, and **Go back
+  to here** puts the files back, after keeping the present as a snapshot of its own, so going back
+  can be undone the same way. 50 per repository are kept, for 14 days.
+- **Comments for the assistant:** write `<!-- @ai: … -->` into Markdown or HTML, or `[!AI: …]`
+  into any text, in whatever editor. The **Docs** view collects them (with `git grep`, so ignored
+  files stay out) and turns them into a task: copied, or **handed to Claude** with the next prompt
+  you send in this project.
 
 **Git commands** (click the last command in the status bar, or Ctrl+Shift+G) lists every git
 command CodeDeck ran with what git printed and its exit code. Commands that changed something stand

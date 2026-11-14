@@ -387,6 +387,188 @@ export function gitCommitDiff(repo: string, hash: string): Promise<Patch> {
   return Promise.resolve(mockPatch(MOCK_PATCH, MOCK_MOVES));
 }
 
+/** The working tree of a repository, kept before an assistant wrote for the first time in a turn. */
+export interface Snapshot {
+  /** Project-relative path of the repository */
+  repo: string;
+  hash: string;
+  short: string;
+  /** Unix seconds */
+  at: number;
+  /** What it was taken before, e.g. the prompt of the turn */
+  label: string;
+  /** The assistant session that was about to write */
+  session: string | null;
+  /** The first thing it was about to do, e.g. `Edit src/main.rs` */
+  tool: string | null;
+  /** Taken before going back to another snapshot */
+  back: boolean;
+}
+
+/** Snapshots of the given repositories, newest first. */
+export function gitSnapshots(repos: string[]): Promise<Snapshot[]> {
+  if (live) return invoke("git_snapshots", { repos });
+  const now = Math.floor(Date.now() / 1000);
+  return Promise.resolve(
+    repos.includes("")
+      ? [
+          { repo: "", hash: "snap1".padEnd(40, "0"), short: "snap100", at: now - 90, label: "Before: Held orders in the fixture should not count against the limit.", session: "3f9c2a71", tool: "Edit tests/rate_limit.rs", back: false },
+          { repo: "", hash: "snap2".padEnd(40, "0"), short: "snap200", at: now - 150, label: "Before: Add a per-client rate limit to the orders endpoint.", session: "3f9c2a71", tool: "Write src/middleware/rate_limit.rs", back: false },
+        ]
+      : [],
+  );
+}
+
+/** What changed since a snapshot, as a patch. */
+export function gitSnapshotDiff(repo: string, hash: string): Promise<Patch> {
+  if (live) return invoke("git_snapshot_diff", { repo, hash });
+  return Promise.resolve(mockPatch(MOCK_PATCH, MOCK_MOVES));
+}
+
+/** Puts the working tree back as it was in a snapshot; the present is kept as one before. */
+export function gitRestoreSnapshot(repo: string, hash: string): Promise<void> {
+  if (live) return invoke("git_restore_snapshot", { repo, hash });
+  mockRun(`git restore --source=${hash.slice(0, 7)} --worktree -- .`, [repo]);
+  return Promise.resolve();
+}
+
+/** Calls back after a snapshot was taken. */
+export function onSnapshotTaken(callback: () => void): () => void {
+  if (live) {
+    const unlisten = listen("snapshot_taken", () => callback());
+    return () => void unlisten.then((stop) => stop());
+  }
+  return () => {};
+}
+
+/** A comment for the assistant in a document: `<!-- @ai: … -->` or `[!AI: …]`. */
+export interface Marker {
+  /** Project-relative */
+  path: string;
+  line: number;
+  /** What it says, without the marker syntax */
+  text: string;
+}
+
+export function findMarkers(): Promise<Marker[]> {
+  if (live) return invoke("find_markers");
+  return Promise.resolve([
+    { path: "docs/api.md", line: 4, text: "Name the header that says when to retry" },
+    { path: "docs/api.md", line: 19, text: "Example for a held order" },
+    { path: "docs/limits.md", line: 2, text: "Shorter; one table instead of the list" },
+  ]);
+}
+
+/** A coding assistant session working in the project, as its hooks told. */
+export interface Session {
+  id: string;
+  /** Where it runs: project-relative (`""` is the root), or absolute outside the project */
+  cwd: string;
+  /** working; waiting for an answer or a permission; idle: its turn is over; ended */
+  status: "working" | "waiting" | "idle" | "ended";
+  /** Unix milliseconds */
+  started: number;
+  last: number;
+  /** The latest prompt, shortened */
+  prompt: string | null;
+  prompts: number;
+  /** What it is waiting for */
+  message: string | null;
+  /** Files it wrote, project-relative, newest first */
+  touched: { path: string; at: number }[];
+  /** It got the hand-over with its latest prompt */
+  handed: boolean;
+}
+
+export interface AssistantState {
+  /** A hook event arrived since this window started */
+  heard: boolean;
+  sessions: Session[];
+  /** Text waiting for the next prompt */
+  handover: { text: string; label: string } | null;
+}
+
+const mockAssistant: AssistantState = {
+  heard: true,
+  sessions: [
+    {
+      id: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a",
+      cwd: "",
+      status: "working",
+      started: Date.now() - 20 * 60_000,
+      last: Date.now() - 5_000,
+      prompt: "Held orders in the fixture should not count against the limit.",
+      prompts: 2,
+      message: null,
+      touched: [
+        { path: "tests/rate_limit.rs", at: Date.now() - 40_000 },
+        { path: "src/middleware/rate_limit.rs", at: Date.now() - 120_000 },
+      ],
+      handed: false,
+    },
+    {
+      id: "b07e11d4-6c3a-4f2e-8d90-1a2b3c4d5e6f",
+      cwd: "docs",
+      status: "waiting",
+      started: Date.now() - 50 * 60_000,
+      last: Date.now() - 3 * 60_000,
+      prompt: "Document the limiter",
+      prompts: 1,
+      message: "Claude needs your permission to use Bash",
+      touched: [{ path: "docs/api.md", at: Date.now() - 4 * 60_000 }],
+      handed: false,
+    },
+  ],
+  handover: null,
+};
+const mockAssistantListeners = new Set<(state: AssistantState) => void>();
+
+export function assistantState(): Promise<AssistantState> {
+  if (live) return invoke("assistant_state");
+  return Promise.resolve(mockAssistant);
+}
+
+export function onAssistantChanged(callback: (state: AssistantState) => void): () => void {
+  if (live) {
+    const unlisten = listen<AssistantState>("assistant_changed", (event) => callback(event.payload));
+    return () => void unlisten.then((stop) => stop());
+  }
+  mockAssistantListeners.add(callback);
+  return () => mockAssistantListeners.delete(callback);
+}
+
+/** Text for the assistant with the next prompt in this project; `null` takes it back. */
+export function handOver(text: string | null, label?: string): Promise<void> {
+  if (live) return invoke("hand_over", { text, label: label ?? null });
+  mockAssistant.handover = text === null ? null : { text, label: label ?? "" };
+  mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+  return Promise.resolve();
+}
+
+/** Whether CodeDeck's hooks are in Claude Code's settings. */
+export interface HookSetup {
+  /** Claude Code's settings file */
+  settings: string;
+  installed: boolean;
+  /** The hooks run another CodeDeck than this one, e.g. a development build */
+  other: string | null;
+  /** What the hooks run, for this CodeDeck */
+  command: string;
+}
+
+let mockHooks: HookSetup = { settings: "~/.claude/settings.json", installed: true, other: null, command: "/usr/bin/codedeck hook" };
+
+export function claudeHooks(): Promise<HookSetup> {
+  if (live) return invoke("claude_hooks");
+  return Promise.resolve(mockHooks);
+}
+
+export function setClaudeHooks(install: boolean): Promise<HookSetup> {
+  if (live) return invoke("set_claude_hooks", { install });
+  mockHooks = { ...mockHooks, installed: install, other: null };
+  return Promise.resolve(mockHooks);
+}
+
 /** The git commands run so far, oldest first. */
 export function gitLog(): Promise<GitRun[]> {
   if (live) return invoke("git_log");

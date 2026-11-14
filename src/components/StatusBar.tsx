@@ -1,17 +1,19 @@
-import { Eye, GitBranch, GitFork, Plug, SquareTerminal } from "lucide-react";
+import { Eye, GitBranch, GitFork, SquareTerminal } from "lucide-react";
 import { aheadBehind, changeSummary, type GitView } from "../git";
 import { Tooltip, TooltipHint } from "./Tooltip";
 import { RepoTooltip } from "./RepoTooltip";
-import type { GitRun } from "../backend";
+import type { AssistantState, GitRun } from "../backend";
+import { AssistantStatus } from "./AssistantStatus";
 
 interface Props {
   git: GitView;
   onRepoActions: (repo: string, at: HTMLElement, above: boolean) => void;
   logOpen: boolean;
   onToggleLog: () => void;
+  assistant: AssistantState;
 }
 
-export function StatusBar({ git, onRepoActions, logOpen, onToggleLog }: Props) {
+export function StatusBar({ git, onRepoActions, logOpen, onToggleLog, assistant }: Props) {
   const root = git.rootRepo;
   const inFolders = git.repos.filter((r) => r.path);
   const withChanges = inFolders.filter((r) => r.files.length > 0).length;
@@ -50,10 +52,7 @@ export function StatusBar({ git, onRepoActions, logOpen, onToggleLog }: Props) {
         <Eye className="size-3" />
         Watching open folders
       </span>
-      <span className="flex items-center gap-1 text-slate-500">
-        <Plug className="size-3" />
-        Tool socket: not yet
-      </span>
+      <AssistantStatus state={assistant} />
     </footer>
   );
 }

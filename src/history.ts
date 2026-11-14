@@ -2,7 +2,16 @@
 // with their visible output, and the file actions of the Changes view.
 
 import { useEffect, useRef, useState } from "react";
-import { gitAction, gitHistory, type Commit, type FileStatus, type RepoStatus } from "./backend";
+import {
+  gitAction,
+  gitHistory,
+  gitSnapshots,
+  onSnapshotTaken,
+  type Commit,
+  type FileStatus,
+  type RepoStatus,
+  type Snapshot,
+} from "./backend";
 import { commandLine, type Steps } from "./git";
 
 /** At most this many points on the trail. */
@@ -50,6 +59,33 @@ export function useHistory(repos: RepoStatus[]): TrailCommit[] {
   }, [key]);
 
   return commits;
+}
+
+/**
+ * The snapshots of all repositories, newest first. Read again when one is taken, when a
+ * repository's commit changes, and on `reload` (after going back to one).
+ */
+export function useSnapshots(repos: RepoStatus[]): { snapshots: Snapshot[]; reload: () => void } {
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [tick, setTick] = useState(0);
+  const key = repos.map((r) => `${r.path}:${r.head}`).join("|");
+  useEffect(() => onSnapshotTaken(() => setTick((t) => t + 1)), []);
+  useEffect(() => {
+    if (!repos.length) {
+      setSnapshots([]);
+      return;
+    }
+    let alive = true;
+    gitSnapshots(repos.map((r) => r.path))
+      .then((list) => alive && setSnapshots(list))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // `key` stands for what matters in `repos`
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, tick]);
+  return { snapshots, reload: () => setTick((t) => t + 1) };
 }
 
 export interface Done {

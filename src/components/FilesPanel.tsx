@@ -65,6 +65,8 @@ interface Props {
   onOpenProject: OpenProject;
   /** Open the Git actions of a repository at the given element */
   onRepoActions: (repo: string, at: HTMLElement, above: boolean) => void;
+  /** Files an assistant wrote, with the time (ms) of its latest write */
+  touched: Map<string, number>;
 }
 
 /** Listings by directory path. Only directories that were opened are in here. */
@@ -129,7 +131,11 @@ export function FilesPanel(props: Props) {
   };
 
   const needle = query.trim().toLowerCase();
-  const recentPaths = Object.keys(recent);
+  // Changed on disk recently, or written by an assistant recently
+  const since = Date.now() - RECENT_MS;
+  const recentPaths = [
+    ...new Set([...Object.keys(recent), ...[...props.touched].filter(([, at]) => at > since).map(([path]) => path)]),
+  ];
   const contextMenu = useContextMenu();
   const tree: TreeState = { ...props, listings, open, recentPaths, needle, toggle, menu: contextMenu.open };
 

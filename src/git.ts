@@ -150,7 +150,7 @@ export function aheadBehind(repo: RepoStatus): string {
   return [repo.ahead && `↑${repo.ahead}`, repo.behind && `↓${repo.behind}`].filter(Boolean).join(" ");
 }
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** What a status letter means, in a few words. */
 export const stateMeaning: Record<GitState, string> = {

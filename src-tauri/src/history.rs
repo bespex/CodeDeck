@@ -95,10 +95,10 @@ pub struct Change {
 /// A copy of the index to stage untracked files into with `--intent-to-add`: with them in it,
 /// Git's own rename detection sees files that moved to a new place too. The real index stays
 /// untouched; the copy is removed afterwards.
-struct ScratchIndex(std::path::PathBuf);
+pub(crate) struct ScratchIndex(std::path::PathBuf);
 
 impl ScratchIndex {
-    fn new(git: &Git, report: Report, repo: &Repo) -> Result<Self, String> {
+    pub(crate) fn new(git: &Git, report: Report, repo: &Repo) -> Result<Self, String> {
         static COUNT: AtomicU64 = AtomicU64::new(0);
         let real = git.run(report, repo, &["rev-parse", "--git-path", "index"])?;
         let real = repo.top.join(String::from_utf8_lossy(&real).trim());
@@ -106,8 +106,22 @@ impl ScratchIndex {
             .join(format!("codedeck-index-{}-{}", std::process::id(), COUNT.fetch_add(1, Ordering::Relaxed)));
         if real.exists() {
             fs::copy(&real, &path).map_err(|e| format!("copying the index: {e}"))?;
+            // The copy must keep the index's time: Git trusts a file's size and time over its
+            // content unless the file changed in the same second as the index was written. With
+            // a newer time on the copy, such a change ("racy" in Git's words) would be missed.
+            let modified = fs::metadata(&real).and_then(|m| m.modified());
+            if let Ok(modified) = modified {
+                let _ = fs::File::options().write(true).open(&path).and_then(|f| f.set_modified(modified));
+            }
         }
         Ok(Self(path))
+    }
+}
+
+impl ScratchIndex {
+    /// For `GIT_INDEX_FILE`.
+    pub(crate) fn path(&self) -> String {
+        self.0.to_string_lossy().into_owned()
     }
 }
 
@@ -180,11 +194,16 @@ impl Git {
     pub fn working_diff(&self, report: Report, project: &Project, repo: &str) -> Result<Patch, String> {
         let repo = self.find(project, repo).ok_or_else(|| format!("{repo}: no repository here"))?;
         let has_head = self.run(report, &repo, &["rev-parse", "--verify", "--quiet", "HEAD"]).is_ok();
-        let base = if has_head { "HEAD" } else { EMPTY_TREE };
+        self.worktree_diff(report, &repo, if has_head { "HEAD" } else { EMPTY_TREE })
+    }
+
+    /// The working tree, untracked files included, against any commit or tree.
+    pub(crate) fn worktree_diff(&self, report: Report, repo: &Repo, base: &str) -> Result<Patch, String> {
+        let repo = repo.clone();
         let paths: &[&str] = if repo.prefix.is_empty() { &[] } else { &["--", &repo.prefix] };
 
         let index = ScratchIndex::new(self, report, &repo)?;
-        let index_path = index.0.to_string_lossy().into_owned();
+        let index_path = index.path();
         let env = [("GIT_INDEX_FILE", index_path.as_str())];
         let add = [&["-c", "advice.addEmbeddedRepo=false", "add", "-A", "--intent-to-add"][..], paths].concat();
         self.run_with(report, &repo, &add, &env)?;

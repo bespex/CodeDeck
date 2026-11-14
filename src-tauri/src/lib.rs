@@ -1,14 +1,19 @@
 //! CodeDeck backend.
 //!
 //! The project directory, its file list and a file watcher. Each window is its own process with
-//! its own project; several can run side by side. The tool socket and Git arrive in later phases.
+//! its own project; several can run side by side. Git for every repository in it, and a socket
+//! through which coding assistants (Claude Code's hooks) report what they do.
 
 mod apps;
+mod bridge;
 mod config;
 mod git;
 mod history;
+pub mod hook;
+mod markers;
 mod project;
 mod recent;
+mod snapshot;
 mod watch;
 
 use std::path::{Path, PathBuf};
@@ -19,6 +24,10 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use apps::{FileApps, Role};
+use bridge::{AssistantState, Bridge};
+use hook::HookSetup;
+use markers::Marker;
+use snapshot::Snapshot;
 use git::{ActionResult, Git, GitRun, RepoStatus};
 use history::{Patch, RepoLog};
 use project::{Entry, PathStats, Project, ProjectInfo};
@@ -111,10 +120,12 @@ fn open_project(
     app: AppHandle,
     current: State<Arc<Current>>,
     watch: State<Watch>,
+    bridge: State<Arc<Bridge>>,
 ) -> Result<ProjectInfo, String> {
     let project = Arc::new(Project::open(Path::new(path))?);
     *current.0.write().unwrap() = project.clone();
     watch.clear();
+    bridge.clear(&app);
     recent::remember(&project.root);
     set_title(&app, &project);
     Ok(project.info())
@@ -229,6 +240,54 @@ async fn blocking<T: Send + 'static>(
     .map_err(|e| e.to_string())
 }
 
+/// Snapshots of the working tree taken before an assistant wrote, newest first.
+#[tauri::command]
+async fn git_snapshots(repos: Vec<String>, app: AppHandle) -> Result<Vec<Snapshot>, String> {
+    blocking(app, move |app, project, report| app.state::<Git>().snapshots(report, &project, &repos)).await
+}
+
+/// What changed since a snapshot, as a patch.
+#[tauri::command]
+async fn git_snapshot_diff(repo: String, hash: String, app: AppHandle) -> Result<Patch, String> {
+    blocking(app, move |app, project, report| app.state::<Git>().snapshot_diff(report, &project, &repo, &hash)).await?
+}
+
+/// Puts the working tree back as it was in a snapshot; the present is kept as one before.
+#[tauri::command]
+async fn git_restore_snapshot(repo: String, hash: String, app: AppHandle) -> Result<(), String> {
+    blocking(app, move |app, project, report| app.state::<Git>().restore_snapshot(report, &project, &repo, &hash)).await?
+}
+
+/// The `@ai` markers in the project's documents.
+#[tauri::command]
+async fn find_markers(app: AppHandle) -> Result<Vec<Marker>, String> {
+    blocking(app, move |app, project, report| app.state::<Git>().markers(report, &project)).await
+}
+
+/// The assistant sessions in this project, as far as their hooks told.
+#[tauri::command]
+fn assistant_state(bridge: State<Arc<Bridge>>) -> AssistantState {
+    bridge.state()
+}
+
+/// Text handed to the assistant with the next prompt in this project; `None` takes it back.
+#[tauri::command]
+fn hand_over(text: Option<String>, label: Option<String>, app: AppHandle, bridge: State<Arc<Bridge>>) {
+    bridge.hand_over(&app, text.map(|t| (t, label.unwrap_or_default())));
+}
+
+/// Whether CodeDeck's hooks are in Claude Code's settings.
+#[tauri::command]
+fn claude_hooks() -> HookSetup {
+    hook::status()
+}
+
+/// Puts CodeDeck's hooks into Claude Code's settings, or takes them out.
+#[tauri::command]
+fn set_claude_hooks(install: bool) -> Result<HookSetup, String> {
+    hook::set(install)
+}
+
 /// The git commands run so far, oldest first.
 #[tauri::command]
 fn git_log(git: State<Git>) -> Vec<GitRun> {
@@ -236,7 +295,7 @@ fn git_log(git: State<Git>) -> Vec<GitRun> {
 }
 
 /// Event sent after every git command; payload [`GitRun`].
-const GIT_RAN: &str = "git_ran";
+pub(crate) const GIT_RAN: &str = "git_ran";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -258,6 +317,13 @@ pub fn run() {
             app.manage(Watch::start(app.handle().clone(), current.clone())?);
             app.manage(current);
             app.manage(Git::new());
+            // Without the socket CodeDeck works on, only without hearing from assistants
+            match Bridge::start(app.handle().clone()) {
+                Ok(bridge) => {
+                    app.manage(bridge);
+                }
+                Err(e) => eprintln!("codedeck: no socket for assistants: {e}"),
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -278,8 +344,24 @@ pub fn run() {
             git_history,
             git_working_diff,
             git_commit_diff,
+            git_snapshots,
+            git_snapshot_diff,
+            git_restore_snapshot,
+            find_markers,
+            assistant_state,
+            hand_over,
+            claude_hooks,
+            set_claude_hooks,
             git_log
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running CodeDeck");
+        .build(tauri::generate_context!())
+        .expect("error while building CodeDeck")
+        .run(|app, event| {
+            // State is not dropped on exit: the socket would stay behind
+            if let tauri::RunEvent::Exit = event {
+                if let Some(bridge) = app.try_state::<Arc<Bridge>>() {
+                    let _ = std::fs::remove_file(bridge.socket());
+                }
+            }
+        });
 }
