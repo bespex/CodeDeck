@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Anchor, Check, ChevronDown, ChevronRight, Code, FolderGit2, GitBranch, ListTree, Pencil, Sparkles, Undo2 } from "lucide-react";
+import { Anchor, ArrowRight, Check, ChevronDown, ChevronRight, Code, ExternalLink, Filter, FolderGit2, GitBranch, ListTree, Pencil, Sparkles, Undo2, X } from "lucide-react";
 import {
   gitCommitDiff,
+  gitCompare,
+  hasDiffViewer,
+  showPatch,
   gitRestoreSnapshot,
   gitSnapshotDiff,
   gitWorkingDiff,
@@ -29,6 +32,9 @@ interface Props {
   point: Point;
   commits: TrailCommit[];
   snapshots: Snapshot[];
+  /** Only this session's snapshots are on the trail */
+  sessionFilter: string | null;
+  onSessionFilter: (session: string | null) => void;
   /** The working tree was put back as in a snapshot */
   onRestored: () => void;
   /** Selected in the file list: its diff is scrolled into view */
@@ -49,7 +55,8 @@ function savedMode(): Mode {
   }
 }
 
-export function ChangesView({ git, point, commits, snapshots, onRestored, selected, onShowNow, onSelect }: Props) {
+export function ChangesView(props: Props) {
+  const { git, point, commits, snapshots, onRestored, selected, onShowNow, onSelect } = props;
   // After a message was changed the commit has a new hash: the one at the same place is shown
   const [rewritten, setRewritten] = useState<{ repo: string; index: number; hashes: string } | null>(null);
   useEffect(() => {
@@ -124,6 +131,8 @@ export function ChangesView({ git, point, commits, snapshots, onRestored, select
           mode={mode}
           selected={selected}
           onShowNow={onShowNow}
+          filtered={props.sessionFilter !== null && props.sessionFilter === snapshot.session}
+          onFilter={(on) => props.onSessionFilter(on ? snapshot.session : null)}
           onRestored={() => {
             onRestored();
             onShowNow();
@@ -132,6 +141,28 @@ export function ChangesView({ git, point, commits, snapshots, onRestored, select
       ) : (
         <Empty>That snapshot is gone: snapshots are kept for 14 days, 50 per repository.</Empty>
       );
+  } else if (point.kind === "compare") {
+    const repo = git.repos.find((r) => r.path === point.repo);
+    const describe = (hash: string) => {
+      const c = commits.find((x) => x.repo === point.repo && x.commit.hash === hash)?.commit;
+      if (c) return { short: c.short, title: c.subject, at: c.at, snapshot: false };
+      const s = snapshots.find((x) => x.repo === point.repo && x.hash === hash);
+      return { short: s?.short ?? hash.slice(0, 7), title: s?.label ?? "", at: s?.at ?? 0, snapshot: true };
+    };
+    const [from, to] = [describe(point.from), describe(point.to)];
+    title = (
+      <>
+        <span>Between</span>
+        <code className="font-mono text-[11px] text-slate-300">{from.short}</code>
+        <ArrowRight className="size-3" />
+        <code className="font-mono text-[11px] text-slate-300">{to.short}</code>
+      </>
+    );
+    body = repo ? (
+      <CompareChanges key={`${point.from}:${point.to}`} repo={repo} point={point} from={from} to={to} several={git.repos.length > 1} mode={mode} selected={selected} onShowNow={onShowNow} />
+    ) : (
+      <Empty>That repository is no longer in the project.</Empty>
+    );
   } else {
     const dirty = git.repos.filter((r) => r.files.length > 0);
     title = "Uncommitted changes";
@@ -428,6 +459,7 @@ function CommitChanges(props: {
           )}
           <span>{new Date(c.at * 1000).toLocaleString(LOCALE)}</span>
           {c.unpushed && <span className="text-changed">not pushed yet</span>}
+          <DirqButton patch={patch} />
           <button
             type="button"
             onClick={props.onShowNow}
@@ -466,6 +498,9 @@ function SnapshotChanges(props: {
   selected: string | null;
   onShowNow: () => void;
   onRestored: () => void;
+  /** The trail shows only this snapshot's session */
+  filtered: boolean;
+  onFilter: (on: boolean) => void;
 }) {
   const { snapshot: s, repo } = props;
   // What changed since depends on the disk: read again when it changes
@@ -518,7 +553,22 @@ function SnapshotChanges(props: {
               <Sparkles className="size-3" /> session {shortId(s.session)}
             </span>
           )}
+          {s.session && (
+            <Tooltip content={<span>{props.filtered ? "Show the snapshots of every session again" : "Show only this session's snapshots on the trail"}</span>}>
+              <button
+                type="button"
+                onClick={() => props.onFilter(!props.filtered)}
+                className={`flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] ${
+                  props.filtered ? "border-ai/60 bg-ai/15 text-ai" : "border-line text-slate-400 hover:bg-raised hover:text-slate-100"
+                }`}
+              >
+                {props.filtered ? <X className="size-3" /> : <Filter className="size-3" />}
+                only this session
+              </button>
+            </Tooltip>
+          )}
           {s.tool && <code className="font-mono text-[11px] text-slate-500">{s.tool}</code>}
+          <DirqButton patch={patch} />
           <button
             type="button"
             onClick={props.onShowNow}
@@ -585,6 +635,100 @@ function SnapshotChanges(props: {
         </div>
       )}
     </div>
+  );
+}
+
+/** Two points of one repository: what changed from the older to the newer one. */
+function CompareChanges(props: {
+  repo: RepoStatus;
+  point: { from: string; to: string };
+  from: { short: string; title: string; at: number; snapshot: boolean };
+  to: { short: string; title: string; at: number; snapshot: boolean };
+  several: boolean;
+  mode: Mode;
+  selected: string | null;
+  onShowNow: () => void;
+}) {
+  const { repo, point } = props;
+  const { patch, error } = usePatch(() => gitCompare(repo.path, point.from, point.to), `${repo.path}:${point.from}:${point.to}`);
+  const files = useMemo(() => (patch ? parsePatch(patch.text) : []), [patch]);
+  const side = (p: typeof props.from, label: string) => (
+    <div className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2.5 py-1.5">
+      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+        {label}
+        {p.snapshot ? <Anchor className="size-3 text-changed" /> : null}
+        <code className="font-mono text-slate-300">{p.short}</code>
+        {p.at > 0 && <span>{new Date(p.at * 1000).toLocaleString(LOCALE)}</span>}
+      </div>
+      <div className={`truncate ${p.snapshot ? "text-slate-400 italic" : "text-slate-100"}`}>{p.title}</div>
+    </div>
+  );
+  return (
+    <div className="p-4">
+      <header className="mb-3">
+        <div className="flex items-stretch gap-2">
+          {side(props.from, "from")}
+          <ArrowRight className="size-4 self-center text-slate-500" />
+          {side(props.to, "to")}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-slate-400">
+          {props.several && <span className="font-semibold text-slate-300">{repo.name}</span>}
+          {patch && <span>{plural(patch.changes.length, "file")} changed</span>}
+          <span className="text-slate-500">Ctrl+click another point to compare with that one instead</span>
+          <DirqButton patch={patch} />
+          <button
+            type="button"
+            onClick={props.onShowNow}
+            className="ml-auto rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised hover:text-slate-100"
+          >
+            Back to uncommitted
+          </button>
+        </div>
+      </header>
+      {error && <p className="selectable text-problem">{error}</p>}
+      {patch && props.mode === "structure" && <StructureTree patch={patch} files={files} repo={repo} selected={props.selected} />}
+      {patch && props.mode === "code" && (
+        <div className="flex flex-col gap-2">
+          {files.map((file) => (
+            <FileSection key={file.path} id={`diff:${toProject(repo, file.path)}`} file={file} />
+          ))}
+          {patch.truncated && <p className="text-[12px] text-changed">The diff is very long and was cut off here.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+let dirqInstalled: Promise<boolean> | null = null;
+
+/** Opens the patch in Dirq, side by side; only offered when Dirq is installed. */
+function DirqButton({ patch }: { patch: Patch | null }) {
+  const [installed, setInstalled] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  useEffect(() => {
+    dirqInstalled ??= hasDiffViewer().catch(() => false);
+    dirqInstalled.then(setInstalled);
+  }, []);
+  if (!installed || !patch || !patch.text) return null;
+  return (
+    <Tooltip
+      content={
+        <>
+          <span>Open in Dirq, old and new side by side</span>
+          {patch.truncated && <span className="text-changed">Only the part shown here: the diff is very long</span>}
+          {failed && <span className="text-problem">{failed}</span>}
+        </>
+      }
+    >
+      <button
+        type="button"
+        onClick={() => showPatch(patch.text).then(() => setFailed(null), (e) => setFailed(String(e)))}
+        className="flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised hover:text-slate-100"
+      >
+        <ExternalLink className="size-3" />
+        Dirq
+      </button>
+    </Tooltip>
   );
 }
 

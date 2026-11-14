@@ -241,6 +241,24 @@ async fn blocking<T: Send + 'static>(
     .map_err(|e| e.to_string())
 }
 
+/// What changed from one commit (or snapshot) to another, as a patch.
+#[tauri::command]
+async fn git_compare(repo: String, from: String, to: String, app: AppHandle) -> Result<Patch, String> {
+    blocking(app, move |app, project, report| app.state::<Git>().compare(report, &project, &repo, &from, &to)).await?
+}
+
+/// Whether Dirq, the diff viewer, is installed.
+#[tauri::command]
+fn has_diff_viewer() -> bool {
+    apps::diff_viewer().is_some()
+}
+
+/// Shows a patch in Dirq.
+#[tauri::command]
+fn show_patch(text: String) -> Result<(), String> {
+    apps::show_patch(&text)
+}
+
 /// Snapshots of the working tree taken before an assistant wrote, newest first.
 #[tauri::command]
 async fn git_snapshots(repos: Vec<String>, app: AppHandle) -> Result<Vec<Snapshot>, String> {
@@ -346,6 +364,9 @@ pub fn run() {
             git_history,
             git_working_diff,
             git_commit_diff,
+            git_compare,
+            has_diff_viewer,
+            show_patch,
             git_snapshots,
             git_snapshot_diff,
             git_restore_snapshot,

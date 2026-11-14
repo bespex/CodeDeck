@@ -8,7 +8,7 @@ braucht man nur bei Grundsatzfragen.
 
 ## Stand (2026-11-14, Commit `3db551a`)
 
-Fertig (dazu P1, P2, P3, siehe Pakete): Trail mit drei Zonen (nicht committet / nicht gepusht / gepusht) und Remote-Chip · Hook-Brücke
+Fertig (dazu P1, P2, P3, P5, siehe Pakete): Trail mit drei Zonen (nicht committet / nicht gepusht / gepusht) und Remote-Chip · Hook-Brücke
 `codedeck hook` → Socket je Fenster · Sitzungsliste in der Statusleiste, von der KI geschriebene Dateien
 im Dateibaum markiert · Sicherungspunkte vor dem ersten Schreiben einer Runde, im Trail sichtbar, mit
 „Go back“ · Docs-Ansicht für `@ai`-Marker, die man kopieren oder an den nächsten Prompt übergeben kann ·
@@ -99,7 +99,7 @@ Verbinden merken, beim Trennen zurückschreiben, analog zu `hook::set`). Anzeige
 Warnung ab 80 %.
 **Wenn nein:** Paket streichen und den Grund hier notieren. Nicht schätzen.
 
-### P5 Trail-Ausbau `[S–L]` · offen
+### P5 Trail-Ausbau `[S–L]` · ✅ erledigt 2026-11-14
 **Ziel:** Besser vergleichen und springen.
 **Dateien:** `Trail.tsx`, `ChangesView.tsx`, `history.rs`, `snapshot.rs`, `apps.rs`, `lib.rs`.
 **Schritte:** (a) Mit Strg+Klick zwei Punkte wählen: Diff zwischen beiden (Backend: `git diff A B` mit
@@ -184,3 +184,7 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   CodeDeck das Log über `transcript_path` aus dem Hook. Logs ohne Hook-Ereignis haben den Status `idle`
   (aus dem Log ist nicht ablesbar, ob gerade gearbeitet wird). Probelauf gegen echte Logs:
   `CODEDECK_ROOT=<pfad> cargo test real_logs -- --ignored --nocapture`.
+- P5: `Point` hat die Art `compare` (from = älterer, to = neuerer Punkt), Strg+Klick im Trail (`Deck.compare`).
+  Backend `Git::compare` nimmt Commits und Snapshot-Hashes. Dirq: `apps::show_patch` (`dirq - --reuse`,
+  Patch über stdin), der Knopf erscheint nur, wenn `dirq` im PATH liegt. Beim Nutzer ist dirq noch nicht
+  installiert, also ungetestet. Sitzungsfilter: `sessionFilter` in `Deck`, Rücksprung-Snapshots bleiben sichtbar.

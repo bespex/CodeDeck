@@ -57,6 +57,26 @@ export function Deck({ project, git, selected, assistant }: Props) {
     setView("changes");
   };
 
+  // Snapshots of one session only, when asked for in the snapshot view
+  const [sessionFilter, setSessionFilter] = useState<string | null>(null);
+  const shownSnapshots = sessionFilter ? snapshots.filter((s) => s.session === sessionFilter || s.back) : snapshots;
+
+  /** Unix seconds of a point on the trail, to put the older one first. */
+  const timeOf = (repo: string, hash: string) =>
+    commits.find((c) => c.repo === repo && c.commit.hash === hash)?.commit.at ??
+    snapshots.find((s) => s.repo === repo && s.hash === hash)?.at ??
+    0;
+  /** Ctrl+click: the point shown and this one, as a comparison; alone if there is nothing to compare with. */
+  const compare = (repo: string, hash: string) => {
+    const kind = snapshots.some((s) => s.repo === repo && s.hash === hash) ? "snapshot" : "commit";
+    if (point.kind === "now" || point.repo !== repo) return select({ kind, repo, hash });
+    const other = point.kind === "compare" ? point.from : point.hash;
+    if (other === hash) return select({ kind, repo, hash });
+    const [from, to] = timeOf(repo, other) <= timeOf(repo, hash) ? [other, hash] : [hash, other];
+    select({ kind: "compare", repo, from, to });
+  };
+
+
   return (
     <main className="flex min-h-0 min-w-0 flex-col bg-base">
       <nav
@@ -94,7 +114,7 @@ export function Deck({ project, git, selected, assistant }: Props) {
       </nav>
 
       <div className="flex min-h-0 flex-1">
-        <Trail commits={commits} snapshots={snapshots} repos={git.repos} point={point} onSelect={select} focusRepo={focusRepo} />
+        <Trail commits={commits} snapshots={shownSnapshots} onCompare={compare} repos={git.repos} point={point} onSelect={select} focusRepo={focusRepo} />
         <section className="min-w-0 flex-1 overflow-y-auto" role="tabpanel">
           {view === "workspace" && <WorkspaceView project={project} />}
           {view === "map" && (
@@ -111,6 +131,8 @@ export function Deck({ project, git, selected, assistant }: Props) {
               point={point}
               commits={commits}
               snapshots={snapshots}
+              sessionFilter={sessionFilter}
+              onSessionFilter={setSessionFilter}
               onRestored={() => {
                 reloadSnapshots();
                 git.refresh();

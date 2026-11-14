@@ -593,6 +593,25 @@ export function setClaudeHooks(dir: string, install: boolean): Promise<HookSetup
   return Promise.resolve(mockHooks);
 }
 
+/** What changed from one commit (or snapshot) to another: the older one first. */
+export function gitCompare(repo: string, from: string, to: string): Promise<Patch> {
+  if (live) return invoke("git_compare", { repo, from, to });
+  return Promise.resolve(mockPatch(MOCK_PATCH, MOCK_MOVES));
+}
+
+/** Whether Dirq, the diff viewer of be spex, is installed. */
+export function hasDiffViewer(): Promise<boolean> {
+  if (live) return invoke("has_diff_viewer");
+  return Promise.resolve(true);
+}
+
+/** Shows a patch in Dirq (one window, reused). */
+export function showPatch(text: string): Promise<void> {
+  if (live) return invoke("show_patch", { text });
+  console.info("would show in dirq", text.length, "bytes");
+  return Promise.resolve();
+}
+
 /** The git commands run so far, oldest first. */
 export function gitLog(): Promise<GitRun[]> {
   if (live) return invoke("git_log");

@@ -244,6 +244,29 @@ impl Git {
         Ok(patch)
     }
 
+    /// What changed from one commit to another; commits and snapshots alike. The older one
+    /// first, so additions read as additions.
+    pub fn compare(&self, report: Report, project: &Project, repo: &str, from: &str, to: &str) -> Result<Patch, String> {
+        let repo = self.find(project, repo).ok_or_else(|| format!("{repo}: no repository here"))?;
+        for hash in [from, to] {
+            let commit = format!("{hash}^{{commit}}");
+            let hex = hash.len() >= 7 && hash.chars().all(|c| c.is_ascii_hexdigit());
+            if !hex || self.run(report, &repo, &["rev-parse", "--verify", "--quiet", &commit]).is_err() {
+                return Err(format!("{hash}: not a commit of this repository"));
+            }
+        }
+        let paths: &[&str] = if repo.prefix.is_empty() { &[] } else { &["--", &repo.prefix] };
+        let diff = ["diff", "-M", "--no-ext-diff", from, to];
+        let changes = parse_changes(&self.run(report, &repo, &[&diff[..], &["--raw", "--numstat", "-z"], paths].concat())?);
+        let text = String::from_utf8_lossy(&self.run(report, &repo, &[&diff[..], &["--no-color"], paths].concat())?).into_owned();
+        let before = self.dirs(report, &repo, from)?;
+        let after = self.dirs(report, &repo, to)?;
+        let (new_dirs, gone_dirs) = dir_changes(&changes, |d| before.contains(d), |d| after.contains(d));
+        let mut patch = Patch { text, truncated: false, changes, new_dirs, gone_dirs };
+        cut(&mut patch);
+        Ok(patch)
+    }
+
     /// Every folder in a commit's tree.
     fn dirs(&self, report: Report, repo: &Repo, tree: &str) -> Result<HashSet<String>, String> {
         let out = self.run(report, repo, &["ls-tree", "-r", "-d", "-z", "--name-only", tree])?;

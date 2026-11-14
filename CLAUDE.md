@@ -35,6 +35,9 @@ Radar“, hat keinen eigenen Editor. Die weitere Umsetzung steht in `docs/PLAN.m
 - Jede neue Backend-Funktion bekommt in `backend.ts` einen Mock, sonst bricht die Vorschau.
 - Prüfen: `cd src-tauri && cargo test` · `npx tsc --noEmit -p .` · Vorschau: `npx vite --port 5391`,
   dann `node tools/shot.mjs` (Aufruf steht im Kopf der Datei).
+- Vorschau-Server: starten mit `setsid npx vite --port 5391 --strictPort >/dev/null 2>&1 &`, beenden mit
+  `pkill -f "^node .*vite --port 5391"`. Das Muster braucht den Anker `^node`, sonst trifft `pgrep`/`pkill`
+  die eigene Shell-Zeile, die denselben Text enthält.
 - Builds landen in `/shared/cargo-target` (Dev-Binary: `/shared/cargo-target/debug/codedeck`).
 - Nie das echte `~/.claude/settings.json` in Tests anfassen; `CLAUDE_CONFIG_DIR` auf ein Temp-Verzeichnis setzen.
 - Commits nur auf Wunsch, auf `main`, Englisch, Autor aus der Repo-Config, mit KI-Zeilen.

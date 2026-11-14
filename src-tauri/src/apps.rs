@@ -164,3 +164,34 @@ pub fn open(path: &Path, role: Role) -> Result<bool, String> {
 }
 
 
+
+/// The diff viewer of be spex (Dirq), if installed: the program found on the `PATH`.
+pub fn diff_viewer() -> Option<std::path::PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    std::env::split_paths(&path).map(|d| d.join("dirq")).find(|p| p.is_file())
+}
+
+/// Shows a patch in Dirq: `dirq - --reuse`, the patch on its standard input. One window is
+/// reused while stepping through points; it lives on when CodeDeck closes.
+pub fn show_patch(text: &str) -> Result<(), String> {
+    use std::io::Write;
+    use std::os::unix::process::CommandExt;
+    let dirq = diff_viewer().ok_or("Dirq is not installed (it is part of Qiew: sudo apt install dirq)")?;
+    let mut child = std::process::Command::new(&dirq)
+        .args(["-", "--reuse"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .process_group(0)
+        .spawn()
+        .map_err(|e| format!("{}: {e}", dirq.display()))?;
+    let mut stdin = child.stdin.take().ok_or("no input to Dirq")?;
+    let text = text.to_string();
+    // Writing may block until Dirq reads; the window must not wait for that
+    std::thread::spawn(move || {
+        let _ = stdin.write_all(text.as_bytes());
+        drop(stdin);
+        let _ = child.wait();
+    });
+    Ok(())
+}

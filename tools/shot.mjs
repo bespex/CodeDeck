@@ -8,6 +8,7 @@
 //   hover:<selector>     mouse onto the element (e.g. the trail opens)
 //   click:<selector>     click the element
 //   text:<text>          click the first button or tab whose text starts with <text>
+//   ctrl+click:…, ctrl+text:…   the same with Ctrl held
 //   wait:<ms>
 // Without steps: one screenshot, <out-prefix>-page.png. Needs /usr/bin/chromium; Node 22.
 
@@ -58,20 +59,22 @@ async function centre(expr) {
   });
   return r.result.value ? JSON.parse(r.result.value) : null;
 }
-async function mouse(expr, press) {
+async function mouse(expr, press, modifiers = 0) {
   const at = await centre(expr);
   if (!at) return console.error("not found:", expr);
   const [x, y] = at;
   await cmd("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
   if (press) {
-    await cmd("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
-    await cmd("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+    await cmd("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1, modifiers });
+    await cmd("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1, modifiers });
   }
   await sleep(700);
 }
 
 for (const step of steps.length ? steps : ["snap:page"]) {
-  const [kind, ...rest] = step.split(":");
+  const [head, ...rest] = step.split(":");
+  const ctrl = head.startsWith("ctrl+") ? 2 : 0;
+  const kind = head.replace(/^ctrl\+/, "");
   const arg = rest.join(":");
   const q = JSON.stringify(arg);
   if (kind === "snap") {
@@ -79,9 +82,9 @@ for (const step of steps.length ? steps : ["snap:page"]) {
     writeFileSync(`${out}-${arg}.png`, Buffer.from(r.data, "base64"));
     console.log(`${out}-${arg}.png`);
   } else if (kind === "hover") await mouse(`document.querySelector(${q})`, false);
-  else if (kind === "click") await mouse(`document.querySelector(${q})`, true);
+  else if (kind === "click") await mouse(`document.querySelector(${q})`, true, ctrl);
   else if (kind === "text")
-    await mouse(`[...document.querySelectorAll("button,[role=tab]")].find(e => e.textContent.trim().startsWith(${q}))`, true);
+    await mouse(`[...document.querySelectorAll("button,[role=tab]")].find(e => e.textContent.trim().startsWith(${q}))`, true, ctrl);
   else if (kind === "wait") await sleep(Number(arg));
   else console.error("unknown step:", step);
 }
@@ -89,5 +92,13 @@ for (const step of steps.length ? steps : ["snap:page"]) {
 ws.close();
 // Chromium still writes to its profile while closing: remove it only once it is gone
 await new Promise((r) => (chrome.once("exit", r), chrome.kill()));
-rmSync(profile, { recursive: true, force: true, maxRetries: 3 });
+// Its helper processes may write a moment longer: try a few times, never fail over it
+for (let i = 0; i < 10; i++) {
+  try {
+    rmSync(profile, { recursive: true, force: true });
+    break;
+  } catch {
+    await sleep(200);
+  }
+}
 process.exit(0);

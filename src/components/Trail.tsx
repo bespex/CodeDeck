@@ -8,7 +8,9 @@ import { aheadBehind, plural } from "../git";
 export type Point =
   | { kind: "now" }
   | { kind: "commit"; repo: string; hash: string }
-  | { kind: "snapshot"; repo: string; hash: string };
+  | { kind: "snapshot"; repo: string; hash: string }
+  /** Two points of one repository, the older one first */
+  | { kind: "compare"; repo: string; from: string; to: string };
 
 interface Props {
   commits: TrailCommit[];
@@ -17,6 +19,8 @@ interface Props {
   repos: RepoStatus[];
   point: Point;
   onSelect: (point: Point) => void;
+  /** Ctrl+click: compare this point with the one shown */
+  onCompare: (repo: string, hash: string) => void;
   /** The repository of what is selected in the file list: its commits stay bright */
   focusRepo: string | null;
 }
@@ -36,7 +40,7 @@ export const LOCALE = "en-GB";
  * column of points; while the mouse is on it, it widens over the deck into a readable timeline
  * with days, messages and repositories. A point shows what changed there.
  */
-export function Trail({ commits, snapshots, repos, point, onSelect, focusRepo }: Props) {
+export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, focusRepo }: Props) {
   const [open, setOpen] = useState(false);
   const [width, setWidth] = useState(WIDTH);
   const column = useRef<HTMLDivElement>(null);
@@ -118,7 +122,10 @@ export function Trail({ commits, snapshots, repos, point, onSelect, focusRepo }:
             const showDay = day !== lastDay;
             lastDay = day;
             const hash = item.kind === "commit" ? item.commit.hash : item.snapshot.hash;
-            const selected = point.kind === item.kind && point.repo === repo && point.hash === hash;
+            const selected =
+              point.kind === "compare"
+                ? point.repo === repo && (point.from === hash || point.to === hash)
+                : point.kind === item.kind && point.repo === repo && point.hash === hash;
             const dimmed = focusRepo !== null && repo !== focusRepo;
             // Snapshots are newer than their repository's last commit: work not committed yet
             const zone = item.kind === "commit" ? zoneOf(item.commit, byPath.get(repo)) : null;
@@ -144,7 +151,7 @@ export function Trail({ commits, snapshots, repos, point, onSelect, focusRepo }:
                   <TrailRow
                     open={open}
                     selected={selected}
-                    onClick={() => onSelect({ kind: "commit", repo, hash })}
+                    onClick={(e) => (e.ctrlKey ? onCompare(repo, hash) : onSelect({ kind: "commit", repo, hash }))}
                     dot={<CommitDot commit={item.commit} zone={zone} selected={selected} />}
                     time={clock(at)}
                     detail={plural(item.commit.files, "file")}
@@ -158,7 +165,7 @@ export function Trail({ commits, snapshots, repos, point, onSelect, focusRepo }:
                   <TrailRow
                     open={open}
                     selected={selected}
-                    onClick={() => onSelect({ kind: "snapshot", repo, hash })}
+                    onClick={(e) => (e.ctrlKey ? onCompare(repo, hash) : onSelect({ kind: "snapshot", repo, hash }))}
                     dot={<SnapshotDot snapshot={item.snapshot} selected={selected} />}
                     time={clock(at)}
                     detail="snapshot"
@@ -188,7 +195,7 @@ export function Trail({ commits, snapshots, repos, point, onSelect, focusRepo }:
 function TrailRow(props: {
   open: boolean;
   selected: boolean;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
   dot: React.ReactNode;
   time: string;
   /** Under the time: number of files, or what kind of point it is */

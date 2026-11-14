@@ -296,5 +296,12 @@ mod tests {
         assert!(list[0].back);
         g.restore_snapshot(&report, &project, "", &list[0].hash).unwrap();
         assert_eq!(std::fs::read_to_string(root.join("new.txt")).unwrap(), "new\n");
+
+        // Comparing two points: the snapshot before the assistant and the one before going back
+        let between = g.compare(&report, &project, "", &snap, &list[0].hash).unwrap();
+        let mut paths: Vec<&str> = between.changes.iter().map(|c| c.path.as_str()).collect();
+        paths.sort();
+        assert_eq!(paths, ["a.txt", "keep.txt", "new.txt"]);
+        assert!(g.compare(&report, &project, "", &snap, "nothex").is_err());
     }
 }
