@@ -56,6 +56,7 @@ impl Harness for Fake {
             tool: text("with"),
             prompt: text("text").filter(|_| asked),
             message: text("text").filter(|_| !asked),
+            report: text("said"),
             log: None,
         })
     }
@@ -74,6 +75,7 @@ impl Harness for Fake {
             model: Some("fake-1".to_string()),
             prompt: Some("Write notes".to_string()),
             writes: vec![(project.join("docs/notes.md"), 1)],
+            report: None,
         }]
     }
 

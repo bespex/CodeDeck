@@ -31,7 +31,8 @@ import {
 } from "../../structure";
 import { Tooltip, TooltipHint } from "../Tooltip";
 import { pathItems, useContextMenu } from "../ContextMenu";
-import { DiffBody, FileButtons, inUntrackedDir, LineCounts, type Working } from "./DiffParts";
+import { reviewKey, toggleReviewed, useReviewed } from "../../reviewed";
+import { DiffBody, FileButtons, inUntrackedDir, LineCounts, LookedAt, type Working } from "./DiffParts";
 
 /** A new folder with more files than this opens collapsed. */
 const MANY = 12;
@@ -51,13 +52,16 @@ interface Props {
   onDone?: () => void;
   /** Selected in the file list (project-relative): opened and scrolled to */
   selected: string | null;
+  /** Who changed a file (repository-relative path), as a small sign; nothing when that is not shown */
+  who?: (path: string) => ReactNode;
 }
 
 /**
  * What changed as a tree: which files and folders are new, gone, moved or renamed, and which
  * only changed inside. A click on a file opens its diff right there.
  */
-export function StructureTree({ patch, files, repo, onDone, selected }: Props) {
+export function StructureTree({ patch, files, repo, onDone, selected, who }: Props) {
+  const reviewed = useReviewed();
   const tree = useMemo(() => buildTree(patch), [patch]);
   const diffs = useMemo(() => new Map(files.map((f) => [f.path, f])), [files]);
   const status = useMemo(() => new Map(repo.files.map((f) => [f.path, f])), [repo.files]);
@@ -102,6 +106,8 @@ export function StructureTree({ patch, files, repo, onDone, selected }: Props) {
     diffs,
     open,
     toggle,
+    who,
+    reviewed,
     working: onDone
       ? (path) => ({ repo, status: status.get(toProject(repo, path)) ?? inUntrackedDir(repo, toProject(repo, path)), onDone })
       : undefined,
@@ -131,6 +137,9 @@ interface Ctx {
   /** `+d:path`/`-d:path` overrides a folder's default; `f:path` is an open file */
   open: Set<string>;
   toggle: (key: string, open: boolean) => void;
+  who?: (path: string) => ReactNode;
+  /** Whether the change with this key is ticked as looked at */
+  reviewed: (key: string) => boolean;
   working?: (path: string) => Working;
   menu: ReturnType<typeof useContextMenu>["open"];
 }
@@ -280,6 +289,8 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
   const c = file.change;
   const working = ctx.working?.(file.path);
   const look = fileLook(file);
+  const lookedKey = reviewKey(ctx.repo.path, file.path, ctx.diffs.get(file.path), `${c.status}:${c.added}:${c.removed}`);
+  const looked = ctx.reviewed(lookedKey);
   const notes = [
     file.withFolder ? null : file.renamed ? `was ${nameOf(c.from!)}` : c.status === "R" ? movedNote(dirOf(c.from!), dirOf(c.path), nameOf(c.from!), file.name) : null,
     c.status === "C" ? `copy of ${c.from}` : null,
@@ -292,13 +303,22 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
     <li role="treeitem" aria-expanded={isOpen} id={`diff:${toProject(ctx.repo, file.path)}`} className="scroll-mt-2">
       <div
         className={`group flex h-7 w-full cursor-pointer items-center gap-1.5 pr-2 hover:bg-raised ${isOpen ? "bg-raised/60" : ""}`}
-        style={{ paddingLeft: 8 + depth * 16 + 18 }}
+        style={{ paddingLeft: 8 + depth * 16 }}
         onClick={() => ctx.toggle(key, !isOpen)}
         onContextMenu={(e) => {
           const path = toProject(ctx.repo, file.path);
           ctx.menu(e, path, pathItems(path, false, file.kind === "deleted"));
         }}
       >
+        <LookedAt
+          checked={looked}
+          name={file.name}
+          onChange={() => {
+            toggleReviewed(lookedKey);
+            // Looked at: its diff has done its job
+            if (!looked) ctx.toggle(key, false);
+          }}
+        />
         <Hint text={look.says}>
           <look.icon className={`size-4 shrink-0 ${look.color}`} />
         </Hint>
@@ -306,11 +326,12 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
           type="button"
           aria-expanded={isOpen}
           className={`min-w-0 truncate text-left font-mono text-[12px] outline-none focus-visible:underline ${
-            file.kind === "deleted" ? "text-slate-400 line-through decoration-problem/50" : "text-slate-100"
+            file.kind === "deleted" ? "text-slate-400 line-through decoration-problem/50" : looked ? "text-slate-400" : "text-slate-100"
           }`}
         >
           {file.name}
         </button>
+        {ctx.who?.(file.path)}
         {notes.length > 0 && <span className="min-w-0 truncate text-[11px] text-slate-500">{notes.join(" · ")}</span>}
         {working?.status?.staged && (
           <Hint text="Staged: part of the next commit">
@@ -327,6 +348,7 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
           <DiffBody
             file={ctx.diffs.get(file.path)}
             missing={c.similarity === 100 ? "Same content, only its place changed" : undefined}
+            notePath={file.kind === "deleted" ? undefined : toProject(ctx.repo, file.path)}
           />
         </div>
       )}

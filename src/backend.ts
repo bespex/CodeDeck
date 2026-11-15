@@ -6,6 +6,9 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { project as mockProject, tree as mockTree, type FileNode, type GitState } from "./mock";
 
+/** The commit the mock's root repository is on. */
+const MOCK_ROOT_HEAD = "root0".padEnd(40, "0");
+
 export interface ProjectInfo {
   name: string;
   /** Absolute path of the root */
@@ -276,7 +279,7 @@ export function gitStatus(rescan: boolean): Promise<RepoStatus[]> {
     prefix: "",
     worktreeOf: path === "fixtures" ? "orbit-api" : null,
     branch,
-    head: `${path || "root"}0`.padEnd(40, "0"),
+    head: path ? `${path}0`.padEnd(40, "0") : MOCK_ROOT_HEAD,
     upstream: `origin/${branch}`,
     remotes: ["origin"],
     ahead: changed.length ? 1 : 0,
@@ -387,7 +390,10 @@ export function gitCommitDiff(repo: string, hash: string): Promise<Patch> {
   return Promise.resolve(mockPatch(MOCK_PATCH, MOCK_MOVES));
 }
 
-/** The working tree of a repository, kept before an assistant wrote for the first time in a turn. */
+/**
+ * The working tree of a repository, kept before an assistant wrote for the first time in a turn,
+ * and again when the turn was over.
+ */
 export interface Snapshot {
   /** Project-relative path of the repository */
   repo: string;
@@ -403,17 +409,44 @@ export interface Snapshot {
   tool: string | null;
   /** Taken before going back to another snapshot */
   back: boolean;
+  /** The commit that was checked out when it was taken */
+  parent: string | null;
+  /** For the end of a turn: the snapshot the turn began at */
+  turnFrom: string | null;
+  /** For the end of a turn: what the assistant said last, as it said it */
+  report: string | null;
 }
 
 /** Snapshots of the given repositories, newest first. */
 export function gitSnapshots(repos: string[]): Promise<Snapshot[]> {
   if (live) return invoke("git_snapshots", { repos });
   const now = Math.floor(Date.now() / 1000);
+  const [b, c] = ["3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a", "c41d7e02-5b9f-4a3c-8e21-9d0f1a2b3c4d"];
+  const snap = (name: string, ago: number, label: string, session: string, more: Partial<Snapshot>): Snapshot => ({
+    repo: "",
+    hash: name.padEnd(40, "0"),
+    short: `${name}00`.slice(0, 7),
+    at: now - ago,
+    label,
+    session,
+    tool: null,
+    back: false,
+    parent: MOCK_ROOT_HEAD,
+    turnFrom: null,
+    report: null,
+    ...more,
+  });
   return Promise.resolve(
     repos.includes("")
       ? [
-          { repo: "", hash: "snap1".padEnd(40, "0"), short: "snap100", at: now - 90, label: "Before: Held orders in the fixture should not count against the limit.", session: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a", tool: "Edit tests/rate_limit.rs", back: false },
-          { repo: "", hash: "snap2".padEnd(40, "0"), short: "snap200", at: now - 150, label: "Before: Add a per-client rate limit to the orders endpoint.", session: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a", tool: "Write src/middleware/rate_limit.rs", back: false },
+          snap("snap4", 300, "After: Add a per-client rate limit to the orders endpoint.", b, {
+            turnFrom: "snap3".padEnd(40, "0"),
+            report:
+              "The orders endpoint now has a per-client rate limit.\n\n- New middleware `src/middleware/rate_limit.rs`: a token bucket per client, 20 requests per second, bursts up to 40.\n- `src/routes/orders.rs` uses it.\n- `tests/rate_limit.rs` covers refill, burst and rejection.\n\nOne test fails: `burst_refills_fractionally`. The refill uses whole seconds; I left that for you to decide.",
+          }),
+          snap("snap3", 600, "Before: Add a per-client rate limit to the orders endpoint.", b, { tool: "Write src/middleware/rate_limit.rs" }),
+          snap("snap2", 840, "After: Tighten the config defaults", c, { turnFrom: "snap1".padEnd(40, "0"), report: "Tightened the defaults in `src/config.rs`: the rate limit is read from the environment and falls back to 20." }),
+          snap("snap1", 900, "Before: Tighten the config defaults", c, { tool: "Edit src/config.rs" }),
         ]
       : [],
   );
@@ -518,6 +551,8 @@ export interface Session {
   step: string | null;
   /** Unix milliseconds: when its latest turn ended, as it reported; `null` while it works and for a session that never reported */
   turnDone: number | null;
+  /** Where its running turn began: the snapshot per repository it was about to write in; empty between turns */
+  turn: { repo: string; hash: string }[];
   /** Files it wrote, project-relative, newest first */
   touched: { path: string; at: number }[];
   /** It got the hand-over with its latest prompt */
@@ -571,6 +606,8 @@ const mockAssistant: AssistantState = {
       message: null,
       step: "Edit tests/rate_limit.rs",
       turnDone: null,
+      // Its second turn runs; it began where the first one ended
+      turn: [{ repo: "", hash: "snap4".padEnd(40, "0") }],
       touched: [
         { path: "tests/rate_limit.rs", at: Date.now() - 40_000 },
         { path: "src/middleware/rate_limit.rs", at: Date.now() - 120_000 },
@@ -595,6 +632,7 @@ const mockAssistant: AssistantState = {
       message: "Claude needs your permission to use Bash",
       step: "Bash",
       turnDone: null,
+      turn: [],
       touched: [{ path: "docs/api.md", at: Date.now() - 4 * 60_000 }],
       handed: false,
     },
@@ -616,6 +654,7 @@ const mockAssistant: AssistantState = {
       message: null,
       step: "Edit src/config.rs",
       turnDone: Date.now() - 6 * 60_000,
+      turn: [],
       touched: [{ path: "src/config.rs", at: Date.now() - 7 * 60_000 }],
       handed: false,
     },
@@ -638,6 +677,7 @@ const mockAssistant: AssistantState = {
       message: null,
       step: null,
       turnDone: null,
+      turn: [],
       touched: [],
       handed: false,
     },
@@ -748,6 +788,19 @@ export function hasDiffViewer(): Promise<boolean> {
 export function showPatch(text: string): Promise<void> {
   if (live) return invoke("show_patch", { text });
   console.info("would show in dirq", text.length, "bytes");
+  return Promise.resolve();
+}
+
+/** Whether Marq, the Markdown viewer of be spex, is installed. */
+export function hasMarkdownViewer(): Promise<boolean> {
+  if (live) return invoke("has_markdown_viewer");
+  return Promise.resolve(true);
+}
+
+/** Shows Markdown text as a page in Marq (one window, reused). */
+export function showMarkdown(text: string): Promise<void> {
+  if (live) return invoke("show_markdown", { text });
+  console.info("would show in marq", text.length, "characters");
   return Promise.resolve();
 }
 

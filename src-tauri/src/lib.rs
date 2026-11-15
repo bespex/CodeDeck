@@ -260,6 +260,18 @@ fn show_patch(text: String) -> Result<(), String> {
     apps::show_patch(&text)
 }
 
+/// Whether Marq, the Markdown viewer, is installed.
+#[tauri::command]
+fn has_markdown_viewer() -> bool {
+    apps::markdown_viewer().is_some()
+}
+
+/// Shows Markdown text as a page in Marq.
+#[tauri::command]
+fn show_markdown(text: String) -> Result<(), String> {
+    apps::show_markdown(&text)
+}
+
 /// Snapshots of the working tree taken before an assistant wrote, newest first.
 #[tauri::command]
 async fn git_snapshots(repos: Vec<String>, app: AppHandle) -> Result<Vec<Snapshot>, String> {
@@ -382,6 +394,8 @@ pub fn run() {
             git_compare,
             has_diff_viewer,
             show_patch,
+            has_markdown_viewer,
+            show_markdown,
             git_snapshots,
             git_snapshot_diff,
             git_restore_snapshot,

@@ -1,20 +1,26 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Anchor, ArrowRight, Check, ChevronDown, ChevronRight, Code, ExternalLink, Filter, FolderGit2, GitBranch, ListTree, Pencil, Sparkles, Undo2, X } from "lucide-react";
+import { Anchor, ArrowRight, Check, ChevronDown, ChevronRight, Code, ExternalLink, Filter, Flag, FolderGit2, GitBranch, ListTree, Pencil, Sparkles, Undo2, X } from "lucide-react";
 import {
   gitCommitDiff,
   gitCompare,
   hasDiffViewer,
+  hasMarkdownViewer,
+  showMarkdown,
   showPatch,
   gitRestoreSnapshot,
   gitSnapshotDiff,
   gitWorkingDiff,
   onFsChanged,
+  type AssistantState,
   type Commit,
   type Patch,
   type RepoStatus,
   type Snapshot,
 } from "../../backend";
-import { shortId, useSessionMarks } from "../../assistant";
+import { mainHarness, shortId, useSessionMarks } from "../../assistant";
+import { reviewKey, toggleReviewed, useReviewed } from "../../reviewed";
+import { turnsOf, useTurnWriters, type Turn } from "../../turns";
+import { Section, Toolbar } from "../blocks";
 import { SessionBadge } from "../SessionBadge";
 import { changeSummary, commitSteps, commandLine, plural, rewordSteps, stateMeaning, stateSymbol, type GitView, type Steps } from "../../git";
 import { diffSize, parsePatch, type FileDiff } from "../../diff";
@@ -22,7 +28,7 @@ import { toProject, useGitRun, type Done, type TrailCommit } from "../../history
 import { LOCALE, type Point } from "../Trail";
 import { stateColor } from "../FilesPanel";
 import { Tooltip } from "../Tooltip";
-import { Commands, DiffBody, FileButtons, inUntrackedDir, LineCounts, type Working } from "./DiffParts";
+import { Commands, DiffBody, FileButtons, inUntrackedDir, LineCounts, LookedAt, You, type Working } from "./DiffParts";
 import { StructureTree } from "./StructureTree";
 
 /** Diffs longer than this open collapsed. */
@@ -42,6 +48,8 @@ interface Props {
   selected: string | null;
   onShowNow: () => void;
   onSelect: (point: Point) => void;
+  /** The sessions: their running turns, and the name of their tool */
+  assistant: AssistantState;
 }
 
 /** Structure: which files and folders changed, as a tree. Code: every diff, one after another. */
@@ -83,6 +91,19 @@ export function ChangesView(props: Props) {
     if (!selected || mode !== "code") return;
     document.getElementById(`diff:${selected}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
   }, [selected, mode]);
+
+  // What the uncommitted changes are made of: the turns since the last commit. One of them can
+  // be looked at on its own; it stays chosen when it ends while it is shown
+  const turns = useMemo(() => turnsOf(git.repos, snapshots, props.assistant.sessions), [git.repos, snapshots, props.assistant.sessions]);
+  const [scope, setScope] = useState<string | null>(null);
+  const turn = turns.find((t) => t.key === scope);
+  const turnRepo = turn && git.repos.find((r) => r.path === turn.repo);
+  // Files a session reported writing in its running turn, project-relative
+  const writing = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of props.assistant.sessions) if (s.turn.length) for (const t of s.touched) if (!map.has(t.path)) map.set(t.path, s.id);
+    return map;
+  }, [props.assistant.sessions]);
 
   let title: ReactNode;
   let body: ReactNode;
@@ -164,9 +185,23 @@ export function ChangesView(props: Props) {
     ) : (
       <Empty>That repository is no longer in the project.</Empty>
     );
+  } else if (turn && turnRepo) {
+    title = <Scopes turns={turns} scope={turn.key} onScope={setScope} repos={git.repos} />;
+    body = (
+      <TurnChanges
+        key={turn.key}
+        turn={turn}
+        repo={turnRepo}
+        who={mainHarness(props.assistant).shortName}
+        several={git.repos.length > 1}
+        mode={mode}
+        selected={selected}
+        onStart={() => onSelect({ kind: "snapshot", repo: turn.repo, hash: turn.from })}
+      />
+    );
   } else {
     const dirty = git.repos.filter((r) => r.files.length > 0);
-    title = "Uncommitted changes";
+    title = turns.length > 0 ? <Scopes turns={turns} scope={null} onScope={setScope} repos={git.repos} /> : "Uncommitted changes";
     body =
       git.repos.length === 0 ? (
         <Empty>No Git repository in this project.</Empty>
@@ -179,7 +214,7 @@ export function ChangesView(props: Props) {
       ) : (
         <div className="flex flex-col gap-6 p-4">
           {dirty.map((repo) => (
-            <RepoChanges key={repo.path} repo={repo} git={git} several={git.repos.length > 1} mode={mode} selected={selected} />
+            <RepoChanges key={repo.path} repo={repo} git={git} several={git.repos.length > 1} mode={mode} selected={selected} turns={turns} writing={writing} />
           ))}
         </div>
       );
@@ -187,13 +222,213 @@ export function ChangesView(props: Props) {
 
   return (
     <div className="flex min-h-full flex-col">
-      <div className="sticky top-0 z-10 flex h-9 shrink-0 items-center gap-2 border-b border-line bg-base px-4 text-[12px] text-slate-400">
+      <Toolbar>
         {title}
         <ModeSwitch mode={mode} setMode={setMode} />
-      </div>
+      </Toolbar>
       <div className="flex-1">{body}</div>
     </div>
   );
+}
+
+/**
+ * What of the uncommitted changes is shown: one turn, or all of them. A turn is the stretch
+ * between two points of the trail; choosing it here is the same as Ctrl+clicking those two.
+ */
+function Scopes(props: { turns: Turn[]; scope: string | null; onScope: (key: string | null) => void; repos: RepoStatus[] }) {
+  const marks = useSessionMarks();
+  const chip = (on: boolean) =>
+    `flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 ${on ? "bg-raised text-slate-100" : "text-slate-400 hover:bg-raised/70 hover:text-slate-100"}`;
+  return (
+    <div className="flex min-w-0 items-center gap-1 overflow-x-auto" role="radiogroup" aria-label="Which changes to show">
+      {props.turns.map((t) => {
+        const mark = marks.of(t.session);
+        const repo = props.repos.length > 1 ? props.repos.find((r) => r.path === t.repo)?.name : null;
+        return (
+          <Tooltip
+            key={t.key}
+            content={
+              <>
+                <span>{t.prompt ?? "A turn without a prompt"}</span>
+                <span className="text-slate-400">
+                  {mark?.title ?? (t.session ? `Session ${shortId(t.session)}` : "")}
+                  {t.to ? ` · done ${clock(t.at)}` : " · still working"}
+                </span>
+              </>
+            }
+          >
+            <button type="button" role="radio" aria-checked={props.scope === t.key} onClick={() => props.onScope(t.key)} className={chip(props.scope === t.key)}>
+              {mark && <SessionBadge mark={mark} />}
+              Turn {t.n}
+              {repo && <span className="text-slate-500">{repo}</span>}
+              {!t.to && <span className="size-1.5 animate-pulse rounded-full bg-ai" />}
+            </button>
+          </Tooltip>
+        );
+      })}
+      <button type="button" role="radio" aria-checked={props.scope === null} onClick={() => props.onScope(null)} className={chip(props.scope === null)}>
+        All uncommitted
+      </button>
+    </div>
+  );
+}
+
+const clock = (at: number) => new Date(at * 1000).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
+
+/** Counts up while `active` whenever files change on disk, a moment after the last change. */
+function useDiskTick(active = true): number {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const stop = onFsChanged(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setTick((t) => t + 1), 400);
+    });
+    return () => {
+      clearTimeout(timer);
+      stop();
+    };
+  }, [active]);
+  return tick;
+}
+
+/** Lines of a turn's report shown in place; the whole of it opens as a page. */
+const REPORT_LINES = 3;
+
+let marqInstalled: Promise<boolean> | null = null;
+
+/**
+ * What the assistant said at the end of a turn. It is Markdown, so here only its first lines
+ * stand, as they are; the whole of it opens formatted in Marq. Without Marq it unfolds in place.
+ */
+function Report({ turn, who }: { turn: Turn; who: string }) {
+  const [installed, setInstalled] = useState(false);
+  const [all, setAll] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  useEffect(() => {
+    marqInstalled ??= hasMarkdownViewer().catch(() => false);
+    marqInstalled.then(setInstalled);
+  }, []);
+  const lines = (turn.report ?? "").split("\n").filter((l) => l.trim());
+  const more = lines.length - REPORT_LINES;
+  const page = [`# Turn ${turn.n}: what ${who} said at the end`, turn.prompt ? `> You asked: ${turn.prompt}` : "", turn.report ?? ""].filter(Boolean).join("\n\n");
+  const link = "text-[12px] text-ai hover:underline";
+  return (
+    <div className="selectable border-l-2 border-ai/60 pl-3 text-slate-200">
+      <p className="whitespace-pre-line">{all ? turn.report : lines.slice(0, REPORT_LINES).join("\n")}</p>
+      <div className="mt-1 flex items-center gap-3">
+        {more > 0 && !all && <span className="text-[12px] text-slate-500">{plural(more, "more line")}</span>}
+        {installed ? (
+          <button type="button" onClick={() => showMarkdown(page).then(() => setFailed(null), (e) => setFailed(String(e)))} className={`flex items-center gap-1 ${link}`}>
+            <ExternalLink className="size-3" />
+            Read in Marq
+          </button>
+        ) : (
+          more > 0 && (
+            <button type="button" onClick={() => setAll(!all)} className={link}>
+              {all ? "Show less" : "Show all"}
+            </button>
+          )
+        )}
+        {failed && <span className="text-[12px] text-problem">{failed}</span>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One turn: what was asked, what the assistant said at the end (its own words, nothing made up
+ * here), then what changed between the turn's two snapshots.
+ */
+function TurnChanges(props: {
+  turn: Turn;
+  repo: RepoStatus;
+  /** The tool's name */
+  who: string;
+  several: boolean;
+  mode: Mode;
+  selected: string | null;
+  /** Shows the snapshot the turn began at, where going back is offered */
+  onStart: () => void;
+}) {
+  const { turn, repo } = props;
+  const mark = useSessionMarks().of(turn.session);
+  const tick = useDiskTick(turn.to === null);
+  const { patch, error } = usePatch(
+    () => (turn.to ? gitCompare(repo.path, turn.from, turn.to) : gitSnapshotDiff(repo.path, turn.from)),
+    `${repo.path}:${turn.from}:${turn.to}:${tick}`,
+  );
+  const files = useMemo(() => (patch ? parsePatch(patch.text) : []), [patch]);
+
+  return (
+    <>
+      <Section
+        title={turn.to ? `What ${props.who} did in turn ${turn.n}` : `What ${props.who} is doing in turn ${turn.n}`}
+        note={turn.to ? `done ${clock(turn.at)}` : "still working"}
+        aside={
+          <>
+            <DirqButton patch={patch} />
+            <Tooltip content={<span>Shows the point this turn began at. From there you can put the files back as they were.</span>}>
+              <button type="button" onClick={props.onStart} className="flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-[12px] text-slate-300 hover:bg-raised hover:text-slate-100">
+                <Undo2 className="size-3" />
+                Before this turn…
+              </button>
+            </Tooltip>
+          </>
+        }
+      >
+        <div className="flex max-w-3xl flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
+            {mark && <SessionBadge mark={mark} />}
+            {turn.session && <span className="text-slate-300">{mark?.title ?? `Session ${shortId(turn.session)}`}</span>}
+            {props.several && <span className="font-semibold text-slate-300">{repo.name}</span>}
+            {patch && <span>{plural(patch.changes.length, "file")} changed</span>}
+            <LookedCount repo={repo} files={files} />
+          </div>
+          {turn.prompt && (
+            <p className="selectable">
+              <span className="text-slate-500">You asked: </span>
+              <span className="text-slate-300">{turn.prompt}</span>
+            </p>
+          )}
+          {turn.report ? (
+            <Report turn={turn} who={props.who} />
+          ) : (
+            <p className="text-slate-500">
+              {turn.to
+                ? "It said nothing at the end of this turn."
+                : "This is what changed so far. Its closing words appear here when it is done."}
+            </p>
+          )}
+          <p className="text-[12px] text-slate-500">
+            A turn is what changed between two points of the trail. Ctrl+click any two points there to compare them the same way.
+          </p>
+        </div>
+      </Section>
+      <div className="px-4 pt-3 pb-4">
+        {error && <p className="selectable text-problem">{error}</p>}
+        {patch && patch.changes.length === 0 && <p className="text-slate-500">Nothing changed in this turn yet.</p>}
+        {patch && props.mode === "structure" && <StructureTree patch={patch} files={files} repo={repo} selected={props.selected} />}
+        {patch && props.mode === "code" && (
+          <div className="flex flex-col gap-2">
+            {files.map((file) => (
+              <FileSection key={file.path} repo={repo} id={`diff:${toProject(repo, file.path)}`} file={file} />
+            ))}
+            {patch.truncated && <p className="text-[12px] text-changed">The diff is very long and was cut off here.</p>}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** How many of the files shown are ticked as looked at. */
+function LookedCount({ repo, files }: { repo: RepoStatus; files: FileDiff[] }) {
+  const reviewed = useReviewed();
+  if (files.length === 0) return null;
+  const done = files.filter((f) => reviewed(reviewKey(repo.path, f.path, f))).length;
+  return <span className={done === files.length ? "text-added" : "text-slate-500"}>{done} of {files.length} looked at</span>;
 }
 
 function ModeSwitch({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }) {
@@ -245,8 +480,19 @@ function usePatch(load: () => Promise<Patch>, key: string) {
 }
 
 /** The uncommitted changes of one repository, with its commit line on top. */
-function RepoChanges(props: { repo: RepoStatus; git: GitView; several: boolean; mode: Mode; selected: string | null }) {
+function RepoChanges(props: {
+  repo: RepoStatus;
+  git: GitView;
+  several: boolean;
+  mode: Mode;
+  selected: string | null;
+  turns: Turn[];
+  /** Files a session reported writing in its running turn (project-relative), and that session */
+  writing: Map<string, string>;
+}) {
   const { repo, git, several, mode } = props;
+  const marks = useSessionMarks();
+  const ended = useTurnWriters(repo.path, props.turns);
   // Edits to a file that is already modified do not change the status, only the disk
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -264,6 +510,16 @@ function RepoChanges(props: { repo: RepoStatus; git: GitView; several: boolean; 
   const { patch, error } = usePatch(() => gitWorkingDiff(repo.path), key);
   const files = useMemo(() => (patch ? parsePatch(patch.text) : []), [patch]);
   const status = useMemo(() => new Map(repo.files.map((f) => [f.path, f])), [repo.files]);
+  // Who changed a file: the session writing it right now, else the one whose turn changed it
+  // last. Shown only if a session is known for one of the files: otherwise "You" would be a guess
+  const writer = (path: string) => props.writing.get(toProject(repo, path)) ?? ended.get(path) ?? null;
+  const known = files.some((f) => writer(f.path));
+  const who = known
+    ? (path: string) => {
+        const mark = marks.of(writer(path));
+        return mark ? <SessionBadge mark={mark} /> : <You />;
+      }
+    : undefined;
 
   return (
     <section>
@@ -275,12 +531,15 @@ function RepoChanges(props: { repo: RepoStatus; git: GitView; several: boolean; 
           {repo.branch ?? "detached"}
         </code>
         <span className="text-[12px] text-slate-500">{changeSummary(repo)}</span>
+        <span className="text-[12px]">
+          <LookedCount repo={repo} files={files} />
+        </span>
       </header>
       <CommitLine repo={repo} onDone={git.refresh} />
       {error && <p className="selectable mt-2 text-problem">{error}</p>}
       {patch && mode === "structure" && (
         <div className="mt-3">
-          <StructureTree patch={patch} files={files} repo={repo} onDone={git.refresh} selected={props.selected} />
+          <StructureTree patch={patch} files={files} repo={repo} onDone={git.refresh} selected={props.selected} who={who} />
         </div>
       )}
       {patch && mode === "code" && (
@@ -290,8 +549,10 @@ function RepoChanges(props: { repo: RepoStatus; git: GitView; several: boolean; 
             return (
               <FileSection
                 key={file.path}
+                repo={repo}
                 id={`diff:${path}`}
                 file={file}
+                who={who?.(file.path)}
                 working={{ repo, status: status.get(path) ?? inUntrackedDir(repo, path), onDone: git.refresh }}
               />
             );
@@ -478,7 +739,7 @@ function CommitChanges(props: {
       {patch && props.mode === "code" && (
         <div className="flex flex-col gap-2">
           {files.map((file) => (
-            <FileSection key={file.path} id={`diff:${toProject(props.repo, file.path)}`} file={file} />
+            <FileSection key={file.path} repo={props.repo} id={`diff:${toProject(props.repo, file.path)}`} file={file} />
           ))}
           {patch.truncated && <p className="text-[12px] text-changed">The diff is very long and was cut off here.</p>}
         </div>
@@ -543,7 +804,7 @@ function SnapshotChanges(props: {
     <div className="p-4">
       <header className="mb-3">
         <div className="flex items-start gap-2">
-          {s.back ? <Undo2 className="mt-1 size-4 shrink-0 text-slate-400" /> : <Anchor className="mt-1 size-4 shrink-0 text-changed" />}
+          {s.back ? <Undo2 className="mt-1 size-4 shrink-0 text-slate-400" /> : s.turnFrom ? <Flag className="mt-1 size-4 shrink-0 text-changed" /> : <Anchor className="mt-1 size-4 shrink-0 text-changed" />}
           <h2 className="selectable text-[15px] font-semibold text-slate-50">{s.label}</h2>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-slate-400">
@@ -591,7 +852,7 @@ function SnapshotChanges(props: {
               <p className="flex-1 text-slate-400">
                 {changed === 0
                   ? "Nothing changed since this snapshot."
-                  : `${plural(changed, "file")} changed since this snapshot${s.back ? "" : " was taken, before the assistant wrote"}.`}
+                  : `${plural(changed, "file")} changed since this snapshot${s.back ? "" : s.turnFrom ? " was taken, when the turn was over" : " was taken, before the assistant wrote"}.`}
               </p>
               <button
                 type="button"
@@ -637,7 +898,7 @@ function SnapshotChanges(props: {
       {patch && props.mode === "code" && (
         <div className="flex flex-col gap-2">
           {files.map((file) => (
-            <FileSection key={file.path} id={`diff:${toProject(repo, file.path)}`} file={file} />
+            <FileSection key={file.path} repo={repo} id={`diff:${toProject(repo, file.path)}`} file={file} />
           ))}
           {patch.truncated && <p className="text-[12px] text-changed">The diff is very long and was cut off here.</p>}
         </div>
@@ -698,7 +959,7 @@ function CompareChanges(props: {
       {patch && props.mode === "code" && (
         <div className="flex flex-col gap-2">
           {files.map((file) => (
-            <FileSection key={file.path} id={`diff:${toProject(repo, file.path)}`} file={file} />
+            <FileSection key={file.path} repo={repo} id={`diff:${toProject(repo, file.path)}`} file={file} />
           ))}
           {patch.truncated && <p className="text-[12px] text-changed">The diff is very long and was cut off here.</p>}
         </div>
@@ -811,17 +1072,28 @@ function MessageEditor(props: {
   );
 }
 
-/** One file: a header with its state, numbers and actions, then its diff. */
-function FileSection({ id, file, working }: { id: string; file: FileDiff; working?: Working }) {
+/** One file: a header with its tick, state, numbers and actions, then its diff. */
+function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoStatus; file: FileDiff; working?: Working; who?: ReactNode }) {
   const size = diffSize(file);
-  const [open, setOpen] = useState(size <= LONG_DIFF);
+  const lookedKey = reviewKey(repo.path, file.path, file);
+  const looked = useReviewed()(lookedKey);
+  // Looked at already: it opens closed
+  const [open, setOpen] = useState(size <= LONG_DIFF && !looked);
   const state = working?.status?.state ?? file.status;
   const slash = file.path.lastIndexOf("/");
   const Chevron = open ? ChevronDown : ChevronRight;
 
   return (
     <article id={id} className="scroll-mt-2 overflow-hidden rounded-lg border border-line bg-panel">
-      <header className="group flex h-8 items-center gap-2 pr-2 pl-1">
+      <header className="group flex h-8 items-center gap-2 pr-2 pl-2">
+        <LookedAt
+          checked={looked}
+          name={file.path}
+          onChange={() => {
+            toggleReviewed(lookedKey);
+            if (!looked) setOpen(false);
+          }}
+        />
         <button
           type="button"
           onClick={() => setOpen(!open)}
@@ -838,14 +1110,15 @@ function FileSection({ id, file, working }: { id: string; file: FileDiff; workin
           <span className="min-w-0 truncate font-mono text-[12px]">
             {file.from && <span className="text-slate-500">{file.from} → </span>}
             <span className="text-slate-500">{file.path.slice(0, slash + 1)}</span>
-            <span className="text-slate-100">{file.path.slice(slash + 1)}</span>
+            <span className={looked ? "text-slate-400" : "text-slate-100"}>{file.path.slice(slash + 1)}</span>
           </span>
           <LineCounts added={file.added} removed={file.removed} />
           {working?.status?.staged && <span className="shrink-0 text-[11px] text-slate-500">staged</span>}
         </button>
+        {who}
         {working && <FileButtons path={file.path} from={file.from} added={file.status === "A"} working={working} />}
       </header>
-      {open && <DiffBody file={file} />}
+      {open && <DiffBody file={file} notePath={file.status === "D" ? undefined : toProject(repo, file.path)} />}
       {!open && size > LONG_DIFF && (
         <button
           type="button"

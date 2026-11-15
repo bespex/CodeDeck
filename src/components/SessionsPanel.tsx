@@ -149,11 +149,15 @@ const STATUS_COLOR: Record<Session["status"], string> = {
  * The point before the state. While the session works a ring spreads from it, plain to see
  * from the corner of the eye. Set a touch lower than the middle of the line: small letters sit
  * below it, and the point should sit with them.
+ *
+ * The ring also runs where the system asks for reduced motion: GTK reports that on some
+ * desktops without the user having chosen it, the ring is small, and a working session must
+ * never look the same as an idle one.
  */
 function StatusDot({ status }: { status: Session["status"] }) {
   return (
     <span className="relative flex size-2 shrink-0 translate-y-px">
-      {status === "working" && <span className="absolute inset-0 animate-ping rounded-full bg-ai opacity-80 motion-reduce:hidden" />}
+      {status === "working" && <span className="absolute inset-0 animate-ping rounded-full bg-ai opacity-80" />}
       <span className={`relative size-2 rounded-full ${STATUS_COLOR[status]}`} />
     </span>
   );

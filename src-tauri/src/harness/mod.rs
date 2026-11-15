@@ -103,6 +103,9 @@ pub struct Event {
     pub tool: Option<String>,
     pub prompt: Option<String>,
     pub message: Option<String>,
+    /// With the end of a turn: what the assistant said last, kept with the turn
+    #[serde(default)]
+    pub report: Option<String>,
     /// The tool's log of the session
     pub log: Option<String>,
 }
@@ -120,6 +123,8 @@ pub struct SessionInfo {
     pub prompt: Option<String>,
     /// Absolute paths the session wrote, with the time, oldest first
     pub writes: Vec<(PathBuf, u64)>,
+    /// What the assistant said last since the latest prompt
+    pub report: Option<String>,
 }
 
 /// Whether one account's tool reports to CodeDeck.

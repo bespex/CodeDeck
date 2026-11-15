@@ -72,10 +72,22 @@ pub struct Session {
     /// Unix milliseconds: when its latest turn ended, as it reported; `None` while it works
     /// and for a session that never reported
     turn_done: Option<u64>,
+    /// Where its running turn began, per repository it was about to write in; empty between turns
+    turn: Vec<TurnStart>,
     /// Files it wrote, project-relative, newest first
     touched: Vec<Touch>,
     /// It received the hand-over with its latest prompt
     handed: bool,
+}
+
+/// The snapshot a turn began at in one repository.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct TurnStart {
+    /// Project-relative path of the repository
+    repo: String,
+    hash: String,
+    #[serde(skip)]
+    top: PathBuf,
 }
 
 #[derive(Serialize, Clone)]
@@ -296,10 +308,30 @@ impl Bridge {
             todo?
         };
 
-        if let Some(info) = todo.log.and_then(|p| harness.read_log(&p)) {
+        // The turn's last words: as reported, else from the log (a turn cut short reports none)
+        let mut said = e.report.clone();
+        if let Some(mut info) = todo.log.and_then(|p| harness.read_log(&p)) {
+            said = said.or(info.report.take());
             let mut inner = self.inner.lock().unwrap();
             inner.apply(&e.session, info, root);
             inner.save_identities();
+        }
+
+        let git = app.state::<Git>();
+        let report = |run: &GitRun| {
+            let _ = app.emit(GIT_RAN, run);
+        };
+        if !todo.ends.is_empty() {
+            let _one = self.snapshotting.lock().unwrap();
+            let mut taken = false;
+            for repo in git.repos(&project) {
+                let Some(start) = todo.ends.iter().find(|s| s.top == repo.top) else { continue };
+                let origin = Origin { from: Some(&start.hash), report: said.as_deref(), ..Origin::before(&todo.end_label, Some(&e.session), None) };
+                taken |= matches!(git.end_turn(&report, &repo, &origin), Ok(Some(_)));
+            }
+            if taken {
+                let _ = app.emit(SNAPSHOT_TAKEN, ());
+            }
         }
 
         if !todo.snapshot_repos.is_empty() {
@@ -309,15 +341,15 @@ impl Bridge {
                 (Some(t), None) => Some(t.clone()),
                 _ => None,
             };
-            let git = app.state::<Git>();
-            let report = |run: &GitRun| {
-                let _ = app.emit(GIT_RAN, run);
-            };
             let _one = self.snapshotting.lock().unwrap();
             let mut taken = false;
             for repo in git.repos(&project).iter().filter(|r| todo.snapshot_repos.contains(&r.top)) {
-                let origin = Origin { label: &todo.label, session: Some(&e.session), tool: tool.as_deref(), back: false };
-                taken |= matches!(git.take_snapshot(&report, repo, &origin), Ok(Some(_)));
+                let origin = Origin::before(&todo.label, Some(&e.session), tool.as_deref());
+                if let Ok(start) = git.take_snapshot(&report, repo, &origin) {
+                    taken |= start.new;
+                    let start = TurnStart { repo: repo.path.clone(), hash: start.hash, top: repo.top.clone() };
+                    self.inner.lock().unwrap().turn_began(&e.session, start);
+                }
             }
             if taken {
                 let _ = app.emit(SNAPSHOT_TAKEN, ());
@@ -336,6 +368,9 @@ struct Todo {
     snapshot_repos: Vec<PathBuf>,
     /// What the snapshot is called
     label: String,
+    /// The turn that is over: where it began, per repository, to take its closing snapshot
+    ends: Vec<TurnStart>,
+    end_label: String,
     /// The session's log, to be read for title and model
     log: Option<PathBuf>,
 }
@@ -386,6 +421,14 @@ impl Inner {
         }
         self.identities.touch(id, now);
         self.sessions.get_mut(id).expect("just put there")
+    }
+
+    /// The session's running turn began at this snapshot in one repository.
+    fn turn_began(&mut self, id: &str, start: TurnStart) {
+        if let Some(session) = self.sessions.get_mut(id) {
+            session.turn.retain(|s| s.top != start.top);
+            session.turn.push(start);
+        }
     }
 
     /// Takes in what a session's log says: title, model, and writes that were not reported.
@@ -455,6 +498,13 @@ impl Inner {
             session.cwd = relative(root, c).unwrap_or_else(|| c.display().to_string());
         }
         session.last = now;
+        // A turn is over when the session says so, or when the next prompt comes without that
+        let over = matches!(e.kind, EventKind::TurnDone | EventKind::PromptSubmitted);
+        let ends = if over { std::mem::take(&mut session.turn) } else { Vec::new() };
+        let end_label = match &session.prompt {
+            Some(p) => format!("After: {p}"),
+            None => "After the assistant's changes".to_string(),
+        };
         match e.kind {
             EventKind::SessionStarted => session.status = "idle",
             EventKind::PromptSubmitted => {
@@ -505,8 +555,10 @@ impl Inner {
             None => "Before the assistant's changes".to_string(),
         };
         let mut context = None;
-        if e.kind == EventKind::PromptSubmitted {
+        if over {
             self.turn.remove(&e.session);
+        }
+        if e.kind == EventKind::PromptSubmitted {
             // Only a tool that adds the text to the prompt takes it; for others it keeps waiting
             if capabilities.handover == harness::Handover::WithNextPrompt {
                 let labels: Vec<String> = self.handovers.iter().map(|h| h.label.clone()).collect();
@@ -540,7 +592,7 @@ impl Inner {
             self.looked_up.insert(e.session.clone());
             log = Some(PathBuf::from(path));
         }
-        Some(Todo { context, snapshot_repos, label, log })
+        Some(Todo { context, snapshot_repos, label, ends, end_label, log })
     }
 
     /// Takes in a session found in a tool's logs. If nothing was heard from it, it stays one
@@ -584,6 +636,7 @@ fn new_session(id: &str, harness: &dyn Harness) -> Session {
         message: None,
         step: None,
         turn_done: None,
+        turn: Vec::new(),
         touched: Vec::new(),
         handed: false,
     }
@@ -690,7 +743,14 @@ mod tests {
         assert_eq!(command.snapshot_repos, [PathBuf::from("/p")]);
         step(&mut inner, r#"{"who":"a1","did":"asks","in":"/p","text":"May I?"}"#, 60).unwrap();
         assert_eq!((inner.sessions["a1"].status, inner.sessions["a1"].message.as_deref()), ("waiting", Some("May I?")));
-        step(&mut inner, r#"{"who":"a1","did":"done","in":"/p"}"#, 70).unwrap();
+        // What the window does after the snapshots: it notes where the turn began
+        let start = TurnStart { repo: "sub".into(), hash: "abc1234".into(), top: PathBuf::from("/p/sub") };
+        inner.turn_began("a1", start.clone());
+        let done = step(&mut inner, r#"{"who":"a1","did":"done","in":"/p","said":"Tidied."}"#, 70).unwrap();
+        // The turn is over: its closing snapshot is due, once
+        assert_eq!((done.ends, done.end_label.as_str()), (vec![start], "After: Tidy the sub module"));
+        assert!(inner.sessions["a1"].turn.is_empty());
+        assert!(step(&mut inner, r#"{"who":"a1","did":"done","in":"/p"}"#, 70).unwrap().ends.is_empty());
         // The session from the log speaks up: now it is a live one
         step(&mut inner, r#"{"who":"old","did":"asked","in":"/p/docs","text":"More"}"#, 80).unwrap();
 

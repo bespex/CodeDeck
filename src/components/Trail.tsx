@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Anchor, CircleDot, GitMerge, Sparkles, Undo2 } from "lucide-react";
+import { Anchor, CircleDot, Flag, GitMerge, Sparkles, Undo2 } from "lucide-react";
 import type { RepoStatus, Snapshot } from "../backend";
 import { useSessionMarks } from "../assistant";
 import type { TrailCommit } from "../history";
@@ -363,11 +363,11 @@ function trailItems(commits: TrailCommit[], snapshots: Snapshot[]): TrailItem[] 
 }
 
 /**
- * An anchor where the assistant was about to write, in its session's colour; a turning arrow
- * where one went back.
+ * An anchor where the assistant was about to write and a flag where its turn was over, in its
+ * session's colour; a turning arrow where one went back.
  */
 function SnapshotDot({ snapshot, selected, color }: { snapshot: Snapshot; selected: boolean; color?: string }) {
-  const Icon = snapshot.back ? Undo2 : Anchor;
+  const Icon = snapshot.back ? Undo2 : snapshot.turnFrom ? Flag : Anchor;
   const own = !snapshot.back && !selected ? color : undefined;
   return (
     <span

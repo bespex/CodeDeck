@@ -99,7 +99,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 | 1.2a Sitzungs-Identität ✅ 2026-11-15 | D15: Jede Sitzung bekommt Farbe und Kurzname, überall gleich (Liste, Trail, Snapshots, Dateien); Hover hebt Zugehöriges hervor; feste Reihenfolge nach Start statt nach Aktivität; Umbenennen (Titel, Kurzname) je Projekt. Titel aus dem Log: zuerst `custom-title`, dann `ai-title` | rechte Spalte, Trail | `bridge.rs` (`sort_by last`), `harness/claude.rs` (Log), `config.rs`, `SessionsPanel.tsx`, `Trail.tsx` | Zwei Sitzungen sind in Liste, Trail und Dateibaum an Farbe und Kurzname zu unterscheiden; die Liste springt nicht mehr; ein vergebener Name überlebt den Neustart |
 | 1.3 Grundgerüst ✅ 2026-11-15 | Projekt öffnet in Changes (D14). Vier Reiter mit ihrer Frage, Bereichsfarben, die fünf Erscheinungsformen als wiederverwendbare Bausteine (Werkzeugleiste, Abschnitt, Zeile, Dokument, Entscheidung). Bestehende Ansichten einsortieren: Docs → Handover, Workspace/Map/Tests entfallen als Reiter | Projektansicht, alle Reiter | `Deck.tsx`, `views/*`, `index.css`, `App.tsx` | Alle heutigen Funktionen sind im neuen Gerüst erreichbar; Vorschau zeigt vier Reiter |
 | 1.4 Rechte Spalte ✅ 2026-11-15 | „Needs you“, Sitzungen als zwei Zeilen mit aufklappbaren Details, „Next prompt“ mit Vorschau des Textes und Empfangsbestätigung | rechte Spalte, Szenen 2–7 | `SessionsPanel.tsx`, `assistant.ts`, `bridge.rs` (Übergabe abgeholt melden) | Wartende Sitzung erscheint oben mit Grund; nach dem nächsten Prompt steht „Delivered“ |
-| 1.5 Changes je Runde ☐ | Auswahl „Turn n / All uncommitted“ (macht den Strg+Klick-Vergleich entdeckbar, ersetzt ihn nicht), Kurzbericht aus dem Log, Datei abhaken, „Claude“ oder „You“ je Datei, Zeile kommentieren | Changes, Szenen 4–7 | `ChangesView.tsx`, `DiffParts.tsx`, `history.rs`, `sessions.rs`, `focus.ts` | Ein Zeilenkommentar landet in „Next prompt“ und kommt bei Claude an |
+| 1.5 Changes je Runde ✅ 2026-11-15 | Auswahl „Turn n / All uncommitted“ (macht den Strg+Klick-Vergleich entdeckbar, ersetzt ihn nicht), Kurzbericht aus dem Log, Datei abhaken, „Claude“ oder „You“ je Datei, Zeile kommentieren | Changes, Szenen 4–7 | `ChangesView.tsx`, `DiffParts.tsx`, `history.rs`, `sessions.rs`, `focus.ts` | Ein Zeilenkommentar landet in „Next prompt“ und kommt bei Claude an |
 | 1.6 Handover ☐ | Reiter mit Warteschlange, genauem Text, Quellen, `@ai`-Hinweisen; Startregeln (abhängig von 1.1) sichtbar | Handover | `DocsView.tsx` → Handover, `markers.ts`, `hook.rs` | Regeln stehen wörtlich im Reiter und kommen in einer neuen Sitzung an |
 
 ### MVP 2: Nichts bleibt unbemerkt
@@ -492,6 +492,31 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   `codedeck usage`, das das Script zusätzlich füttert, oder CodeDeck liest eine Datei, die das Script schreibt), und
   dass die Werte je Konto gelten und nur kommen, während eine Sitzung läuft. Die Liste zeigt Sitzungen, deren Ordner das Projekt ist, darin liegt **oder es enthält**
   (eine Sitzung im Elternordner erscheint also auch); ob Letzteres bleiben soll, mit MVP 3 (mehrere Projekte) klären.
+- 1.5 (2026-11-15): **Runde = zwei Sicherungspunkte derselben Sitzung in einem Repo.** Anfang wie bisher vor dem
+  ersten Schreiben; neu das Ende bei `TurnDone` (`Git::end_turn`, Label „After: <Prompt>“, Trailer `CodeDeck-From:
+  <Anfang>`, im Trail ⚑), nur wenn sich seit dem Anfang etwas geändert hat. Die Runde steht damit ganz im
+  End-Snapshot (`Snapshot.turnFrom`, `.report`, `.parent`), kein eigener Speicher. Befund b aus 1.1 ist so gelöst:
+  `take_snapshot` gibt bei unverändertem Stand den vorhandenen Punkt zurück (`Taken { hash, new }`), die Runde beginnt
+  dann dort (meist am Ende der vorigen). Die laufende Runde steht in `Session.turn` (Repo + Anfang), ihr Diff reicht
+  bis jetzt. Kommt ein neuer Prompt ohne `TurnDone` davor, endet die alte Runde mit ihm. **Kurzbericht** = Claudes
+  Abschlussnachricht im Wortlaut: `last_assistant_message` aus `Stop` (`Event.report`, bis 6000 Zeichen; bewusste
+  Ausnahme von „keine Antworten verlassen den Hook“), sonst der letzte Text aus dem Log (`SessionInfo.report`, für
+  abgebrochene Runden); er steht in der Nachricht des End-Snapshots, also in Git-Objekten des Repos, die nie gepusht
+  werden. Frontend: `turns.ts` (`turnsOf`: nur Runden auf dem aktuellen HEAD; `useTurnWriters`: je Runde die
+  geänderten Pfade über `gitCompare`, einmal gefragt), Auswahl `Scopes` und `TurnChanges` in `ChangesView`;
+  „Before this turn…“ öffnet den Anfangs-Snapshot, dort ist „Go back“. Wer-Schild je Datei nur in „All uncommitted“
+  und nur, wenn für mindestens eine Datei eine Sitzung bekannt ist. `reviewed.ts`: Haken je Datei in `localStorage`,
+  Schlüssel aus Repo, Pfad und Fingerabdruck des Diffs. `notes.ts`: Zeilenkommentare als Übergabeteil `notes`; ist
+  der Teil aus der Warteschlange (ausgeliefert oder zurückgenommen), sind die Kommentare weg. Kommentieren geht in
+  jedem Diff, nur an Zeilen der neuen Seite. `tools/shot.mjs` kann jetzt `type:` und `eval:`; kopfloses Chromium meldet
+  keine Maus, per CSS-Hover Eingeblendetes klickt man dort mit `eval:`. Der Bericht ist Markdown: In Changes stehen nur die ersten drei
+  Zeilen roh, „Read in Marq“ zeigt alles formatiert (`apps::show_markdown`, `marq - --reuse`, Text über stdin wie bei
+  Dirq); ohne Marq klappt der Text an Ort und Stelle auf. **Nicht gebaut:** „Claude asks“ aus dem
+  Bericht, Testzeile (4.3), Zustand „done · Claude changed this line“ am Kommentar, Changes vollständig auf
+  `blocks.tsx` (nur `Toolbar` und `Section` der Runde). **Offen:** nur in Tests und Vorschau geprüft; in der echten
+  App zu prüfen: Ende-Punkt nach `Stop`, Bericht, Kommentar kommt bei Claude an; ob „Runde“ für den Nutzer
+  nachvollziehbar ist (mehrere Sitzungen gleichzeitig landen im selben Diff). `StatusDot`: Der Ring läuft auch bei
+  „reduzierter Bewegung“, weil GTK das hier meldet (`gtk-enable-animations = False`), ohne dass der Nutzer es gewählt hat.
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

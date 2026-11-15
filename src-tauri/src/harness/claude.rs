@@ -40,6 +40,8 @@ const EVENTS: &[(&str, Option<&str>, EventKind)] = &[
 const HOOK_TIMEOUT: u64 = 30;
 /// Only the end of a log is read: the latest prompt, title and writes are there.
 const TAIL: u64 = 256 * 1024;
+/// A turn's closing words are kept up to this many characters.
+const REPORT_MAX: usize = 6000;
 /// Logs not written to for this long are no longer of interest.
 const RECENT: Duration = Duration::from_secs(24 * 3600);
 
@@ -97,6 +99,7 @@ impl Harness for Claude {
             tool: cut(&raw["tool_name"], usize::MAX),
             prompt: cut(&raw["prompt"], 300),
             message: cut(&raw["message"], 300),
+            report: cut(&raw["last_assistant_message"], REPORT_MAX).filter(|_| kind == EventKind::TurnDone),
             log: cut(&raw["transcript_path"], usize::MAX),
         })
     }
@@ -327,6 +330,8 @@ fn parse<'a>(lines: impl Iterator<Item = &'a str>) -> SessionInfo {
             "user" => {
                 if let Some(text) = entry["message"]["content"].as_str() {
                     seen.prompt = Some(text.to_string());
+                    // A new turn: what was said before belongs to the last one
+                    seen.report = None;
                 }
             }
             "assistant" => {
@@ -336,6 +341,12 @@ fn parse<'a>(lines: impl Iterator<Item = &'a str>) -> SessionInfo {
                     seen.model = Some(model.strip_prefix("claude-").unwrap_or(model).to_string());
                 }
                 for part in message["content"].as_array().into_iter().flatten() {
+                    // The main thread's words only, not those of a helper it started
+                    if part["type"] == "text" && entry["isSidechain"] != true {
+                        if let Some(text) = part["text"].as_str().filter(|t| !t.trim().is_empty()) {
+                            seen.report = Some(text.chars().take(REPORT_MAX).collect());
+                        }
+                    }
                     let writes = part["name"].as_str().is_some_and(|n| WRITE_TOOLS.contains(&n));
                     let file = part["input"]["file_path"].as_str().or_else(|| part["input"]["notebook_path"].as_str());
                     if part["type"] == "tool_use" && writes {
@@ -413,9 +424,10 @@ mod tests {
         // A shell command names no file: it may change anything
         assert_eq!((event(4).tool.as_deref(), event(4).file), (Some("Bash"), None));
         assert_eq!(event(5).message.as_deref(), Some("Claude needs your permission to use Bash"));
-        // No file contents, commands or answers leave the hook
+        // No file contents and no commands leave the hook; of the answers only the turn's last words
         let sent = serde_json::to_string(&events).unwrap();
-        assert!(!sent.contains("secret") && !sent.contains("touch") && !sent.contains("Done."));
+        assert!(!sent.contains("secret") && !sent.contains("touch"));
+        assert_eq!((event(6).report.as_deref(), event(5).report), (Some("Done."), None));
     }
 
     #[test]
@@ -496,6 +508,10 @@ mod tests {
         assert_eq!(s.writes, vec![(PathBuf::from("/p/a.rs"), iso_ms("2026-11-13T10:00:05.000Z").unwrap())]);
         assert_eq!(s.last, iso_ms("2026-11-13T10:01:00.000Z").unwrap());
         assert_eq!(s.cwd.as_deref(), Some(Path::new("/p")));
+        // What it said last in this turn; a new prompt starts over
+        assert_eq!(s.report.as_deref(), Some("ok"));
+        let asked_again = [log[2], log[0]];
+        assert_eq!(parse(asked_again.into_iter()).report, None);
 
         // Named by the user: that name wins, wherever the generated title stands
         let named = [r#"{"type":"custom-title","customTitle":"Limiter","sessionId":"s1"}"#, log[3]];

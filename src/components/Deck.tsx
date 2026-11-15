@@ -9,6 +9,7 @@ import { mainHarness } from "../assistant";
 import type { GitView } from "../git";
 import { useHistory, useSnapshots } from "../history";
 import { useMarkers } from "../markers";
+import { useNotesSync } from "../notes";
 
 type ViewId = "activity" | "changes" | "workbench" | "handover";
 
@@ -33,6 +34,7 @@ export function Deck({ git, selected, assistant }: Props) {
   const commits = useHistory(git.repos);
   const { snapshots, reload: reloadSnapshots } = useSnapshots(git.repos);
   const marks = useMarkers();
+  useNotesSync(assistant, mainHarness(assistant).capabilities.handover !== "none");
   const openMarkers = marks.markers?.length ?? 0;
   const changed = git.changed;
 
@@ -127,6 +129,7 @@ export function Deck({ git, selected, assistant }: Props) {
               selected={selected}
               onShowNow={() => setPoint({ kind: "now" })}
               onSelect={setPoint}
+              assistant={assistant}
             />
           )}
           {view === "workbench" && <WorkbenchView />}

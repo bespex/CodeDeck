@@ -265,7 +265,7 @@ Fenster nimmt nur, was sein Projekt betrifft.
 | Gleich wird geschrieben (Edit, Write, Bash) | Beim ersten Mal in der Runde: Anker setzen | ⚓ auf dem Trail |
 | Wurde geschrieben | Datei der Sitzung zuordnen, neu nachsehen | Punkt im Baum, Datei unter der Sitzung |
 | Claude braucht dich | Status *waiting*, mit Grund | Orange, „waiting for you“ |
-| Runde fertig | Status *turn done*, Log nachlesen (Titel) | Grau, Titel aktualisiert |
+| Runde fertig | Status *turn done*, Log nachlesen (Titel); hat die Runde etwas geändert: Anker für ihr Ende, mit Claudes Abschlussnachricht | Grau, Titel aktualisiert, ⚑ auf dem Trail, „Turn n“ in Changes |
 | Sitzung endet | Status *ended* | Zeile wird blass |
 
 Zwei Dinge sind dabei wichtig:
@@ -339,8 +339,11 @@ vor:
 ```
 
 - Die Anker hängen an keinem Branch, werden nie gepusht und tauchen nur in `git log --all` auf.
-- Es gibt sie nur, wo es etwas zu sichern gibt: ein Anker je Runde und Repo, vor der ersten
-  Änderung. Gleiche Stände werden zusammengelegt; 50 je Repo bleiben 14 Tage.
+- Es gibt sie nur, wo es etwas zu sichern gibt: je Runde und Repo ein Anker vor der ersten
+  Änderung (⚓) und, wenn die Runde etwas geändert hat, einer an ihrem Ende (⚑). Die beiden grenzen
+  die Runde ab: Was dazwischen liegt, hat sie geändert. Der Anker am Ende trägt Claudes
+  Abschlussnachricht. Gleiche Stände werden zusammengelegt (die nächste Runde beginnt dann am Ende
+  der vorigen); 50 je Repo bleiben 14 Tage.
 - **Go back** sichert zuerst den aktuellen Stand als eigenen Anker (↶) und stellt dann die Dateien
   her. Zurückgehen ist also selbst wieder rückgängig zu machen.
 
@@ -389,7 +392,7 @@ unter den Tabellen.
 |---|---|
 | Status je Sitzung, live, mit Grund beim Warten | Sitzungen, die nur aus den Logs bekannt sind (ohne Hook), zeigen immer *turn done*, auch wenn sie gerade arbeiten |
 | Geänderte Dateien im Baum und je Sitzung | Nicht zu sehen, *was Claude gerade vorhat* (welcher Befehl als Nächstes läuft); das steht nur im Terminal |
-| Trail mit drei Zonen, Anker vor jeder Runde | Innerhalb einer Runde gibt es nur den einen Anker davor, keine Zwischenstände |
+| Trail mit drei Zonen, Anker vor und nach jeder Runde | Innerhalb einer Runde gibt es keine Zwischenstände. Arbeiten zwei Sitzungen gleichzeitig oder änderst du während einer Runde selbst etwas, steht das im selben Diff |
 | Wartende Übergabe ist sichtbar | Keine Bestätigung, dass sie angekommen ist; sie verschwindet nur aus „wartet“ |
 | Jeder Git-Befehl im Protokoll | Verbrauch und Limits von Claude unbekannt (Schritt 2.4 im Plan, Datenquelle offen) |
 
@@ -413,7 +416,7 @@ So schließt das Zielbild diese Lücken (Schritte aus `PLAN.md`, „Zielbild: MV
 | Verbrauch unbekannt | 2.4 |
 | *Connect* je Konfiguration, Neustart nötig | 3.2 Konten, 3.3 Neustart aus CodeDeck, 4.1 Ersteinrichtung |
 | Sitzungen aus Logs zeigen immer *turn done* | 3.1 und 3.3: von CodeDeck gestartete oder neu gestartete Sitzungen melden live |
-| Nur ein Anker je Runde, keine Zwischenstände | nicht eingeplant |
+| Keine Zwischenstände innerhalb einer Runde | nicht eingeplant |
 
 ---
 
@@ -475,6 +478,16 @@ KI stellt, und die Frage steht in der Reiterleiste.
 
 Ein Projekt öffnet in Changes (D14 im Plan; wird geprüft, sobald Activity mehr zeigt). Die vier Reiter
 gibt es seit Schritt 1.3; Activity zeigt bisher nur die geschriebenen Dokumente, Workbench ist noch leer.
+
+**Changes je Runde** (seit Schritt 1.5): Über den Diffs steht die Auswahl „Turn 1 · Turn 2 · All
+uncommitted“ mit den Runden seit dem letzten Commit. Eine Runde zeigt, was du gefragt hast, Claudes
+Abschlussnachricht (die ersten drei Zeilen im Wortlaut, das Ganze formatiert über „Read in Marq“;
+CodeDeck fasst nichts selbst zusammen) und den Diff zwischen ihren
+beiden Ankern; das ist dasselbe wie Strg+Klick auf zwei Punkte im Trail. In „All uncommitted“ trägt
+jede Datei das Schild der Sitzung, deren Runde sie zuletzt geändert hat, sonst „You“. Jede Datei
+lässt sich abhaken („looked at“); der Haken verschwindet, sobald sich die Datei wieder ändert. An
+jeder Zeile eines Diffs lässt sich ein Kommentar schreiben, der mit Datei, Zeile und Zeilentext in
+„Next prompt“ wartet.
 
 Tests sind kein eigener Ort: Das Ergebnis gehört zur Runde und steht in Changes. Die frühere
 Docs-Ansicht geht auf: Hinweise sind etwas, das man mitgibt (Handover), geschriebene Dokumente sind

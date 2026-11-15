@@ -1,12 +1,13 @@
 // Pieces both ways of showing a change use: the commands an action runs, the actions on one
 // uncommitted file, and a file's diff.
 
-import { useState } from "react";
-import { Minus, Plus, Trash2, Undo2 } from "lucide-react";
+import { Fragment, useState } from "react";
+import { MessageSquarePlus, Minus, Plus, Trash2, Undo2, X } from "lucide-react";
 import type { FileStatus, RepoStatus } from "../../backend";
 import { commandLine, type Steps } from "../../git";
 import type { FileDiff } from "../../diff";
 import { fileActions, useGitRun } from "../../history";
+import { addNote, removeNote, useNotes, type Note } from "../../notes";
 import { Tooltip, TooltipHint } from "../Tooltip";
 
 export function Commands({ steps }: { steps: Steps }) {
@@ -129,8 +130,12 @@ export function FileButtons({ path, from, added, working }: { path: string; from
   );
 }
 
-/** @param missing what to say when the patch has nothing for this file (it was cut off) */
-export function DiffBody({ file, missing }: { file: FileDiff | undefined; missing?: string }) {
+/**
+ * @param missing what to say when the patch has nothing for this file (it was cut off)
+ * @param notePath the file's project-relative path: with it, lines can be commented for the next prompt
+ */
+export function DiffBody({ file, missing, notePath }: { file: FileDiff | undefined; missing?: string; notePath?: string }) {
+  const { notes, offered } = useNotes();
   if (!file) {
     return (
       <p className="border-t border-line px-3 py-2 text-[12px] text-slate-500">
@@ -151,7 +156,7 @@ export function DiffBody({ file, missing }: { file: FileDiff | undefined; missin
       <table className="w-full border-collapse">
         <tbody>
           {file.hunks.map((hunk, h) => (
-            <HunkRows key={h} hunk={hunk} />
+            <HunkRows key={h} hunk={hunk} notePath={offered ? notePath : undefined} notes={notePath ? notes.filter((n) => n.path === notePath) : []} />
           ))}
         </tbody>
       </table>
@@ -159,7 +164,9 @@ export function DiffBody({ file, missing }: { file: FileDiff | undefined; missin
   );
 }
 
-function HunkRows({ hunk }: { hunk: FileDiff["hunks"][number] }) {
+function HunkRows({ hunk, notePath, notes }: { hunk: FileDiff["hunks"][number]; notePath?: string; notes: Note[] }) {
+  /** The line (new side) a comment is being written for */
+  const [draft, setDraft] = useState<number | null>(null);
   return (
     <>
       <tr className="bg-panel/60 text-slate-500">
@@ -167,32 +174,123 @@ function HunkRows({ hunk }: { hunk: FileDiff["hunks"][number] }) {
           {hunk.context || "…"}
         </td>
       </tr>
-      {hunk.lines.map((line, i) =>
-        line.kind === "note" ? (
-          <tr key={i}>
-            <td colSpan={3} className="px-3 text-[11px] text-slate-500 italic">
-              {line.text}
-            </td>
-          </tr>
-        ) : (
-          <tr
-            key={i}
-            className={line.kind === "add" ? "bg-added/10" : line.kind === "del" ? "bg-problem/10" : ""}
-          >
-            <td className="w-10 pr-2 text-right text-slate-600 select-none">{line.old ?? ""}</td>
-            <td className="w-10 pr-2 text-right text-slate-600 select-none">{line.new ?? ""}</td>
-            <td className="pr-4 whitespace-pre text-slate-300">
-              <span
-                className={`inline-block w-4 select-none ${line.kind === "add" ? "text-added" : line.kind === "del" ? "text-problem" : "text-slate-700"}`}
-              >
-                {line.kind === "add" ? "+" : line.kind === "del" ? "−" : " "}
-              </span>
-              {line.text}
-            </td>
-          </tr>
-        ),
-      )}
+      {hunk.lines.map((line, i) => {
+        if (line.kind === "note") {
+          return (
+            <tr key={i}>
+              <td colSpan={3} className="px-3 text-[11px] text-slate-500 italic">
+                {line.text}
+              </td>
+            </tr>
+          );
+        }
+        // Only lines that are in the file now can be pointed at
+        const at = line.kind === "del" ? undefined : line.new;
+        const said = at === undefined ? [] : notes.filter((n) => n.line === at);
+        const canNote = notePath !== undefined && at !== undefined && draft !== at;
+        return (
+          <Fragment key={i}>
+            <tr className={`group/line ${line.kind === "add" ? "bg-added/10" : line.kind === "del" ? "bg-problem/10" : ""}`}>
+              <td className="w-10 pr-2 text-right text-slate-600 select-none">{line.old ?? ""}</td>
+              <td className="relative w-10 pr-2 text-right text-slate-600 select-none">
+                {line.new ?? ""}
+                {canNote && (
+                  <button
+                    type="button"
+                    aria-label={`Comment line ${at} for the next prompt`}
+                    title="Comment this line for the next prompt"
+                    onClick={() => setDraft(at!)}
+                    className="absolute inset-y-0 right-0 hidden w-7 items-center justify-center rounded-sm bg-brand-fill text-white group-hover/line:flex hover:bg-brand-fill-hover focus-visible:flex"
+                  >
+                    <MessageSquarePlus className="size-3.5" />
+                  </button>
+                )}
+              </td>
+              <td className="pr-4 whitespace-pre text-slate-300">
+                <span
+                  className={`inline-block w-4 select-none ${line.kind === "add" ? "text-added" : line.kind === "del" ? "text-problem" : "text-slate-700"}`}
+                >
+                  {line.kind === "add" ? "+" : line.kind === "del" ? "−" : " "}
+                </span>
+                {line.text}
+              </td>
+            </tr>
+            {said.map((note) => (
+              <tr key={`n${note.id}`}>
+                <td colSpan={3} className="bg-[var(--color-area-you)] px-3 py-1.5 font-sans text-[12px] leading-[18px]">
+                  <div className="flex max-w-3xl items-start gap-2 border-l-2 border-brand pl-2">
+                    <p className="min-w-0 flex-1 whitespace-pre-wrap text-slate-100">{note.text}</p>
+                    <span className="shrink-0 text-[11px] text-brand-soft">in next prompt</span>
+                    <button
+                      type="button"
+                      aria-label="Remove this comment"
+                      title="Remove this comment"
+                      onClick={() => removeNote(note.id)}
+                      className="shrink-0 rounded p-0.5 text-slate-500 hover:bg-raised hover:text-slate-100"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {notePath !== undefined && at !== undefined && draft === at && (
+              <tr>
+                <td colSpan={3} className="bg-[var(--color-area-you)] px-3 py-2 font-sans text-[12px]">
+                  <NoteForm
+                    onCancel={() => setDraft(null)}
+                    onAdd={(text) => {
+                      addNote(notePath, at, line.text, text);
+                      setDraft(null);
+                    }}
+                  />
+                </td>
+              </tr>
+            )}
+          </Fragment>
+        );
+      })}
     </>
+  );
+}
+
+/** Writing a comment on one line; it goes out with the next prompt. */
+function NoteForm({ onAdd, onCancel }: { onAdd: (text: string) => void; onCancel: () => void }) {
+  const [text, setText] = useState("");
+  const ready = text.trim().length > 0;
+  return (
+    <div className="flex max-w-3xl flex-col gap-1.5">
+      <textarea
+        autoFocus
+        value={text}
+        rows={2}
+        placeholder="What should change here?"
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onCancel();
+          if (e.key === "Enter" && e.ctrlKey && ready) {
+            e.preventDefault();
+            onAdd(text);
+          }
+        }}
+        className="selectable block w-full resize-y rounded-md border border-line bg-base px-2 py-1 leading-[18px] text-slate-100 outline-none placeholder:text-slate-600 focus:border-brand"
+      />
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] text-slate-500">Goes out with your next prompt, with the file, the line and its text.</span>
+        <button type="button" onClick={onCancel} className="ml-auto rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised">
+          Cancel
+        </button>
+        <button
+          type="button"
+          aria-disabled={!ready}
+          title="Ctrl+Enter"
+          onClick={() => ready && onAdd(text)}
+          className="rounded-md bg-brand-fill px-2.5 py-0.5 font-medium text-white not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
+        >
+          Add to next prompt
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -202,6 +300,37 @@ export function LineCounts({ added, removed }: { added: number | null; removed: 
     <span className="shrink-0 font-mono text-[11px]">
       {added ? <span className="text-added">+{added} </span> : null}
       {removed ? <span className="text-problem">−{removed}</span> : null}
+    </span>
+  );
+}
+
+/**
+ * "Looked at": a tick per file, kept with the change as it is shown.
+ *
+ * @param name what the file is called, for screen readers
+ */
+export function LookedAt({ checked, onChange, name }: { checked: boolean; onChange: () => void; name: string }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      onClick={(e) => e.stopPropagation()}
+      aria-label={`Looked at ${name}`}
+      title="Tick it when you have looked at it. The tick goes away when the file changes again."
+      className="size-3.5 shrink-0 cursor-pointer accent-ai [color-scheme:dark]"
+    />
+  );
+}
+
+/** Who changed a file last: a session, or nobody CodeDeck heard of, so the user. */
+export function You() {
+  return (
+    <span
+      title="No session reported changing it since the last commit"
+      className="shrink-0 rounded-full border border-line px-1.5 text-[10px] leading-4 text-slate-400"
+    >
+      You
     </span>
   );
 }
