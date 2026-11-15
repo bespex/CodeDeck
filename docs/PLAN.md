@@ -438,6 +438,9 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   Bewusste Ausnahme: `history.rs` `AI_MARKS` (Co-Autoren in Commits) bleibt im Kern. `hook-trace.log` schreibt jetzt
   `<zeit> <harness> <Art> <sitzung> …`. Die Rohmeldungen im Claude-Test sind aus den Notizen zu 1.1 nachgebaut, ein
   echter Mitschnitt (`CODEDECK_HOOK_LOG`) lag nicht mehr vor; bei Gelegenheit ersetzen.
+  In der echten App geprüft (CLI-Sitzung, 2026-11-15): Status, Titel, Sicherungspunkt („Before: <Prompt>“) und
+  Übergabe mit dem nächsten Prompt funktionieren wie vor dem Umbau. Die Übergabe enthielt nur den Fehltreffer
+  `README.md:70` (Zeile, die die Marker-Schreibweise erklärt); er gilt als übergeben und wird nie „erledigt“ (für 1.6).
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,
