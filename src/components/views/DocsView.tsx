@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Check, ClipboardCopy, Eye, ExternalLink, FileText, MessageSquareText, Send, Sparkles, X } from "lucide-react";
-import { handOver, openFile, type AssistantState, type Marker } from "../../backend";
-import { touchedFiles, useHooks } from "../../assistant";
+import { handOver, openFile, type AssistantState, type HarnessInfo, type Marker } from "../../backend";
+import { mainHarness, touchedFiles, useConnections } from "../../assistant";
 import { markerKey, type Markers } from "../../markers";
 import { LOCALE } from "../Trail";
 import { plural } from "../../git";
@@ -9,13 +9,14 @@ import { Tooltip } from "../Tooltip";
 
 /**
  * Documents with comments for the assistant. One writes `<!-- @ai: … -->` (or `[!AI: …]`) in
- * an outside editor; here they are collected and handed to Claude as one task: copied, or given
+ * an outside editor; here they are collected and handed to the assistant as one task: copied, or given
  * along with the next prompt in this project.
  */
 export function DocsView({ assistant, marks }: { assistant: AssistantState; marks: Markers }) {
   const { markers, error, handed, done, markHanded } = marks;
   const [copied, setCopied] = useState<string | null>(null);
-  const { connected } = useHooks();
+  const { connected } = useConnections();
+  const harness = mainHarness(assistant);
   const written = recentDocs(assistant);
   const waiting = assistant.handovers.find((h) => h.key === MARKERS_KEY);
 
@@ -40,6 +41,7 @@ export function DocsView({ assistant, marks }: { assistant: AssistantState; mark
           <div className="ml-auto flex gap-1.5">
             <TaskButtons
               markers={markers}
+              harness={harness}
               connected={connected}
               copied={copied === "all"}
               onCopy={(t) => copy(t, "all")}
@@ -66,7 +68,7 @@ export function DocsView({ assistant, marks }: { assistant: AssistantState; mark
       )}
 
       {handed.length > 0 && (
-        <HandedProgress handed={handed} done={done} waiting={!!waiting} />
+        <HandedProgress handed={handed} done={done} waiting={!!waiting} to={harness.shortName} />
       )}
 
       {error && <p className="selectable p-4 text-problem">{error}</p>}
@@ -102,6 +104,7 @@ export function DocsView({ assistant, marks }: { assistant: AssistantState; mark
                 </Tooltip>
                 <TaskButtons
                   markers={list}
+                  harness={harness}
                   connected={connected}
                   small
                   copied={copied === path}
@@ -179,7 +182,7 @@ function RecentDocs({ docs }: { docs: [string, number][] }) {
 }
 
 /** What became of the comments handed over: a comment that is gone counts as done. */
-function HandedProgress({ handed, done, waiting }: { handed: Marker[]; done: Set<string>; waiting: boolean }) {
+function HandedProgress({ handed, done, waiting, to }: { handed: Marker[]; done: Set<string>; waiting: boolean; to: string }) {
   const [open, setOpen] = useState(false);
   const all = done.size === handed.length;
   return (
@@ -187,7 +190,7 @@ function HandedProgress({ handed, done, waiting }: { handed: Marker[]; done: Set
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 text-left">
         <Check className={`size-3.5 ${all ? "text-added" : "text-slate-500"}`} />
         <span className="flex-1 text-slate-300">
-          Handed to Claude: {done.size} of {handed.length} done
+          Handed to {to}: {done.size} of {handed.length} done
           {waiting ? " · not picked up yet" : ""}
         </span>
         <span className="text-[11px] text-slate-500">{open ? "hide" : "show"}</span>
@@ -211,7 +214,7 @@ function HandedProgress({ handed, done, waiting }: { handed: Marker[]; done: Set
 /** The part of the hand-over that comments make. */
 const MARKERS_KEY = "markers";
 
-/** The task for Claude, as one would write it. */
+/** The task for the assistant, as one would write it. */
 export function markerTask(markers: Marker[]): string {
   const lines = markers.map((m) => `- ${m.path}:${m.line}: ${m.text}`);
   return [
@@ -224,6 +227,8 @@ export function markerTask(markers: Marker[]): string {
 
 function TaskButtons(props: {
   markers: Marker[];
+  /** The tool the task goes to: its name, and whether it can take it with a prompt */
+  harness: HarnessInfo;
   connected: boolean;
   small?: boolean;
   copied: boolean;
@@ -231,6 +236,7 @@ function TaskButtons(props: {
   onHanded: (markers: Marker[]) => void;
 }) {
   const task = markerTask(props.markers);
+  const { shortName, name, capabilities } = props.harness;
   const files = new Set(props.markers.map((m) => m.path)).size;
   const label = `${plural(props.markers.length, "comment")}${files > 1 ? ` in ${files} files` : ` in ${props.markers[0]?.path}`}`;
   const base = props.small
@@ -238,31 +244,31 @@ function TaskButtons(props: {
     : "flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised hover:text-slate-100";
   return (
     <>
-      <Tooltip content={<span>{props.copied ? "Copied" : "Copy as a task to paste into Claude"}</span>}>
+      <Tooltip content={<span>{props.copied ? "Copied" : `Copy as a task to paste into ${shortName}`}</span>}>
         <button type="button" aria-label="Copy as a task" onClick={() => props.onCopy(task)} className={base}>
           <ClipboardCopy className={`size-3.5 ${props.copied ? "text-added" : ""}`} />
           {!props.small && (props.copied ? "Copied" : "Copy task")}
         </button>
       </Tooltip>
-      <Tooltip
+      {capabilities.handover === "withNextPrompt" && <Tooltip
         content={
           <>
-            <span>Give to Claude with the next prompt you send in this project</span>
-            {!props.connected && <span className="text-slate-400">Needs Claude Code connected (status bar)</span>}
+            <span>Give to {shortName} with the next prompt you send in this project</span>
+            {!props.connected && <span className="text-slate-400">Needs {name} connected (status bar)</span>}
           </>
         }
       >
         <button
           type="button"
-          aria-label="Hand to Claude"
+          aria-label={`Hand to ${shortName}`}
           disabled={!props.connected}
           onClick={() => handOver(MARKERS_KEY, task, label).then(() => props.onHanded(props.markers))}
           className={`${base} disabled:opacity-40`}
         >
           <Send className="size-3.5" />
-          {!props.small && "Hand to Claude"}
+          {!props.small && `Hand to ${shortName}`}
         </button>
-      </Tooltip>
+      </Tooltip>}
     </>
   );
 }

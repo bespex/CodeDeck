@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { Plug, Sparkles } from "lucide-react";
-import { live, setClaudeHooks, type AssistantState } from "../backend";
-import { useHooks, type Hooks } from "../assistant";
+import { live, setHarnessConnection, type AssistantState, type Connection, type HarnessInfo } from "../backend";
+import { mainHarness, useConnections, type Connections } from "../assistant";
 import { plural } from "../git";
 
 /**
- * Claude Code in the status bar: how many sessions work in the project and whether one waits
- * (the sessions themselves are in the right column); a click sets up the hooks through which
+ * The coding tool in the status bar: how many sessions work in the project and whether one waits
+ * (the sessions themselves are in the right column); a click sets up the connection through which
  * CodeDeck hears of them.
  */
 export function AssistantStatus({ state }: { state: AssistantState }) {
   const [open, setOpen] = useState(false);
-  const hooks = useHooks();
+  const hooks = useConnections();
+  const harness = mainHarness(state);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -29,10 +30,10 @@ export function AssistantStatus({ state }: { state: AssistantState }) {
   const working = active.filter((s) => s.status === "working").length;
   const waiting = active.filter((s) => s.status === "waiting").length;
   const label = !hooks.connected
-    ? "Claude: not connected"
+    ? `${harness.shortName}: not connected`
     : active.length === 0
-      ? "Claude: no session"
-      : `Claude: ${plural(active.length, "session")}${working ? ` · ${working} working` : ""}${waiting ? ` · ${waiting} waiting` : ""}`;
+      ? `${harness.shortName}: no session`
+      : `${harness.shortName}: ${plural(active.length, "session")}${working ? ` · ${working} working` : ""}${waiting ? ` · ${waiting} waiting` : ""}`;
 
   return (
     <div ref={box} className="relative">
@@ -49,7 +50,7 @@ export function AssistantStatus({ state }: { state: AssistantState }) {
       </button>
       {open && (
         <div className="surface-overlay absolute right-0 bottom-6 z-30 flex max-h-[60vh] w-[420px] flex-col overflow-y-auto rounded-lg p-3 pt-0 text-[12px] text-slate-300">
-          <HookPanel hooks={hooks} heard={state.heard} />
+          <HookPanel hooks={hooks} harness={harness} heard={state.heard} />
         </div>
       )}
     </div>
@@ -57,18 +58,18 @@ export function AssistantStatus({ state }: { state: AssistantState }) {
 }
 
 /**
- * Connecting per Claude Code configuration: several are common (one per account, each used
- * with its own `CLAUDE_CONFIG_DIR`); a session only reports through the one it runs with.
+ * Connecting per account of the tool: several are common (each with a configuration of its
+ * own); a session only reports through the one it runs with.
  */
-export function HookPanel({ hooks, heard }: { hooks: Hooks; heard: boolean }) {
+export function HookPanel({ hooks, harness, heard }: { hooks: Connections; harness: HarnessInfo; heard: boolean }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   if (!hooks.setups) return null;
-  const change = async (dir: string, install: boolean) => {
-    setBusy(dir);
+  const change = async (c: Connection, install: boolean) => {
+    setBusy(c.dir);
     setError(null);
     try {
-      hooks.update(await setClaudeHooks(dir, install));
+      hooks.update(await setHarnessConnection(c.harness, c.dir, install));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -81,8 +82,8 @@ export function HookPanel({ hooks, heard }: { hooks: Hooks; heard: boolean }) {
     <div className="pt-3">
       <p className="text-slate-400">
         {hooks.connected
-          ? "Claude Code tells CodeDeck what it does through hooks in its settings."
-          : "Connecting adds hooks to Claude Code's settings for every session."}{" "}
+          ? `${harness.name} tells CodeDeck what it does through hooks in its settings.`
+          : `Connecting adds hooks to ${harness.name}'s settings for every session.`}{" "}
         They run <code className="font-mono text-[11px]">{command}</code>, which tells the open CodeDeck windows which
         session works where and which files it writes, and lets CodeDeck keep a snapshot before an assistant's first
         write in a turn. Nothing else in the file changes; the file as it was is kept next to it.
@@ -90,7 +91,7 @@ export function HookPanel({ hooks, heard }: { hooks: Hooks; heard: boolean }) {
       </p>
       <ul className="mt-2 flex flex-col gap-1.5">
         {hooks.setups.map((s) => (
-          <li key={s.dir} className="flex items-center gap-2 rounded-md border border-overlay-line px-2 py-1.5">
+          <li key={`${s.harness} ${s.dir}`} className="flex items-center gap-2 rounded-md border border-overlay-line px-2 py-1.5">
             <div className="min-w-0 flex-1">
               {/* Said in words: the button on the right names the action, not the state */}
               <span className={`flex items-center gap-1.5 text-[11px] font-medium ${s.installed ? "text-added" : "text-slate-400"}`}>
@@ -101,19 +102,19 @@ export function HookPanel({ hooks, heard }: { hooks: Hooks; heard: boolean }) {
               {s.other && <span className="block truncate text-[11px] text-changed">runs another CodeDeck: {s.other}</span>}
             </div>
             {s.other && (
-              <button type="button" disabled={!!busy} onClick={() => change(s.dir, true)} className={`${button} bg-brand-fill text-white hover:bg-brand-fill-hover`}>
+              <button type="button" disabled={!!busy} onClick={() => change(s, true)} className={`${button} bg-brand-fill text-white hover:bg-brand-fill-hover`}>
                 Use this one
               </button>
             )}
             {s.installed ? (
-              <button type="button" disabled={!!busy} onClick={() => change(s.dir, false)} className={`${button} border border-overlay-line hover:bg-overlay-hover`}>
+              <button type="button" disabled={!!busy} onClick={() => change(s, false)} className={`${button} border border-overlay-line hover:bg-overlay-hover`}>
                 Disconnect
               </button>
             ) : (
               <button
                 type="button"
                 disabled={!!busy || !live}
-                onClick={() => change(s.dir, true)}
+                onClick={() => change(s, true)}
                 className={`${button} bg-brand-fill text-white hover:bg-brand-fill-hover`}
               >
                 Connect

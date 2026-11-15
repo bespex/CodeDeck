@@ -2,18 +2,18 @@
 //!
 //! The project directory, its file list and a file watcher. Each window is its own process with
 //! its own project; several can run side by side. Git for every repository in it, and a socket
-//! through which coding assistants (Claude Code's hooks) report what they do.
+//! through which coding tools report what they do (see [`harness`]).
 
 mod apps;
 mod bridge;
 mod config;
 mod git;
+mod harness;
 mod history;
 pub mod hook;
 mod markers;
 mod project;
 mod recent;
-mod sessions;
 mod snapshot;
 mod watch;
 
@@ -26,7 +26,7 @@ use tauri_plugin_dialog::DialogExt;
 
 use apps::{FileApps, Role};
 use bridge::{AssistantState, Bridge};
-use hook::HookSetup;
+use harness::Connection;
 use markers::Marker;
 use snapshot::Snapshot;
 use git::{ActionResult, Git, GitRun, RepoStatus};
@@ -296,16 +296,18 @@ fn hand_over(key: String, text: Option<String>, label: Option<String>, app: AppH
     bridge.hand_over(&app, key, text.map(|t| (t, label.unwrap_or_default())));
 }
 
-/// Whether CodeDeck's hooks are in the settings, per Claude Code configuration.
+/// Whether the coding tools report to CodeDeck, per tool and account.
 #[tauri::command]
-fn claude_hooks() -> Vec<HookSetup> {
-    hook::status()
+fn harness_connections() -> Vec<Connection> {
+    harness::all().iter().flat_map(|h| h.connections()).collect()
 }
 
-/// Puts CodeDeck's hooks into one configuration's settings, or takes them out.
+/// Makes the tool of one account report to CodeDeck, or stops that; the state of all afterwards.
 #[tauri::command]
-fn set_claude_hooks(dir: String, install: bool) -> Result<Vec<HookSetup>, String> {
-    hook::set(&dir, install)
+fn set_harness_connection(harness: String, account: String, install: bool) -> Result<Vec<Connection>, String> {
+    let tool = harness::by_id(Some(&harness)).ok_or_else(|| format!("{harness}: not a tool CodeDeck knows"))?;
+    tool.connect(&account, install)?;
+    Ok(harness_connections())
 }
 
 /// The git commands run so far, oldest first.
@@ -373,8 +375,8 @@ pub fn run() {
             find_markers,
             assistant_state,
             hand_over,
-            claude_hooks,
-            set_claude_hooks,
+            harness_connections,
+            set_harness_connection,
             git_log
         ])
         .build(tauri::generate_context!())

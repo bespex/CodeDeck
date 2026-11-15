@@ -95,7 +95,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 | Schritt | Ziel | Dummy | Dateien | Fertig wenn |
 |---|---|---|---|---|
 | 1.1 Praxistest ✅ 2026-11-15 | P0 durchführen (braucht den Nutzer). Zusätzlich klären: Kommt Text aus dem Hook „Sitzung beginnt“ in der Sitzung an? Sieht der Hook Schreibvorgänge außerhalb des Projekts und Werkzeugaufrufe, die eine Seite veröffentlichen (mit Link)? Feuern die Hooks auch, wenn der Prompt über Desktop/Web kommt? | – | `hook.rs`, `bridge.rs` | Die fünf Punkte aus P0 und die drei Fragen sind beantwortet und unter „Notizen“ festgehalten |
-| 1.2 Schnittstelle für KI-Werkzeuge ☐ | Alles Claude-Spezifische hinter die Schnittstelle aus „Kapselung der KI-Anbindung“ ziehen. Kein neues Verhalten | – | `hook.rs`, `sessions.rs`, `bridge.rs`, `lib.rs`, `backend.ts` | Tests grün; ein Test-Adapter ohne Claude liefert Sitzungen; Frontend fragt Fähigkeiten statt Werkzeugnamen |
+| 1.2 Schnittstelle für KI-Werkzeuge ✅ 2026-11-15 | Alles Claude-Spezifische hinter die Schnittstelle aus „Kapselung der KI-Anbindung“ ziehen. Kein neues Verhalten | – | `hook.rs`, `sessions.rs`, `bridge.rs`, `lib.rs`, `backend.ts` | Tests grün; ein Test-Adapter ohne Claude liefert Sitzungen; Frontend fragt Fähigkeiten statt Werkzeugnamen |
 | 1.3 Grundgerüst ☐ | D14 vorher klären. Vier Reiter mit ihrer Frage, Bereichsfarben, die fünf Erscheinungsformen als wiederverwendbare Bausteine (Werkzeugleiste, Abschnitt, Zeile, Dokument, Entscheidung). Bestehende Ansichten einsortieren: Docs → Handover, Workspace/Map/Tests entfallen als Reiter | Projektansicht, alle Reiter | `Deck.tsx`, `views/*`, `index.css`, `App.tsx` | Alle heutigen Funktionen sind im neuen Gerüst erreichbar; Vorschau zeigt vier Reiter |
 | 1.4 Rechte Spalte ☐ | „Needs you“, Sitzungen als zwei Zeilen mit aufklappbaren Details, „Next prompt“ mit Vorschau des Textes und Empfangsbestätigung | rechte Spalte, Szenen 2–7 | `SessionsPanel.tsx`, `assistant.ts`, `bridge.rs` (Übergabe abgeholt melden) | Wartende Sitzung erscheint oben mit Grund; nach dem nächsten Prompt steht „Delivered“ |
 | 1.5 Changes je Runde ☐ | Auswahl „Turn n / All uncommitted“ (macht den Strg+Klick-Vergleich entdeckbar, ersetzt ihn nicht), Kurzbericht aus dem Log, Datei abhaken, „Claude“ oder „You“ je Datei, Zeile kommentieren | Changes, Szenen 4–7 | `ChangesView.tsx`, `DiffParts.tsx`, `history.rs`, `sessions.rs`, `focus.ts` | Ein Zeilenkommentar landet in „Next prompt“ und kommt bei Claude an |
@@ -160,16 +160,19 @@ Es gibt zwei Nähte:
 2. **Hinaus, als Schnittstelle.** Was CodeDeck von sich aus tut, läuft über einen Trait je Werkzeug:
 
 ```rust
-// src-tauri/src/harness/mod.rs (Skizze, Namen bei 1.2 festlegen)
+// src-tauri/src/harness/mod.rs (Stand nach 1.2; `launch` kommt mit 3.1, `usage` mit 2.4,
+// `accounts` mit dem Schritt, der Konten braucht)
 pub trait Harness {
     fn id(&self) -> &'static str;                          // "claude"
+    fn name(&self) -> &'static str;                        // "Claude Code", für Texte
+    fn short_name(&self) -> &'static str;                  // "Claude", für Knöpfe
     fn capabilities(&self) -> Capabilities;
-    fn accounts(&self) -> Vec<AccountCandidate>;           // gefundene Konfigurationen
-    fn launch(&self, account: &Account, cwd: &Path) -> Launch;   // Befehl + Umgebung für tmux
-    fn connect(&self, account: &Account) -> Result<()>;    // Hooks eintragen (und disconnect)
+    fn connections(&self) -> Vec<Connection>;              // je Konfiguration: verbunden?
+    fn connect(&self, account: &str, on: bool) -> Result<(), String>; // Hooks ein-/austragen
     fn translate(&self, raw: &Value) -> Option<Event>;     // rohe Meldung → neutrales Ereignis
+    fn reply(&self, event: &Event, handed: &[String]) -> Option<String>; // Zustellung der Übergabe
     fn past_sessions(&self, project: &Path) -> Vec<SessionInfo>; // aus Logs
-    fn usage(&self, account: &Account) -> Option<Usage>;
+    fn read_log(&self, log: &Path) -> Option<SessionInfo>; // ein Log (Titel, Modell, Writes)
 }
 
 pub struct Capabilities {
@@ -421,6 +424,19 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   - Offen aus 1.1 und auf spätere Schritte verschoben: Text aus `SessionStart` live (1.6), Link einer
     veröffentlichten Seite (2.2), Ursache für Desktop ohne Hooks (3.1).
 
+- 1.2 (2026-11-15): Alles Claude-Spezifische liegt in `harness/claude.rs` (Hooks, `settings.json`, Konfigurationen,
+  Log-Format); `sessions.rs` gibt es nicht mehr, `hook.rs` ist nur noch Transport. Über den Socket geht ein neutrales
+  `Event` mit `kind` (`session_started`, `prompt_submitted`, `before_write`, `after_write`, `waiting`, `turn_done`,
+  `session_ended`); `before_write` ohne `file` heißt „kann alles ändern“ (Shell). `codedeck hook` ohne `--harness`
+  nimmt den Standard-Adapter (Claude, erster in `harness::all()`), eingetragene Hooks bleiben gültig. Jede Sitzung
+  trägt `harness` und `capabilities`; nur aus dem Log bekannt = `Capabilities::from_log_only` (kein `liveStatus`,
+  `beforeWrite`, `handover`), mit dem ersten Ereignis gelten die des Werkzeugs. Die Oberfläche zeigt das noch nicht an
+  (für 1.4: „nur aus dem Log“ statt „idle“). Frontend: `mainHarness(state)` liefert Namen und Fähigkeiten,
+  `useConnections` ersetzt `useHooks`; „Hand to …“ nur bei `handover = withNextPrompt`, bei `clipboard` „Copy“.
+  Kernlogik der Brücke ist `Inner::take_in` (ohne Fenster und Git testbar), Test-Adapter `harness/fake.rs`.
+  Bewusste Ausnahme: `history.rs` `AI_MARKS` (Co-Autoren in Commits) bleibt im Kern. `hook-trace.log` schreibt jetzt
+  `<zeit> <harness> <Art> <sitzung> …`. Die Rohmeldungen im Claude-Test sind aus den Notizen zu 1.1 nachgebaut, ein
+  echter Mitschnitt (`CODEDECK_HOOK_LOG`) lag nicht mehr vor; bei Gelegenheit ersetzen.
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

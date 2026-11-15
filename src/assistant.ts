@@ -1,10 +1,22 @@
-// What CodeDeck hears from coding assistants: the sessions in the project (from Claude Code's
-// hooks), whether those hooks are set up, and the task waiting for the next prompt.
+// What CodeDeck hears from coding assistants: the sessions in the project, whether their tools
+// are connected, and the task waiting for the next prompt. No tool is named here or in the
+// components: names and what is offered come from `HarnessInfo` and its capabilities.
 
 import { useEffect, useState } from "react";
-import { assistantState, claudeHooks, onAssistantChanged, type AssistantState, type HookSetup } from "./backend";
+import { assistantState, harnessConnections, onAssistantChanged, type AssistantState, type Connection, type HarnessInfo } from "./backend";
 
-const EMPTY: AssistantState = { heard: false, sessions: [], handovers: [] };
+const EMPTY: AssistantState = { heard: false, harnesses: [], sessions: [], handovers: [] };
+
+/** Stands in until the backend told which tools there are: no name, nothing on offer. */
+const UNKNOWN: HarnessInfo = {
+  id: "",
+  name: "The assistant",
+  shortName: "Assistant",
+  capabilities: { liveStatus: false, beforeWrite: false, handover: "none", startRules: false, pastSessions: false, usage: false },
+};
+
+/** The tool texts and offers go by: the default one. */
+export const mainHarness = (state: AssistantState): HarnessInfo => state.harnesses[0] ?? UNKNOWN;
 
 export function useAssistant(): AssistantState {
   const [state, setState] = useState<AssistantState>(EMPTY);
@@ -22,28 +34,28 @@ export function useAssistant(): AssistantState {
   return state;
 }
 
-/** CodeDeck's hooks per Claude Code configuration, shared by every component that shows them. */
-export interface Hooks {
+/** The tools' connections per account, shared by every component that shows them. */
+export interface Connections {
   /** `null` while asking */
-  setups: HookSetup[] | null;
-  /** In at least one configuration */
+  setups: Connection[] | null;
+  /** At least one account reports */
   connected: boolean;
   /** After connecting or disconnecting: the new state for everyone */
-  update: (setups: HookSetup[]) => void;
+  update: (setups: Connection[]) => void;
 }
 
-let shared: HookSetup[] | null = null;
-const listeners = new Set<(s: HookSetup[]) => void>();
-const publish = (setups: HookSetup[]) => {
+let shared: Connection[] | null = null;
+const listeners = new Set<(s: Connection[]) => void>();
+const publish = (setups: Connection[]) => {
   shared = setups;
   listeners.forEach((l) => l(setups));
 };
 
-export function useHooks(): Hooks {
-  const [setups, setSetups] = useState<HookSetup[] | null>(shared);
+export function useConnections(): Connections {
+  const [setups, setSetups] = useState<Connection[] | null>(shared);
   useEffect(() => {
     listeners.add(setSetups);
-    if (!shared) claudeHooks().then(publish).catch(() => {});
+    if (!shared) harnessConnections().then(publish).catch(() => {});
     return () => void listeners.delete(setSetups);
   }, []);
   return { setups, connected: !!setups?.some((s) => s.installed), update: publish };

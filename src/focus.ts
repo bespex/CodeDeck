@@ -1,4 +1,4 @@
-// The focus: files, folders and passages the user picks for Claude. Empty by default: then
+// The focus: files, folders and passages the user picks for the assistant. Empty by default: then
 // nothing is handed over and the assistant works without extra context.
 
 import { pathStats, tokensFor, type Entry } from "./backend";
@@ -37,7 +37,7 @@ export async function pinFromEntry(entry: Entry): Promise<Pin> {
 export const FOCUS_KEY = "focus";
 
 /**
- * The focus as text for Claude: paths only (it reads them itself, as far as it needs), passages
+ * The focus as text for the assistant: paths only (it reads them itself, as far as it needs), passages
  * with their text.
  */
 export function focusText(pins: Pin[]): string {

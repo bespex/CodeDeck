@@ -459,9 +459,39 @@ export function findMarkers(): Promise<Marker[]> {
   ]);
 }
 
-/** A coding assistant session working in the project, as its hooks told. */
+/** What a coding tool, or one of its sessions, lets CodeDeck do. The interface offers only this. */
+export interface Capabilities {
+  /** It reports each step as it happens, so working / waiting / done is known */
+  liveStatus: boolean;
+  /** It reports before it writes, so a snapshot can be taken first */
+  beforeWrite: boolean;
+  /** How text gets into a session: added to the next prompt, only by copy and paste, or not at all */
+  handover: "withNextPrompt" | "clipboard" | "none";
+  /** Text can be given to a session when it starts */
+  startRules: boolean;
+  /** Its logs tell of sessions CodeDeck did not hear from */
+  pastSessions: boolean;
+  /** It tells how much of the account's allowance is used */
+  usage: boolean;
+}
+
+/** A coding tool CodeDeck supports. Its names are the only place texts take a tool's name from. */
+export interface HarnessInfo {
+  id: string;
+  /** In sentences, e.g. "Claude Code" */
+  name: string;
+  /** Where space is short, e.g. "Claude" */
+  shortName: string;
+  capabilities: Capabilities;
+}
+
+/** A coding assistant session working in the project, as it reported or as its log tells. */
 export interface Session {
   id: string;
+  /** `id` of the tool it runs in, see `AssistantState.harnesses` */
+  harness: string;
+  /** What is possible with this session; less than its tool's while it is known from its log only */
+  capabilities: Capabilities;
   /** Where it runs: project-relative (`""` is the root), or absolute outside the project */
   cwd: string;
   /** working; waiting for an answer or a permission; idle: its turn is over; ended */
@@ -472,9 +502,9 @@ export interface Session {
   /** The latest prompt, shortened */
   prompt: string | null;
   prompts: number;
-  /** The title Claude Code gave the session */
+  /** The title the tool gave the session */
   title: string | null;
-  /** The model of its latest answer */
+  /** The model of its latest answer, as it is shown */
   model: string | null;
   /** What it is waiting for */
   message: string | null;
@@ -485,8 +515,10 @@ export interface Session {
 }
 
 export interface AssistantState {
-  /** A hook event arrived since this window started */
+  /** An event arrived since this window started */
   heard: boolean;
+  /** The tools CodeDeck supports, the default one first */
+  harnesses: HarnessInfo[];
   sessions: Session[];
   /** What waits for the next prompt, in parts that can be taken back one by one */
   handovers: Handover[];
@@ -500,11 +532,16 @@ export interface Handover {
   label: string;
 }
 
+const MOCK_CAPABILITIES: Capabilities = { liveStatus: true, beforeWrite: true, handover: "withNextPrompt", startRules: false, pastSessions: true, usage: false };
+
 const mockAssistant: AssistantState = {
   heard: true,
+  harnesses: [{ id: "claude", name: "Claude Code", shortName: "Claude", capabilities: MOCK_CAPABILITIES }],
   sessions: [
     {
       id: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a",
+      harness: "claude",
+      capabilities: MOCK_CAPABILITIES,
       cwd: "",
       status: "working",
       started: Date.now() - 20 * 60_000,
@@ -512,7 +549,7 @@ const mockAssistant: AssistantState = {
       prompt: "Held orders in the fixture should not count against the limit.",
       prompts: 2,
       title: "Per-client rate limit for orders",
-      model: "claude-opus-5-5",
+      model: "opus-5-5",
       message: null,
       touched: [
         { path: "tests/rate_limit.rs", at: Date.now() - 40_000 },
@@ -522,6 +559,8 @@ const mockAssistant: AssistantState = {
     },
     {
       id: "b07e11d4-6c3a-4f2e-8d90-1a2b3c4d5e6f",
+      harness: "claude",
+      capabilities: MOCK_CAPABILITIES,
       cwd: "docs",
       status: "waiting",
       started: Date.now() - 50 * 60_000,
@@ -529,7 +568,7 @@ const mockAssistant: AssistantState = {
       prompt: "Document the limiter",
       prompts: 1,
       title: "Limiter documentation",
-      model: "claude-sonnet-5-5",
+      model: "sonnet-5-5",
       message: "Claude needs your permission to use Bash",
       touched: [{ path: "docs/api.md", at: Date.now() - 4 * 60_000 }],
       handed: false,
@@ -562,35 +601,37 @@ export function handOver(key: string, text: string | null, label?: string): Prom
   return Promise.resolve();
 }
 
-/** Whether CodeDeck's hooks are in the settings of one Claude Code configuration. */
-export interface HookSetup {
-  /** The configuration directory: `~/.claude`, or another one used with `CLAUDE_CONFIG_DIR` */
+/** Whether one account's coding tool reports to CodeDeck. */
+export interface Connection {
+  /** `id` of the tool */
+  harness: string;
+  /** The account's configuration directory */
   dir: string;
-  /** Its settings file */
+  /** The file the connection is written into */
   settings: string;
   installed: boolean;
-  /** The hooks run another CodeDeck than this one, e.g. a development build */
+  /** It reports to another CodeDeck than this one, e.g. a development build */
   other: string | null;
-  /** What the hooks run, for this CodeDeck */
+  /** What the tool runs to report, for this CodeDeck */
   command: string;
 }
 
-let mockHooks: HookSetup[] = [
-  { dir: "~/.claude", settings: "~/.claude/settings.json", installed: true, other: null, command: "/usr/bin/codedeck hook" },
-  { dir: "~/.claude-work", settings: "~/.claude-work/settings.json", installed: false, other: null, command: "/usr/bin/codedeck hook" },
+let mockConnections: Connection[] = [
+  { harness: "claude", dir: "~/.claude", settings: "~/.claude/settings.json", installed: true, other: null, command: "/usr/bin/codedeck hook" },
+  { harness: "claude", dir: "~/.claude-work", settings: "~/.claude-work/settings.json", installed: false, other: null, command: "/usr/bin/codedeck hook" },
 ];
 
-/** CodeDeck's hooks in every Claude Code configuration found. */
-export function claudeHooks(): Promise<HookSetup[]> {
-  if (live) return invoke("claude_hooks");
-  return Promise.resolve(mockHooks);
+/** The connection of every tool and account found. */
+export function harnessConnections(): Promise<Connection[]> {
+  if (live) return invoke("harness_connections");
+  return Promise.resolve(mockConnections);
 }
 
-/** Puts the hooks into one configuration (`dir`), or takes them out. */
-export function setClaudeHooks(dir: string, install: boolean): Promise<HookSetup[]> {
-  if (live) return invoke("set_claude_hooks", { dir, install });
-  mockHooks = mockHooks.map((h) => (h.dir === dir ? { ...h, installed: install, other: null } : h));
-  return Promise.resolve(mockHooks);
+/** Makes the tool of one account (`dir`) report to CodeDeck, or stops that. */
+export function setHarnessConnection(harness: string, account: string, install: boolean): Promise<Connection[]> {
+  if (live) return invoke("set_harness_connection", { harness, account, install });
+  mockConnections = mockConnections.map((c) => (c.harness === harness && c.dir === account ? { ...c, installed: install, other: null } : c));
+  return Promise.resolve(mockConnections);
 }
 
 /** What changed from one commit (or snapshot) to another: the older one first. */

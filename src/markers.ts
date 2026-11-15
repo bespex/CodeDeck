@@ -1,5 +1,5 @@
 // The `@ai` comments in the project's documents, read again when files change, and which of
-// those handed to Claude are gone since (done).
+// those handed to the assistant are gone since (done).
 
 import { useCallback, useEffect, useState } from "react";
 import { findMarkers, onFsChanged, type Marker } from "./backend";
@@ -11,7 +11,7 @@ export interface Markers {
   /** `null` until read */
   markers: Marker[] | null;
   error: string | null;
-  /** Handed to Claude in this window, oldest first */
+  /** Handed to the assistant in this window, oldest first */
   handed: Marker[];
   /** Of `handed`, those no longer in the documents */
   done: Set<string>;

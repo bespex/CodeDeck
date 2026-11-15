@@ -1,10 +1,10 @@
 import { useState, type DragEvent } from "react";
-import { ChevronDown, ChevronRight, File, Folder, Layers, Send, Sparkles, TextSelect, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardCopy, File, Folder, Layers, Send, Sparkles, TextSelect, Trash2, X } from "lucide-react";
 import { DRAG_TYPE } from "./FilesPanel";
 import { HookPanel } from "./AssistantStatus";
 import { Tooltip } from "./Tooltip";
 import { handOver, type AssistantState, type Entry, type Session } from "../backend";
-import { shortId, useHooks } from "../assistant";
+import { mainHarness, shortId, useConnections } from "../assistant";
 import { FOCUS_KEY, focusText, type Pin } from "../focus";
 import { plural } from "../git";
 import { LOCALE } from "./Trail";
@@ -20,8 +20,8 @@ interface Props {
 }
 
 /**
- * The right column: the Claude Code sessions working in the project (one track each) and the
- * focus one can hand to Claude with the next prompt.
+ * The right column: the assistant sessions working in the project (one track each) and the
+ * focus one can hand to the assistant with the next prompt.
  */
 export function SessionsPanel(props: Props) {
   return (
@@ -49,7 +49,8 @@ const STATUS_COLOR: Record<Session["status"], string> = {
 };
 
 function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (path: string) => void }) {
-  const hooks = useHooks();
+  const hooks = useConnections();
+  const harness = mainHarness(state);
   const active = state.sessions.filter((s) => s.status !== "ended").length;
   return (
     <section className="flex min-h-0 flex-col border-b border-line">
@@ -67,11 +68,11 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
           </ul>
         ) : hooks.setups && !hooks.connected ? (
           <div className="p-1 text-[12px] text-slate-300">
-            <HookPanel hooks={hooks} heard={state.heard} />
+            <HookPanel hooks={hooks} harness={harness} heard={state.heard} />
           </div>
         ) : (
           <p className="grid h-full place-items-center px-6 text-center text-slate-500">
-            No Claude Code session has worked in this project since CodeDeck opened it. Start one in the
+            No {harness.name} session has worked in this project since CodeDeck opened it. Start one in the
             project's folder: it shows up here with its first step.
           </p>
         )}
@@ -97,7 +98,7 @@ function SessionItem({ session: s, onShowFile }: { session: Session; onShowFile:
           {s.prompt && <p className="line-clamp-3 text-slate-400 italic">“{s.prompt}”</p>}
           <p className="mt-0.5 text-[11px] text-slate-500">
             {s.cwd === "" ? "project root" : s.cwd}
-            {s.model && ` · ${s.model.replace(/^claude-/, "")}`} · last step {new Date(s.last).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" })}
+            {s.model && ` · ${s.model}`} · last step {new Date(s.last).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" })}
             {s.handed && <span className="text-ai"> · got the hand-over</span>}
           </p>
           {s.touched.length > 0 && (
@@ -122,7 +123,7 @@ function SessionItem({ session: s, onShowFile }: { session: Session; onShowFile:
   );
 }
 
-/* ── Focus: what Claude gets pointed at, only when asked ───────────────────── */
+/* ── Focus: what the assistant gets pointed at, only when asked ───────────────────── */
 
 const kindIcon = { file: File, folder: Folder, snippet: TextSelect };
 
@@ -135,7 +136,9 @@ function Focus({ assistant, pins, onPin, onUnpin, onClear }: Props) {
   const share = Math.min(1, used / CONTEXT_TOKENS);
   const barColor = share > 0.5 ? "bg-problem" : share > 0.25 ? "bg-changed" : "bg-ai";
   const waiting = assistant.handovers.find((h) => h.key === FOCUS_KEY);
-  const { connected } = useHooks();
+  const { connected } = useConnections();
+  // What is offered follows the tool's capabilities, never its name
+  const { shortName, name, capabilities } = mainHarness(assistant);
 
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
@@ -162,12 +165,24 @@ function Focus({ assistant, pins, onPin, onUnpin, onClear }: Props) {
         <h2 className="font-semibold text-slate-100">Focus</h2>
         <span className="text-slate-500">{pins.length || ""}</span>
         <div className="ml-auto flex items-center gap-1">
-          {pins.length > 0 && (
+          {pins.length > 0 && capabilities.handover === "clipboard" && (
+            <Tooltip content={<span>Copy the focus to paste into {shortName}</span>}>
+              <button
+                type="button"
+                onClick={() => navigator.clipboard.writeText(focusText(pins))}
+                className="flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-[12px] text-slate-300 hover:bg-raised hover:text-slate-100"
+              >
+                <ClipboardCopy className="size-3.5" />
+                Copy
+              </button>
+            </Tooltip>
+          )}
+          {pins.length > 0 && capabilities.handover === "withNextPrompt" && (
             <Tooltip
               content={
                 <>
-                  <span>Give the focus to Claude with the next prompt you send in this project</span>
-                  {!connected && <span className="text-slate-400">Needs Claude Code connected (status bar)</span>}
+                  <span>Give the focus to {shortName} with the next prompt you send in this project</span>
+                  {!connected && <span className="text-slate-400">Needs {name} connected (status bar)</span>}
                 </>
               }
             >
@@ -178,7 +193,7 @@ function Focus({ assistant, pins, onPin, onUnpin, onClear }: Props) {
                 className="flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-[12px] text-slate-300 hover:bg-raised hover:text-slate-100 disabled:opacity-40"
               >
                 <Send className="size-3.5" />
-                Hand to Claude
+                Hand to {shortName}
               </button>
             </Tooltip>
           )}
@@ -224,7 +239,7 @@ function Focus({ assistant, pins, onPin, onUnpin, onClear }: Props) {
             <div className={`h-full rounded-full transition-[width] ${barColor}`} style={{ width: `${Math.max(share * 100, 1.5)}%` }} />
           </div>
           <div className="mt-1 text-[11px] text-slate-500">
-            about <span className="text-slate-300">{formatTokens(used)}</span> tokens if Claude reads all of it
+            about <span className="text-slate-300">{formatTokens(used)}</span> tokens if {shortName} reads all of it
           </div>
         </div>
       )}
@@ -237,7 +252,7 @@ function Focus({ assistant, pins, onPin, onUnpin, onClear }: Props) {
         {pins.length === 0 ? (
           <div className="grid h-full place-items-center px-6 text-center text-slate-500">
             <p>
-              Empty: Claude works without extra context. To point it at something, drag files or folders here or use
+              Empty: {shortName} works without extra context. To point it at something, drag files or folders here or use
               the pin in the file list, then hand the focus over.
             </p>
           </div>
