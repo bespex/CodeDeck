@@ -5,14 +5,14 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { assistantState, harnessConnections, onAssistantChanged, type AssistantState, type Connection, type HarnessInfo } from "./backend";
 
-const EMPTY: AssistantState = { heard: false, harnesses: [], sessions: [], identities: [], handovers: [], delivered: null, target: null, targetLost: null, ruled: null };
+const EMPTY: AssistantState = { heard: false, harnesses: [], sessions: [], identities: [], attachments: [], preview: null, delivered: null, target: null, targetLost: null, ruled: null };
 
 /** Stands in until the backend told which tools there are: no name, nothing on offer. */
 const UNKNOWN: HarnessInfo = {
   id: "",
   name: "The assistant",
   shortName: "Assistant",
-  capabilities: { liveStatus: false, beforeWrite: false, handover: "none", startRules: false, pastSessions: false, usage: false },
+  capabilities: { liveStatus: false, beforeWrite: false, attach: "none", startRules: false, pastSessions: false, usage: false },
 };
 
 /** The tool texts and offers go by: the default one. */

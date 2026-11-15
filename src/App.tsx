@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FilesPanel } from "./components/FilesPanel";
 import { GitLog } from "./components/GitLog";
 import { Deck } from "./components/Deck";
@@ -6,23 +6,26 @@ import { SessionsPanel } from "./components/SessionsPanel";
 import { StatusBar } from "./components/StatusBar";
 import { live, openProject, openWindow, projectInfo, type Entry, type ProjectInfo } from "./backend";
 import { initialPins } from "./mock";
-import { pinFromEntry, useAttachedFiles, type Pin } from "./focus";
+import { files, pinFromEntry } from "./files";
+import { clearAttachments, useAttachments } from "./attachments";
 import { useGit } from "./git";
-import { mainHarness, SessionMarksContext, sessionMarks, touchedFiles, useAssistant } from "./assistant";
+import { SessionMarksContext, sessionMarks, touchedFiles, useAssistant } from "./assistant";
 import { RepoActions, type Anchor } from "./components/RepoActions";
+
+// The preview starts with something attached, to show what that looks like
+if (!live) files.add(initialPins);
 
 export default function App() {
   const [project, setProject] = useState<ProjectInfo | null>(null);
-  const [pins, setPins] = useState<Pin[]>(live ? [] : initialPins);
+  const pins = files.use();
   const [selected, setSelected] = useState<string | null>(null);
   const git = useGit(project?.path);
   const assistant = useAssistant();
   // The session the mouse is on in the list: its snapshots and files stand out everywhere
   const [hoveredSession, setHoveredSession] = useState<string | null>(null);
   const marks = useMemo(() => sessionMarks(assistant, hoveredSession, setHoveredSession), [assistant, hoveredSession]);
-  // What is pinned is attached to the next prompt, and gone once it went out
-  const clearPins = useCallback(() => setPins([]), []);
-  useAttachedFiles(pins, clearPins, assistant, mainHarness(assistant).capabilities.handover === "withNextPrompt");
+  // Attachments follow what the backend says (receipts, whether the tool takes them)
+  useAttachments();
   // Git actions of one repository, hanging at the element that opened them
   const [actions, setActions] = useState<{ repo: string; anchor: Anchor } | null>(null);
   const [logOpen, setLogOpen] = useState(false);
@@ -48,21 +51,20 @@ export default function App() {
   }, []);
 
   const pin = async (entry: Entry) => {
-    if (pins.some((p) => p.id === entry.path)) return;
-    const created = await pinFromEntry(entry);
-    setPins((current) => (current.some((p) => p.id === created.id) ? current : [...current, created]));
+    if (files.has(entry.path)) return;
+    files.add([await pinFromEntry(entry)]);
   };
   // Here: everything that belongs to the old project goes; the panels start fresh via `key`
   const open = async (path: string, newWindow: boolean) => {
     if (newWindow) return openWindow(path);
     const next = await openProject(path);
-    setPins([]);
+    clearAttachments();
     setSelected(null);
     setActions(null);
     setProject(next);
   };
 
-  const unpin = (id: string) => setPins((current) => current.filter((p) => p.id !== id));
+  const unpin = (id: string) => files.remove([id]);
 
   return (
     <SessionMarksContext.Provider value={marks}>
@@ -87,7 +89,7 @@ export default function App() {
           pins={pins}
           onPin={pin}
           onUnpin={unpin}
-          onClear={clearPins}
+          onClear={files.clear}
           onShowFile={setSelected}
         />
       </div>

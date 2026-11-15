@@ -1,6 +1,6 @@
 // Sample data for the browser preview (`npx vite`, no Tauri backend).
 
-import type { Pin } from "./focus";
+import type { Pin } from "./files";
 
 /** `M` modified, `A` added, `D` deleted, `R` renamed, `U` conflict, `?` untracked */
 export type GitState = "M" | "A" | "D" | "R" | "U" | "?";

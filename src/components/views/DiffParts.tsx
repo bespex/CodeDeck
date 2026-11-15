@@ -7,9 +7,10 @@ import type { FileStatus, RepoStatus } from "../../backend";
 import { commandLine, type Steps } from "../../git";
 import type { FileDiff } from "../../diff";
 import { fileActions, useGitRun } from "../../history";
-import { addNote, NoteSessionContext, removeNote, useNotes, type Note } from "../../notes";
+import { addNote, NoteSessionContext, notes as noteList, removeNote, type Note } from "../../notes";
+import { useAttachEnabled } from "../../attachments";
 import { useSessionMarks } from "../../assistant";
-import { changeRef, toggleChange, useChangeScope, useChanges, type ChangeScope } from "../../changes";
+import { changeRef, changes, useChangeScope, type ChangeScope } from "../../changes";
 import { Tooltip, TooltipHint } from "../Tooltip";
 
 export function Commands({ steps }: { steps: Steps }) {
@@ -137,7 +138,8 @@ export function FileButtons({ path, from, added, working }: { path: string; from
  * @param notePath the file's project-relative path: with it, lines can be commented for the next prompt
  */
 export function DiffBody({ file, missing, notePath }: { file: FileDiff | undefined; missing?: string; notePath?: string }) {
-  const { notes, offered } = useNotes();
+  const notes = noteList.use();
+  const offered = useAttachEnabled();
   if (!file) {
     return (
       <p className="border-t border-line px-3 py-2 text-[12px] text-slate-500">
@@ -334,8 +336,8 @@ export function LookedAt({ checked, onChange, name }: { checked: boolean; onChan
  */
 export function AttachChange({ path, added, scope: given }: { path?: string; added?: boolean; scope?: ChangeScope }) {
   const around = useChangeScope();
-  const attached = useChanges();
-  const { offered } = useNotes();
+  const attached = changes.use();
+  const offered = useAttachEnabled();
   const scope = given ?? around;
   if (!scope || !offered) return null;
   const ref = changeRef(scope, path, added);
@@ -363,7 +365,7 @@ export function AttachChange({ path, added, scope: given }: { path?: string; add
         type="button"
         aria-label={on ? `Remove ${what} from the next prompt` : `Attach ${what} to the next prompt`}
         aria-pressed={on}
-        onClick={() => toggleChange(ref)}
+        onClick={() => changes.toggle([ref])}
         className={
           path
             ? `rounded-md p-1 hover:bg-raised ${on ? "text-brand-soft" : "text-slate-500 opacity-0 group-hover:opacity-100 hover:text-slate-100 focus-visible:opacity-100"}`

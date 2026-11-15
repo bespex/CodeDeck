@@ -3,11 +3,12 @@ import { Check, ChevronDown, ChevronRight, ClipboardCopy, File, Folder, Papercli
 import { DRAG_TYPE } from "./FilesPanel";
 import { HookPanel } from "./AssistantStatus";
 import { Tooltip } from "./Tooltip";
-import { forgetSession, handOver, renameSession, type AssistantState, type Entry, type Handover, type Session } from "../backend";
+import { forgetSession, renameSession, type AssistantState, type Attachment, type Entry, type Session } from "../backend";
 import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
 import { SessionBadge } from "./SessionBadge";
-import { attachmentCount, FILES_KEY, filesText, type Pin } from "../focus";
-import { HandoverTarget, TargetLost } from "./HandoverTarget";
+import { FILES_KEY, filesText, type Pin } from "../files";
+import { attachmentCount, removeAttachment } from "../attachments";
+import { AttachTarget, TargetLost } from "./AttachTarget";
 import { plural } from "../git";
 import { LOCALE } from "./Trail";
 
@@ -424,10 +425,10 @@ function NextPrompt({ assistant, pins, onPin, onUnpin, onClear }: Props) {
   const marks = useSessionMarks();
   // What is offered follows the tool's capabilities, never its name
   const { shortName, name, capabilities } = mainHarness(assistant);
-  const attaches = capabilities.handover === "withNextPrompt";
+  const attaches = capabilities.attach === "withNextPrompt";
   // The pins are listed one by one, not as their part
-  const parts = assistant.handovers.filter((h) => h.key !== FILES_KEY);
-  const filesPart = assistant.handovers.find((h) => h.key === FILES_KEY);
+  const parts = assistant.attachments.filter((h) => h.key !== FILES_KEY);
+  const filesPart = assistant.attachments.find((h) => h.key === FILES_KEY);
   const attached = parts.length > 0 || pins.length > 0;
   const { delivered } = assistant;
 
@@ -537,7 +538,7 @@ function NextPrompt({ assistant, pins, onPin, onUnpin, onClear }: Props) {
                   {filesPreview ? "Hide" : "Preview"}
                 </button>
               )}
-              {capabilities.handover === "clipboard" && (
+              {capabilities.attach === "clipboard" && (
                 <Tooltip content={<span>Copy the files to paste into {shortName}</span>}>
                   <button type="button" onClick={() => navigator.clipboard.writeText(filesText(pins))} className={small}>
                     <ClipboardCopy className="size-3.5" />
@@ -566,7 +567,7 @@ function NextPrompt({ assistant, pins, onPin, onUnpin, onClear }: Props) {
         {attached && attaches && (
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 px-3 pt-2 pb-2 text-[12px] text-slate-400">
             <span className="size-1.5 shrink-0 rounded-full bg-changed" /> Goes out with the next prompt of
-            <HandoverTarget state={assistant} className="max-w-full" />
+            <AttachTarget state={assistant} className="max-w-full" />
             <TargetLost state={assistant} />
             {!connected && <span className="text-changed">Not connected: nothing reaches {name} (status bar).</span>}
           </div>
@@ -577,7 +578,7 @@ function NextPrompt({ assistant, pins, onPin, onUnpin, onClear }: Props) {
 }
 
 /** One attachment other than files: what it is, its exact text on demand, and removing it. */
-function Attached({ part }: { part: Handover }) {
+function Attached({ part }: { part: Attachment }) {
   const [preview, setPreview] = useState(false);
   return (
     <li className="px-2 py-1.5 text-[12px]">
@@ -596,7 +597,7 @@ function Attached({ part }: { part: Handover }) {
           type="button"
           aria-label={`Remove: ${part.label || part.key}`}
           title="Remove from the next prompt"
-          onClick={() => handOver(part.key, null)}
+          onClick={() => removeAttachment(part.key)}
           className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-raised hover:text-slate-100"
         >
           <X className="size-3.5" />

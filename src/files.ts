@@ -1,10 +1,11 @@
 // Files, folders and passages attached to the next prompt (D21). Attaching is one step: what is
-// pinned is attached, there is no list to collect first. Once the attachment went out with a prompt
-// (or was removed) the pins are gone; nothing is given to the assistant unasked.
+// pinned is attached, there is no list to collect first. Once it went out with a prompt (or was
+// removed) it is gone; nothing is given to the assistant unasked. Kept like every attachment, see
+// `attachments.ts`.
 
-import { useEffect, useRef } from "react";
-import { handOver, pathStats, tokensFor, type AssistantState, type Entry } from "./backend";
+import { pathStats, tokensFor, type Entry } from "./backend";
 import { plural } from "./git";
+import { createPart } from "./attachments";
 
 export interface Pin {
   /** The project-relative path, or an id of its own for a passage */
@@ -55,26 +56,5 @@ export function filesText(pins: Pin[]): string {
 
 export const filesLabel = (pins: Pin[]) => `Files: ${plural(pins.length, "item")}`;
 
-/** How many things are attached, counted the same everywhere: each pinned item, each other part. */
-export const attachmentCount = (state: AssistantState, pinned: number) =>
-  state.handovers.filter((h) => h.key !== FILES_KEY).length + pinned;
-
-/**
- * Keeps the pins and their attachment in step, once for the window: every change of the pins is
- * the attachment, and when the attachment has left (sent with a prompt, or removed) the pins go.
- * `attaches`: the tool takes text with a prompt; otherwise the pins stay here to be copied.
- */
-export function useAttachedFiles(pins: Pin[], clear: () => void, state: AssistantState, attaches: boolean) {
-  useEffect(() => {
-    if (attaches) void handOver(FILES_KEY, pins.length ? filesText(pins) : null, filesLabel(pins));
-  }, [pins, attaches]);
-  const queued = state.handovers.some((h) => h.key === FILES_KEY);
-  const seen = useRef(false);
-  useEffect(() => {
-    if (queued) seen.current = true;
-    else if (seen.current) {
-      seen.current = false;
-      clear();
-    }
-  }, [queued, clear]);
-}
+/** The files, folders and passages attached: pinning one attaches it. */
+export const files = createPart<Pin>(FILES_KEY, { id: (p) => p.id, text: filesText, label: filesLabel });

@@ -499,7 +499,7 @@ export interface Capabilities {
   /** It reports before it writes, so a snapshot can be taken first */
   beforeWrite: boolean;
   /** How text gets into a session: added to the next prompt, only by copy and paste, or not at all */
-  handover: "withNextPrompt" | "clipboard" | "none";
+  attach: "withNextPrompt" | "clipboard" | "none";
   /** Text can be given to a session when it starts */
   startRules: boolean;
   /** Its logs tell of sessions CodeDeck did not hear from */
@@ -568,11 +568,13 @@ export interface AssistantState {
   sessions: Session[];
   /** Colour, short name and title of every session remembered for the project, also those no longer listed */
   identities: { id: string; color: number; short: string; title: string | null }[];
-  /** What waits for the next prompt, in parts that can be taken back one by one */
-  handovers: Handover[];
-  /** The hand-over that went out last (which session took it, when, what it was made of), until the next one is queued */
-  delivered: { session: string; at: number; labels: string[] } | null;
-  /** The session the hand-over is meant for; `null`: whichever session in the project prompts first */
+  /** What is attached to the next prompt, in parts that can be removed one by one */
+  attachments: Attachment[];
+  /** Exactly the text the next prompt gets with it, as the backend builds it; `null` with nothing attached */
+  preview: string | null;
+  /** The attachments that went out last (which session took them, when, which parts at which revision), until the next is attached */
+  delivered: { session: string; at: number; labels: string[]; parts: { key: string; rev: number }[] } | null;
+  /** The session the attachments are meant for; `null`: whichever session in the project prompts first */
   target: string | null;
   /** The session it was meant for until that one ended or left the list: it now goes to any session */
   targetLost: string | null;
@@ -580,15 +582,17 @@ export interface AssistantState {
   ruled: { session: string; at: number } | null;
 }
 
-/** One part of what the assistant gets with the next prompt. */
-export interface Handover {
-  /** `markers` (Handover view), `focus` (the focus list) or `notes` (line comments) */
+/** One part of what is attached to the next prompt. */
+export interface Attachment {
+  /** `files`, `changes`, `notes` (line comments) or `markers` (hints) */
   key: string;
   text: string;
   label: string;
+  /** The window's count of its changes to the part, see `attachments.ts` */
+  rev: number;
 }
 
-const MOCK_CAPABILITIES: Capabilities = { liveStatus: true, beforeWrite: true, handover: "withNextPrompt", startRules: true, pastSessions: true, usage: false };
+const MOCK_CAPABILITIES: Capabilities = { liveStatus: true, beforeWrite: true, attach: "withNextPrompt", startRules: true, pastSessions: true, usage: false };
 
 const mockAssistant: AssistantState = {
   heard: true,
@@ -671,7 +675,7 @@ const mockAssistant: AssistantState = {
       id: "d92a0b13-7c4e-4d5f-9a6b-0e1f2a3b4c5d",
       harness: "claude",
       // Known from its log only: nothing that needs it to report
-      capabilities: { ...MOCK_CAPABILITIES, liveStatus: false, beforeWrite: false, handover: "none" },
+      capabilities: { ...MOCK_CAPABILITIES, liveStatus: false, beforeWrite: false, attach: "none" },
       color: 3,
       short: "D",
       renamed: false,
@@ -697,7 +701,8 @@ const mockAssistant: AssistantState = {
     { id: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a", color: 1, short: "B", title: "Per-client rate limit for orders" },
     { id: "b07e11d4-6c3a-4f2e-8d90-1a2b3c4d5e6f", color: 0, short: "A", title: "Limiter documentation" },
   ],
-  handovers: [],
+  attachments: [],
+  preview: null,
   delivered: null,
   target: null,
   targetLost: null,
@@ -721,20 +726,59 @@ export function onAssistantChanged(callback: (state: AssistantState) => void): (
   return () => mockAssistantListeners.delete(callback);
 }
 
-/** One part of the text for the assistant with the next prompt; `null` takes that part back. */
-export function handOver(key: string, text: string | null, label?: string): Promise<void> {
-  if (live) return invoke("hand_over", { key, text, label: label ?? null });
-  const rest = mockAssistant.handovers.filter((h) => h.key !== key);
-  mockAssistant.handovers = text === null ? rest : [...rest, { key, text, label: label ?? "" }];
-  if (text !== null) mockAssistant.delivered = null;
-  if (mockAssistant.handovers.length === 0) Object.assign(mockAssistant, { target: null, targetLost: null });
+/** A receipt the mock holds back, to play the race of a prompt and an attachment (see `mockSendPrompt`). */
+let mockHeldReceipt: AssistantState | null = null;
+
+/** The mock's stand-in for the backend: the attachments joined as the backend joins them. */
+function mockChanged() {
+  // As in the backend, the receipt went out before anything that came after it
+  if (mockHeldReceipt) {
+    const held = mockHeldReceipt;
+    mockHeldReceipt = null;
+    mockAssistantListeners.forEach((cb) => cb(held));
+  }
+  const list = mockAssistant.attachments;
+  mockAssistant.preview = list.length ? list.map((a) => a.text).join("\n\n") : null;
+  if (list.length === 0) Object.assign(mockAssistant, { target: null, targetLost: null });
   mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+}
+
+/** One part of the attachments to the next prompt; `null` removes that part. */
+export function attach(key: string, text: string | null, label?: string, rev = 0): Promise<void> {
+  if (live) return invoke("attach", { key, text, label: label ?? null, rev });
+  const list = mockAssistant.attachments;
+  const part = { key, text: text ?? "", label: label ?? "", rev };
+  // Replaced in place, as the backend does: the order stays the order of attaching
+  mockAssistant.attachments =
+    text === null ? list.filter((a) => a.key !== key) : list.some((a) => a.key === key) ? list.map((a) => (a.key === key ? part : a)) : [...list, part];
+  if (text !== null) mockAssistant.delivered = null;
+  mockChanged();
   return Promise.resolve();
 }
 
-/** The session the hand-over is meant for; `null`: whichever session in the project prompts first. */
-export function handOverTo(session: string | null): Promise<void> {
-  if (live) return invoke("hand_over_to", { session });
+/**
+ * In the preview only: a prompt is sent in the first session, which takes the attachments. `hold`:
+ * the receipt reaches the window only with the next change, as when something is attached while
+ * the prompt is being sent.
+ */
+export function mockSendPrompt(hold = false) {
+  const s = mockAssistant.sessions[0];
+  const list = mockAssistant.attachments;
+  if (!list.length) return;
+  const at = Date.now();
+  const labels = list.map((a) => a.label);
+  mockAssistant.delivered = { session: s.id, at, labels, parts: list.map((a) => ({ key: a.key, rev: a.rev })) };
+  mockAssistant.sessions = mockAssistant.sessions.map((x) => (x.id === s.id ? { ...x, received: [{ at, labels }, ...x.received] } : x));
+  mockAssistant.attachments = [];
+  mockAssistant.preview = null;
+  if (hold) mockHeldReceipt = { ...mockAssistant };
+  else mockChanged();
+}
+if (!live) (window as unknown as { mockSendPrompt: (hold?: boolean) => void }).mockSendPrompt = mockSendPrompt;
+
+/** The session the attachments are meant for; `null`: whichever session in the project prompts first. */
+export function attachFor(session: string | null): Promise<void> {
+  if (live) return invoke("attach_for", { session });
   Object.assign(mockAssistant, { target: session, targetLost: null });
   mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
   return Promise.resolve();

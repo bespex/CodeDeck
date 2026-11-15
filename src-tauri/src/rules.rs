@@ -1,5 +1,5 @@
 //! The rules every session gets when it starts (docs/KONZEPT.md 4.5): few, short, fixed, and
-//! shown word for word in the Handover view, so the assistant gets nothing the user cannot see.
+//! shown word for word in the Next prompt view, so the assistant gets nothing the user cannot see.
 //! They live here, in one place, for both the hook that gives them and the view that shows them.
 //! Always on (D17); how they reach a session is the adapter's business ([`crate::harness`]).
 

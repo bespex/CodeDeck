@@ -5,7 +5,7 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use super::{Capabilities, Connection, Event, EventKind, Handover, Harness, SessionInfo};
+use super::{Attach, Capabilities, Connection, Event, EventKind, Harness, SessionInfo};
 
 pub struct Fake;
 
@@ -23,7 +23,7 @@ impl Harness for Fake {
     }
 
     fn capabilities(&self) -> Capabilities {
-        Capabilities { live_status: true, before_write: true, handover: Handover::Clipboard, start_rules: true, past_sessions: true, usage: false }
+        Capabilities { live_status: true, before_write: true, attach: Attach::Clipboard, start_rules: true, past_sessions: true, usage: false }
     }
 
     fn connections(&self) -> Vec<Connection> {

@@ -4,7 +4,7 @@
 //   Toolbar   choosing and triggering: flush on top, in the grey of the side columns
 //   Section   reporting and explaining: heading and running text straight on the surface
 //   Rows/Row  listing: plain lines with a hairline, only the chosen one has a background
-//   Document  the subject itself (a diff, a timeline, the hand-over text): the one framed element
+//   Document  the subject itself (a diff, a timeline, the attachments' text): the one framed element
 //   Decision  something you have to decide: lighter, with a shadow, there only when needed
 
 import type { ReactNode } from "react";

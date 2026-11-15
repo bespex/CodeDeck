@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use serde_json::{Value, json};
 
-use super::{Capabilities, Connection, Event, EventKind, Handover, Harness, SessionInfo};
+use super::{Attach, Capabilities, Connection, Event, EventKind, Harness, SessionInfo};
 
 pub struct Claude;
 
@@ -62,7 +62,7 @@ impl Harness for Claude {
         Capabilities {
             live_status: true,
             before_write: true,
-            handover: Handover::WithNextPrompt,
+            attach: Attach::WithNextPrompt,
             // What the `SessionStart` hook prints is added to the session's context
             start_rules: true,
             past_sessions: true,

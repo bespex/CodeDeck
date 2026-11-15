@@ -303,16 +303,16 @@ fn assistant_state(bridge: State<Arc<Bridge>>) -> AssistantState {
     bridge.state()
 }
 
-/// One part (`key`) of the text handed to the assistant with the next prompt in this project;
-/// `None` takes that part back.
+/// One part (`key`) of the attachments to the next prompt in this project; `None` removes that
+/// part. `rev` is the interface's count of its changes to the part, returned with the receipt.
 #[tauri::command]
-fn hand_over(key: String, text: Option<String>, label: Option<String>, app: AppHandle, bridge: State<Arc<Bridge>>) {
-    bridge.hand_over(&app, key, text.map(|t| (t, label.unwrap_or_default())));
+fn attach(key: String, text: Option<String>, label: Option<String>, rev: Option<u64>, app: AppHandle, bridge: State<Arc<Bridge>>) {
+    bridge.attach(&app, key, text.map(|t| (t, label.unwrap_or_default(), rev.unwrap_or_default())));
 }
 
-/// The session the hand-over is meant for; `None`: whichever session in the project prompts first.
+/// The session the attachments are meant for; `None`: whichever session in the project prompts first.
 #[tauri::command]
-fn hand_over_to(session: Option<String>, app: AppHandle, bridge: State<Arc<Bridge>>) {
+fn attach_for(session: Option<String>, app: AppHandle, bridge: State<Arc<Bridge>>) {
     bridge.set_target(&app, session);
 }
 
@@ -414,8 +414,8 @@ pub fn run() {
             git_restore_snapshot,
             find_markers,
             assistant_state,
-            hand_over,
-            hand_over_to,
+            attach,
+            attach_for,
             start_rules,
             rename_session,
             forget_session,

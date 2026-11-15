@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, ClipboardCopy, ExternalLink, FileText, Paperclip, X } from "lucide-react";
-import { handOver, openFile, startRules, type AssistantState, type HarnessInfo, type Marker } from "../../backend";
+import { openFile, startRules, type AssistantState, type HarnessInfo, type Marker } from "../../backend";
 import { mainHarness, shortId, useConnections, useSessionMarks } from "../../assistant";
 import { Document, Row, Rows, Section, Toolbar } from "../blocks";
-import { markerKey, type Markers } from "../../markers";
-import { useNotes } from "../../notes";
-import { attachmentCount } from "../../focus";
-import { useChanges } from "../../changes";
+import { markerKey, markers as hints, markerTask, type Markers } from "../../markers";
+import { notes as noteList } from "../../notes";
+import { attachmentCount, removeAttachment, useAttachEnabled } from "../../attachments";
+import { changes as changeList } from "../../changes";
 import { plural } from "../../git";
 import { Tooltip } from "../Tooltip";
 import { SessionBadge } from "../SessionBadge";
-import { HandoverTarget, TargetLost } from "../HandoverTarget";
+import { AttachTarget, TargetLost } from "../AttachTarget";
 import { LOCALE } from "../Trail";
 
 const time = (ms: number) => new Date(ms).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
@@ -30,10 +30,9 @@ export function NextPromptView(props: {
 }) {
   const { assistant, marks } = props;
   const harness = mainHarness(assistant);
-  const queued = assistant.handovers;
-  const waiting = queued.some((h) => h.key === MARKERS_KEY);
-  const { notes } = useNotes();
-  const changes = useChanges();
+  const queued = assistant.attachments;
+  const notes = noteList.use();
+  const changes = changeList.use();
 
   return (
     <div className="flex min-h-full flex-col">
@@ -42,7 +41,7 @@ export function NextPromptView(props: {
         {queued.length > 0 && (
           <>
             <span>for</span>
-            <HandoverTarget state={assistant} className="max-w-72" />
+            <AttachTarget state={assistant} className="max-w-72" />
             <TargetLost state={assistant} />
           </>
         )}
@@ -86,7 +85,7 @@ export function NextPromptView(props: {
         </Rows>
       </Section>
 
-      <Hints marks={marks} harness={harness} waiting={waiting} />
+      <Hints marks={marks} harness={harness} />
       <StartRules assistant={assistant} harness={harness} />
     </div>
   );
@@ -98,10 +97,8 @@ const SMALL =
 /** What is attached, part by part, and the exact text it makes; the receipt once a session took it. */
 function Queue({ assistant, who, count }: { assistant: AssistantState; who: string; count: number }) {
   const marks = useSessionMarks();
-  const queued = assistant.handovers;
+  const queued = assistant.attachments;
   const { delivered } = assistant;
-  // Joined as the backend joins them for the prompt
-  const text = queued.map((h) => h.text).join("\n\n");
   return (
     <Section title="Attached" note={count ? plural(count, "attachment") : undefined}>
       {queued.length === 0 && delivered && (
@@ -123,7 +120,7 @@ function Queue({ assistant, who, count }: { assistant: AssistantState; who: stri
                 <span className="min-w-0 flex-1 truncate text-slate-200">{h.label || h.key}</span>
                 <button
                   type="button"
-                  onClick={() => handOver(h.key, null)}
+                  onClick={() => removeAttachment(h.key)}
                   className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[12px] text-slate-400 hover:bg-raised hover:text-slate-100"
                 >
                   <X className="size-3.5" /> Remove
@@ -133,7 +130,7 @@ function Queue({ assistant, who, count }: { assistant: AssistantState; who: stri
           </Rows>
           <p className="mt-3 mb-1.5 text-[12px]">Exactly this text is added to your prompt, below what you write:</p>
           <Document className="max-w-3xl">
-            <pre className="selectable max-h-96 overflow-auto p-3 font-mono text-[12px] whitespace-pre-wrap text-slate-300">{text}</pre>
+            <pre className="selectable max-h-96 overflow-auto p-3 font-mono text-[12px] whitespace-pre-wrap text-slate-300">{assistant.preview}</pre>
           </Document>
         </>
       )}
@@ -146,10 +143,11 @@ function Queue({ assistant, who, count }: { assistant: AssistantState; who: stri
  * comment sign that begins it, in an outside editor; here they are collected and handed over as
  * one task, copied or attached to the next prompt.
  */
-function Hints({ marks, harness, waiting }: { marks: Markers; harness: HarnessInfo; waiting: boolean }) {
-  const { markers, error, handed, done, markHanded } = marks;
+function Hints({ marks, harness }: { marks: Markers; harness: HarnessInfo }) {
+  const { markers, error, sent, done } = marks;
   // Attached and not sent yet: marked where they are listed
-  const attached = new Set(waiting ? handed.map(markerKey) : []);
+  const attached = hints.use();
+  const isAttached = (m: Marker) => attached.some((a) => markerKey(a) === markerKey(m));
   const [copied, setCopied] = useState<string | null>(null);
   const { connected } = useConnections();
 
@@ -173,7 +171,7 @@ function Hints({ marks, harness, waiting }: { marks: Markers; harness: HarnessIn
         aside={
           markers &&
           markers.length > 0 && (
-            <TaskButtons markers={markers} harness={harness} connected={connected} copied={copied === "all"} onCopy={(t) => copy(t, "all")} onHanded={markHanded} />
+            <TaskButtons markers={markers} harness={harness} connected={connected} copied={copied === "all"} onCopy={(t) => copy(t, "all")} />
           )
         }
       >
@@ -203,14 +201,14 @@ function Hints({ marks, harness, waiting }: { marks: Markers; harness: HarnessIn
                       <ExternalLink className="size-3.5" />
                     </button>
                   </Tooltip>
-                  <TaskButtons markers={list} harness={harness} connected={connected} small copied={copied === path} onCopy={(t) => copy(t, path)} onHanded={markHanded} />
+                  <TaskButtons markers={list} harness={harness} connected={connected} small copied={copied === path} onCopy={(t) => copy(t, path)} />
                 </div>
                 <ul className="w-full pb-0.5">
                   {list.map((m) => (
                     <li key={m.line} className="flex gap-3 py-0.5">
                       <span className="w-10 shrink-0 text-right font-mono text-[11px] text-slate-500 tabular-nums">{m.line}</span>
                       <span className="selectable text-slate-300">{m.text}</span>
-                      {attached.has(markerKey(m)) && (
+                      {isAttached(m) && (
                         <span className="flex shrink-0 items-center gap-1 text-[11px] text-brand-soft">
                           <Paperclip className="size-3" /> attached
                         </span>
@@ -222,7 +220,7 @@ function Hints({ marks, harness, waiting }: { marks: Markers; harness: HarnessIn
             ))}
           </Rows>
         )}
-        {handed.length > 0 && <HandedProgress handed={handed} done={done} waiting={waiting} to={harness.shortName} />}
+        {sent.length > 0 && <SentProgress sent={sent} done={done} to={harness.shortName} />}
       </Section>
     </>
   );
@@ -261,23 +259,22 @@ function StartRules({ assistant, harness }: { assistant: AssistantState; harness
   );
 }
 
-/** What became of the comments handed over: a comment that is gone counts as done. */
-function HandedProgress({ handed, done, waiting, to }: { handed: Marker[]; done: Set<string>; waiting: boolean; to: string }) {
+/** What became of the hints sent: a hint that is gone from its file counts as done. */
+function SentProgress({ sent, done, to }: { sent: Marker[]; done: Set<string>; to: string }) {
   const [open, setOpen] = useState(false);
-  const all = done.size === handed.length;
+  const all = done.size === sent.length;
   return (
     <div className="mt-2 border-y border-line/70 px-1 py-1.5">
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 text-left">
         <Check className={`size-3.5 ${all ? "text-added" : "text-slate-500"}`} />
         <span className="flex-1 text-slate-300">
-          Hints attached for {to}: {done.size} of {handed.length} done
-          {waiting ? " · not sent yet" : ""}
+          Hints sent to {to}: {done.size} of {sent.length} done
         </span>
         <span className="text-[11px] text-slate-500">{open ? "hide" : "show"}</span>
       </button>
       {open && (
         <ul className="mt-1.5 flex flex-col gap-0.5 pl-5">
-          {handed.map((m) => {
+          {sent.map((m) => {
             const ok = done.has(markerKey(m));
             return (
               <li key={markerKey(m)} className={ok ? "text-slate-500 line-through" : "text-slate-300"}>
@@ -291,20 +288,6 @@ function HandedProgress({ handed, done, waiting, to }: { handed: Marker[]; done:
   );
 }
 
-/** The part of the attachments that hints make. */
-const MARKERS_KEY = "markers";
-
-/** The task for the assistant, as one would write it. */
-export function markerTask(markers: Marker[]): string {
-  const lines = markers.map((m) => `- ${m.path}:${m.line}: ${m.text}`);
-  return [
-    "Work in these comments that I left for you in files of this project (lines beginning with `@ai`, or with a comment that begins with it).",
-    "Change the text around each one as it asks, then remove the comment. Leave a comment in place if you are unsure, and tell me why.",
-    "",
-    ...lines,
-  ].join("\n");
-}
-
 function TaskButtons(props: {
   markers: Marker[];
   /** The tool the task goes to: its name, and whether it can take it with a prompt */
@@ -313,12 +296,13 @@ function TaskButtons(props: {
   small?: boolean;
   copied: boolean;
   onCopy: (text: string) => void;
-  onHanded: (markers: Marker[]) => void;
 }) {
   const task = markerTask(props.markers);
-  const { shortName, name, capabilities } = props.harness;
-  const files = new Set(props.markers.map((m) => m.path)).size;
-  const label = `${plural(props.markers.length, "hint")}${files > 1 ? ` in ${files} files` : ` in ${props.markers[0]?.path}`}`;
+  const { shortName, name } = props.harness;
+  const enabled = useAttachEnabled();
+  // Attaching adds to what is attached; when all of these are attached, the same button removes them
+  hints.use();
+  const all = props.markers.every((m) => hints.has(markerKey(m)));
   const base = props.small
     ? "rounded p-1 text-slate-500 hover:bg-raised hover:text-slate-100"
     : "flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised hover:text-slate-100";
@@ -330,24 +314,27 @@ function TaskButtons(props: {
           {!props.small && (props.copied ? "Copied" : "Copy task")}
         </button>
       </Tooltip>
-      {capabilities.handover === "withNextPrompt" && (
+      {enabled && (
         <Tooltip
           content={
             <>
-              <span>Attach as a task to your next prompt. Who gets it is chosen at the top of this view.</span>
+              <span>
+                {all ? "Attached; click to remove them from the next prompt" : "Attach as a task to your next prompt. Who gets it is chosen at the top of this view."}
+              </span>
               {!props.connected && <span className="text-slate-400">Needs {name} connected (status bar)</span>}
             </>
           }
         >
           <button
             type="button"
-            aria-label="Attach to next prompt"
+            aria-label={all ? "Remove from next prompt" : "Attach to next prompt"}
+            aria-pressed={all}
             disabled={!props.connected}
-            onClick={() => handOver(MARKERS_KEY, task, label).then(() => props.onHanded(props.markers))}
-            className={`${base} disabled:opacity-40`}
+            onClick={() => hints.toggle(props.markers)}
+            className={`${base} disabled:opacity-40 ${all ? "text-brand-soft" : ""}`}
           >
             <Paperclip className="size-3.5" />
-            {!props.small && "Attach"}
+            {!props.small && (all ? "Attached" : "Attach")}
           </button>
         </Tooltip>
       )}

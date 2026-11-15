@@ -1,9 +1,9 @@
-// Comments on single lines of a diff. They are attached to the next prompt as one part
-// and go out with it; once that part is gone (delivered or taken back) they are gone here too.
+// Comments on single lines of a diff, attached to the next prompt as one part (see `attachments.ts`).
 
-import { createContext, useEffect, useRef, useState } from "react";
-import { handOver, handOverTo, type AssistantState } from "./backend";
+import { createContext } from "react";
+import { attachFor } from "./backend";
 import { plural } from "./git";
+import { createPart, lastState } from "./attachments";
 
 export interface Note {
   id: number;
@@ -19,17 +19,7 @@ export interface Note {
 /** The part of the attachments that the comments make. */
 export const NOTES_KEY = "notes";
 
-let notes: Note[] = [];
 let nextId = 1;
-/** Whether comments can reach a session at all */
-let offered = false;
-/** The sessions and the hand-over as last heard, to pick who a first comment is meant for */
-let state: AssistantState | null = null;
-
-/** The session whose changes a diff shows, if it is one turn's: comments there are meant for it. */
-export const NoteSessionContext = createContext<string | null>(null);
-const listeners = new Set<() => void>();
-const publish = () => listeners.forEach((l) => l());
 
 /** The comments as text for the assistant. */
 export function notesText(list: Note[]): string {
@@ -37,54 +27,26 @@ export function notesText(list: Note[]): string {
   return ["My comments on single lines of the changes. Each names the file, the line and the line's text:", "", ...lines].join("\n");
 }
 
-function set(next: Note[]) {
-  notes = next;
-  publish();
-  void handOver(NOTES_KEY, next.length ? notesText(next) : null, plural(next.length, "line comment"));
-}
+export const notes = createPart<Note>(NOTES_KEY, {
+  id: (n) => String(n.id),
+  text: notesText,
+  label: (list) => plural(list.length, "line comment"),
+});
+
+/** The session whose changes a diff shows, if it is one turn's: comments there are meant for it. */
+export const NoteSessionContext = createContext<string | null>(null);
 
 /**
- * @param session who the comment is preferably for: with nothing queued and no session chosen yet,
- * the hand-over is aimed at it, if it can take one. The user can change that in "Next prompt".
+ * @param session who the comment is preferably for: with nothing attached and no session chosen yet,
+ * the attachments are aimed at it, if it can take them. The user can change that in "Next prompt".
  */
 export function addNote(path: string, line: number, code: string, text: string, session?: string | null) {
+  const state = lastState();
   const s = state?.sessions.find((x) => x.id === session);
-  if (s && state?.handovers.length === 0 && !state.target && s.status !== "ended" && s.capabilities.handover === "withNextPrompt") {
-    void handOverTo(s.id);
+  if (s && state?.attachments.length === 0 && !state.target && s.status !== "ended" && s.capabilities.attach === "withNextPrompt") {
+    void attachFor(s.id);
   }
-  set([...notes, { id: nextId++, path, line, code, text: text.trim() }]);
-}
-export const removeNote = (id: number) => set(notes.filter((n) => n.id !== id));
-
-/** The comments waiting, for every component that shows a diff. */
-export function useNotes(): { notes: Note[]; offered: boolean } {
-  const [, redraw] = useState(0);
-  useEffect(() => {
-    const listener = () => redraw((n) => n + 1);
-    listeners.add(listener);
-    return () => void listeners.delete(listener);
-  }, []);
-  return { notes, offered };
+  notes.add([{ id: nextId++, path, line, code, text: text.trim() }]);
 }
 
-/**
- * Keeps the comments in step with the hand-over, once for the window: when their part has left
- * the queue they have done their job. `canHandOver`: the tool takes text from CodeDeck.
- */
-export function useNotesSync(current: AssistantState, canHandOver: boolean) {
-  state = current;
-  const queued = current.handovers.some((h) => h.key === NOTES_KEY);
-  const seen = useRef(false);
-  useEffect(() => {
-    if (queued) seen.current = true;
-    else if (seen.current) {
-      seen.current = false;
-      notes = [];
-      publish();
-    }
-  }, [queued]);
-  useEffect(() => {
-    offered = canHandOver;
-    publish();
-  }, [canHandOver]);
-}
+export const removeNote = (id: number) => notes.remove([String(id)]);

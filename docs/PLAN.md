@@ -21,11 +21,12 @@ braucht man nur noch bei Grundsatzfragen.
 ## Stand (2026-11-15, Commit `1c35bdc`)
 
 Das Zielbild ist abgestimmt (Click-Dummy, `KONZEPT.md` Teil 4). Von MVP 1 sind die Schritte 1.1 bis 1.6
-gebaut, dazu 1.6a (einheitliche Begriffe) und 1.6b (Änderungen anhängen); 1.6 ist erst in Tests, Vorschau und mit nachgestellten
-Hook-Meldungen geprüft.
+gebaut, dazu 1.6a (einheitliche Begriffe), 1.6b (Änderungen anhängen) und 1.7 (Anhänge aus einem Guss); alles erst
+in Tests, Vorschau und mit nachgestellten Hook-Meldungen geprüft.
 
-**Nächste Session:** Praxistest von 1.5, 1.6, 1.6a und 1.6b in der echten App mit dem Nutzer (Listen „Offen“ in den
-Notizen), Gefundenes beheben. Danach Schritt 1.7 (Aufräumen nach dem Review), dann MVP 2, Schritt 2.1.
+**Nächste Session:** Praxistest von 1.5 bis 1.7 in der echten App mit dem Nutzer (Listen „Offen“ in den Notizen,
+Ablauf in der Notiz zu 1.7), Gefundenes beheben. Danach MVP 2, Schritt 2.1. (1.7 kam auf Wunsch des Nutzers vor den
+Test: es baut genau den Code um, den der Test prüft.)
 
 Fertig in der App (P1, P2, P3, P5, siehe „Ältere Pakete“): Trail mit drei Zonen (nicht committet / nicht
 gepusht / gepusht) und Remote-Chip, Vergleich zweier Punkte · Hook-Brücke `codedeck hook` → Socket je
@@ -113,7 +114,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 | 1.5 Changes je Runde ✅ 2026-11-15 | Auswahl „Turn n / All uncommitted“ (macht den Strg+Klick-Vergleich entdeckbar, ersetzt ihn nicht), Kurzbericht aus dem Log, Datei abhaken, „Claude“ oder „You“ je Datei, Zeile kommentieren | Changes, Szenen 4–7 | `ChangesView.tsx`, `DiffParts.tsx`, `history.rs`, `sessions.rs`, `focus.ts` | Ein Zeilenkommentar landet in „Next prompt“ und kommt bei Claude an |
 | 1.6 Handover ✅ 2026-11-15 (Praxistest offen) | Reiter mit Warteschlange, genauem Text, Quellen, `@ai`-Hinweisen; Startregeln (abhängig von 1.1) sichtbar; Marker-Regel D18, Zielsitzung D19. Auftrag: Notiz „Vorbereitung 1.6“ | Handover | `DocsView.tsx` → Handover, `markers.ts`, `hook.rs` | Regeln stehen wörtlich im Reiter und kommen in einer neuen Sitzung an |
 | 1.6b Änderungen anhängen ✅ 2026-11-15 | Runde, Commit, Snapshot, Vergleich, nicht Committetes oder eine Datei davon als Verweis anhängen (Git-Befehl, nicht der Diff); Angehängtes am Ursprung markiert; je Sitzung „Got from CodeDeck“ | Changes, rechte Spalte | `changes.ts`, `ChangesView.tsx`, `DiffParts.tsx`, `StructureTree.tsx`, `bridge.rs` | Eine angehängte Runde kommt als `git diff …` bei Claude an, und die Sitzung zeigt danach, was sie bekommen hat |
-| 1.7 Anhänge aus einem Guss ☐ | Aus dem Review vom 2026-11-15 (Notiz „Review 1.6–1.6b“): (A) ein Modul `attachments.ts` mit einem gemeinsamen Baustein je Anhangsteil (Speicher, Abgleich, Zählen) für Dateien, Änderungen, Zeilenkommentare und Hinweise; behebt den Wettlauf beim Absenden und zu viel „attached“ an Hinweisen. (B) Das Backend liefert den fertigen Text der Anhänge (`AssistantState.preview`), das Frontend setzt ihn nicht mehr selbst zusammen. (C) Mit umbenennen: `hand_over` → `attach`, `handovers` → `attachments`, `focus.ts` → `files.ts`, `HandoverTarget` → `AttachTarget` (rein mechanisch, Oberfläche unverändert). Kein neues Verhalten | – | `notes.ts`, `changes.ts`, `focus.ts`, `markers.ts`, `App.tsx`, `bridge.rs`, `lib.rs`, `backend.ts` | Ein Anhang, der während des Absendens dazukommt, bleibt stehen und geht mit dem nächsten Prompt raus; die Vorschau zeigt den Text aus dem Backend |
+| 1.7 Anhänge aus einem Guss ✅ 2026-11-15 | Aus dem Review vom 2026-11-15 (Notiz „Review 1.6–1.6b“): (A) ein Modul `attachments.ts` mit einem gemeinsamen Baustein je Anhangsteil (Speicher, Abgleich, Zählen) für Dateien, Änderungen, Zeilenkommentare und Hinweise; behebt den Wettlauf beim Absenden und zu viel „attached“ an Hinweisen. (B) Das Backend liefert den fertigen Text der Anhänge (`AssistantState.preview`), das Frontend setzt ihn nicht mehr selbst zusammen. (C) Mit umbenennen: `hand_over` → `attach`, `handovers` → `attachments`, `focus.ts` → `files.ts`, `HandoverTarget` → `AttachTarget` (rein mechanisch, Oberfläche unverändert). Kein neues Verhalten | – | `notes.ts`, `changes.ts`, `focus.ts`, `markers.ts`, `App.tsx`, `bridge.rs`, `lib.rs`, `backend.ts` | Ein Anhang, der während des Absendens dazukommt, bleibt stehen und geht mit dem nächsten Prompt raus; die Vorschau zeigt den Text aus dem Backend |
 | 1.6a Einheitliche Begriffe ✅ 2026-11-15 | D20, D21: „Attach“ und „Next prompt“ überall; Reiter „Handover“ → „Next prompt“; Fokus weg, Anpinnen hängt direkt an | Handover, rechte Spalte (Dummy nennt es noch anders) | `NextPromptView.tsx`, `SessionsPanel.tsx`, `focus.ts`, `FilesPanel.tsx`, `DiffParts.tsx` | Kein „Handover“, „Focus“, „Hand to“, „Queue“ mehr in der Oberfläche; Anhänge an drei Stellen gleich gezählt |
 
 ### MVP 2: Nichts bleibt unbemerkt
@@ -614,6 +615,25 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   nie (kein Adapter dieser Art); Desktop-Sitzungen und solche ohne offenes Fenster beim Start bekommen weder Regeln
   noch Anhänge, das sagt nur die Doku, nicht die App (für den Praxistest im Blick behalten). `ChangesView.tsx` (über
   1150 Zeilen, fünf Ansichten mit gleichem Muster) bekommt einen gemeinsamen Rahmen mit dem nächsten Changes-Schritt.
+- 1.7 (2026-11-15): `attachments.ts` mit `createPart(key, {id, text, label, onSent})` für alle vier Teile (`files.ts`,
+  `changes.ts`, `notes.ts`, `markers.ts`). Jede Änderung eines Teils zählt dessen Revision hoch, jeder Eintrag merkt sich
+  seine; `attach(key, text, label, rev)` schickt sie mit, die Quittung (`Delivery.parts`: Schlüssel und Revision) sagt,
+  welche Einträge rausgingen. Nur die verschwinden, später Hinzugekommenes wird neu angehängt. Der Baustein hört selbst
+  auf jedes `assistant_changed` (nicht über React-Zustand, der Zustände zusammenfassen kann) und gleicht beim ersten
+  Zustand ab: Eigenes geht raus, was nur das Backend noch hat (Fenster neu geladen), wird entfernt. „Remove“ läuft über
+  `removeAttachment`, Projektwechsel über `clearAttachments`. Hinweise: „Attach“ fügt hinzu statt zu ersetzen und nimmt
+  sie wieder heraus, wenn alle angehängt sind; „attached“ ist jetzt genau der Inhalt des Teils; „Hints sent to …“ zählt
+  die abgeschickten. Pins liegen nicht mehr im Zustand von `App`. Den Gesamttext baut nur das Backend
+  (`AssistantState.preview`, im Mock nachgebaut). Umbenannt: Befehle `attach`/`attach_for`, `Attachment`, `attachments`,
+  `Capabilities.attach` (Enum `Attach`), `AttachTarget.tsx`, `files.ts`. Wettlauf in der Vorschau nachgestellt:
+  `window.mockSendPrompt(true)` holt die Anhänge ab und hält die Quittung bis zur nächsten Änderung zurück; ein in
+  diesem Moment angehängter Ordner blieb stehen und ging mit dem nächsten Prompt allein raus. Ohne TS-Testrahmen nur
+  so geprüft. **Ablauf Praxistest 1.5–1.7:** (1) `./dev`, Statusleiste „Connected“. (2) Neue CLI-Sitzung: „Welche
+  Regeln von CodeDeck hast du bekommen?“, danach `/clear` und noch einmal; Details zeigen „Start rules“. (3) Claude
+  etwas ändern lassen: Endpunkt ⚑ und Kurzbericht in Changes, „Turn n“ verständlich, auch mit zwei Sitzungen. (4) Datei
+  anpinnen, Zeile kommentieren, Runde und Hinweis anhängen, prompten: alles kommt an, `git diff` läuft, danach „Sent
+  at …“ und „Got from CodeDeck“. (5) Zielsitzung: in der anderen Sitzung prompten, dort kommt nichts an. (6) Tooltip von
+  „Attach“ abgeschnitten? Begriffe klar?
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

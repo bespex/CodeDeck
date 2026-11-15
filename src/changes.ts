@@ -3,8 +3,9 @@
 // small and the assistant reads what it needs (like files: paths, not contents). Snapshots are refs
 // in the same repository, so the commands work where the assistant runs.
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { handOver, type AssistantState, type RepoStatus } from "./backend";
+import { createContext, useContext } from "react";
+import type { RepoStatus } from "./backend";
+import { createPart } from "./attachments";
 import { plural } from "./git";
 import { toProject } from "./history";
 
@@ -74,45 +75,12 @@ export function changesText(list: ChangeRef[]): string {
   return ["Look at these changes. Each names one, with the git command that shows it (run it in the project root):", "", ...lines, ...untracked].join("\n");
 }
 
-let changes: ChangeRef[] = [];
-const listeners = new Set<() => void>();
-const publish = () => listeners.forEach((l) => l());
-
-function set(next: ChangeRef[]) {
-  changes = next;
-  publish();
-  void handOver(CHANGES_KEY, next.length ? changesText(next) : null, plural(next.length, "change"));
-}
-
-/** Attaches the change, or removes it if it is attached. */
-export function toggleChange(ref: ChangeRef) {
-  set(changes.some((c) => c.id === ref.id) ? changes.filter((c) => c.id !== ref.id) : [...changes, ref]);
-}
-
-/** The changes attached, for every component that offers attaching one. */
-export function useChanges(): ChangeRef[] {
-  const [, redraw] = useState(0);
-  useEffect(() => {
-    const listener = () => redraw((n) => n + 1);
-    listeners.add(listener);
-    return () => void listeners.delete(listener);
-  }, []);
-  return changes;
-}
-
-/** Once for the window: when their part has left the queue (sent or removed) the changes are gone. */
-export function useChangesSync(state: AssistantState) {
-  const queued = state.handovers.some((h) => h.key === CHANGES_KEY);
-  const seen = useRef(false);
-  useEffect(() => {
-    if (queued) seen.current = true;
-    else if (seen.current) {
-      seen.current = false;
-      changes = [];
-      publish();
-    }
-  }, [queued]);
-}
+/** The changes attached, kept like every attachment (see `attachments.ts`). */
+export const changes = createPart<ChangeRef>(CHANGES_KEY, {
+  id: (c) => c.id,
+  text: changesText,
+  label: (list) => plural(list.length, "change"),
+});
 
 /** The change the diffs below show, for attaching it or one of its files; `null` where there is none. */
 export const ChangeScopeContext = createContext<ChangeScope | null>(null);

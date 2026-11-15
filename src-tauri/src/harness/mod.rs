@@ -1,5 +1,5 @@
 //! The seam between CodeDeck and the coding tools it watches. The core (bridge, trail, snapshots,
-//! hand-over, interface) knows no tool: it sees neutral [`Event`]s coming in and asks a
+//! attachments, interface) knows no tool: it sees neutral [`Event`]s coming in and asks a
 //! [`Harness`] for everything it does on its own. Each tool is one adapter in this folder,
 //! compiled in; nothing outside an adapter names a tool, its files or its message fields.
 
@@ -44,7 +44,7 @@ pub struct Capabilities {
     pub live_status: bool,
     /// It reports before it writes, so a snapshot can be taken first
     pub before_write: bool,
-    pub handover: Handover,
+    pub attach: Attach,
     /// Text can be given to a session when it starts
     pub start_rules: bool,
     /// Its logs tell of sessions CodeDeck did not hear from
@@ -57,14 +57,14 @@ impl Capabilities {
     /// For a session known from its log only (e.g. one whose tool sent no event): whatever
     /// needs the session to report is not possible with it.
     pub fn from_log_only(self) -> Self {
-        Self { live_status: false, before_write: false, handover: Handover::None, start_rules: false, ..self }
+        Self { live_status: false, before_write: false, attach: Attach::None, start_rules: false, ..self }
     }
 }
 
 /// How text from CodeDeck gets into a session.
 #[derive(Serialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub enum Handover {
+pub enum Attach {
     /// CodeDeck adds it to the next prompt
     WithNextPrompt,
     /// Only by copying and pasting

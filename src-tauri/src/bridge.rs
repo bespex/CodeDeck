@@ -24,7 +24,7 @@ use crate::rules;
 use crate::snapshot::Origin;
 use crate::{Current, GIT_RAN};
 
-/// Event sent when sessions or the hand-over changed; payload [`AssistantState`].
+/// Event sent when sessions or the attachments changed; payload [`AssistantState`].
 pub const ASSISTANT_CHANGED: &str = "assistant_changed";
 /// Event sent after a snapshot was taken; no payload.
 pub const SNAPSHOT_TAKEN: &str = "snapshot_taken";
@@ -118,14 +118,20 @@ pub struct Touch {
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct Handover {
-    /// Which part it is, e.g. `markers` or `focus`; each can be set and taken back on its own
+pub struct Attachment {
+    /// Which part it is, e.g. `files`, `notes`, `changes`, `markers`; each can be set and removed on its own
     key: String,
     /// The text the assistant gets with the next prompt
     text: String,
     /// What it is, in a few words, for the interface
     label: String,
+    /// The interface's count of its changes to this part: tells it which of its items went out
+    /// when one is added while a prompt is being sent
+    rev: u64,
 }
+
+/// A part as the interface sets it: text, label, revision.
+pub type Part = (String, String, u64);
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -138,13 +144,15 @@ pub struct AssistantState {
     /// Colour, short name and title of every session remembered for the project, also those no
     /// longer listed: their snapshots stay
     identities: Vec<IdentityInfo>,
-    /// What waits for the next prompt, in the order it was handed over
-    handovers: Vec<Handover>,
-    /// The hand-over that went out last, until the next one is queued
+    /// What waits for the next prompt, in the order it was attached
+    attachments: Vec<Attachment>,
+    /// Exactly the text the next prompt gets with it, built here and nowhere else
+    preview: Option<String>,
+    /// The attachments that went out last, until the next one is queued
     delivered: Option<Delivery>,
-    /// The session the hand-over is meant for; `None`: whichever prompts first in the project
+    /// The session the attachments are meant for; `None`: whichever prompts first in the project
     target: Option<String>,
-    /// The session the hand-over was meant for until it ended or left the list; it now goes
+    /// The session the attachments were meant for until it ended or left the list; it now goes
     /// to any session, and the interface says so
     target_lost: Option<String>,
     /// The session that got the start rules last
@@ -159,7 +167,7 @@ pub struct Ruled {
     at: u64,
 }
 
-/// A hand-over a session took with its prompt.
+/// Attachments a session took with its prompt.
 #[derive(Serialize, Clone)]
 pub struct Delivery {
     session: String,
@@ -167,6 +175,15 @@ pub struct Delivery {
     at: u64,
     /// What it was made of, as the parts were called
     labels: Vec<String>,
+    /// Which parts went out, at which revision
+    parts: Vec<Sent>,
+}
+
+/// One part that went out with a prompt.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct Sent {
+    key: String,
+    rev: u64,
 }
 
 #[derive(Serialize, Clone)]
@@ -183,7 +200,7 @@ struct Inner {
     sessions: HashMap<String, Session>,
     /// Per session: the repositories (top-level paths) with a snapshot in the current turn
     turn: HashMap<String, HashSet<PathBuf>>,
-    handovers: Vec<Handover>,
+    attachments: Vec<Attachment>,
     delivered: Option<Delivery>,
     target: Option<String>,
     target_lost: Option<String>,
@@ -243,7 +260,8 @@ impl Bridge {
             harnesses,
             sessions: inner.listed(),
             identities: inner.identity_list(),
-            handovers: inner.handovers.clone(),
+            attachments: inner.attachments.clone(),
+            preview: joined(&inner.attachments),
             delivered: inner.delivered.clone(),
             target: inner.target.clone(),
             target_lost: inner.target_lost.clone(),
@@ -257,7 +275,7 @@ impl Bridge {
             let mut inner = self.inner.lock().unwrap();
             inner.sessions.clear();
             inner.turn.clear();
-            inner.handovers.clear();
+            inner.attachments.clear();
             inner.delivered = None;
             (inner.target, inner.target_lost, inner.ruled) = (None, None, None);
             inner.looked_up.clear();
@@ -298,23 +316,23 @@ impl Bridge {
 
     /// One part of the text for the assistant with the next prompt in this project; `None`
     /// takes that part back. All parts go together with the next prompt.
-    pub fn hand_over(&self, app: &AppHandle, key: String, part: Option<(String, String)>) {
+    pub fn attach(&self, app: &AppHandle, key: String, part: Option<Part>) {
         {
             let mut inner = self.inner.lock().unwrap();
-            // Something new is queued: the receipt of the last hand-over has done its job
+            // Something new is queued: the receipt of the last attachments has done its job
             if part.is_some() {
                 inner.delivered = None;
             }
-            set_part(&mut inner.handovers, key, part);
+            set_part(&mut inner.attachments, key, part);
             // Nothing left to deliver: nothing to aim at either
-            if inner.handovers.is_empty() {
+            if inner.attachments.is_empty() {
                 (inner.target, inner.target_lost) = (None, None);
             }
         }
         let _ = app.emit(ASSISTANT_CHANGED, self.state());
     }
 
-    /// The session the hand-over is meant for; `None`: whichever prompts first in the project.
+    /// The session the attachments are meant for; `None`: whichever prompts first in the project.
     pub fn set_target(&self, app: &AppHandle, session: Option<String>) {
         {
             let mut inner = self.inner.lock().unwrap();
@@ -527,7 +545,7 @@ impl Inner {
         self.lose_target(id);
     }
 
-    /// The session is gone: a hand-over meant for it goes to any session now.
+    /// The session is gone: attachments meant for it go to any session now.
     fn lose_target(&mut self, id: &str) {
         if self.target.as_deref() == Some(id) {
             self.target = None;
@@ -645,15 +663,16 @@ impl Inner {
             // Only a tool that adds the text to the prompt takes it, and only the session it is
             // meant for; otherwise it keeps waiting
             let meant = self.target.as_ref().is_none_or(|t| *t == e.session);
-            if capabilities.handover == harness::Handover::WithNextPrompt && meant {
-                let labels: Vec<String> = self.handovers.iter().map(|h| h.label.clone()).collect();
-                if let Some(text) = take_parts(&mut self.handovers) {
+            if capabilities.attach == harness::Attach::WithNextPrompt && meant {
+                let labels: Vec<String> = self.attachments.iter().map(|h| h.label.clone()).collect();
+                let parts: Vec<Sent> = self.attachments.iter().map(|h| Sent { key: h.key.clone(), rev: h.rev }).collect();
+                if let Some(text) = take_parts(&mut self.attachments) {
                     context = Some(text);
                     (self.target, self.target_lost) = (None, None);
                     if let Some(s) = self.sessions.get_mut(&e.session) {
                         s.got(now, labels.clone());
                     }
-                    self.delivered = Some(Delivery { session: e.session.clone(), at: now, labels });
+                    self.delivered = Some(Delivery { session: e.session.clone(), at: now, labels, parts });
                 }
             }
         }
@@ -739,18 +758,25 @@ fn trim(inner: &mut Inner) {
     }
 }
 
-/// Sets, replaces or (with `None`) removes one part of the hand-over.
-fn set_part(list: &mut Vec<Handover>, key: String, part: Option<(String, String)>) {
+/// Sets, replaces or (with `None`) removes one part of the attachments.
+fn set_part(list: &mut Vec<Attachment>, key: String, part: Option<Part>) {
     match (list.iter_mut().find(|h| h.key == key), part) {
-        (Some(h), Some((text, label))) => (h.text, h.label) = (text, label),
-        (None, Some((text, label))) => list.push(Handover { key, text, label }),
+        (Some(h), Some((text, label, rev))) => (h.text, h.label, h.rev) = (text, label, rev),
+        (None, Some((text, label, rev))) => list.push(Attachment { key, text, label, rev }),
         (_, None) => list.retain(|h| h.key != key),
     }
 }
 
-/// All parts as one text for the prompt, in the order they were handed over; empties the list.
-fn take_parts(list: &mut Vec<Handover>) -> Option<String> {
-    (!list.is_empty()).then(|| std::mem::take(list).into_iter().map(|h| h.text).collect::<Vec<_>>().join("\n\n"))
+/// All parts as one text for the prompt, in the order they were attached.
+fn joined(list: &[Attachment]) -> Option<String> {
+    (!list.is_empty()).then(|| list.iter().map(|h| h.text.as_str()).collect::<Vec<_>>().join("\n\n"))
+}
+
+/// The text for the prompt; empties the list.
+fn take_parts(list: &mut Vec<Attachment>) -> Option<String> {
+    let text = joined(list);
+    list.clear();
+    text
 }
 
 /// Sockets of windows that were killed and could not remove theirs: `<pid>.sock` without a
@@ -786,7 +812,7 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::harness::Handover as Way;
+    use crate::harness::Attach as Way;
     use crate::harness::fake::Fake;
 
     /// The core without any real tool: sessions come from the test adapter's logs and from its
@@ -809,15 +835,15 @@ mod tests {
         assert_eq!((old.harness, old.status, old.title.as_deref(), old.cwd.as_str()), ("fake", "idle", Some("Earlier work"), "docs"));
         assert_eq!(old.touched.iter().map(|t| t.path.as_str()).collect::<Vec<_>>(), ["docs/notes.md"]);
         assert!(!old.capabilities.live_status && !old.capabilities.before_write && old.capabilities.past_sessions);
-        assert_eq!(old.capabilities.handover, Way::None);
+        assert_eq!(old.capabilities.attach, Way::None);
         assert!(!inner.heard);
 
         // Elsewhere: not this project's session
         assert!(step(&mut inner, r#"{"who":"x9","did":"asked","in":"/elsewhere","text":"hi"}"#, 5).is_none());
 
-        set_part(&mut inner.handovers, "focus".into(), Some(("look here".into(), "1 item".into())));
+        set_part(&mut inner.attachments, "focus".into(), Some(("look here".into(), "1 item".into(), 1)));
         let asked = step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Tidy   the\nsub module"}"#, 10).unwrap();
-        // This tool cannot take text with a prompt: the hand-over keeps waiting
+        // This tool cannot take text with a prompt: the attachments keep waiting
         assert!(asked.context.is_none());
 
         let first = step(&mut inner, r#"{"who":"a1","did":"will-write","in":"/p","path":"/p/sub/a.rs","with":"patch"}"#, 20).unwrap();
@@ -847,7 +873,7 @@ mod tests {
         assert_eq!(a1.capabilities, Fake.capabilities());
         let old = &inner.sessions["old"];
         assert!(old.capabilities.live_status && old.status == "working" && old.title.as_deref() == Some("Earlier work"));
-        assert!(inner.heard && inner.handovers.len() == 1 && inner.sessions.len() == 2);
+        assert!(inner.heard && inner.attachments.len() == 1 && inner.sessions.len() == 2);
     }
 
     /// The fake tool, but one that takes text with a prompt.
@@ -863,7 +889,7 @@ mod tests {
             Fake.short_name()
         }
         fn capabilities(&self) -> Capabilities {
-            Capabilities { handover: Way::WithNextPrompt, ..Fake.capabilities() }
+            Capabilities { attach: Way::WithNextPrompt, ..Fake.capabilities() }
         }
         fn connections(&self) -> Vec<harness::Connection> {
             Vec::new()
@@ -886,7 +912,7 @@ mod tests {
     }
 
     /// What the right column lives on: the step a session is at, when its turn ended, and
-    /// which session took the hand-over.
+    /// which session took the attachments.
     #[test]
     fn tells_the_step_the_end_of_a_turn_and_the_delivery() {
         let root = Path::new("/p");
@@ -895,14 +921,15 @@ mod tests {
             let event = Fake.translate(&serde_json::from_str(raw).unwrap()).unwrap();
             inner.take_in(&event, &Prompting, root, Vec::new, now).unwrap()
         };
-        set_part(&mut inner.handovers, "markers".into(), Some(("do this".into(), "2 comments".into())));
-        set_part(&mut inner.handovers, "focus".into(), Some(("look here".into(), "1 item".into())));
+        set_part(&mut inner.attachments, "markers".into(), Some(("do this".into(), "2 comments".into(), 1)));
+        set_part(&mut inner.attachments, "focus".into(), Some(("look here".into(), "1 item".into(), 1)));
 
         let asked = step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Go on"}"#, 10);
         assert_eq!(asked.context.as_deref(), Some("do this\n\nlook here"));
         let delivered = inner.delivered.clone().unwrap();
+        assert_eq!(delivered.parts.iter().map(|p| p.key.as_str()).collect::<Vec<_>>(), ["markers", "focus"]);
         assert_eq!((delivered.session.as_str(), delivered.at, delivered.labels), ("a1", 10, vec!["2 comments".to_string(), "1 item".to_string()]));
-        assert!(inner.handovers.is_empty() && inner.sessions["a1"].received.len() == 1);
+        assert!(inner.attachments.is_empty() && inner.sessions["a1"].received.len() == 1);
 
         step(&mut inner, r#"{"who":"a1","did":"will-write","in":"/p","path":"/p/docs/api.md","with":"patch"}"#, 20);
         assert_eq!((inner.sessions["a1"].step.as_deref(), inner.sessions["a1"].turn_done), (Some("patch docs/api.md"), None));
@@ -998,7 +1025,7 @@ mod tests {
         assert_eq!(step(&mut inner, r#"{"who":"b2","did":"started","in":"/p"}"#, &Silent), None);
     }
 
-    /// A hand-over meant for one session waits for that one; when it ends, any session gets it.
+    /// Attachments meant for one session wait for that one; when it ends, any session gets them.
     #[test]
     fn hands_over_to_the_session_it_is_meant_for() {
         let root = Path::new("/p");
@@ -1009,7 +1036,7 @@ mod tests {
         };
         step(&mut inner, r#"{"who":"a1","did":"started","in":"/p"}"#);
         step(&mut inner, r#"{"who":"b2","did":"started","in":"/p"}"#);
-        set_part(&mut inner.handovers, "notes".into(), Some(("look at line 3".into(), "1 line comment".into())));
+        set_part(&mut inner.attachments, "notes".into(), Some(("look at line 3".into(), "1 line comment".into(), 1)));
         inner.target = Some("b2".into());
         assert_eq!(step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Go"}"#), None);
         assert_eq!(step(&mut inner, r#"{"who":"b2","did":"asked","in":"/p","text":"Go"}"#).as_deref(), Some("look at line 3"));
@@ -1019,7 +1046,7 @@ mod tests {
         assert_eq!(got("b2"), ["1 line comment", "Start rules"]);
         assert_eq!(got("a1"), ["Start rules"]);
 
-        set_part(&mut inner.handovers, "notes".into(), Some(("again".into(), "1 line comment".into())));
+        set_part(&mut inner.attachments, "notes".into(), Some(("again".into(), "1 line comment".into(), 1)));
         inner.target = Some("b2".into());
         step(&mut inner, r#"{"who":"b2","did":"left","in":"/p"}"#);
         assert_eq!((inner.target.as_deref(), inner.target_lost.as_deref()), (None, Some("b2")));
@@ -1027,16 +1054,16 @@ mod tests {
         assert!(inner.target_lost.is_none());
 
         // Taken off the list: the same
-        set_part(&mut inner.handovers, "notes".into(), Some(("third".into(), "1 line comment".into())));
+        set_part(&mut inner.attachments, "notes".into(), Some(("third".into(), "1 line comment".into(), 1)));
         inner.target = Some("a1".into());
         inner.forget("a1");
         assert_eq!((inner.target.as_deref(), inner.target_lost.as_deref()), (None, Some("a1")));
     }
 
     #[test]
-    fn hand_over_parts_go_together_once() {
+    fn attachments_go_together_once() {
         let mut list = Vec::new();
-        let part = |t: &str| Some((t.to_string(), "label".to_string()));
+        let part = |t: &str| Some((t.to_string(), "label".to_string(), 1));
         set_part(&mut list, "markers".into(), part("comments"));
         set_part(&mut list, "focus".into(), part("old focus"));
         set_part(&mut list, "focus".into(), part("focus"));

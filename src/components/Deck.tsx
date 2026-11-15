@@ -9,9 +9,7 @@ import { mainHarness } from "../assistant";
 import type { GitView } from "../git";
 import { useHistory, useSnapshots } from "../history";
 import { useMarkers } from "../markers";
-import { useNotesSync } from "../notes";
-import { useChangesSync } from "../changes";
-import { attachmentCount } from "../focus";
+import { attachmentCount } from "../attachments";
 
 type ViewId = "activity" | "changes" | "workbench" | "next";
 
@@ -38,8 +36,6 @@ export function Deck({ git, selected, assistant, pinned }: Props) {
   const commits = useHistory(git.repos);
   const { snapshots, reload: reloadSnapshots } = useSnapshots(git.repos);
   const marks = useMarkers();
-  useNotesSync(assistant, mainHarness(assistant).capabilities.handover !== "none");
-  useChangesSync(assistant);
   const openMarkers = marks.markers?.length ?? 0;
   const changed = git.changed;
 

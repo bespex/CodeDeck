@@ -31,13 +31,14 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src/components/Deck.tsx` | Vier Reiter mit ihrer Frage (Activity, Changes, Workbench, Next prompt), öffnet in Changes |
 | `src/components/blocks.tsx` | Die fünf Erscheinungsformen: `Toolbar`, `Section`, `Rows`/`Row`, `Document`, `Decision` (neue Ansichten bauen damit) |
 | `src/components/views/NextPromptView.tsx` | Reiter Next prompt: Anhänge mit genauem Text, was man anhängen kann, Marker; getrennt die Startregeln |
-| `src/components/HandoverTarget.tsx` | Für wen die Anhänge sind („any session“ oder eine bestimmte) |
+| `src/components/AttachTarget.tsx` | Für wen die Anhänge sind („any session“ oder eine bestimmte) |
 | `src/components/views/ActivityView.tsx`, `WorkbenchView.tsx` | Zuletzt geschriebene Dokumente (Zeitleiste folgt in 2.3); Platzhalter bis 2.1 |
 | `src/components/SessionsPanel.tsx` | Rechte Spalte: „Needs you“, Sitzungen (zwei Zeilen, „Earlier“, Umbenennen, Entfernen, Hover), „Next prompt“ (alle Anhänge, Vorschau, für wen, Quittung) |
 | `src/components/SessionBadge.tsx`, `useSessionMarks` in `src/assistant.ts` | Schild einer Sitzung; Farbe/Kurzname/Schreiber je Datei für alle Komponenten |
 | `src/components/AssistantStatus.tsx` | KI-Werkzeug in der Statusleiste, `HookPanel` (verbinden); Namen und Angebote aus `mainHarness` |
-| `src/focus.ts`, `src/markers.ts` | Angehängte Dateien (Pin = Anhang, `useAttachedFiles`, `attachmentCount`); Marker laden und „erledigt“ erkennen |
-| `src/changes.ts` | Änderungen als Anhang (Git-Befehl statt Diff), `ChangeScopeContext` je Diff-Ansicht |
+| `src/attachments.ts` | Gemeinsamer Baustein jedes Anhangsteils (`createPart`: Einträge mit Revision, Quittung, Abgleich), `useAttachments` einmal in `App`, `attachmentCount` |
+| `src/files.ts`, `src/markers.ts` | Angehängte Dateien (Pin = Anhang); Marker laden, als Anhang, „erledigt“ erkennen |
+| `src/changes.ts` | Änderungen als Anhang (Git-Befehl statt Diff, neue Dateien als Pfad), `ChangeScopeContext` je Diff-Ansicht |
 | `src/turns.ts`, `src/notes.ts`, `src/reviewed.ts` | Runden aus Snapshots und laufenden Sitzungen, wer welche Datei geändert hat; Zeilenkommentare als Teil der Übergabe; „looked at“ je Datei |
 | `src/mock.ts` | Beispieldaten für die Vorschau |
 | `design/click-dummy/` | Zielbild als Click-Dummy (Vorlage für `PLAN.md` „Zielbild“; README dort lesen, nicht die ganze `Main.dc.html`) |
