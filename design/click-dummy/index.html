@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CodeDeck click dummy (local viewer)</title>
+<style>html,body{margin:0;height:100%;background:#1b1e22}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
+// Local viewer for Main.dc.html. The file is written for the design canvas on claude.ai; this
+// page understands just enough of that format (holes, sc-if, sc-for, events) to run it from the
+// repository. It redraws everything on each change, so dragging the splitters does not work here.
+const source = await (await fetch("Main.dc.html")).text();
+const doc = new DOMParser().parseFromString(source, "text/html");
+const template = doc.querySelector("x-dc");
+const logic = doc.querySelector("script[data-dc-script]");
+for (const style of template.querySelectorAll("helmet style")) document.head.append(style.cloneNode(true));
+
+const root = document.getElementById("root");
+let queued = false;
+class DCLogic {
+  constructor(props) {
+    this.props = props;
+    this.state = {};
+  }
+  setState(change) {
+    Object.assign(this.state, change);
+    if (!queued) {
+      queued = true;
+      queueMicrotask(draw);
+    }
+  }
+}
+const Component = new Function("DCLogic", `${logic.textContent}; return Component;`)(DCLogic);
+// ?ideas=0 hides the "idea" tags, like the tweak on the canvas
+const component = new Component({ showIdeas: new URLSearchParams(location.search).get("ideas") !== "0" });
+
+const lookup = (path, scope) => {
+  path = path.trim();
+  if (path === "true") return true;
+  if (path === "false") return false;
+  return path.split(".").reduce((value, key) => (value == null ? undefined : value[key]), scope);
+};
+/** A whole-value hole gives the raw value (function, boolean); anything else a string. */
+const resolve = (text, scope) => {
+  const whole = text.match(/^\{\{([^}]+)\}\}$/);
+  if (whole) return lookup(whole[1], scope);
+  return text.replace(/\{\{([^}]+)\}\}/g, (_, path) => lookup(path, scope) ?? "");
+};
+
+function build(node, scope, into) {
+  if (node.nodeType === Node.TEXT_NODE) return into.append(String(resolve(node.nodeValue, scope) ?? ""));
+  if (node.nodeType !== Node.ELEMENT_NODE || node.localName === "helmet") return;
+  const children = (inner) => node.childNodes.forEach((child) => build(child, inner, into));
+  if (node.localName === "sc-if") return resolve(node.getAttribute("value"), scope) ? children(scope) : undefined;
+  if (node.localName === "sc-for") {
+    const name = node.getAttribute("as");
+    return (resolve(node.getAttribute("list"), scope) ?? []).forEach((item, index) =>
+      children(Object.assign(Object.create(scope), { [name]: item, $index: index })),
+    );
+  }
+  const element = document.createElementNS(node.namespaceURI, node.localName);
+  for (const { name, value: raw } of node.attributes) {
+    const value = resolve(raw, scope);
+    if (typeof value === "function") {
+      // React's onChange fires while typing; the DOM's "change" only on blur
+      const event = name.slice(2);
+      element.addEventListener(event === "change" ? "input" : event, value);
+    } else if (name === "value" || name === "checked") element[name] = value;
+    else if (value != null && (value !== false || name.startsWith("aria-"))) element.setAttribute(name, String(value));
+  }
+  node.childNodes.forEach((child) => build(child, scope, element));
+  into.append(element);
+}
+
+const pathOf = (element) => {
+  const path = [];
+  for (let at = element; at && at !== root; at = at.parentElement) path.unshift([...at.parentElement.children].indexOf(at));
+  return path;
+};
+const follow = (path) => path.reduce((at, index) => at?.children[index], root);
+
+function draw() {
+  queued = false;
+  // Keep the caret and the scroll positions across the redraw
+  const focused = root.contains(document.activeElement) ? pathOf(document.activeElement) : null;
+  const caret = document.activeElement?.selectionStart;
+  const scrolled = [...root.querySelectorAll("*")].filter((e) => e.scrollTop > 0).map((e) => [pathOf(e), e.scrollTop]);
+  const next = document.createDocumentFragment();
+  template.childNodes.forEach((child) => build(child, component.renderVals(), next));
+  root.replaceChildren(next);
+  for (const [path, top] of scrolled) follow(path)?.scrollTo({ top });
+  const target = focused && follow(focused);
+  if (target) {
+    target.focus();
+    if (caret != null && target.setSelectionRange) target.setSelectionRange(caret, caret);
+  }
+}
+draw();
+</script>
+</body>
+</html>

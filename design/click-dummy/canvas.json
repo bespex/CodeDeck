@@ -1,0 +1,43 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-15T12:00:00Z" },
+  "title": "CodeDeck – Click-Dummy",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "CodeDeck – Click-Dummy (Play drücken)",
+      "expand": "fill",
+      "is_interactive": true
+    }
+  },
+  "order": ["Main.dc.html"],
+  "notes": {
+    "howto": {
+      "x": 1520,
+      "y": 0,
+      "w": 420,
+      "fill": "blue",
+      "text": "So benutzt du den Dummy\n\n1. Artboard wählen und Play drücken (füllt das Fenster).\n2. Die helle Leiste oben gehört nicht zum Produkt: Sie beginnt auf der Startseite (S: alle Projekte) und spielt dann einen Vormittag in 8 Szenen im Projekt orbit-api durch. »Weiter« löst aus, was sonst im Terminal oder bei Claude passiert.\n3. Alles darunter ist CodeDeck und klickbar: Tabs, Dateien, Trail-Punkte, Sitzungskarten, Diff-Zeilen kommentieren, Hand to Claude, Go back, Commit, Push.\n4. Orange »idea«-Schilder markieren, was es heute noch nicht gibt. Abschaltbar über Tweaks › Show idea tags."
+    },
+    "ideas": {
+      "x": 1520,
+      "y": 600,
+      "w": 420,
+      "fill": "orange",
+      "text": "Neue Ideen in diesem Entwurf\n\n· Startseite über alle Projekte: Profile (Arbeitszeit, Freizeit) statt Start-Script, Konten in einer ausklappbaren Seitenleiste, Account je Sitzung, tmux-Zustand, Warnungen\n· Je Sitzung: in Desktop öffnen, tmux anhängen, New task, Restart\n· Vier Reiter als vier Fragen: Activity (was läuft?), Changes (was wurde geändert?), Workbench (was ist noch nicht Teil des Projekts?), Handover (was gebe ich mit?)\n· Workbench: Standardordner .workbench/ mit Größe, Alter, Aufräumen; Links zu claude.ai-Seiten; Fundstücke von anderswo\n· Bereiche farblich getrennt (Needs you warm, Sessions indigo, Next prompt orange) und in der Größe ziehbar; die Trennlinien bleiben haarfein und zeigen sich erst beim Überfahren\n· Fürs Konzept, nicht im Dummy: Bereiche vorübergehend zuklappen, die wichtigsten per Tastenkürzel\n· Sitzungskarte: eine Zeile auf einen Blick, Details zum Aufklappen\n· Glocke im Deck: schwebendes Panel mit Ereignissen, Tipps zur aktuellen Ansicht und Nachschlagen\n· Changes: Werkzeugleiste, Kurzbericht als Text, Diff als einziges Dokument; nur Entscheidungen heben sich ab\n· Needs you: ein Ort für alles, was auf dich wartet\n· Erlaubnis direkt in CodeDeck erteilen\n· Sitzungskarte zeigt, was Claude gerade tut, seinen Plan und den Kontext-Verbrauch\n· Review je Runde: Zusammenfassung, offene Fragen von Claude, Dateien abhaken\n· Diff-Zeile kommentieren statt @ai-Syntax lernen\n· Roten Test mit einem Klick mitgeben\n· Next prompt: Vorschau des Textes, Empfangsbestätigung\n· Activity: Zeitleiste aller Sitzungen, Sicherheit, Verbrauch, Harness-Fähigkeiten\n· Wer hat geändert: Claude oder du\n· Commit-Text aus den Runden vorgeschlagen"
+    },
+    "questions": {
+      "x": 2020,
+      "y": 0,
+      "w": 420,
+      "fill": "purple",
+      "text": "Offene Fragen zum Diskutieren\n\n· Darf CodeDeck Erlaubnisse erteilen, oder bricht das »kein zweiter Ort zum Reden«?\n· Needs you oben rechts oder als eigene Ansicht?\n· Öffnet ein Projekt in Activity oder in Changes?\n· Heißt der Ordner .workbench, .drafts oder .scratch?\n· Review-Haken: nützlich oder Bürokratie?\n· Welche bewussten Steuerungen über tmux sollen es sein: Start, Stop, Restart, New task, Erlaubnis erteilen?\n· ssh-Arbeit auf Servern: Anker greifen dort nicht. Reicht ein Hinweis, oder ein Protokoll der Remote-Befehle?\n· Cloud-Sitzungen ohne tmux: was davon ist technisch erreichbar?\n· Trail links im Deck oder quer über die ganze Breite?"
+    }
+  },
+  "designSystems": []
+}

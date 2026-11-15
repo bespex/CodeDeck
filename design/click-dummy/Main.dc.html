@@ -1,0 +1,1424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CodeDeck click dummy</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#818cf8}a:hover{color:#a5adfb}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:left}
+button:focus-visible,input:focus-visible{outline:2px solid #818cf8;outline-offset:1px}
+input{font:inherit}
+*{scrollbar-width:thin;scrollbar-color:#3a3f46 transparent;box-sizing:border-box}
+.hv:hover{background:#2e3238}
+.split:hover,.split:focus-visible{background:rgba(129,140,248,0.55) !important}
+.row .act{opacity:0}.row:hover .act,.row .act:focus-visible{opacity:1}
+.ln .cm{opacity:.35}.ln:hover .cm,.ln .cm:focus-visible{opacity:1}
+@keyframes cdpulse{50%{opacity:.4}}
+.pulse{animation:cdpulse 2.2s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+</style>
+</helmet>
+<div style="height: 100vh; min-height: 720px; display: flex; flex-direction: column; background: #1b1e22; color: #b9bec4; font-family: system-ui, Inter, 'Noto Sans', Ubuntu, sans-serif; font-size: 13px; line-height: 1.45">
+
+<!-- Guide strip: not part of the product -->
+<div lang="de" style="flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 8px 14px; background: #f5f6f7; color: #282b31">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3730a3">Click-Dummy · Szene</div>
+<div style="display: flex; gap: 4px">
+<sc-for list="{{scenes}}" as="sc" hint-placeholder-count="8">
+<button type="button" onClick="{{sc.go}}" aria-label="{{sc.aria}}" style="width: 26px; height: 26px; border-radius: 13px; text-align: center; font-weight: 600; font-size: 12px; background: {{sc.bg}}; color: {{sc.fg}}">{{sc.num}}</button>
+</sc-for>
+</div>
+</div>
+<div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 1px">
+<div style="font-weight: 700; font-size: 14px">{{sceneTitle}}</div>
+<div style="font-size: 12.5px; color: #30343a">{{sceneText}}</div>
+<div style="font-size: 12.5px; color: #3730a3; font-weight: 600">{{sceneTry}}</div>
+</div>
+<div style="display: flex; gap: 8px">
+<button type="button" onClick="{{prev}}" style="height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid #b9bec4; color: #282b31; font-weight: 600">Zurück</button>
+<button type="button" onClick="{{next}}" style="height: 32px; padding: 0 14px; border-radius: 6px; background: #c75300; color: #ffffff; font-weight: 600">{{nextLabel}}</button>
+</div>
+</div>
+
+<!-- Home: every project at once -->
+<div style="flex: 1; min-height: 0; position: relative; display: {{homeDisplay}}">
+<div style="flex: 1; min-width: 0; overflow-y: auto; display: flex; flex-direction: column">
+<div style="flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 48px; padding: 6px 56px 6px 20px; background: #24272c; border-bottom: 1px solid #3a3f46">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 512 512"><path d="M256 255 406 330 256 405 106 330Z" fill="#3730a3"></path><path d="M256 175 406 250 256 325 106 250Z" fill="#6366f1"></path><path d="M256 95 406 170 256 245 106 170Z" fill="#f26500"></path></svg>
+<div style="font-size: 15px; font-weight: 600; color: #f5f6f7">Projects</div>
+<sc-if value="{{showIdeas}}" hint-placeholder-val="{{true}}"><span style="padding: 0 5px; border-radius: 3px; border: 1px solid #8a5a33; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #ff8a3c">idea</span></sc-if>
+<div style="margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<span style="padding: 3px 9px; border-radius: 6px; font-size: 12px; background: rgba(143,177,207,0.15); color: #a9c6e0">Work · 5h window {{u5}}</span>
+<span style="padding: 3px 9px; border-radius: 6px; font-size: 12px; background: rgba(156,195,154,0.15); color: #b4d4b2">Private · 5h window 8%</span>
+<div style="display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: #1b1e22; border: 1px solid #3a3f46">
+<sc-for list="{{profiles}}" as="pf" hint-placeholder-count="2">
+<button type="button" onClick="{{pf.go}}" style="height: 26px; padding: 0 12px; border-radius: 5px; background: {{pf.bg}}; color: {{pf.fg}}">{{pf.label}}</button>
+</sc-for>
+</div>
+</div>
+</div>
+<div style="width: 100%; max-width: 1240px; margin: 0 auto; padding: 16px 56px 20px 20px; display: flex; flex-direction: column; gap: 20px">
+<div style="font-size: 12px; color: #a9afb5">{{profileText}}</div>
+<sc-if value="{{noHneeds}}" hint-placeholder-val="{{false}}"><div style="color: #a9afb5">Nothing needs you. No session waits.</div></sc-if>
+<sc-if value="{{hasHneeds}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 8px; background: #2d2820; border: 1px solid rgba(224,168,104,0.45); box-shadow: 0 10px 28px -8px rgba(0,0,0,0.6)">
+<div style="display: flex; align-items: center; gap: 8px">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #e0a868">Needs you</div>
+<span style="padding: 0 6px; border-radius: 9px; font-size: 11px; font-weight: 700; background: #e0a868; color: #1b1e22">{{hneedCount}}</span>
+</div>
+<sc-for list="{{hneeds}}" as="hn" hint-placeholder-count="2">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<div style="flex: 1 1 300px; min-width: 0"><span style="font-weight: 600; color: #f5f6f7">{{hn.title}}</span><span style="color: #d2d6da"> · {{hn.text}}</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{hn.actions}}" as="ha" hint-placeholder-count="1">
+<button type="button" onClick="{{ha.run}}" style="height: 28px; padding: 0 10px; border-radius: 6px; font-weight: 600; background: {{ha.bg}}; color: {{ha.fg}}; border: 1px solid {{ha.line}}">{{ha.label}}</button>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(330px, 100%), 1fr)); gap: 14px">
+<sc-for list="{{projects}}" as="pr" hint-placeholder-count="6">
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 8px; background: #24272c; border: 1px solid #3a3f46; opacity: {{pr.opacity}}">
+<div style="display: flex; align-items: center; gap: 8px">
+<span class="{{pr.dotClass}}" style="width: 9px; height: 9px; border-radius: 5px; flex-shrink: 0; background: {{pr.dot}}"></span>
+<span title="{{pr.path}}" style="flex: 1; min-width: 0; font-size: 15px; font-weight: 600; color: #f5f6f7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{pr.name}}</span>
+<span style="flex-shrink: 0; padding: 1px 8px; border-radius: 9px; font-size: 11px; font-weight: 600; background: {{pr.acctBg}}; color: {{pr.acctFg}}">{{pr.acct}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px; padding-left: 17px">
+<span style="color: #e8eaec; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{pr.status}}</span>
+<span style="font-size: 12px; color: #a9afb5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{pr.meta}}</span>
+</div>
+<sc-if value="{{pr.hasWarn}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-left: 17px">
+<span style="flex: 1 1 180px; min-width: 0; color: #e0a868">{{pr.warn}}</span>
+<sc-if value="{{pr.hasFix}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{pr.fix}}" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">{{pr.fixLabel}}</button>
+</sc-if>
+</div>
+</sc-if>
+<div style="margin-top: auto; display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 0 17px">
+<sc-for list="{{pr.actions}}" as="pa" hint-placeholder-count="3">
+<button type="button" onClick="{{pa.run}}" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">{{pa.label}}</button>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="font-size: 12px; color: #a9afb5">CodeDeck starts and watches the tmux sessions. You keep talking to Claude in Claude Desktop, on the web or in the terminal; CodeDeck never sends prompts.</div>
+</div>
+</div>
+<sc-if value="{{accountsClosed}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{toggleAccounts}}" aria-label="Show accounts" style="position: absolute; top: 18px; right: 0; width: 40px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 8px 0 0 8px; background: #363b42; border: 1px solid #4d545c; border-right: 0; color: #e8eaec; box-shadow: 0 6px 18px rgba(0,0,0,0.45)">
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"></path></svg>
+</button>
+</sc-if>
+<sc-if value="{{accountsOpen}}" hint-placeholder-val="{{false}}">
+<aside aria-label="Accounts" style="position: absolute; top: 0; right: 0; bottom: 0; width: 380px; max-width: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 16px; background: #363b42; border-left: 1px solid #4d545c; box-shadow: -14px 0 36px -6px rgba(0,0,0,0.6)">
+<div style="display: flex; align-items: center; gap: 8px">
+<div style="font-size: 15px; font-weight: 600; color: #f5f6f7">Accounts</div>
+<sc-if value="{{showIdeas}}" hint-placeholder-val="{{true}}"><span style="padding: 0 5px; border-radius: 3px; border: 1px solid #8a5a33; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #ff8a3c">idea</span></sc-if>
+<button type="button" onClick="{{toggleAccounts}}" aria-label="Close accounts" style="margin-left: auto; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #e8eaec">
+<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ic.x}}"></path></svg>
+</button>
+</div>
+<div style="font-size: 12px; color: #d2d6da">An account is a name for how a tool is started. You sign in inside the tool itself; CodeDeck stores no passwords or keys.</div>
+<sc-for list="{{accounts}}" as="ac2" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 8px; background: #24272c; border: 1px solid #4d545c; opacity: {{ac2.opacity}}">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="flex-shrink: 0; padding: 1px 10px; border-radius: 9px; font-size: 11px; font-weight: 600; background: {{ac2.bg}}; color: {{ac2.fg}}">{{ac2.name}}</span>
+<span style="color: #f5f6f7">{{ac2.tool}}</span>
+</div>
+<div style="font-family: ui-monospace, 'JetBrains Mono', monospace; font-size: 12px; color: #b9bec4; overflow-wrap: anywhere">{{ac2.start}}</div>
+<div style="font-size: 12px; color: {{ac2.stateColor}}">{{ac2.state}}</div>
+<div><button type="button" onClick="{{ac2.run}}" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #757c84; color: #e8eaec">{{ac2.label}}</button></div>
+</div>
+</sc-for>
+<button type="button" onClick="{{addAccount}}" style="height: 30px; padding: 0 12px; border-radius: 6px; border: 1px solid #757c84; color: #f5f6f7; text-align: center; font-weight: 600">Add account…</button>
+</aside>
+</sc-if>
+</div>
+
+<!-- The app -->
+<div style="flex: 1; min-height: 0; position: relative; display: {{projDisplay}}; overflow-x: auto">
+
+<!-- Files -->
+<aside aria-label="Files" style="width: {{wFiles}}; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; background: #24272c">
+<div style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #3a3f46">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 512 512"><path d="M256 255 406 330 256 405 106 330Z" fill="#3730a3"></path><path d="M256 175 406 250 256 325 106 250Z" fill="#6366f1"></path><path d="M256 95 406 170 256 245 106 170Z" fill="#f26500"></path></svg>
+<button type="button" onClick="{{goHome}}" aria-label="Back to all projects" style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; height: 26px; padding: 0 6px; margin-left: -6px; border-radius: 5px; font-weight: 600; white-space: nowrap; color: #f5f6f7"><span style="color: #a9afb5">‹</span><span>orbit-api</span></button>
+<div style="margin-left: auto; min-width: 0; display: flex; align-items: center; gap: 4px; font-size: 11px; color: #a9afb5">
+<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="{{ic.branch}}"></path></svg>
+<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">feature/rate-limit</span>
+</div>
+</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; padding: 6px 0">
+<sc-for list="{{tree}}" as="f" hint-placeholder-count="14">
+<div class="row" style="display: flex; align-items: center; gap: 6px; height: 26px; padding-left: {{f.pad}}; padding-right: 8px; background: {{f.bg}}">
+<sc-if value="{{f.isDir}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; color: #a9afb5">
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ic.folder}}"></path></svg>
+<span>{{f.name}}</span>
+</div>
+</sc-if>
+<sc-if value="{{f.isFile}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{f.pick}}" style="flex: 1; min-width: 0; height: 26px; display: flex; align-items: center; gap: 6px; color: {{f.fg}}">
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="{{ic.file}}"></path></svg>
+<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.name}}</span>
+</button>
+<sc-if value="{{f.ai}}" hint-placeholder-val="{{false}}">
+<span class="pulse" role="img" aria-label="Changed by Claude" style="width: 6px; height: 6px; border-radius: 3px; background: #818cf8; box-shadow: 0 0 6px 1px rgba(129,140,248,0.7)"></span>
+</sc-if>
+<span style="width: 10px; font-size: 11px; font-weight: 700; color: {{f.gitColor}}">{{f.git}}</span>
+<button type="button" class="{{f.pinClass}}" onClick="{{f.pin}}" aria-label="{{f.pinAria}}" style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: {{f.pinColor}}">
+<svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ic.pin}}"></path></svg>
+</button>
+</sc-if>
+</div>
+</sc-for>
+</div>
+<div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 3px; padding: 8px 12px; border-top: 1px solid #3a3f46; font-size: 11px; color: #959ca4">
+<div style="display: flex; align-items: center; gap: 6px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #818cf8"></span><span>changed by Claude</span></div>
+<div style="display: flex; align-items: center; gap: 6px"><span style="font-weight: 700; color: #e0a868">M</span><span>modified</span><span style="font-weight: 700; color: #9cc39a">A</span><span>new</span></div>
+<div>Hover a file and pin it for the next prompt</div>
+</div>
+</aside>
+<button type="button" class="split" aria-label="Resize the file list. Drag, or use the arrow keys." onPointerDown="{{spFiles.down}}" onPointerMove="{{spFiles.move}}" onPointerUp="{{spFiles.up}}" onKeyDown="{{spFiles.key}}" style="flex-shrink: 0; position: relative; z-index: 2; width: 7px; margin: 0 -3px; align-self: stretch; cursor: col-resize; touch-action: none; background: linear-gradient(to right, transparent 3px, #3a3f46 3px, #3a3f46 4px, transparent 4px)"></button>
+
+<!-- Deck -->
+<main style="flex: 1; min-width: 420px; min-height: 0; display: flex; flex-direction: column; background: #1b1e22">
+<nav aria-label="Deck views" style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 8px; background: #24272c; border-bottom: 1px solid #3a3f46">
+<sc-for list="{{tabs}}" as="tb" hint-placeholder-count="4">
+<button type="button" onClick="{{tb.go}}" style="height: 28px; padding: 0 10px; display: flex; align-items: center; gap: 6px; border-radius: 6px; font-weight: 500; background: {{tb.bg}}; color: {{tb.fg}}; box-shadow: {{tb.shadow}}">
+<span>{{tb.label}}</span>
+<sc-if value="{{tb.hasBadge}}" hint-placeholder-val="{{false}}">
+<span style="padding: 0 6px; border-radius: 9px; font-size: 11px; font-weight: 600; background: rgba(242,101,0,0.2); color: #ff8a3c">{{tb.badge}}</span>
+</sc-if>
+</button>
+</sc-for>
+<span style="margin-left: auto; padding-right: 6px; font-size: 12px; color: #a9afb5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{tabQuestion}}</span>
+<button type="button" onClick="{{toggleInfo}}" aria-label="Notices and tips" aria-expanded="{{infoOpen}}" style="flex-shrink: 0; width: 30px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: {{infoBtnBg}}; color: #e8eaec">
+<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+</button>
+</nav>
+
+<div style="flex: 1; min-height: 0; display: flex">
+
+<!-- Trail -->
+<div aria-label="Trail" style="width: {{wTrail}}; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; background: #202328">
+<div style="padding: 10px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #959ca4">Trail</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; padding: 0 6px">
+<sc-for list="{{trail}}" as="p" hint-placeholder-count="5">
+<div style="display: flex; align-items: stretch; gap: 6px; border-radius: 6px; background: {{p.bg}}">
+<div style="position: relative; width: 18px; flex-shrink: 0">
+<div style="position: absolute; left: 8px; top: 0; bottom: 0; border-left: {{p.line}}"></div>
+<div style="position: absolute; left: 1px; top: 8px; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #202328">
+<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="{{p.fill}}" stroke="{{p.color}}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="{{p.icon}}"></path></svg>
+</div>
+</div>
+<sc-if value="{{p.isBtn}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{p.pick}}" style="flex: 1; min-width: 0; padding: 6px 6px 10px 0; display: flex; flex-direction: column; gap: 1px">
+<span style="font-weight: 500; color: {{p.titleColor}}">{{p.title}}</span>
+<span style="font-size: 11px; color: #959ca4">{{p.sub}}</span>
+<span style="font-size: 11px; color: #818cf8">{{p.hint}}</span>
+</button>
+</sc-if>
+<sc-if value="{{p.isStatic}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1; min-width: 0; padding: 6px 6px 10px 0; display: flex; flex-direction: column; gap: 1px">
+<span style="color: #b9bec4">{{p.title}}</span>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #959ca4">
+<span>{{p.sub}}</span>
+<sc-if value="{{p.hasChip}}" hint-placeholder-val="{{false}}"><span style="padding: 0 5px; border-radius: 3px; border: 1px solid #4d545c; color: #b9bec4">origin</span></sc-if>
+</span>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+<div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; border-top: 1px solid #3a3f46; font-size: 11px; color: #959ca4">
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 18px; border-top: 2px solid #e0a868"></span><span>not committed</span></div>
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 18px; border-top: 2px dashed #e0a868"></span><span>committed, only here</span></div>
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 18px; border-top: 2px solid #757c84"></span><span>safe on origin</span></div>
+</div>
+</div>
+<button type="button" class="split" aria-label="Resize the trail. Drag, or use the arrow keys." onPointerDown="{{spTrail.down}}" onPointerMove="{{spTrail.move}}" onPointerUp="{{spTrail.up}}" onKeyDown="{{spTrail.key}}" style="flex-shrink: 0; position: relative; z-index: 2; width: 7px; margin: 0 -3px; align-self: stretch; cursor: col-resize; touch-action: none; background: linear-gradient(to right, transparent 3px, #3a3f46 3px, #3a3f46 4px, transparent 4px)"></button>
+
+<!-- View -->
+<section style="flex: 1; min-width: 0; min-height: 0; overflow-y: auto">
+
+<!-- Overview -->
+<sc-if value="{{isOverview}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 24px; padding: 16px">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 8px; background: #24272c; border: 1px solid #3a3f46">
+<div style="display: flex; align-items: center; gap: 8px">
+<div style="font-weight: 600; color: #f5f6f7">Today</div>
+<sc-if value="{{showIdeas}}" hint-placeholder-val="{{true}}"><span style="padding: 0 5px; border-radius: 3px; border: 1px solid #8a5a33; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #ff8a3c">idea</span></sc-if>
+<div style="margin-left: auto; display: flex; flex-wrap: wrap; gap: 12px; font-size: 11px; color: #a9afb5">
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 14px; height: 8px; border-radius: 3px; background: #818cf8"></span>working</span>
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 14px; height: 8px; border-radius: 3px; background: #e0a868"></span>waiting for you</span>
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 2px; height: 10px; background: #f5f6f7"></span>anchor</span>
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 2px; height: 10px; background: #f26500"></span>now {{nowLabel}}</span>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: 170px minmax(0, 1fr); row-gap: 6px; align-items: center">
+<div></div>
+<div style="position: relative; height: 16px; font-size: 11px; color: #959ca4">
+<sc-for list="{{ticks}}" as="tk" hint-placeholder-count="5">
+<span style="position: absolute; top: 0; left: {{tk.left}}; transform: {{tk.shift}}">{{tk.label}}</span>
+</sc-for>
+</div>
+<sc-for list="{{lanes}}" as="la" hint-placeholder-count="3">
+<div style="min-width: 0; padding-right: 10px">
+<div style="color: #e8eaec; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{la.name}}</div>
+<div style="font-size: 11px; color: #959ca4">{{la.sub}}</div>
+</div>
+<div style="position: relative; height: 30px; border-radius: 6px; background: #1b1e22">
+<sc-for list="{{la.blocks}}" as="bl" hint-placeholder-count="1">
+<div style="position: absolute; top: 9px; height: 12px; border-radius: 4px; left: {{bl.left}}; width: {{bl.width}}; background: {{bl.bg}}"></div>
+</sc-for>
+<sc-for list="{{la.marks}}" as="mk" hint-placeholder-count="1">
+<div style="position: absolute; top: 4px; height: 22px; width: 2px; left: {{mk.left}}; background: #f5f6f7"></div>
+</sc-for>
+<div style="position: absolute; top: 0; bottom: 0; width: 2px; left: {{la.now}}; background: #f26500"></div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 28px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 15px; font-weight: 600; color: #f5f6f7">How safe is your work</div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 22px; border-top: 2px solid #e0a868"></span><span style="flex: 1">Not committed</span><span style="color: #f5f6f7; font-weight: 600">{{safeUnc}}</span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 22px; border-top: 2px dashed #e0a868"></span><span style="flex: 1">Committed, only on this machine</span><span style="color: #f5f6f7; font-weight: 600">{{safeUnp}}</span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 22px; border-top: 2px solid #757c84"></span><span style="flex: 1">Anchors to go back to</span><span style="color: #f5f6f7; font-weight: 600">{{safeAnchors}}</span></div>
+<div style="font-size: 12px; color: #a9afb5">{{safeText}}</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px">
+<div style="font-size: 15px; font-weight: 600; color: #f5f6f7">Claude usage</div>
+<sc-if value="{{showIdeas}}" hint-placeholder-val="{{true}}"><span style="padding: 0 5px; border-radius: 3px; border: 1px solid #8a5a33; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #ff8a3c">idea</span></sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between"><span>5-hour window</span><span style="color: #f5f6f7">{{u5}} · resets 13:10</span></div>
+<div style="height: 6px; border-radius: 3px; background: #30343a"><div style="height: 6px; border-radius: 3px; width: {{u5}}; background: #818cf8"></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between"><span>This week</span><span style="color: #f5f6f7">31%</span></div>
+<div style="height: 6px; border-radius: 3px; background: #30343a"><div style="height: 6px; border-radius: 3px; width: 31%; background: #818cf8"></div></div>
+</div>
+<div style="font-size: 12px; color: #a9afb5">Warns from 80%. Source still open (plan P4).</div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 15px; font-weight: 600; color: #f5f6f7">Documents written today</div>
+<sc-if value="{{noWritten}}" hint-placeholder-val="{{false}}"><div style="color: #a9afb5">None yet.</div></sc-if>
+<sc-for list="{{written}}" as="w" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #30343a">
+<span style="flex: 1; min-width: 0; color: #e8eaec">{{w.path}}</span>
+<span style="font-size: 11px; color: #959ca4">{{w.by}}</span>
+<button type="button" onClick="{{openDoc}}" style="height: 24px; padding: 0 8px; border-radius: 5px; border: 1px solid #4d545c; font-size: 12px; color: #d2d6da">Open in marq</button>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<!-- Changes -->
+<sc-if value="{{isChanges}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 14px 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: -14px -16px 0; padding: 8px 16px; background: #24272c; border-bottom: 1px solid #3a3f46">
+<div style="display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: #1b1e22; border: 1px solid #3a3f46">
+<sc-for list="{{scopes}}" as="so" hint-placeholder-count="2">
+<button type="button" onClick="{{so.go}}" style="height: 26px; padding: 0 10px; border-radius: 5px; background: {{so.bg}}; color: {{so.fg}}">{{so.label}}</button>
+</sc-for>
+</div>
+<span style="font-size: 12px; color: #a9afb5">{{reviewText}}</span>
+<div style="margin-left: auto; display: flex; gap: 8px">
+<sc-if value="{{canBack}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{askBack}}" style="height: 28px; padding: 0 10px; display: flex; align-items: center; gap: 6px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">
+<svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ic.undo}}"></path></svg>
+<span>{{backLabel}}</span>
+</button>
+</sc-if>
+<sc-if value="{{canCommit}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{openCommit}}" style="height: 28px; padding: 0 12px; border-radius: 6px; background: #c75300; color: #ffffff; font-weight: 600">Commit…</button>
+</sc-if>
+</div>
+</div>
+
+
+<sc-if value="{{showCommit}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 8px; background: #363b42; border: 1px solid #4d545c; box-shadow: 0 10px 28px -8px rgba(0,0,0,0.6)">
+<div style="display: flex; align-items: center; gap: 8px">
+<div style="font-weight: 600; color: #f5f6f7">Commit 5 files</div>
+<sc-if value="{{showIdeas}}" hint-placeholder-val="{{true}}"><span style="padding: 0 5px; border-radius: 3px; border: 1px solid #8a5a33; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #ff8a3c">idea: message suggested from the turns</span></sc-if>
+</div>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #a9afb5">Message
+<input type="text" value="{{commitMsg}}" onChange="{{onMsg}}" style="height: 30px; padding: 0 8px; border-radius: 6px; border: 1px solid #4d545c; background: #1b1e22; color: #f5f6f7">
+</label>
+<div style="font-family: ui-monospace, 'JetBrains Mono', 'DejaVu Sans Mono', monospace; font-size: 12px; color: #a9afb5; overflow-wrap: anywhere">{{commitCmd}}</div>
+<div style="display: flex; gap: 8px">
+<button type="button" onClick="{{doCommit}}" style="height: 30px; padding: 0 14px; border-radius: 6px; background: #c75300; color: #ffffff; font-weight: 600">Commit</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{showPush}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; background: #363b42; border: 1px solid #4d545c; box-shadow: 0 10px 28px -8px rgba(0,0,0,0.6)">
+<span style="width: 22px; border-top: 2px dashed #e0a868"></span>
+<div style="flex: 1 1 260px; min-width: 0">
+<div style="font-weight: 600; color: #f5f6f7">Committed a41c9e2 · only on this machine</div>
+<div style="font-family: ui-monospace, 'JetBrains Mono', 'DejaVu Sans Mono', monospace; font-size: 12px; color: #a9afb5">git push origin feature/rate-limit</div>
+</div>
+<button type="button" onClick="{{doPush}}" style="height: 30px; padding: 0 14px; border-radius: 6px; background: #c75300; color: #ffffff; font-weight: 600">Push</button>
+</div>
+</sc-if>
+<sc-if value="{{showPushed}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 22px; border-top: 2px solid #757c84"></span>
+<div><span style="font-weight: 600; color: #f5f6f7">Pushed.</span> Everything is safe on origin; the trail is grey again.</div>
+</div>
+</sc-if>
+<sc-if value="{{wentBack}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; background: #363b42; border: 1px solid #4d545c; box-shadow: 0 10px 28px -8px rgba(0,0,0,0.6)">
+<div style="flex: 1 1 260px; min-width: 0">
+<div style="font-weight: 600; color: #f5f6f7">You went back to before Claude's turn</div>
+<div style="font-size: 12px; color: #a9afb5">Claude's files are restored, new ones are gone. The state from a moment ago is saved on the trail.</div>
+</div>
+<button type="button" onClick="{{goForward}}" style="height: 30px; padding: 0 12px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">Go forward again</button>
+</div>
+</sc-if>
+
+<sc-if value="{{confirmBack}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; background: #363b42; border: 1px solid #4d545c; box-shadow: 0 10px 28px -8px rgba(0,0,0,0.6)">
+<div style="flex: 1 1 280px; min-width: 0">
+<div style="font-weight: 600; color: #f5f6f7">{{backQuestion}}</div>
+<div style="font-size: 12px; color: #d2d6da">{{backDetail}}</div>
+</div>
+<button type="button" onClick="{{cancelBack}}" style="height: 30px; padding: 0 12px; border-radius: 6px; border: 1px solid #757c84; color: #e8eaec">Cancel</button>
+<button type="button" onClick="{{doBack}}" style="height: 30px; padding: 0 12px; border-radius: 6px; background: #c75300; color: #ffffff; font-weight: 600">Go back</button>
+</div>
+</sc-if>
+
+<sc-if value="{{showLive}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; gap: 10px">
+<span class="pulse" style="width: 8px; height: 8px; border-radius: 4px; background: #818cf8"></span>
+<span>{{liveText}}</span>
+</div>
+</sc-if>
+
+<sc-if value="{{showSummary}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 8px; max-width: 780px; padding: 2px 0 4px">
+<div style="display: flex; align-items: center; gap: 8px">
+<div style="font-size: 15px; font-weight: 600; color: #f5f6f7">{{sumTitle}}</div>
+<sc-if value="{{showIdeas}}" hint-placeholder-val="{{true}}"><span style="padding: 0 5px; border-radius: 3px; border: 1px solid #8a5a33; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #ff8a3c">idea: from Claude's closing message</span></sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 3px">
+<sc-for list="{{sumBullets}}" as="sb" hint-placeholder-count="3">
+<div style="display: flex; gap: 8px"><span style="color: #818cf8">–</span><span>{{sb.text}}</span></div>
+</sc-for>
+</div>
+<sc-if value="{{hasQuestion}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; gap: 8px">
+<span style="color: #e0a868; font-weight: 600; flex-shrink: 0">Claude asks</span>
+<span>{{question}}</span>
+</div>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<span style="width: 8px; height: 8px; border-radius: 4px; background: {{testColor}}"></span>
+<span style="flex: 1 1 200px; min-width: 0">{{testLine}}</span>
+<sc-if value="{{testFailed}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{testAdd}}" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">{{testAddLabel}}</button>
+</sc-if>
+</div>
+<sc-if value="{{testFailed}}" hint-placeholder-val="{{false}}">
+<div style="padding-left: 18px; font-family: ui-monospace, 'JetBrains Mono', monospace; font-size: 12px; color: #e6b9b3; white-space: pre-wrap">{{failOut}}</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{noFiles}}" hint-placeholder-val="{{false}}">
+<div style="padding: 28px; border-radius: 8px; border: 1px dashed #3a3f46; text-align: center; color: #a9afb5">{{noFilesText}}</div>
+</sc-if>
+
+<sc-if value="{{hasFiles}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start">
+<div style="flex: 1 1 240px; max-width: 300px; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{cfiles}}" as="cf" hint-placeholder-count="4">
+<div style="display: flex; align-items: center; gap: 8px; padding: 0 8px; min-height: 40px; border-radius: 6px; background: {{cf.bg}}">
+<input type="checkbox" checked="{{cf.checked}}" onChange="{{cf.toggle}}" aria-label="{{cf.checkAria}}" style="width: 15px; height: 15px; accent-color: #818cf8; flex-shrink: 0">
+<button type="button" onClick="{{cf.pick}}" style="flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 4px 0">
+<span style="display: flex; align-items: center; gap: 6px"><span style="font-weight: 700; font-size: 11px; color: {{cf.letterColor}}">{{cf.letter}}</span><span style="color: #f5f6f7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{cf.name}}</span></span>
+<span style="font-size: 11px; color: #959ca4">{{cf.dir}} · {{cf.stat}}</span>
+</button>
+<span style="font-size: 11px; padding: 0 6px; border-radius: 9px; border: 1px solid {{cf.whoLine}}; color: {{cf.whoColor}}">{{cf.who}}</span>
+</div>
+</sc-for>
+<div style="padding: 6px 8px; font-size: 11px; color: #959ca4">Tick a file when you have looked at it.</div>
+</div>
+
+<div style="flex: 999 1 380px; min-width: 0; border-radius: 8px; border: 1px solid #3a3f46; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #24272c; border-bottom: 1px solid #3a3f46">
+<span style="color: #f5f6f7; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{diffPath}}</span>
+<span style="font-size: 11px; color: #959ca4; flex-shrink: 0">{{noChangeText}}</span>
+<button type="button" onClick="{{openDirq}}" style="margin-left: auto; flex-shrink: 0; height: 24px; padding: 0 8px; border-radius: 5px; border: 1px solid #4d545c; font-size: 12px; color: #d2d6da">Side by side in Dirq</button>
+</div>
+<div style="font-family: ui-monospace, 'JetBrains Mono', 'DejaVu Sans Mono', monospace; font-size: 12px; line-height: 1.5">
+<div style="padding: 4px 12px; color: #8fb1cf; background: rgba(143,177,207,0.08)">{{hunk}}</div>
+<sc-for list="{{lines}}" as="ln" hint-placeholder-count="10">
+<div>
+<div class="ln" style="display: flex; align-items: center; min-height: 20px; padding-right: 8px; background: {{ln.bg}}">
+<span style="width: 40px; flex-shrink: 0; padding-right: 8px; text-align: right; color: #959ca4">{{ln.num}}</span>
+<span style="width: 14px; flex-shrink: 0; color: {{ln.fg}}">{{ln.sign}}</span>
+<span style="flex: 1; min-width: 0; white-space: pre; overflow: hidden; text-overflow: ellipsis; color: {{ln.cfg}}">{{ln.code}}</span>
+<sc-if value="{{ln.canNote}}" hint-placeholder-val="{{false}}">
+<button type="button" class="cm" onClick="{{ln.compose}}" aria-label="Comment on this line for Claude" style="width: 20px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #818cf8">
+<svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ic.message}}"></path></svg>
+</button>
+</sc-if>
+</div>
+<sc-if value="{{ln.composing}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 8px 6px 54px; padding: 8px; border-radius: 6px; background: #363b42; border: 1px solid #4d545c; font-family: system-ui, Inter, sans-serif; font-size: 13px">
+<input type="text" value="{{draftText}}" onChange="{{onDraft}}" aria-label="Note for Claude on this line" placeholder="What should Claude change here?" style="flex: 1 1 240px; min-width: 0; height: 28px; padding: 0 8px; border-radius: 5px; border: 1px solid #757c84; background: #1b1e22; color: #f5f6f7">
+<button type="button" onClick="{{addNote}}" style="height: 28px; padding: 0 10px; border-radius: 5px; background: #4f46e5; color: #ffffff; font-weight: 600">Add to next prompt</button>
+<button type="button" onClick="{{cancelNote}}" style="height: 28px; padding: 0 8px; border-radius: 5px; color: #d2d6da">Cancel</button>
+</div>
+</sc-if>
+<sc-if value="{{ln.hasNote}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: baseline; gap: 8px; margin: 4px 8px 6px 54px; padding: 6px 10px; border-radius: 6px; background: rgba(129,140,248,0.12); border: 1px solid rgba(129,140,248,0.4); font-family: system-ui, Inter, sans-serif; font-size: 13px">
+<span style="flex: 1; min-width: 0; color: #e8eaec; white-space: normal">{{ln.noteText}}</span>
+<span style="flex-shrink: 0; font-size: 11px; color: {{ln.noteColor}}">{{ln.noteState}}</span>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<!-- Handover -->
+<sc-if value="{{isDocs}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column">
+<div style="flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-height: 44px; padding: 6px 16px; background: #24272c; border-bottom: 1px solid #3a3f46">
+<span style="font-weight: 600; color: #f5f6f7">Goes out with your next prompt</span>
+<span style="font-size: 12px; color: #a9afb5">to Rate limiter fix, from Desktop, web or terminal</span>
+<div style="margin-left: auto; display: flex; align-items: center; gap: 10px">
+<sc-if value="{{isHanded}}" hint-placeholder-val="{{false}}">
+<span class="pulse" style="width: 8px; height: 8px; border-radius: 4px; background: #e0a868"></span><span style="color: #e8eaec">Waiting for your next prompt</span>
+<button type="button" onClick="{{takeBack}}" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">Take back</button>
+</sc-if>
+<sc-if value="{{canHandTab}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{hand}}" style="height: 28px; padding: 0 12px; border-radius: 6px; background: #c75300; color: #ffffff; font-weight: 600">Hand to Claude</button>
+</sc-if>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 24px; padding: 16px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<sc-if value="{{hasReceipt}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; gap: 8px; color: #e8eaec"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9cc39a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px"><path d="{{ic.check}}"></path></svg><span>{{receipt}}</span></div>
+</sc-if>
+<sc-if value="{{trayEmpty}}" hint-placeholder-val="{{true}}"><div style="color: #a9afb5">Nothing queued. Claude only ever gets what is listed here.</div></sc-if>
+<div style="display: flex; flex-direction: column">
+<sc-for list="{{tray}}" as="hi" hint-placeholder-count="2">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #30343a">
+<span style="flex-shrink: 0; width: 36px; font-size: 11px; font-weight: 600; color: #818cf8">{{hi.kind}}</span>
+<span style="flex: 1 1 240px; min-width: 0; color: #e8eaec; overflow-wrap: anywhere">{{hi.text}}</span>
+<button type="button" onClick="{{hi.remove}}" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">Remove</button>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{hasTray}}" hint-placeholder-val="{{false}}">
+<div style="font-size: 12px; color: #a9afb5">Exactly this text is added to your prompt:</div>
+<div style="max-width: 780px; padding: 10px 12px; border-radius: 8px; border: 1px solid #3a3f46; font-family: ui-monospace, 'JetBrains Mono', 'DejaVu Sans Mono', monospace; font-size: 12px; color: #d2d6da; white-space: pre-wrap; overflow-wrap: anywhere">{{previewText}}</div>
+</sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="font-size: 15px; font-weight: 600; color: #f5f6f7">Pick up for the next prompt</div>
+<div style="display: flex; flex-direction: column">
+<sc-for list="{{sources}}" as="sr" hint-placeholder-count="3">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #30343a">
+<span style="flex: 0 0 150px; color: #f5f6f7">{{sr.title}}</span>
+<span style="flex: 1 1 200px; min-width: 0; color: #b9bec4">{{sr.text}}</span>
+<sc-if value="{{sr.hasBtn}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{sr.run}}" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">{{sr.label}}</button></sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<div style="font-size: 15px; font-weight: 600; color: #f5f6f7">Hints you left in documents</div>
+<span style="font-size: 12px; color: #a9afb5">{{docProgress}}</span>
+<sc-if value="{{canAddMarkers}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{toggleMarkers}}" style="margin-left: auto; height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">{{markersBtn}}</button>
+</sc-if>
+</div>
+<div style="display: flex; flex-direction: column">
+<sc-for list="{{markers}}" as="mk" hint-placeholder-count="2">
+<div style="display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid #30343a">
+<span style="flex-shrink: 0; font-family: ui-monospace, 'JetBrains Mono', 'DejaVu Sans Mono', monospace; font-size: 12px; color: #8fb1cf">{{mk.loc}}</span>
+<span style="flex: 1; min-width: 0; color: #e8eaec">{{mk.text}}</span>
+<span style="flex-shrink: 0; font-size: 11px; color: {{mk.color}}">{{mk.state}}</span>
+</div>
+</sc-for>
+</div>
+<div style="font-size: 12px; color: #a9afb5">Written in your own editor as an @ai comment at the spot. Claude removes the comment when it is done; that is how CodeDeck knows.</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; max-width: 780px">
+<div style="display: flex; align-items: center; gap: 8px"><div style="font-size: 15px; font-weight: 600; color: #f5f6f7">Rules every session gets when it starts</div><sc-if value="{{showIdeas}}" hint-placeholder-val="{{true}}"><span style="padding: 0 5px; border-radius: 3px; border: 1px solid #8a5a33; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #ff8a3c">idea</span></sc-if></div>
+<div style="font-size: 12px; color: #a9afb5">Short, fixed and visible here. They reach a session at its start, also after a restart or a new task. Nothing else is added without you.</div>
+<div style="font-family: ui-monospace, 'JetBrains Mono', 'DejaVu Sans Mono', monospace; font-size: 12px; color: #d2d6da; white-space: pre-wrap">Put drafts, mock-ups, throwaway scripts and test data into .workbench/ in this project, not into /tmp or your home folder.
+When you publish a page somewhere else, say so with its link.</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- Workbench: made by sessions, not part of the project yet -->
+<sc-if value="{{isOutputs}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column">
+<div style="flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-height: 44px; padding: 6px 16px; background: #24272c; border-bottom: 1px solid #3a3f46">
+<span style="font-family: ui-monospace, 'JetBrains Mono', 'DejaVu Sans Mono', monospace; font-weight: 600; color: #f5f6f7">.workbench/</span>
+<span style="color: #b9bec4">{{wbTotal}}</span>
+<sc-if value="{{showIdeas}}" hint-placeholder-val="{{true}}"><span style="padding: 0 5px; border-radius: 3px; border: 1px solid #8a5a33; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #ff8a3c">idea</span></sc-if>
+<sc-if value="{{hasOld}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{cleanOld}}" style="margin-left: auto; height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">{{cleanLabel}}</button>
+</sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 24px; padding: 16px">
+<sc-if value="{{hasOutside}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 8px; background: #363b42; border: 1px solid #4d545c; box-shadow: 0 10px 28px -8px rgba(0,0,0,0.6)">
+<div style="font-weight: 600; color: #f5f6f7">Still somewhere else</div>
+<sc-for list="{{outside}}" as="os" hint-placeholder-count="1">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<div style="flex: 1 1 260px; min-width: 0"><span style="color: #f5f6f7">{{os.name}}</span><span style="color: #d2d6da"> · {{os.meta}}</span></div>
+<button type="button" onClick="{{os.move}}" style="height: 28px; padding: 0 12px; border-radius: 6px; background: #c75300; color: #ffffff; font-weight: 600">Move to workbench</button>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="max-width: 780px; font-size: 12px; color: #a9afb5">One folder in the project for drafts, mock-ups, scripts and test data. Sessions are told to put temporary things here. Git ignores it, so nothing here is committed by accident.</div>
+<sc-if value="{{noWb}}" hint-placeholder-val="{{false}}"><div style="color: #a9afb5">The workbench is empty.</div></sc-if>
+<div style="display: flex; flex-direction: column">
+<sc-for list="{{wb}}" as="o" hint-placeholder-count="3">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #30343a">
+<div style="flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 1px">
+<span style="color: #f5f6f7">{{o.name}}</span>
+<span style="font-size: 12px; color: {{o.metaColor}}">{{o.meta}}</span>
+</div>
+<span style="flex-shrink: 0; width: 60px; text-align: right; color: #d2d6da">{{o.size}}</span>
+<sc-if value="{{o.canAct}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<button type="button" onClick="{{o.open}}" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">Open</button>
+<button type="button" onClick="{{o.keep}}" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">Move into project</button>
+<button type="button" onClick="{{o.del}}" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">Delete</button>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="font-size: 15px; font-weight: 600; color: #f5f6f7">Pages on claude.ai</div>
+<div style="font-size: 12px; color: #a9afb5">Mock-ups and reports a session published. They stay there; CodeDeck remembers the link.</div>
+<sc-if value="{{noLinks}}" hint-placeholder-val="{{false}}"><div style="color: #a9afb5">No session of this project has published a page.</div></sc-if>
+<div style="display: flex; flex-direction: column">
+<sc-for list="{{links}}" as="lk" hint-placeholder-count="1">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #30343a">
+<div style="flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 1px">
+<span style="color: #f5f6f7">{{lk.title}}</span>
+<span style="font-family: ui-monospace, 'JetBrains Mono', 'DejaVu Sans Mono', monospace; font-size: 12px; color: #a5adfb; overflow-wrap: anywhere">{{lk.url}}</span>
+<span style="font-size: 12px; color: #a9afb5">{{lk.meta}}</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<button type="button" onClick="{{lk.open}}" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">Open</button>
+<button type="button" onClick="{{lk.copy}}" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">Copy link</button>
+<button type="button" onClick="{{lk.del}}" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">Forget</button>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+</section>
+</div>
+</main>
+
+<!-- Right column -->
+<button type="button" class="split" aria-label="Resize the sessions column. Drag, or use the arrow keys." onPointerDown="{{spRight.down}}" onPointerMove="{{spRight.move}}" onPointerUp="{{spRight.up}}" onKeyDown="{{spRight.key}}" style="flex-shrink: 0; position: relative; z-index: 2; width: 7px; margin: 0 -3px; align-self: stretch; cursor: col-resize; touch-action: none; background: linear-gradient(to right, transparent 3px, #3a3f46 3px, #3a3f46 4px, transparent 4px)"></button>
+<aside aria-label="Sessions and next prompt" style="width: {{wRight}}; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; background: #24272c">
+
+<div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-bottom: 1px solid #3a3f46; background: {{needsBg}}">
+<div style="display: flex; align-items: center; gap: 8px">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #e0a868">Needs you</div>
+<sc-if value="{{hasNeeds}}" hint-placeholder-val="{{false}}"><span style="padding: 0 6px; border-radius: 9px; font-size: 11px; font-weight: 700; background: #e0a868; color: #1b1e22">{{needCount}}</span></sc-if>
+<sc-if value="{{showIdeas}}" hint-placeholder-val="{{true}}"><span style="padding: 0 5px; border-radius: 3px; border: 1px solid #8a5a33; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #ff8a3c">idea</span></sc-if>
+</div>
+<sc-if value="{{noNeeds}}" hint-placeholder-val="{{true}}"><div style="color: #a9afb5">Nothing. Claude does not wait for you.</div></sc-if>
+<sc-for list="{{needs}}" as="nd" hint-placeholder-count="1">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 8px; background: #2e3238; border: 1px solid {{nd.line}}">
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 4px; flex-shrink: 0; background: {{nd.color}}"></span><span style="font-weight: 600; color: #f5f6f7">{{nd.title}}</span></div>
+<div style="color: #d2d6da">{{nd.text}}</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{nd.actions}}" as="ac" hint-placeholder-count="1">
+<button type="button" onClick="{{ac.run}}" style="height: 28px; padding: 0 10px; border-radius: 6px; font-weight: 600; background: {{ac.bg}}; color: {{ac.fg}}; border: 1px solid {{ac.line}}">{{ac.label}}</button>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+
+<div style="flex: 1; min-height: 60px; overflow-y: auto; display: flex; flex-direction: column; gap: 0; padding: 12px; background: #22242e">
+<div style="display: flex; align-items: center; gap: 8px; padding-bottom: 4px">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #a5adfb">Sessions</div>
+<button type="button" onClick="{{newSession}}" style="margin-left: auto; height: 24px; padding: 0 8px; border-radius: 5px; border: 1px solid #4d545c; font-size: 12px; color: #d2d6da">New session…</button>
+</div>
+<sc-for list="{{sessions}}" as="se" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; border-bottom: 1px solid #353849">
+<button type="button" onClick="{{se.toggle}}" aria-expanded="{{se.open}}" style="width: 100%; display: flex; flex-direction: column; gap: 3px; padding: 9px 0">
+<span style="display: flex; align-items: center; gap: 8px">
+<span class="{{se.dotClass}}" style="width: 8px; height: 8px; border-radius: 4px; flex-shrink: 0; background: {{se.dot}}"></span>
+<span style="flex: 1; min-width: 0; font-weight: 600; color: #f5f6f7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{se.title}}</span>
+<span style="flex-shrink: 0; font-size: 11px; color: {{se.statusColor}}">{{se.status}}</span>
+</span>
+<span style="display: flex; align-items: center; gap: 8px; padding-left: 16px">
+<span style="flex: 1; min-width: 0; color: #b9bec4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{se.line}}</span>
+<span style="flex-shrink: 0; font-size: 11px; color: #a9afb5">{{se.steps}}</span>
+<span aria-hidden="true" style="flex-shrink: 0; width: 10px; color: #959ca4">{{se.chev}}</span>
+</span>
+</button>
+<sc-if value="{{se.open}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 7px; padding: 0 0 10px 16px">
+<div style="font-size: 11px; color: #959ca4">{{se.where}}</div>
+<sc-if value="{{se.hasPrompt}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; gap: 6px; color: #d2d6da"><span style="color: #757c84">&gt;</span><span>{{se.prompt}}</span></div>
+</sc-if>
+<sc-if value="{{se.hasTodos}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{se.todos}}" as="td" hint-placeholder-count="4">
+<div style="display: flex; gap: 8px; color: {{td.color}}"><span style="width: 12px; flex-shrink: 0">{{td.mark}}</span><span>{{td.text}}</span></div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{se.hasFiles}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-wrap: wrap; gap: 4px">
+<sc-for list="{{se.files}}" as="sf" hint-placeholder-count="2">
+<button type="button" onClick="{{sf.pick}}" style="height: 22px; padding: 0 7px; border-radius: 4px; background: #2e3238; font-size: 12px; color: #d2d6da">{{sf.name}}</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{se.hasNote}}" hint-placeholder-val="{{false}}">
+<div style="font-size: 12px; color: {{se.noteColor}}">{{se.note}}</div>
+</sc-if>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: #959ca4">
+<span style="flex-shrink: 0">context {{se.ctx}}</span>
+<div style="flex: 1; height: 4px; border-radius: 2px; background: #30343a"><div style="height: 4px; border-radius: 2px; width: {{se.ctx}}; background: #757c84"></div></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 4px">
+<sc-for list="{{se.jumps}}" as="jp" hint-placeholder-count="2">
+<button type="button" onClick="{{jp.run}}" style="height: 22px; padding: 0 8px; border-radius: 4px; border: 1px solid #3a3f46; font-size: 12px; color: #b9bec4">{{jp.label}}</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+
+<button type="button" class="split" aria-label="Resize the next prompt area. Drag, or use the arrow keys." onPointerDown="{{spTray.down}}" onPointerMove="{{spTray.move}}" onPointerUp="{{spTray.up}}" onKeyDown="{{spTray.key}}" style="flex-shrink: 0; position: relative; z-index: 2; height: 7px; margin: -3px 0; align-self: stretch; cursor: row-resize; touch-action: none; background: linear-gradient(to bottom, transparent 3px, #3a3f46 3px, #3a3f46 4px, transparent 4px)"></button>
+<div style="flex-shrink: 0; height: {{hTray}}; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #2b2622">
+<div style="display: flex; align-items: center; gap: 8px">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #ff8a3c">Next prompt</div>
+<span style="margin-left: auto; font-size: 11px; color: #a9afb5">to Rate limiter fix</span>
+</div>
+<sc-if value="{{hasReceipt}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; gap: 8px; padding: 8px 10px; border-radius: 6px; background: rgba(156,195,154,0.12); border: 1px solid rgba(156,195,154,0.4)">
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9cc39a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px"><path d="{{ic.check}}"></path></svg>
+<span style="color: #e8eaec">{{receipt}}</span>
+</div>
+</sc-if>
+<sc-if value="{{trayEmpty}}" hint-placeholder-val="{{true}}">
+<div style="color: #a9afb5">Nothing queued. Pin a file, comment on a diff line or add a failing test. Claude only ever gets what is listed here.</div>
+</sc-if>
+<sc-for list="{{tray}}" as="ti" hint-placeholder-count="2">
+<div style="display: flex; align-items: baseline; gap: 8px; padding: 5px 0; border-bottom: 1px solid #3d3630">
+<span style="flex-shrink: 0; width: 34px; font-size: 11px; font-weight: 600; color: #818cf8">{{ti.kind}}</span>
+<span style="flex: 1; min-width: 0; color: #e8eaec; overflow-wrap: anywhere">{{ti.text}}</span>
+<button type="button" onClick="{{ti.remove}}" aria-label="Remove from next prompt" style="flex-shrink: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #a9afb5">
+<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ic.x}}"></path></svg>
+</button>
+</div>
+</sc-for>
+<sc-if value="{{preview}}" hint-placeholder-val="{{false}}">
+<div style="padding: 8px 10px; border-radius: 6px; background: #1b1e22; border: 1px solid #3a3f46; font-family: ui-monospace, 'JetBrains Mono', monospace; font-size: 11.5px; color: #d2d6da; white-space: pre-wrap; overflow-wrap: anywhere">{{previewText}}</div>
+</sc-if>
+<sc-if value="{{isHanded}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; background: rgba(224,168,104,0.12); border: 1px solid rgba(224,168,104,0.45)">
+<span class="pulse" style="width: 8px; height: 8px; border-radius: 4px; flex-shrink: 0; background: #e0a868"></span>
+<span style="flex: 1; min-width: 0; color: #e8eaec">Waiting for your next prompt, from Desktop, web or terminal</span>
+<button type="button" onClick="{{takeBack}}" style="flex-shrink: 0; height: 24px; padding: 0 8px; border-radius: 5px; border: 1px solid #757c84; color: #e8eaec">Take back</button>
+</div>
+</sc-if>
+<sc-if value="{{hasTray}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; gap: 8px">
+<button type="button" onClick="{{togglePreview}}" style="height: 30px; padding: 0 10px; border-radius: 6px; border: 1px solid #4d545c; color: #e8eaec">{{previewLabel}}</button>
+<sc-if value="{{canHand}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{hand}}" style="flex: 1; height: 30px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 6px; background: #c75300; color: #ffffff; font-weight: 600">
+<svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ic.send}}"></path></svg>
+<span>Hand to Claude</span>
+</button>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</aside>
+<sc-if value="{{infoOpen}}" hint-placeholder-val="{{false}}">
+<aside aria-label="Notices and tips" style="position: absolute; z-index: 5; top: 0; right: 0; bottom: 0; width: 380px; max-width: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding: 16px; background: #363b42; border-left: 1px solid #4d545c; box-shadow: -14px 0 36px -6px rgba(0,0,0,0.6)">
+<div style="display: flex; align-items: center; gap: 8px">
+<div style="font-size: 15px; font-weight: 600; color: #f5f6f7">Notices and tips</div>
+<sc-if value="{{showIdeas}}" hint-placeholder-val="{{true}}"><span style="padding: 0 5px; border-radius: 3px; border: 1px solid #8a5a33; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #ff8a3c">idea</span></sc-if>
+<button type="button" onClick="{{toggleInfo}}" aria-label="Close notices and tips" style="margin-left: auto; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #e8eaec">
+<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ic.x}}"></path></svg>
+</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #b9bec4">What happened</div>
+<sc-for list="{{events}}" as="ev" hint-placeholder-count="3">
+<div style="display: flex; gap: 10px"><span style="flex-shrink: 0; width: 38px; color: #b9bec4">{{ev.at}}</span><span style="color: #f5f6f7">{{ev.text}}</span></div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #b9bec4">Good to know here</div>
+<sc-for list="{{tips}}" as="tp" hint-placeholder-count="2">
+<div style="padding: 8px 10px; border-radius: 6px; background: #24272c; color: #e8eaec">{{tp.text}}</div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #b9bec4">What each AI tool can do with CodeDeck</div>
+<sc-for list="{{harnesses}}" as="h" hint-placeholder-count="4">
+<div style="display: flex; flex-direction: column; gap: 1px">
+<span style="color: #f5f6f7">{{h.name}}</span>
+<span style="font-size: 12px; color: #d2d6da">{{h.sum}}</span>
+</div>
+</sc-for>
+</div>
+</aside>
+</sc-if>
+</div>
+
+<!-- Toast: says what the real app would do where the dummy ends -->
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+<div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: #363b42; border-top: 1px solid #4d545c; color: #f5f6f7">
+<span style="flex-shrink: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #ff8a3c">In the real app</span>
+<span style="flex: 1; min-width: 0">{{toast}}</span>
+<button type="button" onClick="{{closeToast}}" style="flex-shrink: 0; height: 24px; padding: 0 8px; border-radius: 5px; border: 1px solid #757c84; color: #e8eaec">OK</button>
+</div>
+</sc-if>
+
+<!-- Status bar -->
+<footer style="flex-shrink: 0; min-height: 26px; display: flex; flex-wrap: wrap; align-items: center; column-gap: 18px; padding: 0 12px; background: #24272c; border-top: 1px solid #3a3f46; font-size: 11px; color: #a9afb5">
+<span style="display: flex; align-items: center; gap: 4px; color: {{sbBranchColor}}">
+<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ic.branch}}"></path></svg>
+<span>feature/rate-limit {{sbAhead}}</span>
+</span>
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 6px; height: 6px; border-radius: 3px; background: {{sbDot}}"></span><span>{{sbClaude}}</span></span>
+<span style="display: flex; align-items: center; gap: 6px"><span>5h window {{u5}}</span><span style="width: 60px; height: 4px; border-radius: 2px; background: #30343a"><span style="display: block; height: 4px; border-radius: 2px; width: {{u5}}; background: #818cf8"></span></span></span>
+<span style="margin-left: auto; font-family: ui-monospace, 'JetBrains Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{lastCmd}}</span>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showIdeas":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = {
+      view: 'home', profile: 'weekday', on: {}, fixed: {}, hsAllowed: false, accountsOpen: false, infoOpen: false, openSession: null, wFiles: 232, wTrail: 204, wRight: 336, hTray: 250, kept: {}, gone: {}, moved: {},
+      step: 0, tab: 'overview', scope: 'all', file: null, reviewed: {}, notes: [], draft: null,
+      testPinned: false, markersIn: false, pins: [], handed: false, preview: false,
+      wentBack: false, confirmBack: false, committed: false, pushed: false, banner: true, toast: null,
+      msg: 'Token-bucket rate limiter for the orders route',
+    };
+  }
+
+  // A splitter: drag it, or focus it and use the arrow keys. `sign` is -1 where growing means moving left or up.
+  drag(key, axis, sign, min, max) {
+    const clamp = (v) => Math.max(min, Math.min(max, v));
+    const pos = (e) => (axis === 'x' ? e.clientX : e.clientY);
+    return {
+      down: (e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); this.dragging = { key: key, start: pos(e), base: this.state[key] }; },
+      move: (e) => { const d = this.dragging; if (!d || d.key !== key) return; const o = {}; o[key] = clamp(d.base + sign * (pos(e) - d.start)); this.setState(o); },
+      up: () => { this.dragging = null; },
+      key: (e) => {
+        const step = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -16 : e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 16 : 0;
+        if (!step) return;
+        e.preventDefault();
+        const o = {}; o[key] = clamp(this.state[key] + sign * step); this.setState(o);
+      },
+    };
+  }
+
+  K() {
+    return {
+      F1: 'src/middleware/rate_limit.rs', F2: 'src/routes/orders.rs', F3: 'tests/rate_limit.rs',
+      F4: 'Cargo.toml', F5: 'src/config.rs',
+      NOTE: 'Use as_secs_f64(): whole seconds drop the fraction, so short bursts never refill.',
+    };
+  }
+
+  // The state a scene starts from, so jumping between scenes always gives a consistent picture
+  scene(n) {
+    const k = this.K();
+    const s = this.state;
+    n = Math.max(0, Math.min(7, n));
+    let notes = s.notes;
+    if (n < 3) notes = [];
+    if (n >= 5 && notes.length === 0) notes = [{ file: k.F1, n: 24, text: k.NOTE }];
+    const reviewed = Object.assign({}, n < 3 ? {} : s.reviewed);
+    if (n === 6) delete reviewed[k.F1];
+    return {
+      view: 'project', step: n, tab: n >= 4 ? 'changes' : 'overview', scope: n >= 6 ? 't2' : n >= 3 ? 't1' : 'all',
+      file: n >= 4 ? k.F1 : null, notes: notes, reviewed: reviewed, draft: null,
+      testPinned: n >= 5 ? true : n < 3 ? false : s.testPinned,
+      handed: n === 5, preview: false, wentBack: false, confirmBack: false,
+      committed: false, pushed: false, toast: null,
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const st = s.step;
+    const k = this.K();
+    const F1 = k.F1, F2 = k.F2, F3 = k.F3, F4 = k.F4, F5 = k.F5;
+    const up = (o) => () => this.setState(o);
+    const say = (t) => () => this.setState({ toast: t });
+    const go = (n) => () => this.setState(this.scene(n));
+    const NOW = [28, 33, 36, 39, 42, 45, 51, 55][st];
+    const clock = (m) => '10:' + (m < 10 ? '0' + m : m);
+    const base = (p) => p.split('/').pop();
+    const dirOf = (p) => (p.indexOf('/') < 0 ? 'project root' : p.slice(0, p.lastIndexOf('/')));
+    const nb = (t) => t.replace(/ /g, ' ');
+
+    const ic = {
+      branch: 'M6 3v12 M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M18 9a9 9 0 0 1-9 9',
+      anchor: 'M12 22V8 M5 12H2a10 10 0 0 0 20 0h-3 M12 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      send: 'M22 2 11 13 M22 2l-7 20-4-9-9-4 20-7z',
+      check: 'M20 6 9 17l-5-5',
+      pin: 'M12 17v5 M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z',
+      terminal: 'm4 17 6-6-6-6 M12 19h8',
+      file: 'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z M14 2v5h6',
+      folder: 'M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z',
+      undo: 'M3 7v6h6 M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13',
+      x: 'M18 6 6 18 M6 6l12 12',
+      message: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+      cloud: 'M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z',
+      monitor: 'M4 3h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M8 21h8 M12 17v4',
+      dot: 'M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z',
+    };
+
+    /* ── Guide strip ─────────────────────────────────────────────── */
+    const SC = [
+      ['Ankommen', 'Du öffnest CodeDeck. Die Sitzungen von gestern stehen schon da, eine Cloud-Sitzung läuft. Nichts wartet auf dich.', 'Sieh dich um: die vier Reiter, Trail, Sitzungskarten, die Glocke oben rechts im Deck.'],
+      ['Auftrag läuft', 'In Claude Desktop hast du geschrieben: „Bau den Limiter auf Token-Bucket um.“ Die Sitzung läuft in tmux; vor Claudes erster Änderung entstand von selbst ein Anker.', 'Sitzungskarte rechts zeigt eine Zeile; anklicken für Plan, Dateien, Kontext. Trail: der Anker.'],
+      ['Claude wartet', 'Claude braucht eine Erlaubnis. Du siehst es sofort, egal in welchem Fenster du gerade bist.', 'Klick „Allow once“ unter Needs you.'],
+      ['Runde fertig', 'Claude ist fertig: 4 Dateien geändert, ein Test schlägt fehl.', 'Klick „Review turn“ unter Needs you.'],
+      ['Prüfen', 'Erst die Zusammenfassung, dann die Diffs. Du kommentierst eine Zeile, hakst Dateien ab und gibst den roten Test mit.', 'Sprechblase rechts an einer Diff-Zeile (Zeile 24), dann „Hand to Claude“. Oder „Go back“.'],
+      ['Übergabe wartet', 'Deine Hinweise liegen bereit und gehen mit deinem nächsten Prompt raus, egal ob aus Desktop, Web oder CLI.', '„Preview“ zeigt den genauen Text. Weiter = du schreibst „mach weiter“.'],
+      ['Angekommen', 'Die Übergabe ist bestätigt, Claude hat die Stelle korrigiert, alle Tests sind grün.', 'Diff von Runde 2 ansehen, dann „Commit…“.'],
+      ['Sichern', 'Commit und Push. Die Linie im Trail zeigt ohne Lesen, wie sicher deine Arbeit ist.', '„Commit“, dann „Push“; dabei den Trail beobachten.'],
+    ];
+    const isHome = s.view === 'home';
+    const scenes = [{ num: 'S', go: up({ view: 'home' }), aria: 'Start: alle Projekte', bg: isHome ? '#3730a3' : '#c7ccfc', fg: isHome ? '#ffffff' : '#282b31' }].concat(SC.map((x, i) => ({
+      num: String(i + 1), go: go(i), aria: 'Szene ' + (i + 1) + ': ' + x[0],
+      bg: !isHome && i === st ? '#3730a3' : !isHome && i < st ? '#c7ccfc' : '#e8eaec',
+      fg: !isHome && i === st ? '#ffffff' : '#282b31',
+    })));
+
+    /* ── What changed, depending on the scene ────────────────────── */
+    const stat = {};
+    stat[F1] = { letter: 'A', text: '+48', from: 1, who: 'Claude' };
+    stat[F2] = { letter: 'M', text: '+3 −2', from: 2, who: 'Claude' };
+    stat[F3] = { letter: 'A', text: '+31', from: 3, who: 'Claude' };
+    stat[F4] = { letter: 'M', text: '+1', from: 3, who: 'Claude' };
+    stat[F5] = { letter: 'M', text: '+3 −1', from: 0, who: 'You' };
+    const claudeFiles = [F1, F2, F3, F4].filter((p) => stat[p].from <= st && !s.wentBack);
+    const allCount = s.committed ? 0 : claudeFiles.length + 1;
+
+    let scope = s.scope;
+    if (scope === 't2' && st < 6) scope = 't1';
+    if (scope === 't1' && st < 1) scope = 'all';
+    let paths;
+    if (s.committed) paths = [];
+    else if (scope === 't2') paths = s.wentBack ? [] : [F1];
+    else paths = scope === 'all' ? claudeFiles.concat([F5]) : claudeFiles;
+    const sel = paths.indexOf(s.file) >= 0 ? s.file : paths[0] || null;
+    const working = st === 1 || st === 2;
+
+    /* ── Files ───────────────────────────────────────────────────── */
+    const T = [
+      ['d', 0, 'src'], ['d', 1, 'middleware'], ['f', 2, 'src/middleware/auth.rs'], ['f', 2, F1],
+      ['d', 1, 'routes'], ['f', 2, 'src/routes/mod.rs'], ['f', 2, F2], ['f', 2, 'src/routes/users.rs'],
+      ['f', 1, F5], ['f', 1, 'src/main.rs'],
+      ['d', 0, 'tests'], ['f', 1, 'tests/orders.rs'], ['f', 1, F3],
+      ['d', 0, 'docs'], ['f', 1, 'docs/api.md'], ['f', 1, 'docs/architecture.md'],
+      ['f', 0, F4], ['f', 0, 'README.md'],
+    ];
+    const tree = T.filter((r) => !((r[2] === F1 || r[2] === F3) && (stat[r[2]].from > st || s.wentBack))).map((r) => {
+      const p = r[2];
+      const isFile = r[0] === 'f';
+      const c = stat[p];
+      const changed = !!c && !s.committed && (p === F5 || claudeFiles.indexOf(p) >= 0);
+      const pinned = s.pins.indexOf(p) >= 0;
+      return {
+        isFile: isFile, isDir: !isFile, name: base(p), pad: 12 + r[1] * 14 + 'px',
+        bg: isFile && s.tab === 'changes' && sel === p ? '#2e3238' : 'transparent',
+        fg: changed ? '#f5f6f7' : '#b9bec4',
+        pick: up({ tab: 'changes', file: p, scope: 'all' }),
+        ai: changed && c.who === 'Claude',
+        git: changed ? c.letter : '', gitColor: changed && c.letter === 'A' ? '#9cc39a' : '#e0a868',
+        pin: () => this.setState({ pins: pinned ? s.pins.filter((q) => q !== p) : s.pins.concat([p]) }),
+        pinAria: (pinned ? 'Unpin ' : 'Pin for the next prompt: ') + p,
+        pinClass: pinned ? 'on' : 'act', pinColor: pinned ? '#ff8a3c' : '#a9afb5',
+      };
+    });
+
+    /* ── Workbench: made by sessions, not part of the project yet ─ */
+    const mark = (key, id) => () => { const m = Object.assign({}, s[key]); m[id] = true; this.setState({ [key]: m }); };
+    const fmt = (kb) => (kb >= 1000 ? (kb / 1000).toFixed(1) + ' MB' : kb + ' KB');
+    const WB = [
+      { id: 'bench', name: 'bench_limiter.py', kb: 2, age: 'today 10:36', by: 'Rate limiter fix', from: 3, dest: 'tools/bench_limiter.py' },
+      { id: 'csv', name: 'bench-results.csv', kb: 14, age: 'today 10:37', by: 'Rate limiter fix', from: 3, dest: 'docs/bench-results.csv' },
+      { id: 'plan', name: 'api-docs-outline.md', kb: 3, age: 'today 10:32', by: 'API docs refresh', from: 4, dest: 'docs/api-docs-outline.md', needsMove: true },
+      { id: 'log', name: 'load-test.log', kb: 1400, age: '9 days ago', by: 'Rate limiter fix', from: 0, old: true, dest: 'docs/load-test.log' },
+      { id: 'sketch', name: 'limiter-sketch.html', kb: 210, age: '12 days ago', by: 'Rate limiter fix', from: 0, old: true, dest: 'design/limiter-sketch.html' },
+    ].filter((o) => o.from <= st && !s.gone[o.id] && (!o.needsMove || s.moved[o.id]));
+    const wbHere = WB.filter((o) => !s.kept[o.id]);
+    const wbOld = wbHere.filter((o) => o.old);
+    const sumKb = (list) => list.reduce((n, o) => n + o.kb, 0);
+    const wb = WB.map((o) => {
+      const kept = !!s.kept[o.id];
+      return {
+        name: o.name, size: kept ? '' : fmt(o.kb), canAct: !kept,
+        meta: kept ? 'Moved into the project: ' + o.dest : o.age + ' · ' + o.by, metaColor: kept ? '#9cc39a' : o.old ? '#e0a868' : '#a9afb5',
+        open: say('Opens the file in its viewer.'), keep: mark('kept', o.id), del: mark('gone', o.id),
+      };
+    });
+    const links = st >= 3 && !s.gone.mock ? [{
+      title: 'Rate limit dashboard mock-up', url: 'https://claude.ai/artifact/…', meta: 'Design page · 2 versions · Work account · Rate limiter fix, 10:37',
+      open: say('Opens the page on claude.ai in the browser.'), copy: say('Copies the link.'), del: mark('gone', 'mock'),
+    }] : [];
+    const outside = st >= 4 && !s.moved.plan ? [{ name: 'api-docs-outline.md', meta: '~/.claude/plans · API docs refresh, 10:32 · stays outside every project', move: mark('moved', 'plan') }] : [];
+    const outOpen = outside.length;
+
+    /* ── Tabs ────────────────────────────────────────────────────── */
+    const docsOpen = st >= 6 && s.markersIn ? 0 : 2;
+    const tabs = [['overview', 'Activity', 0], ['changes', 'Changes', allCount], ['outputs', 'Workbench', outOpen], ['docs', 'Handover', (st < 6 ? s.notes.length + (s.testPinned ? 1 : 0) + (s.markersIn ? 1 : 0) : 0) + s.pins.length]].map((t) => ({
+      label: t[1], go: up({ tab: t[0] }), badge: String(t[2]), hasBadge: t[2] > 0,
+      bg: s.tab === t[0] ? '#2e3238' : 'transparent', fg: s.tab === t[0] ? '#f5f6f7' : '#a9afb5',
+      shadow: s.tab === t[0] ? 'inset 0 -2px 0 #f26500' : 'none',
+    }));
+
+    /* ── Trail ───────────────────────────────────────────────────── */
+    const UNC = '2px solid #e0a868', UNP = '2px dashed #e0a868', OK = '2px solid #757c84';
+    const seg = !s.committed ? (allCount ? UNC : OK) : s.pushed ? OK : UNP;
+    const onChanges = s.tab === 'changes';
+    const trail = [];
+    trail.push({
+      isBtn: true, isStatic: false, title: 'Now', sub: allCount ? allCount + ' uncommitted files' : 'Working tree clean', hint: '',
+      icon: ic.dot, fill: '#f26500', color: '#f26500', titleColor: '#f5f6f7', line: s.committed ? OK : seg,
+      bg: onChanges && scope === 'all' ? '#30343a' : 'transparent', pick: up({ tab: 'changes', scope: 'all' }),
+    });
+    if (s.wentBack) trail.push({
+      isBtn: true, isStatic: false, title: 'Before going back', sub: clock(NOW) + ' · saved automatically', hint: 'Go forward again',
+      icon: ic.undo, fill: 'none', color: '#818cf8', titleColor: '#e8eaec', line: seg, bg: 'transparent', pick: up({ wentBack: false }),
+    });
+    if (s.committed) trail.push({
+      isBtn: false, isStatic: true, title: s.msg, sub: 'a41c9e2 · 10:54', hasChip: s.pushed,
+      icon: ic.dot, fill: s.pushed ? '#757c84' : '#e0a868', color: s.pushed ? '#757c84' : '#e0a868', line: seg, bg: 'transparent',
+    });
+    if (st >= 6) trail.push({
+      isBtn: true, isStatic: false, title: 'Before turn 2', sub: '10:47 · Rate limiter fix', hint: '',
+      icon: ic.anchor, fill: 'none', color: '#818cf8', titleColor: '#e8eaec', line: seg,
+      bg: onChanges && scope === 't2' ? '#30343a' : 'transparent', pick: up({ tab: 'changes', scope: 't2' }),
+    });
+    if (st >= 1) trail.push({
+      isBtn: true, isStatic: false, title: 'Before turn 1', sub: '10:31 · Rate limiter fix', hint: '',
+      icon: ic.anchor, fill: 'none', color: '#818cf8', titleColor: '#e8eaec', line: seg,
+      bg: onChanges && scope === 't1' ? '#30343a' : 'transparent', pick: up({ tab: 'changes', scope: 't1' }),
+    });
+    [['Add orders pagination', 'c1e77a0 · yesterday', !s.pushed], ['Config: read limits from env', '9b2f4d1 · yesterday', false], ['Initial routes', '3fa8c02 · 2 days ago', false]].forEach((c) => trail.push({
+      isBtn: false, isStatic: true, title: c[0], sub: c[1], hasChip: c[2], icon: ic.dot, fill: '#757c84', color: '#757c84', line: OK, bg: 'transparent',
+    }));
+
+    /* ── Overview ────────────────────────────────────────────────── */
+    const pct = (m) => (m / 60 * 100).toFixed(2) + '%';
+    const block = (a, b, bg) => ({ left: pct(a), width: pct(Math.max(b - a, 0.6)), bg: bg });
+    const IND = '#818cf8', AMB = '#e0a868';
+    const aBlocks = [];
+    if (st >= 1) aBlocks.push(block(31, st === 1 ? NOW : 35, IND));
+    if (st >= 2) aBlocks.push(block(35, st === 2 ? NOW : 36, AMB));
+    if (st >= 3) aBlocks.push(block(36, 38, IND));
+    if (st >= 6) aBlocks.push(block(47, 50, IND));
+    const aMarks = [];
+    if (st >= 1) aMarks.push({ left: pct(31) });
+    if (st >= 6) aMarks.push({ left: pct(47) });
+    const lanes = [
+      { name: 'Rate limiter fix', sub: 'tmux · Work', blocks: aBlocks, marks: aMarks, now: pct(NOW) },
+      { name: 'API docs refresh', sub: 'tmux · Work · worktree', blocks: st >= 1 ? [block(30, Math.min(NOW, 41), IND)] : [], marks: st >= 1 ? [{ left: pct(30) }] : [], now: pct(NOW) },
+      { name: 'Dependency bump', sub: 'Cloud session', blocks: [block(5, Math.min(NOW, 37), IND)], marks: [], now: pct(NOW) },
+    ];
+    const ticks = [0, 15, 30, 45, 60].map((m) => ({
+      left: pct(m), label: m === 60 ? '11:00' : clock(m), shift: m === 0 ? 'none' : m === 60 ? 'translateX(-100%)' : 'translateX(-50%)',
+    }));
+    const u5 = [48, 52, 55, 58, 58, 58, 62, 62][st] + '%';
+    const anchors = (st >= 1 ? 1 : 0) + (st >= 6 ? 1 : 0) + (s.wentBack ? 1 : 0);
+    const Y = '#9cc39a', N = '#959ca4', P = '#e0a868';
+    const harnesses = [
+      { name: 'Claude Code in tmux (CLI, Desktop, web)', live: 'yes', anchor: 'yes', hand: 'with next prompt', logs: 'yes', c1: Y, c2: Y, c3: Y, c4: Y },
+      { name: 'Claude Code in a plain terminal', live: 'yes', anchor: 'yes', hand: 'with next prompt', logs: 'yes', c1: Y, c2: Y, c3: Y, c4: Y },
+      { name: 'Cloud session', live: 'yes', anchor: 'no, own branch instead', hand: 'no', logs: 'title only', c1: Y, c2: P, c3: N, c4: P },
+      { name: 'Other tools (adapter)', live: 'file changes only', anchor: 'by hand', hand: 'copy and paste', logs: 'no', c1: P, c2: P, c3: P, c4: N },
+    ];
+
+    /* ── Changes ─────────────────────────────────────────────────── */
+    const scopes = [];
+    if (st >= 1) scopes.push(['t1', 'Turn 1']);
+    if (st >= 6) scopes.push(['t2', 'Turn 2']);
+    scopes.push(['all', 'All uncommitted']);
+    const scopeBtns = scopes.map((x) => ({
+      label: x[1], go: up({ scope: x[0], confirmBack: false }),
+      bg: scope === x[0] ? '#3a3f46' : 'transparent', fg: scope === x[0] ? '#f5f6f7' : '#a9afb5',
+    }));
+    const done = paths.filter((p) => s.reviewed[p]).length;
+    const cfiles = paths.map((p) => {
+      const c = scope === 't2' ? { letter: 'M', text: '+1 −1', who: 'Claude' } : stat[p];
+      const mine = c.who === 'You';
+      return {
+        name: base(p), dir: dirOf(p), stat: c.text, letter: c.letter, letterColor: c.letter === 'A' ? '#9cc39a' : '#e0a868',
+        who: c.who, whoColor: mine ? '#d2d6da' : '#c7ccfc', whoLine: mine ? '#4d545c' : 'rgba(129,140,248,0.5)',
+        bg: p === sel ? '#2e3238' : 'transparent', pick: up({ file: p }),
+        checked: !!s.reviewed[p], checkAria: 'Looked at ' + p,
+        toggle: () => { const r = Object.assign({}, s.reviewed); r[p] = !r[p]; this.setState({ reviewed: r }); },
+      };
+    });
+
+    const fixed = st >= 6;
+    const oldRefill = '        let refill = self.rate * elapsed.as_secs() as f64;';
+    const newRefill = '        let refill = self.rate * elapsed.as_secs_f64();';
+    let hunk = '';
+    let raw = [];
+    if (sel === F1 && scope === 't2') {
+      hunk = '@@ -22,5 +22,5 @@ impl TokenBucket';
+      raw = [[22, ' ', '    pub fn try_take(&mut self) -> bool {'], [23, ' ', '        let elapsed = self.last.elapsed();'], [24, '-', oldRefill], [24, '+', newRefill], [25, ' ', '        self.tokens = (self.tokens + refill).min(self.capacity);'], [26, ' ', '        self.last = Instant::now();']];
+    } else if (sel === F1) {
+      hunk = '@@ new file · lines 14 to 31 of 48';
+      raw = [[14, '+', 'pub struct TokenBucket {'], [15, '+', '    capacity: f64,'], [16, '+', '    tokens: f64,'], [17, '+', '    rate: f64,'], [18, '+', '    last: Instant,'], [19, '+', '}'], [20, '+', ''], [21, '+', 'impl TokenBucket {'], [22, '+', '    pub fn try_take(&mut self) -> bool {'], [23, '+', '        let elapsed = self.last.elapsed();'], [24, '+', fixed && scope === 'all' ? newRefill : oldRefill], [25, '+', '        self.tokens = (self.tokens + refill).min(self.capacity);'], [26, '+', '        self.last = Instant::now();'], [27, '+', '        if self.tokens < 1.0 { return false; }'], [28, '+', '        self.tokens -= 1.0;'], [29, '+', '        true'], [30, '+', '    }'], [31, '+', '}']];
+    } else if (sel === F2) {
+      hunk = '@@ -18,5 +18,6 @@ pub fn router() -> Router';
+      raw = [[18, ' ', 'pub fn router() -> Router {'], [19, ' ', '    Router::new()'], [20, '-', '        .route("/orders", get(list))'], [21, '-', '        .route("/orders/:id", get(show))'], [20, '+', '        .route("/orders", get(list).post(create))'], [21, '+', '        .route("/orders/:id", get(show))'], [22, '+', '        .layer(RateLimit::per_ip(20.0, 40.0))'], [23, ' ', '}']];
+    } else if (sel === F3) {
+      hunk = '@@ new file · lines 1 to 9 of 31';
+      raw = [[1, '+', 'use orbit_api::middleware::rate_limit::TokenBucket;'], [2, '+', ''], [3, '+', '#[test]'], [4, '+', 'fn burst_refills_fractionally() {'], [5, '+', '    let mut bucket = TokenBucket::new(2.0, 4.0);'], [6, '+', '    drain(&mut bucket);'], [7, '+', '    sleep(Duration::from_millis(500));'], [8, '+', '    assert!(bucket.try_take());'], [9, '+', '}']];
+    } else if (sel === F4) {
+      hunk = '@@ -12,3 +12,4 @@';
+      raw = [[12, ' ', '[dependencies]'], [13, ' ', 'axum = "0.7"'], [14, '+', 'parking_lot = "0.12"'], [15, ' ', 'tokio = { version = "1", features = ["full"] }']];
+    } else if (sel === F5) {
+      hunk = '@@ -8,1 +8,3 @@';
+      raw = [[7, ' ', '/// Requests per second, per client'], [8, '-', 'pub const RATE_LIMIT: u32 = 100;'], [8, '+', 'pub fn rate_limit() -> f64 {'], [9, '+', '    env_f64("RATE_LIMIT", 20.0)'], [10, '+', '}']];
+    }
+    const mayNote = (st === 3 || st === 4) && !s.wentBack;
+    const lines = raw.map((l) => {
+      const add = l[1] === '+', del = l[1] === '-';
+      const note = del ? null : s.notes.filter((x) => x.file === sel && x.n === l[0])[0];
+      const composing = !del && !!s.draft && s.draft.file === sel && s.draft.n === l[0];
+      return {
+        num: String(l[0]), sign: l[1], code: nb(l[2]),
+        bg: add ? 'rgba(156,195,154,0.10)' : del ? 'rgba(224,138,128,0.10)' : 'transparent',
+        fg: add ? '#9cc39a' : del ? '#e08a80' : '#959ca4', cfg: add ? '#dbe9da' : del ? '#e6b9b3' : '#b9bec4',
+        canNote: mayNote && !del && !note && !composing,
+        compose: () => this.setState({ draft: { file: sel, n: l[0], text: sel === F1 && l[0] === 24 ? k.NOTE : '' } }),
+        composing: composing, hasNote: !!note, noteText: note ? note.text : '',
+        noteState: st >= 6 ? 'done · Claude changed this line' : s.handed ? 'waits for next prompt' : 'in next prompt',
+        noteColor: st >= 6 ? '#9cc39a' : s.handed ? '#e0a868' : '#c7ccfc',
+      };
+    });
+    const addNote = () => {
+      const d = s.draft;
+      if (!d || !d.text.trim()) return;
+      this.setState({ notes: s.notes.concat([{ file: d.file, n: d.n, text: d.text.trim() }]), draft: null });
+    };
+
+    const turnScope = scope === 't1' || scope === 't2';
+    const testFailed = st >= 3 && st <= 5 && !s.wentBack;
+    const showSummary = turnScope && !s.wentBack && !s.committed && ((scope === 't1' && st >= 3) || scope === 't2');
+    const sum2 = scope === 't2';
+    const sumBullets = (sum2
+      ? ['Refill now uses fractional seconds, as your note asked.', 'No other files touched.']
+      : ['Replaced the fixed-window counter with a token bucket in a new middleware.', 'The orders route uses it: 20 requests per second, bursts up to 40.', 'Added parking_lot and a test file with 4 tests.']
+    ).map((t) => ({ text: t }));
+    const testAdd = up({ testPinned: !s.testPinned });
+
+    /* ── Docs and tests ──────────────────────────────────────────── */
+    const mDone = st >= 6 && s.markersIn;
+    const mState = mDone ? 'done' : s.markersIn ? (s.handed ? 'waits for next prompt' : 'in next prompt') : 'open';
+    const mColor = mDone ? '#9cc39a' : s.markersIn ? '#c7ccfc' : '#e0a868';
+    const markers = [
+      { loc: 'docs/api.md:42', text: 'Hier ein kurzes Beispiel mit curl ergänzen', state: mState, color: mColor },
+      { loc: 'README.md:12', text: 'Abschnitt zu den Rate-Limits ergänzen', state: mState, color: mColor },
+    ];
+    const written = st >= 4 ? [{ path: 'docs/api.md', by: 'API docs refresh · 10:41' }, { path: 'docs/architecture.md', by: 'API docs refresh · 10:39' }] : [];
+    const tests = [
+      { name: 'rate_limit::burst_refills_fractionally', status: st < 3 ? '' : testFailed ? 'FAIL' : 'pass', color: testFailed ? '#e08a80' : '#9cc39a' },
+      { name: 'rate_limit::rejects_when_empty', status: 'pass', color: '#9cc39a' },
+      { name: 'rate_limit::caps_at_capacity', status: 'pass', color: '#9cc39a' },
+      { name: 'orders::list_is_paginated', status: 'pass', color: '#9cc39a' },
+    ].filter((t) => st >= 3 || t.name.indexOf('rate_limit') < 0);
+
+    /* ── Needs you ───────────────────────────────────────────────── */
+    const act = (label, run, primary) => ({
+      label: label, run: run, bg: primary ? '#c75300' : 'transparent', fg: primary ? '#ffffff' : '#e8eaec', line: primary ? '#c75300' : '#757c84',
+    });
+    const terminalSay = say('Opens this session in Claude Desktop.');
+    const needs = [];
+    if (st === 2) needs.push({ title: 'Rate limiter fix asks for permission', text: 'Run: cargo add parking_lot', color: AMB, line: 'rgba(224,168,104,0.6)', actions: [act('Allow once', go(3), true), act('Always allow cargo add', go(3)), act('Answer in Desktop', terminalSay)] });
+    if (st === 3) needs.push({ title: 'Turn done · Rate limiter fix', text: '4 files changed · 1 test failed · 2 new files on the workbench', color: AMB, line: 'rgba(224,168,104,0.6)', actions: [act('Review turn', go(4), true)] });
+    if (st === 4 && !s.wentBack) needs.push({ title: 'Review in progress', text: done + ' of ' + paths.length + ' files looked at · ' + s.notes.length + ' notes for Claude', color: AMB, line: '#4d545c', actions: [] });
+    if (st === 5) needs.push({ title: 'Handover is ready', text: 'It goes out with the next prompt you send, from wherever you send it.', color: AMB, line: '#4d545c', actions: [act('Open in Desktop', terminalSay)] });
+    if (st === 6 && !s.wentBack) needs.push({ title: 'Turn 2 done · Rate limiter fix', text: '1 file changed · all 12 tests pass', color: AMB, line: 'rgba(224,168,104,0.6)', actions: [act('Review', up({ tab: 'changes', scope: 't2' }), true), act('Commit…', go(7))] });
+    if (st === 7 && !s.pushed) needs.push({ title: s.committed ? 'Committed, not pushed yet' : 'Ready to commit', text: s.committed ? 'One commit exists only on this machine.' : '5 files, reviewed and green.', color: AMB, line: '#4d545c', actions: [] });
+    if (st >= 3 && st <= 6) needs.push({ title: 'Dependency bump finished', text: 'The remote session pushed branch deps/bump.', color: '#959ca4', line: '#4d545c', actions: [act('Compare with this branch', say('Shows the diff between deps/bump and your branch in Changes.'))] });
+
+    /* ── Sessions ────────────────────────────────────────────────── */
+    const aStatus = st === 1 ? 'working' : st === 2 ? 'waiting for you' : 'turn done';
+    const todo = (mark, text) => ({ mark: mark, text: text, color: mark === '✓' ? '#959ca4' : mark === '▸' ? '#f5f6f7' : '#a9afb5' });
+    const pickA = (p) => ({ name: base(p), pick: up({ tab: 'changes', file: p, scope: st >= 1 ? 't1' : 'all' }) });
+    const sessions = [
+      {
+        title: 'Rate limiter fix', icon: ic.terminal, where: 'tmux orbit-api · Work · opus · driven from Desktop',
+        status: aStatus + (st === 0 ? ' · yesterday' : st >= 6 ? ' · 10:50' : st >= 3 ? ' · 10:38' : ''),
+        statusColor: st === 2 ? AMB : st === 1 ? '#c7ccfc' : '#a9afb5', dot: st === 1 ? IND : st === 2 ? AMB : '#757c84', dotClass: working ? 'pulse' : '',
+        hasPrompt: st >= 1, prompt: st >= 6 ? 'mach weiter' : 'Bau den Limiter auf Token-Bucket um',
+        hasActivity: working, activity: st === 1 ? 'Edit  src/middleware/rate_limit.rs' : 'Bash  cargo add parking_lot',
+        hasTodos: working, todos: st === 1
+          ? [todo('✓', 'Read the current limiter'), todo('▸', 'Implement the token bucket'), todo('○', 'Use it in the orders route'), todo('○', 'Add tests')]
+          : [todo('✓', 'Read the current limiter'), todo('✓', 'Implement the token bucket'), todo('▸', 'Use it in the orders route'), todo('○', 'Add tests')],
+        hasFiles: claudeFiles.length > 0 && !s.committed, files: claudeFiles.map(pickA),
+        hasNote: st >= 5, note: st === 5 ? 'Handover waits for the next prompt' : 'Got your handover at 10:47', noteColor: st === 5 ? AMB : '#9cc39a',
+        ctx: [34, 41, 44, 47, 47, 47, 52, 52][st] + '%', jumps: [{ label: 'Desktop', run: terminalSay }, { label: 'tmux', run: say('Opens a terminal with: tmux attach -t orbit-api') }, { label: 'New task', run: say('Ends this session cleanly and starts a fresh one in the same tmux window, with an empty context.') }, { label: 'Restart', run: say('Restarts Claude in this tmux window and resumes the session, for example after connecting the hooks.') }],
+      },
+      {
+        title: 'API docs refresh', icon: ic.terminal, where: 'tmux orbit-api-docs · Work · sonnet · worktree docs/refresh',
+        status: st >= 1 && st <= 3 ? 'working' : st === 0 ? 'turn done · yesterday' : 'turn done · 10:41',
+        statusColor: st >= 1 && st <= 3 ? '#c7ccfc' : '#a9afb5', dot: st >= 1 && st <= 3 ? IND : '#757c84', dotClass: st >= 1 && st <= 3 ? 'pulse' : '',
+        hasPrompt: false, prompt: '', hasActivity: st >= 1 && st <= 3, activity: 'Write  docs/api.md', hasTodos: false, todos: [],
+        hasFiles: false, files: [], hasNote: st >= 4, note: 'Wrote 2 documents, see Activity', noteColor: '#a9afb5',
+        ctx: st >= 1 ? '23%' : '12%', jumps: [{ label: 'Desktop', run: terminalSay }, { label: 'tmux', run: say('Opens a terminal with: tmux attach -t orbit-api-docs') }],
+      },
+      {
+        title: 'Dependency bump', icon: ic.cloud, where: 'Cloud session · Work · branch deps/bump',
+        status: st <= 2 ? 'working' : 'finished · pushed', statusColor: st <= 2 ? '#c7ccfc' : '#a9afb5', dot: st <= 2 ? IND : '#757c84', dotClass: st <= 2 ? 'pulse' : '',
+        hasPrompt: false, prompt: '', hasActivity: false, activity: '', hasTodos: false, todos: [],
+        hasFiles: false, files: [], hasNote: true, note: 'No anchors: it works on its own branch in the cloud', noteColor: '#a9afb5',
+        ctx: st <= 2 ? '18%' : '21%', jumps: [{ label: 'Open on the web', run: say('Opens the cloud session in the browser.') }],
+      },
+    ];
+    const aLine = st === 0 ? 'Idle since yesterday' : st === 1 ? 'Edit  src/middleware/rate_limit.rs' : st === 2 ? 'Wants to run: cargo add parking_lot' : st <= 4 ? '4 files changed · 1 test failed' : st === 5 ? 'Handover waits for your next prompt' : 'Turn 2: 1 file changed · tests pass';
+    const sLines = [aLine, st >= 1 && st <= 3 ? 'Write  docs/api.md' : st === 0 ? 'Idle since yesterday' : 'Wrote 2 documents', st <= 2 ? 'Updating dependencies' : 'Pushed branch deps/bump'];
+    sessions.forEach((x, i) => {
+      x.line = sLines[i];
+      x.steps = i === 0 && working ? (st === 1 ? '1 of 4' : '2 of 4') : '';
+      x.open = s.openSession === i;
+      x.chev = x.open ? '▾' : '▸';
+      x.toggle = up({ openSession: x.open ? null : i });
+    });
+    const EV = [[0, '09:02', 'Connected to Claude Code in 2 configurations'], [1, '10:31', 'Anchor saved before turn 1'], [2, '10:35', 'Rate limiter fix asks for permission'], [3, '10:38', 'Turn 1 done: 4 files, 1 test failed'], [4, '10:41', 'API docs refresh wrote 2 documents'], [5, '10:45', 'Handover queued'], [6, '10:47', 'Handover delivered with your prompt'], [6, '10:50', 'Turn 2 done: all tests pass']];
+    const events = EV.filter((e) => e[0] <= st).reverse().slice(0, 6).map((e) => ({ at: e[1], text: e[2] }));
+    const TIPS = {
+      overview: ['Before Claude writes, CodeDeck saves an anchor. Click it on the trail to see or undo the whole turn.', 'A session card shows one line. Click it for the plan, the files and the context.'],
+      changes: ['Point at a diff line and click the bubble to leave a note for Claude, right where it belongs.', 'Go back is safe: your current state is saved first, so you can go forward again.'],
+      outputs: ['The workbench is ignored by git. Move a file into the project when it becomes a result.', 'Pages on claude.ai stay there. CodeDeck only keeps the link.'],
+      docs: ['Claude gets paths, not contents. It reads the files itself, so it always sees the current state.', 'Nothing reaches Claude unless it is listed under Next prompt.'],
+    };
+    const tips = (TIPS[s.tab] || []).map((x) => ({ text: x }));
+    harnesses.forEach((h, i) => { h.sum = ['Live status, anchors, handover with the next prompt, earlier sessions.', 'The same, but CodeDeck cannot start or restart it.', 'Live status only. It works on its own branch, so there are no anchors and no handover.', 'File changes only. Anchors by hand, handover by copy and paste.'][i]; });
+    const nWork = sessions.filter((x) => x.status.indexOf('working') === 0).length;
+    const nWait = st === 2 ? 1 : 0;
+
+    /* ── Next prompt ─────────────────────────────────────────────── */
+    const tray = [];
+    const parts = [];
+    if (s.notes.length) parts.push(s.notes.length + (s.notes.length === 1 ? ' note' : ' notes'));
+    if (s.testPinned) parts.push('1 failing test');
+    if (s.markersIn) parts.push('2 document hints');
+    if (st < 6) {
+      s.notes.forEach((x, i) => tray.push({ kind: 'Note', text: base(x.file) + ':' + x.n + ' · ' + x.text, remove: () => this.setState({ notes: s.notes.filter((_, j) => j !== i) }) }));
+      if (s.testPinned) tray.push({ kind: 'Test', text: 'burst_refills_fractionally fails', remove: up({ testPinned: false }) });
+      if (s.markersIn) tray.push({ kind: 'Docs', text: '2 hints from documents', remove: up({ markersIn: false }) });
+    }
+    s.pins.forEach((p) => tray.push({ kind: 'File', text: p, remove: () => this.setState({ pins: s.pins.filter((q) => q !== p) }) }));
+    const pv = [];
+    if (st < 6 && s.notes.length) {
+      pv.push('Work in these notes I left on your changes:', '');
+      s.notes.forEach((x) => pv.push('- ' + x.file + ':' + x.n + ': ' + x.text));
+      pv.push('');
+    }
+    if (st < 6 && s.testPinned) pv.push('This test fails. Fix the cause, not the test:', '', '- tests/rate_limit.rs: burst_refills_fractionally', '');
+    if (st < 6 && s.markersIn) pv.push('Work in these comments that I left for you in documents, then remove each comment:', '', '- docs/api.md:42: Hier ein kurzes Beispiel mit curl ergänzen', '- README.md:12: Abschnitt zu den Rate-Limits ergänzen', '');
+    if (s.pins.length) {
+      pv.push('For my next request, focus on these parts of the project; read them as far as you need:', '');
+      s.pins.forEach((p) => pv.push('- ' + p));
+    }
+    const keep = { notes: s.notes, testPinned: s.testPinned };
+    const hand = () => this.setState(st === 4 ? Object.assign(this.scene(5), keep) : { handed: true });
+    const takeBack = () => this.setState(st === 5 ? Object.assign(this.scene(4), keep) : { handed: false });
+
+    /* ── Home: all projects ──────────────────────────────────────── */
+    const onlyOrbit = say('The dummy only builds out orbit-api. In the real app this opens the project view.');
+    const setOn = (n, v) => () => { const o = Object.assign({}, s.on); o[n] = v; this.setState({ on: o }); };
+    const fix = (n) => () => { const o = Object.assign({}, s.fixed); o[n] = true; this.setState({ fixed: o }); };
+    const fx = s.fixed;
+    const hsWaits = !s.hsAllowed;
+    const PR = [
+      { name: 'orbit-api', path: '~/work/orbit-api', group: 'work', acct: 'Work', status: st === 1 ? 'working' : st === 2 ? 'waiting for you' : 'turn done', tone: st === 1 ? IND : st === 2 ? AMB : '#757c84', live: working, git: 'feature/rate-limit · ' + (allCount ? allCount + ' uncommitted' : 'clean'), open: up({ view: 'project' }) },
+      { name: 'billing-service', path: '~/work/billing-service', group: 'work', acct: 'Work', status: fx['billing-service'] ? 'fresh session, ready' : 'turn done · 09:52', tone: '#757c84', git: 'main · 2 uncommitted', warn: fx['billing-service'] ? '' : 'Context is 81% full. A fresh session answers faster.', fixLabel: 'New task' },
+      { name: 'team-wiki', path: '~/work/team-wiki', group: 'work', acct: fx['team-wiki'] ? 'Work' : 'Private', status: 'turn done · yesterday', tone: '#757c84', git: 'main · clean', warn: fx['team-wiki'] ? '' : 'Runs with the Private account, but the profile says Work.', fixLabel: 'Restart with Work' },
+      { name: 'homeserver-ops', path: '~/private/homeserver-ops', group: 'both', acct: 'Private', status: hsWaits ? 'waiting for you' : 'working', tone: hsWaits ? AMB : IND, live: true, git: 'main · clean', warn: 'Works on the server over ssh: 3 remote commands this turn. Anchors do not cover changes made there.', fixLabel: '' },
+      { name: 'codedeck', path: '~/projects/be-spex/CodeDeck', group: 'private', acct: 'Private', status: 'turn done · yesterday', tone: '#757c84', git: 'main · 3 uncommitted' },
+      { name: 'photo-archive', path: '~/private/photo-archive', group: 'private', acct: 'Private', dead: !fx['photo-archive'], status: fx['photo-archive'] ? 'ready' : 'tmux session ended', tone: fx['photo-archive'] ? '#757c84' : '#e08a80', git: 'main · clean', warn: fx['photo-archive'] ? '' : 'The tmux session ended at 08:14 after a reboot.', fixLabel: 'Start again' },
+    ];
+    const weekday = s.profile === 'weekday';
+    const projects = PR.map((p) => {
+      const inProfile = p.group === 'both' || (weekday ? p.group === 'work' : p.group === 'private');
+      const active = s.on[p.name] !== undefined ? s.on[p.name] : inProfile;
+      const warn = active ? p.warn || '' : '';
+      return {
+        name: p.name, path: p.path, acct: p.acct, active: active,
+        acctBg: p.acct === 'Work' ? 'rgba(143,177,207,0.15)' : 'rgba(156,195,154,0.15)', acctFg: p.acct === 'Work' ? '#a9c6e0' : '#b4d4b2',
+        opacity: active ? '1' : '0.6', status: active ? p.status : 'not started · not in this profile',
+        dot: active ? p.tone : '#4d545c', dotClass: active && p.live ? 'pulse' : '',
+        meta: p.git + ' · ' + (active ? 'tmux ' + p.name + (p.dead ? ' ended' : ', remote control on') : 'no tmux session'),
+        hasWarn: !!warn, warn: warn, hasFix: !!warn && !!p.fixLabel, fixLabel: p.fixLabel || '', fix: fix(p.name),
+        actions: active
+          ? [act('Open', p.open || onlyOrbit), act('Desktop', say('Opens the session of ' + p.name + ' in Claude Desktop.')), act('tmux', say('Opens a terminal with: tmux attach -t ' + p.name)), act('Stop', setOn(p.name, false))]
+          : [act('Start', setOn(p.name, true))],
+      };
+    });
+    const isOn = (n) => projects.filter((p) => p.name === n)[0].active;
+    const hneeds = [];
+    if (isOn('orbit-api')) {
+      if (st === 2) hneeds.push({ title: 'orbit-api', text: 'Rate limiter fix asks to run: cargo add parking_lot', actions: [act('Allow once', () => this.setState(Object.assign(this.scene(3), { view: 'home' })), true), act('Open project', up({ view: 'project' }))] });
+      if (st === 3) hneeds.push({ title: 'orbit-api', text: 'Turn done: 4 files changed, 1 test failed', actions: [act('Review turn', go(4), true)] });
+      if (st === 6) hneeds.push({ title: 'orbit-api', text: 'Turn 2 done: 1 file changed, all tests pass', actions: [act('Open project', up({ view: 'project', tab: 'changes', scope: 't2' }), true)] });
+    }
+    if (isOn('homeserver-ops') && hsWaits) hneeds.push({ title: 'homeserver-ops', text: 'asks to run: ssh homeserver docker compose restart litellm', actions: [act('Allow once', up({ hsAllowed: true }), true), act('Answer in Desktop', say('Opens the session of homeserver-ops in Claude Desktop.'))] });
+    if (isOn('billing-service') && !fx['billing-service']) hneeds.push({ title: 'billing-service', text: 'Turn done at 09:52: 2 files not looked at yet', actions: [act('Open project', onlyOrbit)] });
+    const profiles = [['weekday', 'Work time'], ['weekend', 'Free time']].map((x) => ({
+      label: x[1], go: up({ profile: x[0], on: {} }), bg: s.profile === x[0] ? '#3a3f46' : 'transparent', fg: s.profile === x[0] ? '#f5f6f7' : '#a9afb5',
+    }));
+    const homeTitle = 'Start · Alle Projekte';
+    const homeText = 'CodeDeck ersetzt dein Start-Script: Ein Profil startet die tmux-Sitzungen mit dem richtigen Account. Du bedienst Claude weiter per Desktop, Web oder CLI; hier siehst du alle auf einmal.';
+    const homeTry = 'Profil umschalten, Warnungen an den Karten beheben, dann orbit-api öffnen.';
+
+    return {
+      isHome: isHome, homeDisplay: isHome ? 'flex' : 'none', projDisplay: isHome ? 'none' : 'flex', goHome: up({ view: 'home' }),
+      wFiles: s.wFiles + 'px', wTrail: s.wTrail + 'px', wRight: s.wRight + 'px', hTray: s.hTray + 'px',
+      spFiles: this.drag('wFiles', 'x', 1, 150, 460), spTrail: this.drag('wTrail', 'x', 1, 110, 380),
+      spRight: this.drag('wRight', 'x', -1, 250, 600), spTray: this.drag('hTray', 'y', -1, 90, 560),
+      needsBg: needs.length ? '#2d2820' : '#24272c', hneedsBg: hneeds.length ? '#2d2820' : '#24272c',
+      infoOpen: s.infoOpen, toggleInfo: up({ infoOpen: !s.infoOpen }), infoBtnBg: s.infoOpen ? '#3a3f46' : 'transparent', events: events, tips: tips,
+      accountsOpen: s.accountsOpen, accountsClosed: !s.accountsOpen, toggleAccounts: up({ accountsOpen: !s.accountsOpen }),
+      addAccount: say('CodeDeck looks for known tools and their configuration folders. You pick one and give the account a name and a colour.'),
+      accounts: [
+        { name: 'Work', tool: 'Claude Code', start: 'CLAUDE_CONFIG_DIR=~/.claude claude', state: 'Signed in · hooks connected · 3 projects', stateColor: '#9cc39a', bg: 'rgba(143,177,207,0.15)', fg: '#a9c6e0', opacity: '1', label: 'Sign in again', run: say('Opens a terminal with this configuration so you can sign in inside Claude Code.') },
+        { name: 'Private', tool: 'Claude Code', start: 'CLAUDE_CONFIG_DIR=~/.claude-private claude', state: 'Signed in · hooks connected · 3 projects', stateColor: '#9cc39a', bg: 'rgba(156,195,154,0.15)', fg: '#b4d4b2', opacity: '1', label: 'Sign in again', run: say('Opens a terminal with this configuration so you can sign in inside Claude Code.') },
+        { name: 'Codex', tool: 'Another tool, found on this machine', start: 'CODEX_HOME=~/.codex codex', state: 'No adapter yet: file changes only, no live status', stateColor: '#e0a868', bg: 'rgba(224,168,104,0.15)', fg: '#e0a868', opacity: '0.75', label: 'What works', run: say('Shows what CodeDeck can do with this tool: see Activity, the table of tools.') },
+      ],
+      projects: projects, profiles: profiles, hneeds: hneeds, noHneeds: hneeds.length === 0, hasHneeds: hneeds.length > 0, hneedCount: String(hneeds.length),
+      profileText: weekday ? 'Work time starts the work projects and homeserver-ops. A profile is the list your start script had: which folders, with which account.' : 'Free time starts the private projects. A profile is the list your start script had: which folders, with which account.',
+      showIdeas: this.props.showIdeas ?? true, ic: ic,
+      scenes: scenes, sceneTitle: isHome ? homeTitle : (st + 1) + ' · ' + SC[st][0], sceneText: isHome ? homeText : SC[st][1], sceneTry: 'Probier: ' + (isHome ? homeTry : SC[st][2]),
+      prev: isHome || st === 0 ? up({ view: 'home' }) : go(st - 1), next: isHome ? go(0) : st === 7 ? up({ view: 'home' }) : go(st + 1), nextLabel: !isHome && st === 7 ? 'Zum Start' : 'Weiter',
+      tree: tree, tabs: tabs, trail: trail,
+      isOverview: s.tab === 'overview', isChanges: s.tab === 'changes', isDocs: s.tab === 'docs', isTests: s.tab === 'tests', isOutputs: s.tab === 'outputs',
+      tabQuestion: { overview: 'What are the sessions doing?', changes: 'What did Claude change?', outputs: 'What else did it make that is not part of the project yet?', docs: 'What do you give Claude with your next prompt?' }[s.tab] || '',
+      wb: wb, noWb: wb.length === 0, wbTotal: wbHere.length + (wbHere.length === 1 ? ' file · ' : ' files · ') + fmt(sumKb(wbHere)),
+      hasOld: wbOld.length > 0, cleanLabel: 'Delete ' + wbOld.length + ' older than 7 days (' + fmt(sumKb(wbOld)) + ')',
+      cleanOld: () => { const m = Object.assign({}, s.gone); wbOld.forEach((o) => { m[o.id] = true; }); this.setState({ gone: m }); },
+      links: links, noLinks: links.length === 0, outside: outside, hasOutside: outside.length > 0,
+      sources: [
+        { title: 'Lines you commented', text: s.notes.length ? s.notes.length + ' in Changes' : 'Comment a diff line in Changes and it lands here.', label: 'Go to Changes', run: up({ tab: 'changes' }), hasBtn: true },
+        { title: 'Failing test', text: testFailed ? 'burst_refills_fractionally' : 'No test fails.', label: s.testPinned ? 'Remove' : 'Add', run: testAdd, hasBtn: testFailed },
+        { title: 'Files and folders', text: s.pins.length ? s.pins.length + ' pinned' : 'Hover a file in the list on the left and pin it.', label: '', run: up({}), hasBtn: false },
+      ],
+
+      showBanner: s.banner && st === 0, dismissBanner: up({ banner: false }),
+      nowLabel: clock(NOW), ticks: ticks, lanes: lanes, u5: u5, harnesses: harnesses,
+      safeUnc: allCount + (allCount === 1 ? ' file' : ' files'), safeUnp: s.committed && !s.pushed ? '1 commit' : 'none', safeAnchors: String(anchors),
+      safeText: s.pushed ? 'Everything is on origin.' : allCount ? 'Uncommitted work exists only in your folder and in the anchors.' : 'Nothing is at risk.',
+
+      showCommit: st === 7 && !s.committed, showPush: s.committed && !s.pushed, showPushed: s.pushed,
+      commitMsg: s.msg, onMsg: (e) => this.setState({ msg: e.target.value }), commitCmd: 'git add -A && git commit -m "' + s.msg + '"',
+      doCommit: up({ committed: true }), doPush: up({ pushed: true }),
+      wentBack: s.wentBack, goForward: up({ wentBack: false }),
+      scopes: scopeBtns, reviewText: paths.length ? done + ' of ' + paths.length + ' looked at' : '',
+      canBack: turnScope && st >= 3 && !s.wentBack && !s.committed, askBack: up({ confirmBack: true }),
+      backLabel: 'Go back to before turn ' + (scope === 't2' ? '2' : '1'),
+      confirmBack: s.confirmBack && !s.wentBack,
+      backQuestion: 'Put the files back as they were before turn ' + (scope === 't2' ? '2' : '1') + '?',
+      backDetail: paths.length + (paths.length === 1 ? ' file changes' : ' files change') + ' back, new files are removed. Your current state is saved first, so you can go forward again.',
+      doBack: up({ wentBack: true, confirmBack: false, draft: null }), cancelBack: up({ confirmBack: false }),
+      canCommit: allCount > 0 && st >= 3 && st < 7 && !s.wentBack, openCommit: go(7),
+      showLive: turnScope && working, liveText: 'Claude is still working on this turn. The list grows as it writes.',
+      showSummary: showSummary, sumTitle: sum2 ? 'What Claude did in turn 2' : 'What Claude did in turn 1', sumBullets: sumBullets,
+      hasQuestion: !sum2, question: 'Should the limit count per user or per IP? I kept per IP.',
+      testColor: st < 3 ? '#959ca4' : testFailed ? '#e08a80' : '#9cc39a',
+      testLine: testFailed ? 'Tests: 11 passed, 1 failed (burst_refills_fractionally)' : 'Tests: all 12 passed',
+      testFailed: testFailed, testAdd: testAdd, testAddLabel: s.testPinned ? 'In next prompt ✓' : 'Add to next prompt',
+      noFiles: paths.length === 0, hasFiles: paths.length > 0,
+      noFilesText: s.committed ? 'Working tree clean. Everything is committed.' : s.wentBack ? 'Nothing here: you went back to before this turn.' : 'No changes.',
+      cfiles: cfiles, diffPath: sel || '', hunk: hunk, lines: lines,
+      noChangeText: s.file && sel !== s.file ? base(s.file) + ' has no changes here' : '',
+      openDirq: say('Opens this diff side by side in Dirq.'),
+      draftText: s.draft ? s.draft.text : '', onDraft: (e) => this.setState({ draft: Object.assign({}, s.draft, { text: e.target.value }) }),
+      addNote: addNote, cancelNote: up({ draft: null }),
+
+      markers: markers, canAddMarkers: !mDone, toggleMarkers: up({ markersIn: !s.markersIn }),
+      markersBtn: s.markersIn ? 'Remove from next prompt' : 'Add 2 hints to next prompt',
+      docProgress: mDone ? '2 of 2 done' : '2 open', written: written, noWritten: written.length === 0,
+      openDoc: say('Opens the document in marq, the Markdown viewer.'),
+      testSummary: st < 3 ? 'Last run yesterday: 8 passed' : testFailed ? 'After turn 1: 11 passed, 1 failed' : 'After turn 2: all 12 passed',
+      tests: tests, moreTests: st < 3 ? '7 more passed' : '8 more passed',
+      failOut: 'assertion failed: bucket.try_take()\n  at tests/rate_limit.rs:8\n  refill after 500 ms was 0 tokens, expected 1',
+
+      needs: needs, noNeeds: needs.length === 0, hasNeeds: needs.length > 0, needCount: String(needs.length),
+      sessions: sessions, newSession: say('Starts a new session: pick the tool, a branch or worktree, and CodeDeck opens the terminal there.'),
+      tray: tray, trayEmpty: tray.length === 0 && st < 6, hasTray: tray.length > 0,
+      preview: s.preview && tray.length > 0, previewText: pv.join('\n'), togglePreview: up({ preview: !s.preview }), previewLabel: s.preview ? 'Hide text' : 'Preview',
+      canHand: !s.handed, canHandTab: !s.handed && tray.length > 0, hand: hand, isHanded: s.handed && tray.length > 0, takeBack: takeBack,
+      hasReceipt: st >= 6, receipt: 'Delivered at 10:47 with your prompt „mach weiter“: ' + (parts.length ? parts.join(', ') : 'nothing queued') + '.',
+
+      hasToast: !!s.toast, toast: s.toast || '', closeToast: up({ toast: null }),
+      sbBranchColor: allCount ? '#e0a868' : '#a9afb5', sbAhead: s.committed && !s.pushed ? '↑1' : '',
+      sbDot: nWait ? AMB : nWork ? IND : '#757c84',
+      sbClaude: 'Claude: ' + (nWork || nWait ? [nWork ? nWork + ' working' : '', nWait ? nWait + ' waiting for you' : ''].filter(Boolean).join(' · ') : 'all quiet'),
+      lastCmd: s.pushed ? 'git push origin feature/rate-limit' : s.committed ? 'git commit -m "' + s.msg + '"' : s.wentBack ? 'git read-tree -u --reset refs/codedeck/snapshots/1031' : st === 1 || st === 6 ? 'git update-ref refs/codedeck/snapshots/' + (st === 1 ? '1031' : '1047') : 'git status --porcelain=v2 --branch',
+    };
+  }
+}
+</script>
+</body>
+</html>

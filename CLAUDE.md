@@ -2,7 +2,10 @@
 
 Tauri 2 (Rust, `src-tauri/`) + React/TS/Tailwind (`src/`). Läuft neben Claude Code als „stilles
 Radar“, hat keinen eigenen Editor. Die weitere Umsetzung steht in `docs/PLAN.md`: zuerst den Abschnitt
-„Stand“ lesen, dann nur das Arbeitspaket, an dem gearbeitet wird.
+„Einstieg für eine neue Session“ lesen, dann nur den Schritt der MVP-Phasen, an dem gearbeitet wird.
+Das Zielbild zeigt der Click-Dummy in `design/click-dummy/`; er ist Vorlage, kein Bauplan (Abweichungen
+nach Rückfrage, siehe „So läuft jeder Schritt“ im Plan). `docs/KONZEPT.md` erklärt das Zusammenspiel für
+Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht.
 
 ## Karte (statt suchen)
 
@@ -26,6 +29,7 @@ Radar“, hat keinen eigenen Editor. Die weitere Umsetzung steht in `docs/PLAN.m
 | `src/components/AssistantStatus.tsx` | Claude in der Statusleiste, `HookPanel` (Hooks verbinden) |
 | `src/focus.ts`, `src/markers.ts` | Pin-Typ und Fokus-Text; Marker laden und „erledigt“ erkennen |
 | `src/mock.ts`, `WorkspaceView.tsx` | Beispieldaten (Vorschau; Workspace noch unecht) |
+| `design/click-dummy/` | Zielbild als Click-Dummy (Vorlage für `PLAN.md` „Zielbild“; README dort lesen, nicht die ganze `Main.dc.html`) |
 
 ## Regeln
 
