@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -55,6 +55,12 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState<Done[]>([]);
   const panel = useRef<HTMLDivElement>(null);
+  const output = useRef<HTMLElement>(null);
+  const [tallest, setTallest] = useState(0);
+  useLayoutEffect(() => {
+    const height = Math.min(output.current?.offsetHeight ?? 0, 192);
+    if (height > tallest) setTallest(height);
+  });
   const input = useRef<HTMLInputElement>(null);
 
   const staged = repo.files.filter((f) => f.staged).length;
@@ -247,9 +253,15 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
         {noRemote && <AddRemote running={running} onRun={(steps) => run(steps)} showing={showing} />}
       </section>
 
-      {/* The command line: what an action will run, or what ran. Room for two commands from the
-          start: if it grew on hover, the panel would move the button away from under the mouse */}
-      <section className="selectable max-h-48 min-h-[50px] overflow-y-auto bg-base px-3 py-2 font-mono text-[11px]">
+      {/* The command line: what an action will run, or what ran. It never gets shorter while the
+          panel is open (room for two commands from the start): the panel grows upwards, and a
+          change of height on hover would move the button away from under the mouse */}
+      <section
+        ref={output}
+        // Only once measured: an inline 0 would undo the class's room for two commands
+        style={tallest > 0 ? { minHeight: tallest } : undefined}
+        className="selectable max-h-48 min-h-[50px] overflow-y-auto bg-base px-3 py-2 font-mono text-[11px]"
+      >
         {preview && !running ? (
           preview.map((args, i) => (
             <div key={i} className="flex gap-1.5 text-slate-300">
