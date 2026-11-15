@@ -52,6 +52,7 @@ const STATUS_COLOR: Record<Session["status"], string> = {
 function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (path: string) => void }) {
   const hooks = useConnections();
   const harness = mainHarness(state);
+  const marks = useSessionMarks();
   const active = state.sessions.filter((s) => s.status !== "ended").length;
   return (
     <section className="flex min-h-0 flex-col border-b border-line">
@@ -62,7 +63,8 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {state.sessions.length > 0 ? (
-          <ul className="flex flex-col gap-1.5">
+          // Left as a whole: between two sessions the highlight stays, so nothing flickers on the way
+          <ul className="flex flex-col gap-1.5" onMouseLeave={() => marks.hover(null)}>
             {state.sessions.map((s) => (
               <SessionItem key={s.id} session={s} onShowFile={onShowFile} />
             ))}
@@ -92,7 +94,6 @@ function SessionItem({ session: s, onShowFile }: { session: Session; onShowFile:
     <li
       // On the list: what belongs to this session stands out on the trail and in the file list
       onMouseEnter={() => marks.hover(s.id)}
-      onMouseLeave={() => marks.hover(null)}
       style={{ borderLeftColor: mark.color }}
       className={`group/session rounded-md border border-l-2 border-line bg-raised ${s.status === "ended" ? "opacity-55" : ""}`}
     >

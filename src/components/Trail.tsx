@@ -130,13 +130,14 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
                 : point.kind === item.kind && point.repo === repo && point.hash === hash;
             const session = item.kind === "snapshot" ? item.snapshot.session : null;
             const mark = marks.of(session);
-            // A session hovered in the list: only its snapshots stay bright
-            const dimmed = (focusRepo !== null && repo !== focusRepo) || (marks.hovered !== null && session !== marks.hovered);
+            // A session hovered in the list: the other sessions' snapshots step back. Commits stay
+            // as they are: nothing tells which session a commit belongs to
+            const dimmed = (focusRepo !== null && repo !== focusRepo) || (marks.hovered !== null && session !== null && session !== marks.hovered);
             // Snapshots are newer than their repository's last commit: work not committed yet
             const zone = item.kind === "commit" ? zoneOf(item.commit, byPath.get(repo)) : null;
             const repoName = several ? (byPath.get(repo)?.name ?? repo) : undefined;
             return (
-              <li key={`${item.kind}:${repo}:${hash}`} className={`relative ${dimmed ? "opacity-35" : ""}`}>
+              <li key={`${item.kind}:${repo}:${hash}`} className={`relative transition-opacity ${dimmed ? "opacity-35" : ""}`}>
                 <Segment zone={zone ?? "uncommitted"} to={i === items.length - 1 ? "middle" : undefined} />
                 {showDay && (
                   open ? (
