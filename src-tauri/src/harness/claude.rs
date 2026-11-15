@@ -83,6 +83,9 @@ impl Harness for Claude {
     fn translate(&self, raw: &Value) -> Option<Event> {
         let name = raw["hook_event_name"].as_str()?;
         let kind = EVENTS.iter().find(|(event, ..)| *event == name)?.2;
+        // "Waiting for your input", a minute after a turn: no question, the turn is simply over.
+        // It also comes when the turn was cut short (interrupted, usage limit) and `Stop` never did
+        let kind = if raw["notification_type"] == "idle_prompt" { EventKind::TurnDone } else { kind };
         let input = &raw["tool_input"];
         let cut = |v: &Value, n: usize| v.as_str().map(|s| s.chars().take(n).collect::<String>());
         Some(Event {
@@ -385,6 +388,7 @@ mod tests {
         r#"{"session_id":"3f9c2a71","transcript_path":"/c/projects/-p/3f9c2a71.jsonl","cwd":"/p","permission_mode":"default","hook_event_name":"Stop","stop_hook_active":false,"last_assistant_message":"Done."}"#,
         r#"{"session_id":"3f9c2a71","transcript_path":"/c/projects/-p/3f9c2a71.jsonl","cwd":"/p","permission_mode":"default","hook_event_name":"SessionEnd","reason":"prompt_input_exit"}"#,
         r#"{"session_id":"3f9c2a71","cwd":"/p","hook_event_name":"PreCompact","trigger":"auto"}"#,
+        r#"{"session_id":"3f9c2a71","transcript_path":"/c/projects/-p/3f9c2a71.jsonl","cwd":"/p","permission_mode":"default","hook_event_name":"Notification","notification_type":"idle_prompt","message":"Claude is waiting for your input"}"#,
     ];
 
     #[test]
@@ -398,6 +402,7 @@ mod tests {
                 .map(Some)
                 .into_iter()
                 .chain([None]) // an event CodeDeck does not subscribe to
+                .chain([Some(TurnDone)]) // waiting for the next prompt is the end of a turn, not a question
                 .collect::<Vec<_>>()
         );
         let event = |i: usize| events[i].clone().unwrap();

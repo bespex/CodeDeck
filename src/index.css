@@ -79,6 +79,8 @@
    */
   --color-area-ai: color-mix(in srgb, var(--color-ai) 5%, var(--color-panel));
   --color-area-you: color-mix(in srgb, var(--color-brand) 6%, var(--color-panel));
+  /* The warm tone of "waits for you": there only while something waits */
+  --color-area-wait: color-mix(in srgb, var(--color-changed) 9%, var(--color-panel));
 }
 
 /*

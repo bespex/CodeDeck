@@ -483,10 +483,13 @@ Ergebnisse (Activity).
 Links bleiben Dateien und Trail. Die rechte Spalte hat drei Bereiche:
 
 - **Needs you:** alles, was auf dich wartet, mit der Handlung direkt daran. Farbig nur, wenn etwas
-  wartet.
+  wartet. Eine Sitzung steht dort, wenn sie etwas fragt oder ihre Runde beendet hat; eine beendete
+  Runde lässt sich weglegen und verschwindet nach einer halben Stunde von selbst.
 - **Sessions:** je Sitzung zwei Zeilen: Titel mit Zustand, darunter das eine, was gerade zählt (beim
   Arbeiten der aktuelle Schritt, beim Warten die Frage, danach das Ergebnis). Plan, Dateien, Kontext
-  und Steuerung klappen auf.
+  und Steuerung klappen auf. Beendete, nur aus dem Log bekannte und seit Stunden untätige Sitzungen
+  liegen eingeklappt unter *Earlier*; *Remove from list* nimmt eine Sitzung heraus, bis sie sich
+  wieder meldet.
 - **Next prompt:** die Kurzform von Handover, immer sichtbar, mit Empfangsbestätigung.
 
 Ein schwebendes Panel **Notices and tips** (Glocke in der Reiterleiste) sammelt, was sonst Fläche

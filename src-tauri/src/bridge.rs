@@ -67,6 +67,11 @@ pub struct Session {
     model: Option<String>,
     /// What it is waiting for
     message: Option<String>,
+    /// What it is doing or did last, e.g. `Write docs/api.md`
+    step: Option<String>,
+    /// Unix milliseconds: when its latest turn ended, as it reported; `None` while it works
+    /// and for a session that never reported
+    turn_done: Option<u64>,
     /// Files it wrote, project-relative, newest first
     touched: Vec<Touch>,
     /// It received the hand-over with its latest prompt
@@ -103,6 +108,18 @@ pub struct AssistantState {
     identities: Vec<IdentityInfo>,
     /// What waits for the next prompt, in the order it was handed over
     handovers: Vec<Handover>,
+    /// The hand-over that went out last, until the next one is queued
+    delivered: Option<Delivery>,
+}
+
+/// A hand-over a session took with its prompt.
+#[derive(Serialize, Clone)]
+pub struct Delivery {
+    session: String,
+    /// Unix milliseconds
+    at: u64,
+    /// What it was made of, as the parts were called
+    labels: Vec<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -120,6 +137,7 @@ struct Inner {
     /// Per session: the repositories (top-level paths) with a snapshot in the current turn
     turn: HashMap<String, HashSet<PathBuf>>,
     handovers: Vec<Handover>,
+    delivered: Option<Delivery>,
     /// Sessions whose log was read since their turn ended
     looked_up: HashSet<String>,
     /// Colour, short name and title per session, of the project they were read for
@@ -170,7 +188,7 @@ impl Bridge {
     pub fn state(&self) -> AssistantState {
         let inner = self.inner.lock().unwrap();
         let harnesses = harness::all().iter().map(|h| HarnessInfo::of(*h)).collect();
-        AssistantState { heard: inner.heard, harnesses, sessions: inner.listed(), identities: inner.identity_list(), handovers: inner.handovers.clone() }
+        AssistantState { heard: inner.heard, harnesses, sessions: inner.listed(), identities: inner.identity_list(), handovers: inner.handovers.clone(), delivered: inner.delivered.clone() }
     }
 
     /// A new project: what was known about the old one does not apply.
@@ -180,6 +198,7 @@ impl Bridge {
             inner.sessions.clear();
             inner.turn.clear();
             inner.handovers.clear();
+            inner.delivered = None;
             inner.looked_up.clear();
         }
         let _ = app.emit(ASSISTANT_CHANGED, self.state());
@@ -219,7 +238,14 @@ impl Bridge {
     /// One part of the text for the assistant with the next prompt in this project; `None`
     /// takes that part back. All parts go together with the next prompt.
     pub fn hand_over(&self, app: &AppHandle, key: String, part: Option<(String, String)>) {
-        set_part(&mut self.inner.lock().unwrap().handovers, key, part);
+        {
+            let mut inner = self.inner.lock().unwrap();
+            // Something new is queued: the receipt of the last hand-over has done its job
+            if part.is_some() {
+                inner.delivered = None;
+            }
+            set_part(&mut inner.handovers, key, part);
+        }
         let _ = app.emit(ASSISTANT_CHANGED, self.state());
     }
 
@@ -229,6 +255,17 @@ impl Bridge {
             let mut inner = self.inner.lock().unwrap();
             inner.use_project(&app.state::<Arc<Current>>().get().root);
             inner.rename(id, title, short);
+            inner.save_identities();
+        }
+        let _ = app.emit(ASSISTANT_CHANGED, self.state());
+    }
+
+    /// Takes a session off the list until it reports again.
+    pub fn forget(&self, app: &AppHandle, id: &str) {
+        {
+            let mut inner = self.inner.lock().unwrap();
+            inner.use_project(&app.state::<Arc<Current>>().get().root);
+            inner.forget(id);
             inner.save_identities();
         }
         let _ = app.emit(ASSISTANT_CHANGED, self.state());
@@ -374,6 +411,15 @@ impl Inner {
         session.touched.truncate(TOUCHED_KEPT);
     }
 
+    /// Takes a session off the list. Its colour and name stay with its snapshots, and it is
+    /// back as soon as it reports again.
+    fn forget(&mut self, id: &str) {
+        self.sessions.remove(id);
+        self.turn.remove(id);
+        self.looked_up.remove(id);
+        self.identities.hide(id, true);
+    }
+
     /// The user's title and short name for a listed session.
     fn rename(&mut self, id: &str, title: Option<&str>, short: Option<&str>) {
         let Some(session) = self.sessions.get_mut(id) else { return };
@@ -403,6 +449,8 @@ impl Inner {
         let session = self.session(&e.session, now, harness);
         // It reports: from now on everything its tool can do is possible with it
         session.capabilities = capabilities;
+        self.identities.hide(&e.session, false);
+        let session = self.sessions.get_mut(&e.session).expect("just looked up");
         if let Some(c) = &cwd {
             session.cwd = relative(root, c).unwrap_or_else(|| c.display().to_string());
         }
@@ -414,11 +462,19 @@ impl Inner {
                 session.prompts += 1;
                 session.prompt = e.prompt.as_deref().map(shorten);
                 session.message = None;
+                session.step = None;
+                session.turn_done = None;
                 session.handed = false;
             }
             EventKind::BeforeWrite | EventKind::AfterWrite => {
                 session.status = "working";
                 session.message = None;
+                session.turn_done = None;
+                session.step = match (&e.tool, file.as_deref()) {
+                    (Some(tool), Some(f)) => Some(format!("{tool} {}", relative(root, f).unwrap_or_else(|| f.display().to_string()))),
+                    (Some(tool), None) => Some(tool.clone()),
+                    _ => session.step.take(),
+                };
             }
             EventKind::Waiting => {
                 session.status = "waiting";
@@ -429,6 +485,8 @@ impl Inner {
             EventKind::TurnDone => {
                 session.status = "idle";
                 session.message = None;
+                // Said twice (the end of the turn, then "waiting for your input"): the first counts
+                session.turn_done.get_or_insert(now);
             }
             EventKind::SessionEnded => {
                 session.status = "ended";
@@ -451,8 +509,10 @@ impl Inner {
             self.turn.remove(&e.session);
             // Only a tool that adds the text to the prompt takes it; for others it keeps waiting
             if capabilities.handover == harness::Handover::WithNextPrompt {
+                let labels: Vec<String> = self.handovers.iter().map(|h| h.label.clone()).collect();
                 if let Some(text) = take_parts(&mut self.handovers) {
                     context = Some(text);
+                    self.delivered = Some(Delivery { session: e.session.clone(), at: now, labels });
                     if let Some(s) = self.sessions.get_mut(&e.session) {
                         s.handed = true;
                     }
@@ -486,6 +546,10 @@ impl Inner {
     /// Takes in a session found in a tool's logs. If nothing was heard from it, it stays one
     /// known from its log only.
     fn take_log(&mut self, harness: &dyn Harness, info: SessionInfo, root: &Path) {
+        // Taken off the list by the user: it stays away until it reports again
+        if self.identities.get(&info.id).is_some_and(|i| i.hidden) {
+            return;
+        }
         self.looked_up.insert(info.id.clone());
         let id = info.id.clone();
         let session = self.session(&id, info.last, harness);
@@ -518,6 +582,8 @@ fn new_session(id: &str, harness: &dyn Harness) -> Session {
         renamed: false,
         model: None,
         message: None,
+        step: None,
+        turn_done: None,
         touched: Vec::new(),
         handed: false,
     }
@@ -635,6 +701,87 @@ mod tests {
         let old = &inner.sessions["old"];
         assert!(old.capabilities.live_status && old.status == "working" && old.title.as_deref() == Some("Earlier work"));
         assert!(inner.heard && inner.handovers.len() == 1 && inner.sessions.len() == 2);
+    }
+
+    /// The fake tool, but one that takes text with a prompt.
+    struct Prompting;
+    impl Harness for Prompting {
+        fn id(&self) -> &'static str {
+            "prompting"
+        }
+        fn name(&self) -> &'static str {
+            Fake.name()
+        }
+        fn short_name(&self) -> &'static str {
+            Fake.short_name()
+        }
+        fn capabilities(&self) -> Capabilities {
+            Capabilities { handover: Way::WithNextPrompt, ..Fake.capabilities() }
+        }
+        fn connections(&self) -> Vec<harness::Connection> {
+            Vec::new()
+        }
+        fn connect(&self, account: &str, on: bool) -> Result<(), String> {
+            Fake.connect(account, on)
+        }
+        fn translate(&self, raw: &serde_json::Value) -> Option<Event> {
+            Fake.translate(raw)
+        }
+        fn reply(&self, _event: &Event, handed: &[String]) -> Option<String> {
+            Some(handed.join("\n"))
+        }
+        fn past_sessions(&self, project: &Path) -> Vec<SessionInfo> {
+            Fake.past_sessions(project)
+        }
+        fn read_log(&self, log: &Path) -> Option<SessionInfo> {
+            Fake.read_log(log)
+        }
+    }
+
+    /// What the right column lives on: the step a session is at, when its turn ended, and
+    /// which session took the hand-over.
+    #[test]
+    fn tells_the_step_the_end_of_a_turn_and_the_delivery() {
+        let root = Path::new("/p");
+        let mut inner = Inner::default();
+        let step = |inner: &mut Inner, raw: &str, now: u64| {
+            let event = Fake.translate(&serde_json::from_str(raw).unwrap()).unwrap();
+            inner.take_in(&event, &Prompting, root, Vec::new, now).unwrap()
+        };
+        set_part(&mut inner.handovers, "markers".into(), Some(("do this".into(), "2 comments".into())));
+        set_part(&mut inner.handovers, "focus".into(), Some(("look here".into(), "1 item".into())));
+
+        let asked = step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Go on"}"#, 10);
+        assert_eq!(asked.context.as_deref(), Some("do this\n\nlook here"));
+        let delivered = inner.delivered.clone().unwrap();
+        assert_eq!((delivered.session.as_str(), delivered.at, delivered.labels), ("a1", 10, vec!["2 comments".to_string(), "1 item".to_string()]));
+        assert!(inner.handovers.is_empty() && inner.sessions["a1"].handed);
+
+        step(&mut inner, r#"{"who":"a1","did":"will-write","in":"/p","path":"/p/docs/api.md","with":"patch"}"#, 20);
+        assert_eq!((inner.sessions["a1"].step.as_deref(), inner.sessions["a1"].turn_done), (Some("patch docs/api.md"), None));
+        step(&mut inner, r#"{"who":"a1","did":"will-write","in":"/p","with":"shell"}"#, 30);
+        assert_eq!(inner.sessions["a1"].step.as_deref(), Some("shell"));
+        step(&mut inner, r#"{"who":"a1","did":"done","in":"/p"}"#, 40);
+        // The end of the turn said once more a minute later: it is still the turn that ended at 40
+        step(&mut inner, r#"{"who":"a1","did":"done","in":"/p"}"#, 100);
+        let a1 = &inner.sessions["a1"];
+        assert_eq!((a1.status, a1.turn_done, a1.step.as_deref()), ("idle", Some(40), Some("shell")));
+
+        // Taken off the list: not read from the log again, but back with its next step, as it was
+        inner.take_log(&Prompting, Fake.past_sessions(root).remove(0), root);
+        let old = (inner.sessions["old"].color, inner.sessions["old"].short.clone());
+        inner.forget("old");
+        inner.take_log(&Prompting, Fake.past_sessions(root).remove(0), root);
+        assert!(!inner.sessions.contains_key("old") && inner.identity_list().iter().any(|i| i.id == "old"));
+        step(&mut inner, r#"{"who":"old","did":"asked","in":"/p/docs","text":"Back"}"#, 105);
+        assert_eq!((inner.sessions["old"].color, inner.sessions["old"].short.clone()), old);
+        inner.sessions.remove("old");
+        inner.take_log(&Prompting, Fake.past_sessions(root).remove(0), root);
+        assert!(inner.sessions.contains_key("old"));
+        // The next prompt: a new turn, nothing to deliver, the receipt stays
+        let next = step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"More"}"#, 110);
+        assert!(next.context.is_none() && inner.sessions["a1"].turn_done.is_none() && !inner.sessions["a1"].handed);
+        assert!(inner.delivered.is_some());
     }
 
     /// Colour and letter are given once, the list keeps its order whoever works, and the

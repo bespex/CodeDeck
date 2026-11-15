@@ -303,6 +303,12 @@ fn rename_session(id: String, title: Option<String>, short: Option<String>, app:
     bridge.rename(&app, &id, title.as_deref(), short.as_deref());
 }
 
+/// Takes a session off the list of this project until it reports again.
+#[tauri::command]
+fn forget_session(id: String, app: AppHandle, bridge: State<Arc<Bridge>>) {
+    bridge.forget(&app, &id);
+}
+
 /// Whether the coding tools report to CodeDeck, per tool and account.
 #[tauri::command]
 fn harness_connections() -> Vec<Connection> {
@@ -383,6 +389,7 @@ pub fn run() {
             assistant_state,
             hand_over,
             rename_session,
+            forget_session,
             harness_connections,
             set_harness_connection,
             git_log

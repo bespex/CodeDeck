@@ -98,7 +98,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 | 1.2 Schnittstelle für KI-Werkzeuge ✅ 2026-11-15 | Alles Claude-Spezifische hinter die Schnittstelle aus „Kapselung der KI-Anbindung“ ziehen. Kein neues Verhalten | – | `hook.rs`, `sessions.rs`, `bridge.rs`, `lib.rs`, `backend.ts` | Tests grün; ein Test-Adapter ohne Claude liefert Sitzungen; Frontend fragt Fähigkeiten statt Werkzeugnamen |
 | 1.2a Sitzungs-Identität ✅ 2026-11-15 | D15: Jede Sitzung bekommt Farbe und Kurzname, überall gleich (Liste, Trail, Snapshots, Dateien); Hover hebt Zugehöriges hervor; feste Reihenfolge nach Start statt nach Aktivität; Umbenennen (Titel, Kurzname) je Projekt. Titel aus dem Log: zuerst `custom-title`, dann `ai-title` | rechte Spalte, Trail | `bridge.rs` (`sort_by last`), `harness/claude.rs` (Log), `config.rs`, `SessionsPanel.tsx`, `Trail.tsx` | Zwei Sitzungen sind in Liste, Trail und Dateibaum an Farbe und Kurzname zu unterscheiden; die Liste springt nicht mehr; ein vergebener Name überlebt den Neustart |
 | 1.3 Grundgerüst ✅ 2026-11-15 | Projekt öffnet in Changes (D14). Vier Reiter mit ihrer Frage, Bereichsfarben, die fünf Erscheinungsformen als wiederverwendbare Bausteine (Werkzeugleiste, Abschnitt, Zeile, Dokument, Entscheidung). Bestehende Ansichten einsortieren: Docs → Handover, Workspace/Map/Tests entfallen als Reiter | Projektansicht, alle Reiter | `Deck.tsx`, `views/*`, `index.css`, `App.tsx` | Alle heutigen Funktionen sind im neuen Gerüst erreichbar; Vorschau zeigt vier Reiter |
-| 1.4 Rechte Spalte ☐ | „Needs you“, Sitzungen als zwei Zeilen mit aufklappbaren Details, „Next prompt“ mit Vorschau des Textes und Empfangsbestätigung | rechte Spalte, Szenen 2–7 | `SessionsPanel.tsx`, `assistant.ts`, `bridge.rs` (Übergabe abgeholt melden) | Wartende Sitzung erscheint oben mit Grund; nach dem nächsten Prompt steht „Delivered“ |
+| 1.4 Rechte Spalte ✅ 2026-11-15 | „Needs you“, Sitzungen als zwei Zeilen mit aufklappbaren Details, „Next prompt“ mit Vorschau des Textes und Empfangsbestätigung | rechte Spalte, Szenen 2–7 | `SessionsPanel.tsx`, `assistant.ts`, `bridge.rs` (Übergabe abgeholt melden) | Wartende Sitzung erscheint oben mit Grund; nach dem nächsten Prompt steht „Delivered“ |
 | 1.5 Changes je Runde ☐ | Auswahl „Turn n / All uncommitted“ (macht den Strg+Klick-Vergleich entdeckbar, ersetzt ihn nicht), Kurzbericht aus dem Log, Datei abhaken, „Claude“ oder „You“ je Datei, Zeile kommentieren | Changes, Szenen 4–7 | `ChangesView.tsx`, `DiffParts.tsx`, `history.rs`, `sessions.rs`, `focus.ts` | Ein Zeilenkommentar landet in „Next prompt“ und kommt bei Claude an |
 | 1.6 Handover ☐ | Reiter mit Warteschlange, genauem Text, Quellen, `@ai`-Hinweisen; Startregeln (abhängig von 1.1) sichtbar | Handover | `DocsView.tsx` → Handover, `markers.ts`, `hook.rs` | Regeln stehen wörtlich im Reiter und kommen in einer neuen Sitzung an |
 
@@ -141,6 +141,13 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 - **Zweites KI-Werkzeug:** zuerst Codex CLI, dann opencode, je als Adapter (siehe unten). Erst dann zeigt
   sich, ob die Schnittstelle trägt.
 - **Erlaubnis aus CodeDeck** (D13), **Karte** (P9).
+- **„Woran habe ich am Tag X gearbeitet?“** (Idee des Nutzers, 2026-11-15): CodeDeck weiß mehr darüber als Git
+  allein (Sitzungen mit Titel, Prompts, Zeiten, geschriebene Dateien, Sicherungspunkte, Commits je Projekt). Ein
+  MCP-Server-Teil von CodeDeck könnte das einer KI bereitstellen, um Arbeitszeiten und -themen zu erkennen. Braucht
+  ein dauerhaftes Ereignisprotokoll je Projekt (entsteht mit 2.3 „Ereignisse merken“) und eine Antwort auf die
+  Frage, was davon das Gerät verlassen darf.
+- **Einstellungsseite** (Wunsch des Nutzers, 2026-11-15): z. B. wie lange eine fertige Runde unter „Needs you“
+  steht, ab wann Sitzungen unter „Earlier“ einklappen.
 
 ---
 
@@ -461,6 +468,30 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   `--color-area-ai` (Sitzungen) und `--color-area-you` (Fokus, später „Next prompt“) in `index.css`. Der Trail bleibt
   die schmale Spalte, die beim Überfahren aufgeht (Dummy zeigt ihn dauerhaft offen); Glocke „Notices“ kommt mit 2.3.
   Hover-Nachbesserung zu 1.2a ist enthalten: Commits bleiben hell, Hervorhebung hält zwischen zwei Sitzungen.
+- 1.4 (2026-11-15): Rechte Spalte in drei Bereichen (`SessionsPanel.tsx`). **Needs you:** Sitzung fragt (Status
+  `waiting`, Grund = Meldung) oder hat ihre Runde beendet (`Session.turnDone`); Letzteres lässt sich weglegen (×) und
+  verschwindet nach 30 Minuten von selbst (`DONE_SHOWN_MS`, soll Einstellung werden). **Sessions:** zwei Zeilen
+  (Titel + Zustand, darunter `Session.step` / Frage / Ergebnis), Details klappen auf; „Earlier“ (eingeklappt) sammelt
+  beendete, nur aus dem Log bekannte und seit 6 h untätige (`EARLIER_AFTER_MS`); „Remove from list“ nimmt eine Sitzung
+  heraus (`forget_session`, `Identity.hidden`), sie kommt mit ihrem nächsten Schritt von selbst wieder. **Next
+  prompt:** wartende Teile mit „Preview“ des genauen Textes und „Take back“, danach die Quittung „Delivered at … to
+  <Sitzung>“ (`AssistantState.delivered`), darunter der Fokus mit „Add to next prompt“. Belegt aus der Hook-Spur:
+  Wird eine Runde abgebrochen oder läuft ins Nutzungslimit, feuert **kein `Stop`**; erst `Notification`
+  `idle_prompt` eine Minute später. Der Claude-Adapter übersetzt `idle_prompt` deshalb als `turn_done` (keine Frage),
+  der Kern behält den ersten Zeitpunkt. Nicht gebaut: „Allow once“ (D13), Befehlstext bei der Erlaubnisfrage
+  (Befehle verlassen den Hook bewusst nicht), Zielsitzung wählen, „New session…“ (3.x), Größen ziehen.
+  **Für 2.4 (Verbrauch) belegt:** Das Log enthält bei erreichtem Limit einen `assistant`-Eintrag mit
+  `isApiErrorMessage: true`, `error: "rate_limit"` und Text wie „You've hit your 5-hour limit · resets 7pm
+  (Europe/Berlin)“. Daraus lässt sich „wartet auf Reset“ je Sitzung ablesen, aber erst beim nächsten Log-Lesen
+  (kein Hook in dem Moment). Der Nutzer liest den Verbrauch schon heute für Home Assistant aus (Prozent im
+  5-Stunden-Fenster, Prozent im Wochenfenster, Reset des Wochenfensters): die Quelle ist die
+  **Statuszeile von Claude Code**: Ihr Befehl bekommt auf stdin JSON mit `rate_limits.five_hour` und
+  `rate_limits.seven_day`, je `used_percentage` und `resets_at` (so liest es `~/.claude/statusline-mqtt.py` des
+  Nutzers, aufgerufen aus `statusline-command.sh`, und meldet es per MQTT). Das beantwortet D2 weitgehend. Offen für
+  2.4: wie CodeDeck an diese Werte kommt, ohne die vorhandene Statuszeile des Nutzers zu ersetzen (z. B. ein
+  `codedeck usage`, das das Script zusätzlich füttert, oder CodeDeck liest eine Datei, die das Script schreibt), und
+  dass die Werte je Konto gelten und nur kommen, während eine Sitzung läuft. Die Liste zeigt Sitzungen, deren Ordner das Projekt ist, darin liegt **oder es enthält**
+  (eine Sitzung im Elternordner erscheint also auch); ob Letzteres bleiben soll, mit MVP 3 (mehrere Projekte) klären.
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

@@ -55,9 +55,13 @@ event, without file contents, to the socket every CodeDeck window keeps in
 the settings changes, the file as it was is kept as `settings.json.before-codedeck`, and
 *Disconnect* takes the hooks out again. Without a CodeDeck window open the hook does nothing.
 
-- **Sessions:** the right column lists the sessions working in the project with the title Claude
-  Code gave them, their latest prompt, model and the files they wrote; those files carry the dot in
-  the file list. Sessions of the last day are read from Claude Code's logs
+- **Needs you:** on top of the right column, the sessions that ask something (a permission, a
+  question) and those that finished their turn; the latter can be put aside and leave by themselves
+  after half an hour.
+- **Sessions:** below, the sessions working in the project in two lines each: title and state, then
+  what counts right now (the step it is at, its question, what it wrote). Prompt, model and the files it
+  wrote fold out; those files carry the dot in the file list. Sessions that ended, never reported or have
+  been idle for hours are folded away under *Earlier*; *Remove from list* takes one out until its next step. Sessions of the last day are read from Claude Code's logs
   (`<configuration>/projects/`), so they appear even when they started before CodeDeck. The status bar counts
   them and shows when one waits for you. Each session has a colour and a short name (A, B, C …) that it
   keeps wherever it shows up: in the list, on its snapshots on the trail, on the dot of the files it

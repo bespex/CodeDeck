@@ -514,6 +514,10 @@ export interface Session {
   model: string | null;
   /** What it is waiting for */
   message: string | null;
+  /** What it is doing or did last, e.g. `Write docs/api.md` */
+  step: string | null;
+  /** Unix milliseconds: when its latest turn ended, as it reported; `null` while it works and for a session that never reported */
+  turnDone: number | null;
   /** Files it wrote, project-relative, newest first */
   touched: { path: string; at: number }[];
   /** It got the hand-over with its latest prompt */
@@ -531,6 +535,8 @@ export interface AssistantState {
   identities: { id: string; color: number; short: string; title: string | null }[];
   /** What waits for the next prompt, in parts that can be taken back one by one */
   handovers: Handover[];
+  /** The hand-over that went out last (which session took it, when, what it was made of), until the next one is queued */
+  delivered: { session: string; at: number; labels: string[] } | null;
 }
 
 /** One part of what the assistant gets with the next prompt. */
@@ -563,6 +569,8 @@ const mockAssistant: AssistantState = {
       title: "Per-client rate limit for orders",
       model: "opus-5-5",
       message: null,
+      step: "Edit tests/rate_limit.rs",
+      turnDone: null,
       touched: [
         { path: "tests/rate_limit.rs", at: Date.now() - 40_000 },
         { path: "src/middleware/rate_limit.rs", at: Date.now() - 120_000 },
@@ -585,15 +593,63 @@ const mockAssistant: AssistantState = {
       title: "Limiter documentation",
       model: "sonnet-5-5",
       message: "Claude needs your permission to use Bash",
+      step: "Bash",
+      turnDone: null,
       touched: [{ path: "docs/api.md", at: Date.now() - 4 * 60_000 }],
+      handed: false,
+    },
+    {
+      id: "c41d7e02-5b9f-4a3c-8e21-9d0f1a2b3c4d",
+      harness: "claude",
+      capabilities: MOCK_CAPABILITIES,
+      color: 2,
+      short: "C",
+      renamed: false,
+      cwd: "",
+      status: "idle",
+      started: Date.now() - 70 * 60_000,
+      last: Date.now() - 6 * 60_000,
+      prompt: "Tighten the config defaults",
+      prompts: 3,
+      title: "Config defaults",
+      model: "sonnet-5-5",
+      message: null,
+      step: "Edit src/config.rs",
+      turnDone: Date.now() - 6 * 60_000,
+      touched: [{ path: "src/config.rs", at: Date.now() - 7 * 60_000 }],
+      handed: false,
+    },
+    {
+      id: "d92a0b13-7c4e-4d5f-9a6b-0e1f2a3b4c5d",
+      harness: "claude",
+      // Known from its log only: nothing that needs it to report
+      capabilities: { ...MOCK_CAPABILITIES, liveStatus: false, beforeWrite: false, handover: "none" },
+      color: 3,
+      short: "D",
+      renamed: false,
+      cwd: "",
+      status: "idle",
+      started: Date.now() - 20 * 3600_000,
+      last: Date.now() - 19 * 3600_000,
+      prompt: "Sketch the project layout",
+      prompts: 0,
+      title: "Initial project layout",
+      model: "opus-5-5",
+      message: null,
+      step: null,
+      turnDone: null,
+      touched: [],
       handed: false,
     },
   ],
   identities: [
+    { id: "c41d7e02-5b9f-4a3c-8e21-9d0f1a2b3c4d", color: 2, short: "C", title: "Config defaults" },
+    { id: "d92a0b13-7c4e-4d5f-9a6b-0e1f2a3b4c5d", color: 3, short: "D", title: "Initial project layout" },
     { id: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a", color: 1, short: "B", title: "Per-client rate limit for orders" },
     { id: "b07e11d4-6c3a-4f2e-8d90-1a2b3c4d5e6f", color: 0, short: "A", title: "Limiter documentation" },
   ],
   handovers: [],
+  delivered: null,
 };
 /** The titles the tool gave the mock sessions, to go back to */
 const mockToolTitles = new Map(mockAssistant.sessions.map((s) => [s.id, s.title]));
@@ -618,6 +674,7 @@ export function handOver(key: string, text: string | null, label?: string): Prom
   if (live) return invoke("hand_over", { key, text, label: label ?? null });
   const rest = mockAssistant.handovers.filter((h) => h.key !== key);
   mockAssistant.handovers = text === null ? rest : [...rest, { key, text, label: label ?? "" }];
+  if (text !== null) mockAssistant.delivered = null;
   mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
   return Promise.resolve();
 }
@@ -630,6 +687,14 @@ export function renameSession(id: string, title: string | null, short: string | 
     s.id === id ? { ...s, title: name ?? mockToolTitles.get(id) ?? null, renamed: name !== null, short: short?.trim().slice(0, 4) || s.short } : s,
   );
   mockAssistant.identities = mockAssistant.sessions.map((s) => ({ id: s.id, color: s.color, short: s.short, title: s.title }));
+  mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+  return Promise.resolve();
+}
+
+/** Takes a session off the list of this project; it comes back by itself when it takes its next step. */
+export function forgetSession(id: string): Promise<void> {
+  if (live) return invoke("forget_session", { id });
+  mockAssistant.sessions = mockAssistant.sessions.filter((s) => s.id !== id);
   mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
   return Promise.resolve();
 }

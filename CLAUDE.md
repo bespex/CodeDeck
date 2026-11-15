@@ -31,7 +31,7 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src/components/blocks.tsx` | Die fünf Erscheinungsformen: `Toolbar`, `Section`, `Rows`/`Row`, `Document`, `Decision` (neue Ansichten bauen damit) |
 | `src/components/views/HandoverView.tsx` | Was mit dem nächsten Prompt rausgeht, Marker, Übergabe-Fortschritt |
 | `src/components/views/ActivityView.tsx`, `WorkbenchView.tsx` | Zuletzt geschriebene Dokumente (Zeitleiste folgt in 2.3); Platzhalter bis 2.1 |
-| `src/components/SessionsPanel.tsx` | Rechte Spalte: Sitzungen (Schild, Umbenennen, Hover) + Fokus (Pins, „Hand to …“) |
+| `src/components/SessionsPanel.tsx` | Rechte Spalte: „Needs you“, Sitzungen (zwei Zeilen, „Earlier“, Umbenennen, Entfernen, Hover), „Next prompt“ (Warteschlange, Vorschau, Quittung, Fokus) |
 | `src/components/SessionBadge.tsx`, `useSessionMarks` in `src/assistant.ts` | Schild einer Sitzung; Farbe/Kurzname/Schreiber je Datei für alle Komponenten |
 | `src/components/AssistantStatus.tsx` | KI-Werkzeug in der Statusleiste, `HookPanel` (verbinden); Namen und Angebote aus `mainHarness` |
 | `src/focus.ts`, `src/markers.ts` | Pin-Typ und Fokus-Text; Marker laden und „erledigt“ erkennen |

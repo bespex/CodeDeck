@@ -26,6 +26,9 @@ pub struct Identity {
     /// The tool's title as last known, for when the session is no longer listed
     #[serde(default)]
     pub title: Option<String>,
+    /// Taken off the list by the user; it comes back when the session reports again
+    #[serde(default)]
+    pub hidden: bool,
     /// Unix milliseconds: first and last heard of
     pub first: u64,
     pub seen: u64,
@@ -59,7 +62,6 @@ pub struct Identities {
 }
 
 impl Identities {
-    #[cfg(test)]
     pub fn get(&self, id: &str) -> Option<&Identity> {
         self.sessions.get(id)
     }
@@ -87,7 +89,7 @@ impl Identities {
                 break;
             }
         }
-        let identity = Identity { color, short, name: None, title: None, first: now, seen: now };
+        let identity = Identity { color, short, name: None, title: None, hidden: false, first: now, seen: now };
         self.sessions.insert(id.to_string(), identity.clone());
         self.dirty = true;
         identity
@@ -97,6 +99,14 @@ impl Identities {
     pub fn touch(&mut self, id: &str, now: u64) {
         if let Some(i) = self.sessions.get_mut(id).filter(|i| now > i.seen + SEEN_STEP_MS) {
             i.seen = now;
+            self.dirty = true;
+        }
+    }
+
+    /// Takes the session off the list of its project, or puts it back.
+    pub fn hide(&mut self, id: &str, hidden: bool) {
+        if let Some(i) = self.sessions.get_mut(id).filter(|i| i.hidden != hidden) {
+            i.hidden = hidden;
             self.dirty = true;
         }
     }
