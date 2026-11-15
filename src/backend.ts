@@ -535,7 +535,7 @@ export interface AssistantState {
 
 /** One part of what the assistant gets with the next prompt. */
 export interface Handover {
-  /** `markers` (Docs view) or `focus` (the focus list) */
+  /** `markers` (Handover view) or `focus` (the focus list) */
   key: string;
   text: string;
   label: string;

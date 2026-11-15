@@ -8,14 +8,14 @@ Part of [be spex](https://be-spex.github.io) – small, focused apps for Linux. 
 
 > Early development. Real: the file list, Git (status, changes, history and the everyday actions)
 > for every repository in the project, and the bridge to Claude Code (sessions, snapshots, comments
-> for the assistant, focus). Still sample data: the Workspace view.
+> for the assistant, focus). Not built yet: the Workbench view and the timeline in Activity.
 
 ## Layout
 
 | Column | What it is |
 | --- | --- |
 | **Files** | The project tree. A cyan dot marks files the assistant changed. The project name at the top switches to a recent project or opens a folder (`Ctrl+O`) here or in a new window (`Ctrl+Shift+O`); every folder in the path above it, and every folder in the tree, can become the project. `Ctrl+click` opens it in a new window instead. |
-| **Deck** | The working surface, with views (Workspace, Map, Changes, Docs, Tests) and the **Trail**: the Git history of all repositories as one vertical line. Hovering opens it to the left, over the file list, into a timeline; a point shows what that commit changed, with its details on top. The line shows how safe the work is: amber while not committed, dashed amber with hollow amber rings while committed but not pushed, quiet grey with filled points once on a remote. The newest pushed commit of each repository carries its remote's name with what is left to push and pull (`origin ↑2`). A spark marks commits made with an assistant (from their `Co-authored-by` trailer); an anchor marks a snapshot (see below). Ctrl+click a second point of the same repository to see what changed between the two. Where [Dirq](https://github.com/be-spex/Qiew) is installed, a commit, a snapshot or a comparison opens in it side by side. |
+| **Deck** | The working surface, with four views, each for one question (Activity: what are the sessions doing; Changes: what did the assistant change; Workbench: what else came up; Handover: what goes out with the next prompt), and the **Trail**: the Git history of all repositories as one vertical line. Hovering opens it to the left, over the file list, into a timeline; a point shows what that commit changed, with its details on top. The line shows how safe the work is: amber while not committed, dashed amber with hollow amber rings while committed but not pushed, quiet grey with filled points once on a remote. The newest pushed commit of each repository carries its remote's name with what is left to push and pull (`origin ↑2`). A spark marks commits made with an assistant (from their `Co-authored-by` trailer); an anchor marks a snapshot (see below). Ctrl+click a second point of the same repository to see what changed between the two. Where [Dirq](https://github.com/be-spex/Qiew) is installed, a commit, a snapshot or a comparison opens in it side by side. |
 | **Sessions** and **Focus** | The Claude Code sessions working in the project, each with its latest prompt and the files it wrote (a click shows the file); and the focus: files, folders and passages pinned for Claude, handed over with the next prompt only when you say so. Empty, Claude works without extra context. |
 
 A project is a directory with an optional `.codedeck.toml`. No index, no project folder. Each window is
@@ -72,10 +72,10 @@ the settings changes, the file as it was is kept as `settings.json.before-codede
   picking one shows what changed since, and **Go back to here** puts the files back, after keeping the present as a snapshot of its own, so going back
   can be undone the same way. 50 per repository are kept, for 14 days.
 - **Comments for the assistant:** write `<!-- @ai: … -->` into Markdown or HTML, or `[!AI: …]`
-  into any text, in whatever editor. The **Docs** view collects them (with `git grep`, so ignored
+  into any text, in whatever editor. The **Handover** view collects them (with `git grep`, so ignored
   files stay out) and turns them into a task: copied, or **handed to Claude** with the next prompt
-  you send in this project. Comments that are gone afterwards count as done. Below them are the
-  documents the assistant wrote recently.
+  you send in this project. Comments that are gone afterwards count as done. The
+  documents the assistant wrote recently are in the **Activity** view.
 - **Focus:** pin files and folders (or drag them into the column) and **hand them to Claude**: it
   gets their paths with the next prompt and reads what it needs. Comments and focus can wait
   together; both go with the same prompt.

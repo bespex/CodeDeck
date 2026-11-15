@@ -66,7 +66,7 @@ So ist CodeDeck aufgebaut:
 
 ```
 ┌─ Dateien ────────────┬─ Deck ──────────────────────────────────┬─ Sessions & Focus ──────┐
-│ ▾ src            main│  Workspace  Changes  Docs ②  …          │ Sessions                │
+│ ▾ src            main│  Activity  Changes  Handover ②  …       │ Sessions                │
 │   ● limit.rs         │ ┌──────────────────────────────────────┐│ ● Rate limiter fix      │
 │   ● main.rs          │ │ Uncommitted changes                  ││   working · opus        │
 │     util.rs          │ │  ~ src/limit.rs   +40 −12            ││   limit.rs, main.rs     │
@@ -150,10 +150,10 @@ Claude umständlich zu beschreiben, schreibst du an die Stelle:
 <!-- @ai: Hier ein kurzes Beispiel mit curl ergänzen -->
 ```
 
-Der Tab **Docs** zeigt sofort eine ①. Dort stehen alle solchen Hinweise des Projekts mit Datei und
+Der Reiter **Handover** zeigt sofort eine ①. Dort stehen alle solchen Hinweise des Projekts mit Datei und
 Zeile. Du klickst **Hand to Claude**. Beim nächsten Prompt, den du im Terminal abschickst (auch nur
 „mach weiter“), bekommt Claude die Hinweise mitgeliefert und arbeitet sie ab. Sind die Kommentare
-danach aus den Dateien verschwunden, zeigt Docs **1 of 1 done**.
+danach aus den Dateien verschwunden, zeigt Handover **1 of 1 done**.
 
 *Einfach:* Du markierst dort, wo du gerade liest, in deinem gewohnten Editor. *Sehen:* Du siehst,
 was übergeben ist, was wartet und was erledigt ist.
@@ -473,7 +473,8 @@ KI stellt, und die Frage steht in der Reiterleiste.
 | **Workbench** | Was ist sonst entstanden, das noch nicht zum Projekt gehört? | siehe 4.4 |
 | **Handover** | Was gebe ich Claude mit dem nächsten Prompt? | Warteschlange, der genaue Text, Quellen zum Aufnehmen, `@ai`-Hinweise, Regeln |
 
-Offen ist, ob ein Projekt in Activity oder in Changes öffnet (D14 im Plan).
+Ein Projekt öffnet in Changes (D14 im Plan; wird geprüft, sobald Activity mehr zeigt). Die vier Reiter
+gibt es seit Schritt 1.3; Activity zeigt bisher nur die geschriebenen Dokumente, Workbench ist noch leer.
 
 Tests sind kein eigener Ort: Das Ergebnis gehört zur Runde und steht in Changes. Die frühere
 Docs-Ansicht geht auf: Hinweise sind etwas, das man mitgibt (Handover), geschriebene Dokumente sind

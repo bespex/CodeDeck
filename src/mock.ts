@@ -1,5 +1,4 @@
-// Sample data for the browser preview (`npx vite`, no Tauri backend) and for the parts not built
-// yet (the Workspace view, see docs/PLAN.md P8).
+// Sample data for the browser preview (`npx vite`, no Tauri backend).
 
 import type { Pin } from "./focus";
 
@@ -90,31 +89,3 @@ export const initialPins: Pin[] = [
   },
   { id: "docs", kind: "folder", label: "docs/", detail: "2 files", tokens: 4230 },
 ];
-
-export const configToml = `[project]
-name = "orbit-api"
-
-[assistant]
-provider = "claude-cli"
-model = "claude-sonnet-5-5"
-context_budget = 200000
-
-[tools]
-"*.json" = "jayq"
-"*.xml"  = "xaq"
-"*.md"   = "marq"
-
-[files]
-ignore = ["target", "node_modules"]
-`;
-
-/** What the parser would make of `configToml`. */
-export const config = {
-  assistant: { provider: "Claude CLI", model: "claude-sonnet-5-5", contextBudget: 200_000 },
-  tools: [
-    { pattern: "*.json", tool: "jayq", what: "JSON viewer with jq filter", found: true },
-    { pattern: "*.xml", tool: "xaq", what: "XML viewer with XSLT view", found: true },
-    { pattern: "*.md", tool: "marq", what: "Markdown viewer", found: false },
-  ],
-  ignore: ["target", "node_modules"],
-};

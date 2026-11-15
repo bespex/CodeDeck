@@ -55,7 +55,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
   const marks = useSessionMarks();
   const active = state.sessions.filter((s) => s.status !== "ended").length;
   return (
-    <section className="flex min-h-0 flex-col border-b border-line">
+    <section className="flex min-h-0 flex-col border-b border-line bg-[var(--color-area-ai)]">
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
         <Sparkles className="size-4 text-ai" />
         <h2 className="font-semibold text-slate-100">Sessions</h2>
@@ -221,7 +221,7 @@ function Focus({ assistant, pins, onPin, onUnpin, onClear }: Props) {
 
   return (
     <section
-      className="flex min-h-0 flex-col"
+      className="flex min-h-0 flex-col bg-[var(--color-area-you)]"
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes(DRAG_TYPE)) {
           e.preventDefault();

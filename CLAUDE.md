@@ -27,12 +27,15 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src/git.ts`, `src/history.ts`, `src/assistant.ts` | React-Hooks: Git-Status, Trail/Snapshots, Sitzungen |
 | `src/components/Trail.tsx` | Zeitleiste (Zonen, Remote-Chip, Snapshots) |
 | `src/components/views/ChangesView.tsx` | Diffs für jetzt / Commit / Snapshot |
-| `src/components/views/DocsView.tsx` | Marker, Übergabe-Fortschritt, zuletzt geschriebene Dokumente |
+| `src/components/Deck.tsx` | Vier Reiter mit ihrer Frage (Activity, Changes, Workbench, Handover), öffnet in Changes |
+| `src/components/blocks.tsx` | Die fünf Erscheinungsformen: `Toolbar`, `Section`, `Rows`/`Row`, `Document`, `Decision` (neue Ansichten bauen damit) |
+| `src/components/views/HandoverView.tsx` | Was mit dem nächsten Prompt rausgeht, Marker, Übergabe-Fortschritt |
+| `src/components/views/ActivityView.tsx`, `WorkbenchView.tsx` | Zuletzt geschriebene Dokumente (Zeitleiste folgt in 2.3); Platzhalter bis 2.1 |
 | `src/components/SessionsPanel.tsx` | Rechte Spalte: Sitzungen (Schild, Umbenennen, Hover) + Fokus (Pins, „Hand to …“) |
 | `src/components/SessionBadge.tsx`, `useSessionMarks` in `src/assistant.ts` | Schild einer Sitzung; Farbe/Kurzname/Schreiber je Datei für alle Komponenten |
 | `src/components/AssistantStatus.tsx` | KI-Werkzeug in der Statusleiste, `HookPanel` (verbinden); Namen und Angebote aus `mainHarness` |
 | `src/focus.ts`, `src/markers.ts` | Pin-Typ und Fokus-Text; Marker laden und „erledigt“ erkennen |
-| `src/mock.ts`, `WorkspaceView.tsx` | Beispieldaten (Vorschau; Workspace noch unecht) |
+| `src/mock.ts` | Beispieldaten für die Vorschau |
 | `design/click-dummy/` | Zielbild als Click-Dummy (Vorlage für `PLAN.md` „Zielbild“; README dort lesen, nicht die ganze `Main.dc.html`) |
 
 ## Regeln

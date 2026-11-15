@@ -1,41 +1,33 @@
 import { useState } from "react";
-import {
-  BookOpen,
-  FlaskConical,
-  GitCompareArrows,
-  Settings2,
-  Waypoints,
-  type LucideIcon,
-} from "lucide-react";
 import { Trail, type Point } from "./Trail";
-import { WorkspaceView } from "./views/WorkspaceView";
-import { ComingView } from "./views/ComingView";
+import { ActivityView } from "./views/ActivityView";
 import { ChangesView } from "./views/ChangesView";
-import { DocsView } from "./views/DocsView";
-import type { AssistantState, ProjectInfo } from "../backend";
+import { HandoverView } from "./views/HandoverView";
+import { WorkbenchView } from "./views/WorkbenchView";
+import type { AssistantState } from "../backend";
+import { mainHarness } from "../assistant";
 import type { GitView } from "../git";
 import { useHistory, useSnapshots } from "../history";
 import { useMarkers } from "../markers";
 
-type ViewId = "workspace" | "map" | "changes" | "docs" | "tests";
+type ViewId = "activity" | "changes" | "workbench" | "handover";
 
-const views: { id: ViewId; label: string; icon: LucideIcon }[] = [
-  { id: "workspace", label: "Workspace", icon: Settings2 },
-  { id: "map", label: "Map", icon: Waypoints },
-  { id: "changes", label: "Changes", icon: GitCompareArrows },
-  { id: "docs", label: "Docs", icon: BookOpen },
-  { id: "tests", label: "Tests", icon: FlaskConical },
+/** Four views for the four questions that come up when working with an assistant; `who` is its name. */
+const views: { id: ViewId; label: string; question: (who: string) => string }[] = [
+  { id: "activity", label: "Activity", question: () => "What are the sessions doing?" },
+  { id: "changes", label: "Changes", question: (who) => `What did ${who} change?` },
+  { id: "workbench", label: "Workbench", question: () => "What else came up that is not part of the project yet?" },
+  { id: "handover", label: "Handover", question: (who) => `What do you give ${who} with your next prompt?` },
 ];
 
 interface Props {
-  project: ProjectInfo | null;
   git: GitView;
   /** Selected in the file list */
   selected: string | null;
   assistant: AssistantState;
 }
 
-export function Deck({ project, git, selected, assistant }: Props) {
+export function Deck({ git, selected, assistant }: Props) {
   const [view, setView] = useState<ViewId>("changes");
   const [point, setPoint] = useState<Point>({ kind: "now" });
   const commits = useHistory(git.repos);
@@ -84,10 +76,10 @@ export function Deck({ project, git, selected, assistant }: Props) {
         role="tablist"
         aria-label="Deck views"
       >
-        {views.map(({ id, label, icon: Icon }) => {
+        {views.map(({ id, label }) => {
           const active = id === view;
           const badge =
-            id === "changes" && changed > 0 ? changed : id === "docs" && openMarkers > 0 ? openMarkers : undefined;
+            id === "changes" && changed > 0 ? changed : id === "handover" && openMarkers > 0 ? openMarkers : undefined;
           return (
             <button
               key={id}
@@ -101,7 +93,6 @@ export function Deck({ project, git, selected, assistant }: Props) {
                   : "text-slate-400 hover:bg-raised/70 hover:text-slate-100"
               }`}
             >
-              <Icon className="size-4" />
               {label}
               {badge !== undefined && (
                 <span className="rounded-full bg-brand/20 px-1.5 text-[11px] font-semibold text-brand-soft">
@@ -111,20 +102,16 @@ export function Deck({ project, git, selected, assistant }: Props) {
             </button>
           );
         })}
+        {/* The question the open view answers */}
+        <span className="mr-2 ml-auto min-w-0 truncate text-[12px] text-slate-400">
+          {views.find((v) => v.id === view)?.question(mainHarness(assistant).shortName)}
+        </span>
       </nav>
 
       <div className="flex min-h-0 flex-1">
         <Trail commits={commits} snapshots={shownSnapshots} onCompare={compare} repos={git.repos} point={point} onSelect={select} focusRepo={focusRepo} />
         <section className="min-w-0 flex-1 overflow-y-auto" role="tabpanel">
-          {view === "workspace" && <WorkspaceView project={project} />}
-          {view === "map" && (
-            <ComingView
-              icon={Waypoints}
-              title="Map"
-              text="Modules and how they depend on each other, drawn as a graph you can pin parts of."
-              phase="after Phase 5"
-            />
-          )}
+          {view === "activity" && <ActivityView assistant={assistant} />}
           {view === "changes" && (
             <ChangesView
               git={git}
@@ -142,15 +129,8 @@ export function Deck({ project, git, selected, assistant }: Props) {
               onSelect={setPoint}
             />
           )}
-          {view === "docs" && <DocsView assistant={assistant} marks={marks} />}
-          {view === "tests" && (
-            <ComingView
-              icon={FlaskConical}
-              title="Tests"
-              text="Test runs and their results, with failures one click away from the assistant."
-              phase="after Phase 5"
-            />
-          )}
+          {view === "workbench" && <WorkbenchView />}
+          {view === "handover" && <HandoverView assistant={assistant} marks={marks} />}
         </section>
       </div>
     </main>

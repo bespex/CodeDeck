@@ -1,0 +1,202 @@
+import { useMemo, useState } from "react";
+import { Check, ClipboardCopy, ExternalLink, FileText, Send, X } from "lucide-react";
+import { handOver, openFile, type AssistantState, type HarnessInfo, type Marker } from "../../backend";
+import { mainHarness, useConnections } from "../../assistant";
+import { Decision, Row, Rows, Section } from "../blocks";
+import { markerKey, type Markers } from "../../markers";
+import { plural } from "../../git";
+import { Tooltip } from "../Tooltip";
+
+/**
+ * What do you give the assistant with your next prompt? What waits to go out, and the comments
+ * left for it in documents: one writes `<!-- @ai: … -->` (or `[!AI: …]`) in an outside editor;
+ * here they are collected and handed over as one task, copied or given along with the next
+ * prompt in this project.
+ */
+export function HandoverView({ assistant, marks }: { assistant: AssistantState; marks: Markers }) {
+  const { markers, error, handed, done, markHanded } = marks;
+  const [copied, setCopied] = useState<string | null>(null);
+  const { connected } = useConnections();
+  const harness = mainHarness(assistant);
+  const waiting = assistant.handovers.some((h) => h.key === MARKERS_KEY);
+
+  const byFile = useMemo(() => {
+    const files = new Map<string, Marker[]>();
+    for (const m of markers ?? []) files.set(m.path, [...(files.get(m.path) ?? []), m]);
+    return [...files];
+  }, [markers]);
+
+  const copy = async (text: string, what: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(what);
+    setTimeout(() => setCopied((c) => (c === what ? null : c)), 1800);
+  };
+
+  return (
+    <div className="flex min-h-full flex-col">
+      {/* Every part that waits, also the focus handed over in the right column */}
+      {assistant.handovers.map((h) => (
+        <Decision
+          key={h.key}
+          icon={<Send className="size-3.5 shrink-0 text-ai" />}
+          actions={
+            <button
+              type="button"
+              onClick={() => handOver(h.key, null)}
+              className="flex items-center gap-1 rounded-md px-2 py-0.5 text-slate-300 hover:bg-overlay-hover hover:text-slate-100"
+            >
+              <X className="size-3.5" /> Take back
+            </button>
+          }
+        >
+          Goes out with your next prompt in this project: <b className="font-semibold">{h.label}</b>
+        </Decision>
+      ))}
+
+      {handed.length > 0 && <HandedProgress handed={handed} done={done} waiting={waiting} to={harness.shortName} />}
+
+      <Section
+        title="Hints you left in documents"
+        note={markers && markers.length > 0 ? `${markers.length} open` : undefined}
+        aside={
+          markers &&
+          markers.length > 0 && (
+            <TaskButtons markers={markers} harness={harness} connected={connected} copied={copied === "all"} onCopy={(t) => copy(t, "all")} onHanded={markHanded} />
+          )
+        }
+      >
+        {error && <p className="selectable text-problem">{error}</p>}
+        {markers && markers.length === 0 && (
+          <p className="max-w-prose">
+            None in this project. Write <code className="font-mono text-slate-300">{"<!-- @ai: … -->"}</code> into a Markdown or HTML
+            file, or <code className="font-mono text-slate-300">[!AI: …]</code> into any text, and save: it shows up here.
+          </p>
+        )}
+        {byFile.length > 0 && (
+          <Rows>
+            {byFile.map(([path, list]) => (
+              <Row key={path} className="flex-wrap">
+                <FileText className="size-3.5 shrink-0 text-slate-400" />
+                <span className="font-mono text-[12px] text-slate-200">{path}</span>
+                <span className="text-[11px] text-slate-500">{plural(list.length, "comment")}</span>
+                <div className="ml-auto flex gap-1">
+                  <Tooltip content={<span>Open in its editor</span>}>
+                    <button
+                      type="button"
+                      aria-label={`Edit ${path}`}
+                      onClick={() => openFile(path, "edit")}
+                      className="rounded p-1 text-slate-500 hover:bg-raised hover:text-slate-100"
+                    >
+                      <ExternalLink className="size-3.5" />
+                    </button>
+                  </Tooltip>
+                  <TaskButtons markers={list} harness={harness} connected={connected} small copied={copied === path} onCopy={(t) => copy(t, path)} onHanded={markHanded} />
+                </div>
+                <ul className="w-full pb-0.5">
+                  {list.map((m) => (
+                    <li key={m.line} className="flex gap-3 py-0.5">
+                      <span className="w-10 shrink-0 text-right font-mono text-[11px] text-slate-500 tabular-nums">{m.line}</span>
+                      <span className="selectable text-slate-300">{m.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Row>
+            ))}
+          </Rows>
+        )}
+      </Section>
+    </div>
+  );
+}
+
+/** What became of the comments handed over: a comment that is gone counts as done. */
+function HandedProgress({ handed, done, waiting, to }: { handed: Marker[]; done: Set<string>; waiting: boolean; to: string }) {
+  const [open, setOpen] = useState(false);
+  const all = done.size === handed.length;
+  return (
+    <div className="mx-4 mt-4 border-y border-line/70 px-1 py-1.5">
+      <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 text-left">
+        <Check className={`size-3.5 ${all ? "text-added" : "text-slate-500"}`} />
+        <span className="flex-1 text-slate-300">
+          Handed to {to}: {done.size} of {handed.length} done
+          {waiting ? " · not picked up yet" : ""}
+        </span>
+        <span className="text-[11px] text-slate-500">{open ? "hide" : "show"}</span>
+      </button>
+      {open && (
+        <ul className="mt-1.5 flex flex-col gap-0.5 pl-5">
+          {handed.map((m) => {
+            const ok = done.has(markerKey(m));
+            return (
+              <li key={markerKey(m)} className={ok ? "text-slate-500 line-through" : "text-slate-300"}>
+                <span className="font-mono text-[11px] text-slate-500">{m.path}</span> {m.text}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** The part of the hand-over that comments make. */
+const MARKERS_KEY = "markers";
+
+/** The task for the assistant, as one would write it. */
+export function markerTask(markers: Marker[]): string {
+  const lines = markers.map((m) => `- ${m.path}:${m.line}: ${m.text}`);
+  return [
+    "Work in these comments that I left for you in documents of this project (`<!-- @ai: … -->` or `[!AI: …]`).",
+    "Change the text around each one as it asks, then remove the comment. Leave a comment in place if you are unsure, and tell me why.",
+    "",
+    ...lines,
+  ].join("\n");
+}
+
+function TaskButtons(props: {
+  markers: Marker[];
+  /** The tool the task goes to: its name, and whether it can take it with a prompt */
+  harness: HarnessInfo;
+  connected: boolean;
+  small?: boolean;
+  copied: boolean;
+  onCopy: (text: string) => void;
+  onHanded: (markers: Marker[]) => void;
+}) {
+  const task = markerTask(props.markers);
+  const { shortName, name, capabilities } = props.harness;
+  const files = new Set(props.markers.map((m) => m.path)).size;
+  const label = `${plural(props.markers.length, "comment")}${files > 1 ? ` in ${files} files` : ` in ${props.markers[0]?.path}`}`;
+  const base = props.small
+    ? "rounded p-1 text-slate-500 hover:bg-raised hover:text-slate-100"
+    : "flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised hover:text-slate-100";
+  return (
+    <>
+      <Tooltip content={<span>{props.copied ? "Copied" : `Copy as a task to paste into ${shortName}`}</span>}>
+        <button type="button" aria-label="Copy as a task" onClick={() => props.onCopy(task)} className={base}>
+          <ClipboardCopy className={`size-3.5 ${props.copied ? "text-added" : ""}`} />
+          {!props.small && (props.copied ? "Copied" : "Copy task")}
+        </button>
+      </Tooltip>
+      {capabilities.handover === "withNextPrompt" && <Tooltip
+        content={
+          <>
+            <span>Give to {shortName} with the next prompt you send in this project</span>
+            {!props.connected && <span className="text-slate-400">Needs {name} connected (status bar)</span>}
+          </>
+        }
+      >
+        <button
+          type="button"
+          aria-label={`Hand to ${shortName}`}
+          disabled={!props.connected}
+          onClick={() => handOver(MARKERS_KEY, task, label).then(() => props.onHanded(props.markers))}
+          className={`${base} disabled:opacity-40`}
+        >
+          <Send className="size-3.5" />
+          {!props.small && `Hand to ${shortName}`}
+        </button>
+      </Tooltip>}
+    </>
+  );
+}

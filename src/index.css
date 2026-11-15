@@ -72,6 +72,13 @@
   --color-session-3: #ee8fbd;
   --color-session-4: #62b6ee;
   --color-session-5: #c3cf6c;
+
+  /*
+   * Areas: a quiet ground tone each, and the tone means something. Grey is the project (files,
+   * trail, deck), indigo is the assistant (its sessions), orange is your action (what you hand over).
+   */
+  --color-area-ai: color-mix(in srgb, var(--color-ai) 5%, var(--color-panel));
+  --color-area-you: color-mix(in srgb, var(--color-brand) 6%, var(--color-panel));
 }
 
 /*
