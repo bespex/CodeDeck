@@ -1,6 +1,7 @@
-import { StrictMode } from "react";
+import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import { lang, onLang } from "./i18n";
 import "./index.css";
 
 // The window with the focus is fully in colour; the others step back (see `.inactive` in index.css)
@@ -19,8 +20,16 @@ document.addEventListener("contextmenu", (e) => {
   if (!editable && !selection && !e.shiftKey) e.preventDefault();
 });
 
+/** The app, drawn anew in a new language: what lives outside the components (attachments) stays. */
+function Root() {
+  const [current, setCurrent] = useState(lang);
+  useEffect(() => onLang(() => setCurrent(lang)), []);
+  useEffect(() => void (document.documentElement.lang = current), [current]);
+  return <App key={current} />;
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <Root />
   </StrictMode>,
 );

@@ -27,6 +27,7 @@ import {
   type Steps,
 } from "../git";
 import { stateColor } from "./FilesPanel";
+import { plural, t } from "../i18n";
 
 /** Where the panel hangs: below a badge in the tree, above the branch in the status bar. */
 export interface Anchor {
@@ -124,20 +125,20 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
   const fetch = fetchSteps();
   const noRemote = repo.remotes.length === 0;
   const pushTitle = noRemote
-    ? "No remote to push to: add one below"
+    ? t("No remote to push to: add one below")
     : !repo.branch
-    ? "No branch checked out"
+    ? t("No branch checked out")
     : !repo.upstream
-      ? `Publish branch ${repo.branch} to ${remoteOf(repo)}`
+      ? t("Publish branch {branch} to {remote}", { branch: repo.branch, remote: remoteOf(repo) })
       : repo.ahead > 0
-        ? `Send ${repo.ahead} commit${repo.ahead === 1 ? "" : "s"} to ${repo.upstream}`
-        : "Nothing to push";
+        ? t("Send {commits} to {upstream}", { commits: plural(repo.ahead, "commit"), upstream: repo.upstream })
+        : t("Nothing to push");
 
   return (
     <div
       ref={panel}
       role="dialog"
-      aria-label={`Git actions for ${repo.name}`}
+      aria-label={t("Git actions for {repo}", { repo: repo.name })}
       style={{ ...position, width: WIDTH }}
       className="surface-overlay fixed z-30 flex flex-col overflow-hidden rounded-lg text-[12px]"
     >
@@ -162,7 +163,7 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
         </div>
         <button
           type="button"
-          aria-label="Close"
+          aria-label={t("Close")}
           onClick={props.onClose}
           disabled={running}
           className="rounded p-0.5 text-slate-500 hover:bg-overlay-hover hover:text-slate-200"
@@ -174,12 +175,12 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
       <section className="border-b border-overlay-line px-3 py-2">
         <div className="mb-1 text-[11px] text-slate-500">{changeSummary(repo)}</div>
         {files.map((f) => (
-          <div key={f.path} className="flex h-5 items-center gap-2" title={stateMeaning[f.state]}>
+          <div key={f.path} className="flex h-5 items-center gap-2" title={t(stateMeaning[f.state])}>
             <span className={`w-3 text-center font-mono text-[11px] ${stateColor[f.state]}`}>
               {stateSymbol(f.state)}
             </span>
             <span className="truncate font-mono text-[11px] text-slate-300">{inRepo(f.path)}</span>
-            {f.staged && <span className="ml-auto shrink-0 text-[11px] text-slate-500">staged</span>}
+            {f.staged && <span className="ml-auto shrink-0 text-[11px] text-slate-500">{t("staged")}</span>}
           </div>
         ))}
         {repo.files.length > FILES_SHOWN && (
@@ -200,7 +201,7 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
               ref={input}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Commit message"
+              placeholder={t("Commit message")}
               disabled={running}
               className="selectable min-w-0 flex-1 rounded-md border border-overlay-line bg-base px-2 py-1 text-slate-200 outline-none placeholder:text-slate-600 focus:border-brand"
             />
@@ -209,14 +210,14 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
               aria-disabled={!canCommit || running}
               title={
                 staged > 0
-                  ? `Commit the ${staged} staged change${staged === 1 ? "" : "s"} (staged before, the rest stays)`
-                  : `Commit all ${repo.files.length} change${repo.files.length === 1 ? "" : "s"} shown above`
+                  ? t("Commit the {changes} staged (staged before, the rest stays)", { changes: plural(staged, "change") })
+                  : t("Commit all {changes} shown above", { changes: plural(repo.files.length, "change") })
               }
               {...showing(commit)}
               className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-white not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
             >
               <Check className="size-3.5" />
-              Commit
+              {t("Commit")}
             </button>
           </form>
         )}
@@ -226,8 +227,8 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
             label="Pull"
             title={
               !repo.upstream
-                ? "No upstream to pull from"
-                : `Get new commits from ${repo.upstream}. Fast-forward only: never creates a merge commit`
+                ? t("No upstream to pull from")
+                : t("Get new commits from {upstream}. Fast-forward only: never creates a merge commit", { upstream: repo.upstream })
             }
             disabled={!repo.upstream || running}
             onClick={() => run(pull)}
@@ -244,7 +245,7 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
           <ActionButton
             icon={RefreshCw}
             label="Fetch"
-            title={noRemote ? "No remote to fetch from" : "Look for new commits on the remote; your files stay as they are"}
+            title={noRemote ? t("No remote to fetch from") : t("Look for new commits on the remote; your files stay as they are")}
             disabled={noRemote || running}
             onClick={() => run(fetch)}
             {...showing(fetch)}
@@ -286,7 +287,7 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
         ) : (
           <div className="flex items-center gap-1.5 text-slate-500">
             <SquareTerminal className="size-3" />
-            {running ? "Running…" : "Point at an action to see its git command"}
+            {running ? t("Running…") : t("Point at an action to see its git command")}
           </div>
         )}
       </section>
@@ -311,24 +312,24 @@ function AddRemote(props: {
         if (ready) props.onRun(addRemoteSteps(url));
       }}
     >
-      <span className="text-[11px] text-slate-500">No remote yet: this repository exists only here.</span>
+      <span className="text-[11px] text-slate-500">{t("No remote yet: this repository exists only here.")}</span>
       <div className="flex gap-2">
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="Remote URL, e.g. git@github.com:you/repo.git"
+          placeholder={t("Remote URL, e.g. git@github.com:you/repo.git")}
           spellCheck={false}
           className="selectable min-w-0 flex-1 rounded-md border border-overlay-line bg-base px-2 py-1 font-mono text-[11px] text-slate-200 outline-none placeholder:font-sans placeholder:text-slate-600 focus:border-brand"
         />
         <button
           type="submit"
           aria-disabled={!ready}
-          title="Adds it as origin; then Push publishes the branch there"
+          title={t("Adds it as origin; then Push publishes the branch there")}
           {...props.showing(steps)}
           className="flex items-center gap-1 rounded-md border border-overlay-line px-2 py-1 text-slate-300 not-aria-disabled:hover:bg-overlay-hover not-aria-disabled:hover:text-slate-100 aria-disabled:cursor-default aria-disabled:opacity-40"
         >
           <Plus className="size-3.5" />
-          Add remote
+          {t("Add remote")}
         </button>
       </div>
     </form>

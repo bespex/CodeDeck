@@ -3,6 +3,7 @@ import { Plug, Sparkles } from "lucide-react";
 import { live, setHarnessConnection, type AssistantState, type Connection, type HarnessInfo } from "../backend";
 import { mainHarness, useConnections, type Connections } from "../assistant";
 import { plural } from "../git";
+import { T, t } from "../i18n";
 
 /**
  * The coding tool in the status bar: how many sessions work in the project and whether one waits
@@ -30,10 +31,10 @@ export function AssistantStatus({ state }: { state: AssistantState }) {
   const working = active.filter((s) => s.status === "working").length;
   const waiting = active.filter((s) => s.status === "waiting").length;
   const label = !hooks.connected
-    ? `${harness.shortName}: not connected`
+    ? `${harness.shortName}: ${t("not connected")}`
     : active.length === 0
-      ? `${harness.shortName}: no session`
-      : `${harness.shortName}: ${plural(active.length, "session")}${working ? ` · ${working} working` : ""}${waiting ? ` · ${waiting} waiting` : ""}`;
+      ? `${harness.shortName}: ${t("no session")}`
+      : `${harness.shortName}: ${plural(active.length, "session")}${working ? ` · ${t("{n} working", { n: working })}` : ""}${waiting ? ` · ${t("{n} waiting", { n: waiting })}` : ""}`;
 
   return (
     <div ref={box} className="relative">
@@ -82,12 +83,13 @@ export function HookPanel({ hooks, harness, heard }: { hooks: Connections; harne
     <div className="pt-3">
       <p className="text-slate-400">
         {hooks.connected
-          ? `${harness.name} tells CodeDeck what it does through hooks in its settings.`
-          : `Connecting adds hooks to ${harness.name}'s settings for every session.`}{" "}
-        They run <code className="font-mono text-[11px]">{command}</code>, which tells the open CodeDeck windows which
-        session works where and which files it writes, and lets CodeDeck keep a snapshot before an assistant's first
-        write in a turn. Nothing else in the file changes; the file as it was is kept next to it.
-        {hooks.connected && !heard && " Sessions started before connecting report from their next step on."}
+          ? t("{tool} tells CodeDeck what it does through hooks in its settings.", { tool: harness.name })
+          : t("Connecting adds hooks to the settings of {tool} for every session.", { tool: harness.name })}{" "}
+        <T
+          text="They run {command}, which tells the open CodeDeck windows which session works where and which files it writes, and lets CodeDeck keep a snapshot before an assistant's first write in a turn. Nothing else in the file changes; the file as it was is kept next to it."
+          command={<code className="font-mono text-[11px]">{command}</code>}
+        />
+        {hooks.connected && !heard && ` ${t("Sessions started before connecting report from their next step on.")}`}
       </p>
       <ul className="mt-2 flex flex-col gap-1.5">
         {hooks.setups.map((s) => (
@@ -96,19 +98,19 @@ export function HookPanel({ hooks, harness, heard }: { hooks: Connections; harne
               {/* Said in words: the button on the right names the action, not the state */}
               <span className={`flex items-center gap-1.5 text-[11px] font-medium ${s.installed ? "text-added" : "text-slate-400"}`}>
                 <span className={`size-2 shrink-0 rounded-full ${s.installed ? "bg-added" : "bg-slate-600"}`} />
-                {s.installed ? "Connected" : "Not connected"}
+                {s.installed ? t("Connected") : t("Not connected")}
               </span>
               <code className="block truncate font-mono text-[11px] text-slate-200">{s.dir}</code>
-              {s.other && <span className="block truncate text-[11px] text-changed">runs another CodeDeck: {s.other}</span>}
+              {s.other && <span className="block truncate text-[11px] text-changed">{t("runs another CodeDeck: {other}", { other: s.other })}</span>}
             </div>
             {s.other && (
               <button type="button" disabled={!!busy} onClick={() => change(s, true)} className={`${button} bg-brand-fill text-white hover:bg-brand-fill-hover`}>
-                Use this one
+                {t("Use this one")}
               </button>
             )}
             {s.installed ? (
               <button type="button" disabled={!!busy} onClick={() => change(s, false)} className={`${button} border border-overlay-line hover:bg-overlay-hover`}>
-                Disconnect
+                {t("Disconnect")}
               </button>
             ) : (
               <button
@@ -117,7 +119,7 @@ export function HookPanel({ hooks, harness, heard }: { hooks: Connections; harne
                 onClick={() => change(s, true)}
                 className={`${button} bg-brand-fill text-white hover:bg-brand-fill-hover`}
               >
-                Connect
+                {t("Connect")}
               </button>
             )}
           </li>

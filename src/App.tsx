@@ -83,7 +83,7 @@ export default function App() {
           onRepoActions={openActions}
           touched={touchedFiles(assistant)}
         />
-        <Deck key={`deck:${project?.path}`} git={git} selected={selected} assistant={assistant} pinned={pins.length} />
+        <Deck key={`deck:${project?.path}`} git={git} selected={selected} assistant={assistant} />
         <SessionsPanel
           assistant={assistant}
           pins={pins}

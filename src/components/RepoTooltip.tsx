@@ -1,6 +1,7 @@
 import type { GitRun, RepoStatus } from "../backend";
 import { ago, changeSummary, syncSummary } from "../git";
 import { TooltipHint } from "./Tooltip";
+import { T, t } from "../i18n";
 
 /** What a repository's branch badge says on hover: facts first, then the quiet hints. */
 export function RepoTooltip({ repo, runs }: { repo: RepoStatus; runs: GitRun[] }) {
@@ -10,7 +11,7 @@ export function RepoTooltip({ repo, runs }: { repo: RepoStatus; runs: GitRun[] }
       <span className="flex flex-wrap items-baseline gap-x-1.5">
         <span className="font-semibold text-slate-100">{repo.name}</span>
         <code className="rounded bg-base px-1 font-mono text-[11px] text-slate-200">
-          {repo.branch ?? "detached HEAD"}
+          {repo.branch ?? t("detached HEAD")}
         </code>
       </span>
       {repo.error ? (
@@ -21,13 +22,13 @@ export function RepoTooltip({ repo, runs }: { repo: RepoStatus; runs: GitRun[] }
           <span>{syncSummary(repo)}</span>
           {repo.worktreeOf && (
             <span className="text-slate-400">
-              Worktree of <span className="font-semibold">{repo.worktreeOf}</span>: shares its history, own branch
+              <T text="Worktree of {repo}: shares its history, own branch" repo={<span className="font-semibold">{repo.worktreeOf}</span>} />
             </span>
           )}
         </>
       )}
       <TooltipHint>
-        Click for commit, pull and push
+        {t("Click for commit, pull and push")}
         {last && (
           <span className="mt-0.5 block font-mono text-[11px] text-slate-500">
             {last.command} · {ago(last.at)}

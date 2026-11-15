@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { chooseFileApp, fileApps, openFile, type App, type FileApps, type Role } from "./backend";
 import type { MenuItem, SubMenu } from "./components/ContextMenu";
+import { t } from "./i18n";
 
 /**
  * The programs for viewing and editing a file. Asked for briefly, for a menu or tooltip, so a
@@ -30,8 +31,8 @@ export function AppName({ path, role }: { path: string; role: Role }) {
   useEffect(() => {
     let live = true;
     appsOf(path)
-      .then((apps) => live && setName(apps[role].app?.name ?? "default program"))
-      .catch(() => live && setName("default program"));
+      .then((apps) => live && setName(apps[role].app?.name ?? t("default program")))
+      .catch(() => live && setName(t("default program")));
     return () => {
       live = false;
     };
@@ -39,7 +40,6 @@ export function AppName({ path, role }: { path: string; role: Role }) {
   return <>{name ?? "…"}</>;
 }
 
-const verb: Record<Role, string> = { view: "View", edit: "Edit" };
 
 /** Up to this many programs show without a search; beyond it the short list and a search field. */
 const SHORT = 6;
@@ -69,16 +69,16 @@ export async function chooserMenu(path: string, role: Role): Promise<SubMenu> {
     icon: current.chosen && current.app?.id === app.id ? Check : undefined,
     label: app.name,
     // Two programs of the same name (e.g. two .desktop files of one program): which one
-    hint: twice(app) ? app.id.replace(/\.desktop$/, "") : app.id === apps.system?.id ? "system default" : undefined,
+    hint: twice(app) ? app.id.replace(/\.desktop$/, "") : app.id === apps.system?.id ? t("system default") : undefined,
     run: pick(app.id),
   });
   const systemDefault: MenuItem = {
     icon: current.chosen ? undefined : Check,
-    label: "System default",
-    hint: apps.system?.name ?? "none set",
+    label: t("System default"),
+    hint: apps.system?.name ?? t("none set"),
     run: pick(null),
   };
-  const title = `${verb[role]} ${apps.kind} with · remembered`;
+  const title = t(role === "view" ? "View {kind} with · remembered" : "Edit {kind} with · remembered", { kind: apps.kind });
   const all = apps.candidates.map(item);
   if (apps.candidates.length <= SHORT + 1) return { title, items: [systemDefault, ...all] };
 
@@ -94,6 +94,6 @@ export async function chooserMenu(path: string, role: Role): Promise<SubMenu> {
   return {
     title,
     items: [systemDefault, ...short],
-    search: { placeholder: `Search all ${apps.candidates.length} programs`, all },
+    search: { placeholder: t("Search all {n} programs", { n: apps.candidates.length }), all },
   };
 }

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type Rea
 import { AppWindow, ChevronRight, Eye, FolderSearch, Search, SquarePen, type LucideIcon } from "lucide-react";
 import { openPath, showInFileManager } from "../backend";
 import { AppName, chooserMenu, openAs } from "../apps";
+import { t } from "../i18n";
 
 export interface MenuItem {
   /** None: an empty space, so that labels stay aligned (e.g. beside a check mark) */
@@ -142,7 +143,7 @@ function ContextMenu({ menu, onMore, onClose }: { menu: MenuState; onMore: (menu
         </label>
       )}
       <div className="min-h-0 overflow-y-auto">
-        {shown.length === 0 && <div className="px-3 py-1.5 text-slate-500 italic">Nothing matches</div>}
+        {shown.length === 0 && <div className="px-3 py-1.5 text-slate-500 italic">{t("Nothing matches")}</div>}
         {shown.map((item, i) => (
           <button
             key={`${i}:${item.label}`}
@@ -169,25 +170,25 @@ function ContextMenu({ menu, onMore, onClose }: { menu: MenuState; onMore: (menu
  * CodeDeck. `gone`: it does not exist on disk any more (deleted), so there is nothing to open.
  */
 export function pathItems(path: string, isDir: boolean, gone = false): MenuItem[] {
-  const why = "Deleted: no longer on disk";
+  const why = t("Deleted: no longer on disk");
   const report = (e: unknown) => console.error(e);
-  const hint = (usual?: string) => (gone ? "deleted" : usual);
+  const hint = (usual?: string) => (gone ? t("deleted") : usual);
   if (isDir) {
     return [
-      { icon: FolderSearch, label: "Open in file manager", hint: hint(), disabled: gone, why, run: () => openPath(path).catch(report) },
+      { icon: FolderSearch, label: t("Open in file manager"), hint: hint(), disabled: gone, why, run: () => openPath(path).catch(report) },
     ];
   }
-  const app = (role: "view" | "edit") => (gone ? "deleted" : <AppName path={path} role={role} />);
+  const app = (role: "view" | "edit") => (gone ? t("deleted") : <AppName path={path} role={role} />);
   const choose = (role: "view" | "edit") => () => chooserMenu(path, role);
   return [
-    { icon: Eye, label: "View", hint: app("view"), disabled: gone, why, run: () => openAs(path, "view") },
-    { icon: SquarePen, label: "Edit", hint: app("edit"), disabled: gone, why, run: () => openAs(path, "edit") },
-    { icon: AppWindow, label: "View with…", disabled: gone, why, run: () => {}, more: choose("view") },
-    { icon: AppWindow, label: "Edit with…", disabled: gone, why, run: () => {}, more: choose("edit") },
+    { icon: Eye, label: t("View"), hint: app("view"), disabled: gone, why, run: () => openAs(path, "view") },
+    { icon: SquarePen, label: t("Edit"), hint: app("edit"), disabled: gone, why, run: () => openAs(path, "edit") },
+    { icon: AppWindow, label: t("View with…"), disabled: gone, why, run: () => {}, more: choose("view") },
+    { icon: AppWindow, label: t("Edit with…"), disabled: gone, why, run: () => {}, more: choose("edit") },
     {
       icon: FolderSearch,
-      label: "Show in file manager",
-      hint: hint("its folder"),
+      label: t("Show in file manager"),
+      hint: hint(t("its folder")),
       disabled: gone,
       why,
       run: () => showInFileManager(path).catch(report),

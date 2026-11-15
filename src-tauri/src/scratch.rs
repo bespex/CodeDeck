@@ -1,7 +1,7 @@
-//! The workbench (D9, D12): one folder in the project, `.workbench/`, for what sessions make that is
-//! not part of the project yet: drafts, mock-ups, throwaway scripts, test data. Sessions are told
-//! to put such things there (start rule); CodeDeck shows it with size and age, opens, moves a file
-//! into the project, and clears away into the trash.
+//! The scratch folder (D9, D12, D23): one folder in the project, `.scratch/`, for what sessions make
+//! that is not part of the project yet: drafts, mock-ups, throwaway scripts, test data. Sessions are
+//! told to put such things there (start rule); the Workbench view shows it with size and age,
+//! opens, moves a file into the project, and clears away into the trash.
 //!
 //! Git leaves it alone through one line in the repository's local exclude file (never `.gitignore`,
 //! which belongs to the project and is shared). Without a leading slash the line holds at any
@@ -20,16 +20,18 @@ use crate::git::{Git, Report};
 use crate::project::Project;
 
 /// The folder, project-relative.
-pub const DIR: &str = ".workbench";
+pub const DIR: &str = ".scratch";
 /// The line in the exclude file.
-const EXCLUDE: &str = ".workbench/";
+const EXCLUDE: &str = ".scratch/";
+/// The folder's name before D23, replaced where CodeDeck wrote it.
+const OLD: &str = ".scratch/";
 /// More is a sign of something else than drafts (say, a build into the folder).
 const LISTED: usize = 1000;
 
 #[derive(Serialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkFile {
-    /// Project-relative, beginning with `.workbench/`
+    /// Project-relative, beginning with `.scratch/`
     path: String,
     size: u64,
     /// Unix milliseconds of the last change
@@ -37,9 +39,9 @@ pub struct WorkFile {
 }
 
 impl Git {
-    /// Makes git leave the workbench alone in the repository the project belongs to, once: the
-    /// line goes into the local exclude file and into the log as the command that would do it.
-    pub fn exclude_workbench(&self, report: Report, project: &Project) {
+    /// Makes git leave the scratch folder alone in the repository the project belongs to, once:
+    /// the line goes into the local exclude file and into the log as the command that would do it.
+    pub fn exclude_scratch(&self, report: Report, project: &Project) {
         let Some(repo) = self.repos(project).into_iter().find(|r| r.path.is_empty()) else { return };
         let Ok(out) = self.run(report, &repo, &["rev-parse", "--git-path", "info/exclude"]) else { return };
         let file = repo.top.join(String::from_utf8_lossy(&out).trim());
@@ -47,6 +49,8 @@ impl Git {
         if excluded(&text) {
             return;
         }
+        // The line for the folder's old name goes: nothing is there to ignore any more
+        let text = without_old(&text);
         let shown = file.strip_prefix(&repo.top).map_or_else(|_| file.display().to_string(), |p| p.display().to_string());
         self.note_change(report, &repo, &format!("echo '{EXCLUDE}' >> {shown}"), append(&file, &text));
     }
@@ -54,7 +58,25 @@ impl Git {
 
 /// The exclude file already names the folder (as CodeDeck writes it, or as one would by hand).
 fn excluded(text: &str) -> bool {
-    text.lines().map(str::trim).any(|l| matches!(l, ".workbench/" | ".workbench" | "/.workbench/" | "/.workbench" | "**/.workbench/"))
+    text.lines().map(str::trim).any(|l| matches!(l, ".scratch/" | ".scratch" | "/.scratch/" | "/.scratch" | "**/.scratch/"))
+}
+
+/// The exclude file without the line CodeDeck wrote for the old name (and its comment above it).
+fn without_old(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut kept = Vec::new();
+    for (i, line) in lines.iter().enumerate() {
+        let next_is_old = lines.get(i + 1).is_some_and(|n| n.trim() == OLD);
+        if line.trim() == OLD || (next_is_old && line.starts_with("# Drafts and scratch files")) {
+            continue;
+        }
+        kept.push(*line);
+    }
+    let mut out = kept.join("\n");
+    if !out.is_empty() {
+        out.push('\n');
+    }
+    out
 }
 
 fn append(file: &Path, text: &str) -> Result<(), String> {
@@ -66,7 +88,7 @@ fn append(file: &Path, text: &str) -> Result<(), String> {
     std::fs::write(file, line).map_err(|e| format!("{}: {e}", file.display()))
 }
 
-/// Every file in the workbench, newest first, and the folders in it (to be watched).
+/// Every file in the scratch folder, newest first, and the folders in it (to be watched).
 pub fn list(project: &Project) -> (Vec<WorkFile>, Vec<PathBuf>) {
     let top = project.root.join(DIR);
     let mut files = Vec::new();
@@ -91,8 +113,8 @@ pub fn list(project: &Project) -> (Vec<WorkFile>, Vec<PathBuf>) {
     (files, dirs)
 }
 
-/// A path that must lie in the workbench, as it is on disk.
-fn in_workbench(project: &Project, path: &str) -> Result<PathBuf, String> {
+/// A path that must lie in the scratch folder, as it is on disk.
+fn in_scratch(project: &Project, path: &str) -> Result<PathBuf, String> {
     let full = project.resolve(path)?;
     if full.starts_with(project.root.join(DIR)) && full != project.root.join(DIR) {
         Ok(full)
@@ -101,22 +123,22 @@ fn in_workbench(project: &Project, path: &str) -> Result<PathBuf, String> {
     }
 }
 
-/// Moves files of the workbench to the trash, where they can still be brought back.
+/// Moves files of the scratch folder to the trash, where they can still be brought back.
 pub fn trash(project: &Project, paths: &[String]) -> Result<(), String> {
     for path in paths {
-        let full = in_workbench(project, path)?;
+        let full = in_scratch(project, path)?;
         gio::File::for_path(&full).trash(None::<&gio::Cancellable>).map_err(|e| format!("{path}: {e}"))?;
     }
     Ok(())
 }
 
-/// Moves a file of the workbench into the project, to `to` (project-relative, not taken yet,
-/// outside the workbench); folders on the way are made. The new path.
+/// Moves a file of the scratch folder into the project, to `to` (project-relative, not taken yet,
+/// outside the scratch folder); folders on the way are made. The new path.
 pub fn move_into(project: &Project, from: &str, to: &str) -> Result<String, String> {
-    let source = in_workbench(project, from)?;
+    let source = in_scratch(project, from)?;
     let target = project.root.join(checked(to)?);
     if target.starts_with(project.root.join(DIR)) {
-        return Err(format!("{to}: that is the workbench itself"));
+        return Err(format!("{to}: that is the scratch folder itself"));
     }
     if target.symlink_metadata().is_ok() {
         return Err(format!("{to}: already there"));
@@ -148,7 +170,7 @@ mod tests {
     use super::*;
 
     fn project() -> (Project, PathBuf) {
-        let dir = std::env::temp_dir().join(format!("codedeck-workbench-{}-{}", std::process::id(), rand_part()));
+        let dir = std::env::temp_dir().join(format!("codedeck-scratch-{}-{}", std::process::id(), rand_part()));
         std::fs::create_dir_all(dir.join(DIR).join("sub")).unwrap();
         let root = dir.canonicalize().unwrap();
         (Project { root: root.clone() }, root)
@@ -160,12 +182,16 @@ mod tests {
 
     #[test]
     fn knows_the_exclude_line_and_adds_it_once() {
-        assert!(excluded("# x\n.workbench/\n") && excluded("/.workbench") && !excluded("workbench/\n.work"));
+        assert!(excluded("# x\n.scratch/\n") && excluded("/.scratch") && !excluded("scratch/\n.scr"));
+        // The old name's line, with CodeDeck's comment, goes; other lines stay
+        let old = "*.log\n# Drafts and scratch files of AI sessions, shown by CodeDeck\n.scratch/\nbuild/\n";
+        assert_eq!(without_old(old), "*.log\nbuild/\n");
+        assert_eq!(without_old("*.log\n"), "*.log\n");
         let (_p, root) = project();
         let file = root.join("info/exclude");
         append(&file, "").unwrap();
         let text = std::fs::read_to_string(&file).unwrap();
-        assert!(excluded(&text) && text.ends_with(".workbench/\n"));
+        assert!(excluded(&text) && text.ends_with(".scratch/\n"));
         append(&file, "*.log").unwrap();
         assert!(std::fs::read_to_string(&file).unwrap().starts_with("*.log\n# Drafts"));
         let _ = std::fs::remove_dir_all(&root);
@@ -174,22 +200,22 @@ mod tests {
     #[test]
     fn lists_moves_and_guards_the_paths() {
         let (p, root) = project();
-        std::fs::write(root.join(".workbench/a.md"), "draft").unwrap();
-        std::fs::write(root.join(".workbench/sub/b.csv"), "1,2").unwrap();
+        std::fs::write(root.join(".scratch/a.md"), "draft").unwrap();
+        std::fs::write(root.join(".scratch/sub/b.csv"), "1,2").unwrap();
         let (files, dirs) = list(&p);
         let mut paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
         paths.sort();
-        assert_eq!(paths, [".workbench/a.md", ".workbench/sub/b.csv"]);
+        assert_eq!(paths, [".scratch/a.md", ".scratch/sub/b.csv"]);
         assert_eq!(dirs.len(), 2);
 
-        assert_eq!(move_into(&p, ".workbench/a.md", "docs/a.md").unwrap(), "docs/a.md");
-        assert!(root.join("docs/a.md").is_file() && !root.join(".workbench/a.md").exists());
-        // Taken, outside, into the workbench, not from it
-        std::fs::write(root.join(".workbench/c.md"), "x").unwrap();
-        assert!(move_into(&p, ".workbench/c.md", "docs/a.md").unwrap_err().contains("already"));
-        assert!(move_into(&p, ".workbench/c.md", "../c.md").is_err());
-        assert!(move_into(&p, ".workbench/c.md", "/tmp/c.md").is_err());
-        assert!(move_into(&p, ".workbench/c.md", ".workbench/d.md").is_err());
+        assert_eq!(move_into(&p, ".scratch/a.md", "docs/a.md").unwrap(), "docs/a.md");
+        assert!(root.join("docs/a.md").is_file() && !root.join(".scratch/a.md").exists());
+        // Taken, outside, into the scratch folder, not from it
+        std::fs::write(root.join(".scratch/c.md"), "x").unwrap();
+        assert!(move_into(&p, ".scratch/c.md", "docs/a.md").unwrap_err().contains("already"));
+        assert!(move_into(&p, ".scratch/c.md", "../c.md").is_err());
+        assert!(move_into(&p, ".scratch/c.md", "/tmp/c.md").is_err());
+        assert!(move_into(&p, ".scratch/c.md", ".scratch/d.md").is_err());
         assert!(move_into(&p, "docs/a.md", "a.md").unwrap_err().contains("not in"));
         assert!(trash(&p, &["docs/a.md".to_string()]).is_err());
         let _ = std::fs::remove_dir_all(&root);

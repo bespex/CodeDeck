@@ -24,9 +24,26 @@ Das Zielbild ist abgestimmt (Click-Dummy, `KONZEPT.md` Teil 4). Von MVP 1 sind d
 gebaut, dazu 1.6a (einheitliche Begriffe), 1.6b (Änderungen anhängen) und 1.7 (Anhänge aus einem Guss); alles erst
 in Tests, Vorschau und mit nachgestellten Hook-Meldungen geprüft.
 
-**Nächste Session:** Praxistest von 1.5 bis 1.7 und 2.1 in der echten App mit dem Nutzer (Ablauf in den Notizen zu
-1.7 und 2.1), Gefundenes beheben. Danach Schritt 2.2. (1.7 kam auf Wunsch des Nutzers vor den
+**Nächste Session:** Praxistest von 1.5 bis 1.7 und 2.1 in der echten App mit dem Nutzer, nach der Checkliste
+`docs/praxistest-1.5-2.1.md` (der Nutzer hakt dort ab und schreibt Befunde hinein). Befunde beheben, dann Schritt 2.2. (1.7 kam auf Wunsch des Nutzers vor den
 Test: es baut genau den Code um, den der Test prüft.)
+
+**Zuerst, aus der Durchsicht des Nutzers (2026-11-16), vor dem Praxistest umsetzen:**
+1. Dashboard „Nächster Prompt“ (rechte Spalte): Zielauswahl „Für …“ mit „Wartet auf deinen nächsten Prompt“ etwas
+   höher und prominenter setzen, direkt unter den Zahlen (oder darüber; Vorschlag machen und kurz zeigen).
+2. Die Zahl „Kommentare“ im Dashboard war unklar: gemeint sind Zeilenkommentare an Diff-Zeilen. Beschriftung
+   klarer machen (z. B. „Zeilen“ mit Tooltip „Kommentare an Diff-Zeilen“), ebenso die anderen drei mit Tooltip.
+3. Statusleiste unten läuft über: Schrift etwas größer; die Anzeige des letzten Git-Befehls kürzen (sie braucht zu
+   viel Platz); kein Text der Leiste darf in eine zweite Zeile umbrechen (kürzen statt umbrechen).
+4. In der Statusleiste deutlicher zeigen, was anklickbar ist. Vorschlag des Nutzers: alles Anklickbare in der
+   Akzentschrift wie heute der Branch, jeweils Icon + kurzes Wort: (a) Icon + Branchname (Git-Aktionen),
+   (b) Icon + „git“ (Git-Befehle, ersetzt die lange Anzeige des letzten Befehls; der Befehl selbst steht im
+   Tooltip, ein Fehler färbt das Wort rot; löst damit auch Punkt 3), (c) Icon + Name des KI-Werkzeugs
+   (Verbindungs-Panel; Zahlen wie „1 arbeitet · 1 wartet“ nur, wenn Platz ist, sonst im Tooltip). Nicht
+   Anklickbares („Beobachtet geöffnete Ordner“, Zahl der Repos) bleibt leise grau.
+
+Außerdem vor dem Commit klären: `README.md:13` (Testzeile `@ai Beachte …`) und `README.md:78` („siREADME.mdnce“
+statt „since“) stammen aus Tests des Nutzers, nicht aus dem Code.
 
 Fertig in der App (P1, P2, P3, P5, siehe „Ältere Pakete“): Trail mit drei Zonen (nicht committet / nicht
 gepusht / gepusht) und Remote-Chip, Vergleich zweier Punkte · Hook-Brücke `codedeck hook` → Socket je
@@ -66,6 +83,8 @@ Optimistic Flow: Die KI schreibt direkt, abgesichert wird über die Sicherungspu
 | D19 | Übergabe an eine bestimmte Sitzung? | entschieden 2026-11-15: Zielsitzung wählbar („any session“ oder eine bestimmte) |
 | D20 | Wie heißt, was CodeDeck an eine Sitzung gibt? | entschieden 2026-11-15: ein Vorgang **anhängen** („Attach“), ein Ort **Next prompt** (Reiter, vorher „Handover“, und Bereich rechts). Den Prompt schreibt der Nutzer im Werkzeug, CodeDeck hängt nur an. Startregeln sind kein Anhang und stehen getrennt. Ändert D8 (Reitername) |
 | D21 | Fokus als Sammelliste vor der Übergabe? | entschieden 2026-11-15: nein. Anpinnen hängt direkt an (Büroklammer); nach dem Absenden ist die Liste leer. Ändert D1 („Sessions & Focus“) |
+| D22 | Oberfläche übersetzbar, Englisch und Deutsch? | entschieden 2026-11-15: ja, jetzt (vor MVP 2, solange es billig ist). Englischer Text im Code ist der Schlüssel, Deutsch im Wörterbuch; Sprache folgt dem System, Umschalter im Projektmenü, je Rechner gemerkt. Übersetzt wird, was man versteht („Änderungen“, „Aktivität“, „Werkbank“, „Nächster Prompt“, „Anhängen“); Fachwörter bleiben (Commit, Push, Pull, Branch, Snapshot, Prompt, Diff, Repo). Was Claude bekommt und was in Git steht, bleibt englisch |
+| D23 | Wohin gehören die `@ai`-Hinweise, wie heißt der Ordner, was zeigt die rechte Spalte? | entschieden 2026-11-16 (Nutzer): Hinweise sind eine Kachel der **Werkbank** (vorläufige Einträge, die vor dem Commit verschwinden sollen, wie Entwürfe), angehängt per Büroklammer wie im Dateibaum, nicht per Häkchen (ein Häkchen läse sich als „erledigt“). Werkbank bleibt der Oberbegriff, der Ordner heißt **`.scratch/`** (auch im Deutschen „Scratch“). Reiter Nächster Prompt: nur, was rausgeht, raumgreifend ohne Rahmen und Füllung, Startregeln immer sichtbar. Rechte Spalte: Zusammenfassung wie ein Dashboard (Zahlen je Art, Tokens, Ziel), springt in den Reiter. Weicht vom Dummy ab |
 | D15 | Sitzungs-Identität (Farbe + Kurzname, feste Reihenfolge, Umbenennen) als eigener Teilschritt vor 1.3 oder in 1.4? | entschieden 2026-11-15: eigener Teilschritt 1.2a vor 1.3 |
 
 ## Reihenfolge
@@ -689,6 +708,37 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   im Reiter mit Sitzung? (3) Datei auf einen Ordner im Dateibaum ziehen, auch tief (Ordner öffnet sich beim Verweilen).
   (4) Löschen: liegt die Datei im Papierkorb? Nicht geprüft: echtes Ziehen mit der Maus unter WebKitGTK (nur
   nachgestellt in Chromium).
+- Übersetzung (2026-11-15, D22): `i18n.ts` (`t(text, values)`, `<T text="… {name} …" name={…}/>` für Sätze mit Elementen,
+  `plural(n, noun)` mit deutschen Formen in `nouns`, `known()` für Bezeichnungen, die schon in der Sprache entstanden
+  sind, `snapshotLabel()` für „Before: …“/„After: …“ beim Anzeigen, `LOCALE` als lebende Bindung für Datumsformate).
+  Sprachwechsel zeichnet `App` neu (`key` in `main.tsx`); Anhänge überleben, weil sie außerhalb der Komponenten
+  liegen. Fehlende Übersetzungen sammelt `window.missingTranslations()`. Bewusst englisch: Startregeln, Anhangstexte,
+  Namen von Änderungen in deren Text, Snapshot-Namen in Git, Fehlermeldungen aus dem Backend (rund 100 Stellen,
+  mit 2.x bei Bedarf), Meldungen von Claude Code selbst („Claude needs your permission …“). Die Bezeichnung eines
+  Anhangs entsteht in der Sprache des Moments und bleibt so in der Quittung. Geprüft: Vorschau auf Deutsch durch alle
+  Reiter, Trail, Commit, Git-Protokoll, Verbindungs-Panel ohne fehlende Übersetzung; Umschalten live mit erhaltenen
+  Anhängen. Im echten Fenster (WebKitGTK) noch nicht gesehen: `navigator.language` dort und `localStorage` über
+  Neustarts.
+- Reiter Nächster Prompt neu aufgeteilt (2026-11-15, nach Durchsicht des Nutzers: „konfus, teilweise doppelt“): drei
+  Bereiche nach Wichtigkeit. (1) Kasten „Geht mit deinem nächsten Prompt raus“ mit `AttachmentList` (jeder Anhang
+  einzeln, nach Art gruppiert, je ×, im Reiter „alle entfernen“ je Gruppe; dieselbe Komponente kompakt in der rechten
+  Spalte), genauer Text eingeklappt (`AssistantState.preview`), leer: die vier Wege zum Anhängen. (2) „Hinweise in
+  deinen Dateien“ mit Häkchen statt Knöpfen, Erklärung im (?), Fortschritt im Kopf, Kopieren als Aufgabe. (3)
+  Startregeln als eingeklappte Zeile. Ab 1024 px Deckbreite (`@container`, `@5xl:`) stehen (2) und (3) neben (1).
+  Gezählt wird jetzt überall jeder Eintrag (`useAttachedCount`), `attachmentCount` ist weg. Angehängte Änderungen
+  tragen neben dem englischen `label` (für Claude) ein `shown` in der Sprache der Oberfläche. Entfallen: Tabelle „Was
+  du anhängen kannst“, „Zu Änderungen“, Teile-Zeilen ohne Einzelliste, Knöpfe „Anhängen/Angehängt“ bei Hinweisen.
+- D23 umgesetzt (2026-11-16): `scratch.rs` (vorher `workbench.rs`, Befehle `scratch_list/trash/move`), `DIR = ".scratch"`;
+  `exclude_scratch` entfernt eine von CodeDeck geschriebene `.workbench/`-Zeile samt Kommentar (`without_old`, getestet).
+  Werkbank: `WorkbenchView` = Kacheln `ScratchTile` und `HintsTile` (Büroklammer je Hinweis, beim Überfahren sichtbar,
+  angehängt hell; „Alle anhängen“; (?) erklärt; Kopieren als Aufgabe), ab 1024 px nebeneinander. Reiter-Zahl der
+  Werkbank = offene Hinweise. Nächster Prompt: `AttachmentSections` (je Art ein `Section` mit `Rows`, Zeilen mit
+  Herkunft, Tokens, ×, „alle entfernen“, Link zur Quelle über `openView`), genauer Text aufklappbar, Startregeln
+  immer offen. Rechte Spalte: vier Zahlen (`useAttachedKinds`), Token-Balken, Ziel, Zustand/Quittung, „Öffnen ↗“;
+  einzelne Anhänge entfernt man nur noch im Reiter. `src/view.ts` hält den offenen Reiter für alle Komponenten.
+  Zielauswahl ist eine eigene Liste (`AttachTarget`, fest am Fenster positioniert, öffnet unten im Fenster nach
+  oben), weil WebKitGTK das native `select` im hellen System-Theme zeichnet; zusätzlich `color-scheme: dark` in
+  `index.css` für übrige native Elemente. Reiter-Knöpfe brechen nicht mehr um (`shrink-0 whitespace-nowrap`).
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

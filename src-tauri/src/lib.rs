@@ -18,7 +18,7 @@ mod recent;
 mod rules;
 mod snapshot;
 mod watch;
-mod workbench;
+mod scratch;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
@@ -132,41 +132,41 @@ fn open_project(
     bridge.clear(&app);
     recent::remember(&project.root);
     set_title(&app, &project);
-    exclude_workbench(&app);
+    exclude_scratch(&app);
     Ok(project.info())
 }
 
-/// Git leaves the workbench of the current project alone (once per repository, in the background).
-fn exclude_workbench(app: &AppHandle) {
+/// Git leaves the scratch folder of the current project alone (once per repository, in the background).
+fn exclude_scratch(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
         let project = app.state::<Arc<Current>>().get();
         let report = |run: &GitRun| {
             let _ = app.emit(GIT_RAN, run);
         };
-        app.state::<Git>().exclude_workbench(&report, &project);
+        app.state::<Git>().exclude_scratch(&report, &project);
     });
 }
 
-/// The files in the workbench, newest first; its folders are watched from now on, so a new
+/// The files in the scratch folder, newest first; its folders are watched from now on, so a new
 /// file shows up at once.
 #[tauri::command]
-fn workbench_list(current: State<Arc<Current>>, watch: State<Watch>) -> Vec<workbench::WorkFile> {
-    let (files, dirs) = workbench::list(&current.get());
+fn scratch_list(current: State<Arc<Current>>, watch: State<Watch>) -> Vec<scratch::WorkFile> {
+    let (files, dirs) = scratch::list(&current.get());
     dirs.iter().for_each(|d| watch.add(d));
     files
 }
 
-/// Moves files of the workbench to the trash.
+/// Moves files of the scratch folder to the trash.
 #[tauri::command]
-fn workbench_trash(paths: Vec<String>, current: State<Arc<Current>>) -> Result<(), String> {
-    workbench::trash(&current.get(), &paths)
+fn scratch_trash(paths: Vec<String>, current: State<Arc<Current>>) -> Result<(), String> {
+    scratch::trash(&current.get(), &paths)
 }
 
-/// Moves a file of the workbench into the project; the new project-relative path.
+/// Moves a file of the scratch folder into the project; the new project-relative path.
 #[tauri::command]
-fn workbench_move(from: String, to: String, current: State<Arc<Current>>) -> Result<String, String> {
-    workbench::move_into(&current.get(), &from, &to)
+fn scratch_move(from: String, to: String, current: State<Arc<Current>>) -> Result<String, String> {
+    scratch::move_into(&current.get(), &from, &to)
 }
 
 /// Opens a directory in a new CodeDeck window: a separate process that lives on its own.
@@ -419,7 +419,7 @@ pub fn run() {
                 }
                 Err(e) => eprintln!("codedeck: no socket for assistants: {e}"),
             }
-            exclude_workbench(app.handle());
+            exclude_scratch(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -432,9 +432,9 @@ pub fn run() {
             show_in_file_manager,
             path_stats,
             open_project,
-            workbench_list,
-            workbench_trash,
-            workbench_move,
+            scratch_list,
+            scratch_trash,
+            scratch_move,
             open_window,
             recent_projects,
             pick_folder,

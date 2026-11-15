@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Search, SquareTerminal, X } from "lucide-react";
 import type { GitRun } from "../backend";
 import { LOCALE } from "./Trail";
+import { t } from "../i18n";
 
 type Show = "all" | "changes";
 const SHOW_KEY = "codedeck.gitlog.show";
@@ -93,14 +94,14 @@ export function GitLog({ runs, onClose }: { runs: GitRun[]; onClose: () => void 
 
   return (
     <section
-      aria-label="Git commands"
+      aria-label={t("Git commands")}
       className="surface-overlay fixed inset-x-2 bottom-7 z-30 flex h-[45vh] min-h-56 flex-col rounded-lg"
     >
       <header className="flex h-10 shrink-0 items-center gap-3 border-b border-overlay-line px-3">
         <SquareTerminal className="size-4 text-slate-400" />
-        <span className="font-semibold text-slate-100">Git commands</span>
+        <span className="font-semibold text-slate-100">{t("Git commands")}</span>
         <span className="text-[12px] text-slate-500">
-          {runs.length} run here · {actions} changed something
+          {t("{n} run here · {changes} changed something", { n: runs.length, changes: actions })}
         </span>
         <div className="ml-auto flex rounded-md border border-overlay-line p-0.5 text-[12px]" role="radiogroup">
           {(
@@ -114,11 +115,11 @@ export function GitLog({ runs, onClose }: { runs: GitRun[]; onClose: () => void 
               type="button"
               role="radio"
               aria-checked={show === value}
-              title={says}
+              title={t(says)}
               onClick={() => setShow(value)}
               className={`rounded px-2 py-0.5 ${show === value ? "bg-overlay-hover text-slate-100" : "text-slate-500 hover:text-slate-200"}`}
             >
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -127,15 +128,15 @@ export function GitLog({ runs, onClose }: { runs: GitRun[]; onClose: () => void 
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter command, repo, output"
+            placeholder={t("Filter command, repo, output")}
             className="min-w-0 flex-1 bg-transparent text-[12px] text-slate-200 outline-none placeholder:text-slate-600"
           />
         </label>
         <button
           type="button"
           onClick={onClose}
-          title="Close (Esc)"
-          aria-label="Close"
+          title={t("Close (Esc)")}
+          aria-label={t("Close")}
           className="rounded p-1 text-slate-400 hover:bg-overlay-hover hover:text-slate-100"
         >
           <X className="size-4" />
@@ -152,7 +153,7 @@ export function GitLog({ runs, onClose }: { runs: GitRun[]; onClose: () => void 
       >
         {groups.length === 0 && (
           <p className="px-4 py-3 font-sans text-slate-500">
-            {runs.length === 0 ? "No git command ran yet." : "Nothing matches."}
+            {runs.length === 0 ? t("No git command ran yet.") : t("Nothing matches.")}
           </p>
         )}
         {groups.map((g) => (
@@ -183,9 +184,9 @@ function Entry({ group, open, onToggle }: { group: Group; open: boolean; onToggl
           {new Date(first.at).toLocaleTimeString(LOCALE)}
         </span>
         {failed.length ? (
-          <X className="size-3.5 shrink-0 text-problem" aria-label="failed" />
+          <X className="size-3.5 shrink-0 text-problem" aria-label={t("failed")} />
         ) : (
-          <Check className={`size-3.5 shrink-0 ${first.changes ? "text-added" : "text-slate-600"}`} aria-label="ok" />
+          <Check className={`size-3.5 shrink-0 ${first.changes ? "text-added" : "text-slate-600"}`} aria-label={t("ok")} />
         )}
         <span className="w-28 shrink-0 truncate font-sans text-[12px] text-slate-400" title={group.runs.map((r) => r.repo).join(", ")}>
           {repos}
@@ -194,7 +195,7 @@ function Entry({ group, open, onToggle }: { group: Group; open: boolean; onToggl
           {first.command}
         </span>
         {failed.length > 0 && group.runs.length > 1 && (
-          <span className="shrink-0 font-sans text-[11px] text-problem">{failed.length} failed</span>
+          <span className="shrink-0 font-sans text-[11px] text-problem">{t("{n} failed", { n: failed.length })}</span>
         )}
         <span className="shrink-0 text-[11px] text-slate-500 tabular-nums">{ms} ms</span>
       </button>
@@ -205,7 +206,7 @@ function Entry({ group, open, onToggle }: { group: Group; open: boolean; onToggl
               {group.runs.length > 1 && (
                 <div className="mb-0.5 font-sans text-[11px] text-slate-400">
                   {run.repo}
-                  {!run.ok && <span className="text-problem"> · failed</span>}
+                  {!run.ok && <span className="text-problem"> · {t("failed")}</span>}
                 </div>
               )}
               {group.runs.length === 1 && (
@@ -219,10 +220,10 @@ function Entry({ group, open, onToggle }: { group: Group; open: boolean; onToggl
                   run.ok ? "text-slate-300" : "text-problem"
                 }`}
               >
-                {run.output.trimEnd() || <span className="font-sans text-slate-500 italic">No output</span>}
+                {run.output.trimEnd() || <span className="font-sans text-slate-500 italic">{t("No output")}</span>}
               </pre>
               <div className="mt-0.5 font-sans text-[11px] text-slate-500">
-                {run.code === null ? "did not run to the end" : `exit code ${run.code}`} · {run.ms} ms
+                {run.code === null ? t("did not run to the end") : t("exit code {code}", { code: run.code })} · {run.ms} ms
               </div>
             </div>
           ))}

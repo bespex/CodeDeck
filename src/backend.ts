@@ -235,9 +235,9 @@ export function pathStats(path: string): Promise<PathStats> {
   return Promise.resolve({ files: files.length, bytes, truncated: false });
 }
 
-/** A file in the workbench (`.workbench/` in the project). */
+/** A file in the scratch folder (`.scratch/` in the project). */
 export interface WorkFile {
-  /** Project-relative, beginning with `.workbench/` */
+  /** Project-relative, beginning with `.scratch/` */
   path: string;
   size: number;
   /** Unix milliseconds of the last change */
@@ -245,32 +245,32 @@ export interface WorkFile {
 }
 
 const DAY = 24 * 3600_000;
-let mockWorkbench: WorkFile[] = [
-  { path: ".workbench/bench_limiter.py", size: 2100, modified: Date.now() - 25 * 60_000 },
-  { path: ".workbench/bench-results.csv", size: 14_300, modified: Date.now() - 24 * 60_000 },
-  { path: ".workbench/load-test.log", size: 1_400_000, modified: Date.now() - 9 * DAY },
-  { path: ".workbench/sketches/limiter-sketch.html", size: 210_000, modified: Date.now() - 12 * DAY },
+let mockScratch: WorkFile[] = [
+  { path: ".scratch/bench_limiter.py", size: 2100, modified: Date.now() - 25 * 60_000 },
+  { path: ".scratch/bench-results.csv", size: 14_300, modified: Date.now() - 24 * 60_000 },
+  { path: ".scratch/load-test.log", size: 1_400_000, modified: Date.now() - 9 * DAY },
+  { path: ".scratch/sketches/limiter-sketch.html", size: 210_000, modified: Date.now() - 12 * DAY },
 ];
 
-/** The files in the workbench, newest first; from now on a new one there is reported at once. */
-export function workbenchList(): Promise<WorkFile[]> {
-  if (live) return invoke("workbench_list");
-  return Promise.resolve([...mockWorkbench]);
+/** The files in the scratch folder, newest first; from now on a new one there is reported at once. */
+export function scratchList(): Promise<WorkFile[]> {
+  if (live) return invoke("scratch_list");
+  return Promise.resolve([...mockScratch]);
 }
 
-/** Moves files of the workbench to the trash. */
-export function workbenchTrash(paths: string[]): Promise<void> {
-  if (live) return invoke("workbench_trash", { paths });
-  mockWorkbench = mockWorkbench.filter((f) => !paths.includes(f.path));
+/** Moves files of the scratch folder to the trash. */
+export function scratchTrash(paths: string[]): Promise<void> {
+  if (live) return invoke("scratch_trash", { paths });
+  mockScratch = mockScratch.filter((f) => !paths.includes(f.path));
   return Promise.resolve();
 }
 
-/** Moves a file of the workbench into the project (`to` is project-relative); the new path. */
-export function workbenchMove(from: string, to: string): Promise<string> {
-  if (live) return invoke("workbench_move", { from, to });
-  if (!mockWorkbench.some((f) => f.path === from)) return Promise.reject(`${from}: not in .workbench/`);
-  if (to.startsWith(".workbench")) return Promise.reject(`${to}: that is the workbench itself`);
-  mockWorkbench = mockWorkbench.filter((f) => f.path !== from);
+/** Moves a file of the scratch folder into the project (`to` is project-relative); the new path. */
+export function scratchMove(from: string, to: string): Promise<string> {
+  if (live) return invoke("scratch_move", { from, to });
+  if (!mockScratch.some((f) => f.path === from)) return Promise.reject(`${from}: not in .scratch/`);
+  if (to.startsWith(".scratch")) return Promise.reject(`${to}: that is the scratch folder itself`);
+  mockScratch = mockScratch.filter((f) => f.path !== from);
   return Promise.resolve(to);
 }
 
@@ -660,8 +660,8 @@ const mockAssistant: AssistantState = {
       touched: [
         { path: "tests/rate_limit.rs", at: Date.now() - 40_000 },
         { path: "src/middleware/rate_limit.rs", at: Date.now() - 120_000 },
-        { path: ".workbench/bench-results.csv", at: Date.now() - 24 * 60_000 },
-        { path: ".workbench/bench_limiter.py", at: Date.now() - 25 * 60_000 },
+        { path: ".scratch/bench-results.csv", at: Date.now() - 24 * 60_000 },
+        { path: ".scratch/bench_limiter.py", at: Date.now() - 25 * 60_000 },
       ],
       received: [
         { at: Date.now() - 12 * 60_000, labels: ["2 line comments", "1 change"] },
@@ -830,7 +830,7 @@ export function startRules(): Promise<string> {
   if (live) return invoke("start_rules");
   return Promise.resolve(
     "Rules from CodeDeck, the app the user watches this project with. They are always the same and the user sees them there:\n" +
-      "- Put drafts, mock-ups, throwaway scripts and test data into .workbench/ in this project, not into /tmp or your home folder. Git ignores that folder; the user sees it in CodeDeck.\n" +
+      "- Put drafts, mock-ups, throwaway scripts and test data into .scratch/ in this project, not into /tmp or your home folder. Git ignores that folder; the user sees it in CodeDeck.\n" +
       "- When you publish a page somewhere else (a shared document, an artifact, a gist, a paste), say so in your answer and give its link.",
   );
 }

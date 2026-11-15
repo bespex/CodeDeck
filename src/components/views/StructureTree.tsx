@@ -33,6 +33,7 @@ import { Tooltip, TooltipHint } from "../Tooltip";
 import { pathItems, useContextMenu } from "../ContextMenu";
 import { reviewKey, toggleReviewed, useReviewed } from "../../reviewed";
 import { AttachChange, DiffBody, FileButtons, inUntrackedDir, LineCounts, LookedAt, type Working } from "./DiffParts";
+import { plural, t } from "../../i18n";
 
 /** A new folder with more files than this opens collapsed. */
 const MANY = 12;
@@ -124,7 +125,7 @@ export function StructureTree({ patch, files, repo, onDone, selected, who }: Pro
       {contextMenu.element}
       {patch.truncated && (
         <p className="border-t border-line px-3 py-1.5 text-[12px] text-changed">
-          The diff is very long: the files are all listed, the code only of the first ones.
+          {t("The diff is very long: the files are all listed, the code only of the first ones.")}
         </p>
       )}
     </div>
@@ -160,17 +161,15 @@ function Summary(props: {
   return (
     <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1.5 text-[12px]">
       {KINDS.filter((k) => tree.counts[k] > 0).map((k) => {
-        const { icon: Icon, color, plural, only: tip } = KIND[k];
+        const { icon: Icon, color, plural: word, only: tip } = KIND[k];
         const active = only === k;
         return (
           <Tooltip
             key={k}
             content={
               <>
-                <span>
-                  {tree.counts[k]} {plural} file{tree.counts[k] === 1 ? "" : "s"}
-                </span>
-                <TooltipHint>{active ? "Click to show everything again" : `Click: ${tip.toLowerCase()}`}</TooltipHint>
+                <span>{t("{files}: {kind}", { files: plural(tree.counts[k], "file"), kind: t(word) })}</span>
+                <TooltipHint>{active ? t("Click to show everything again") : t("Click: {what}", { what: t(tip).toLowerCase() })}</TooltipHint>
               </>
             }
           >
@@ -184,7 +183,7 @@ function Summary(props: {
             >
               <Icon className={`size-3.5 ${color}`} />
               <span className="font-mono">{tree.counts[k]}</span>
-              <span>{plural}</span>
+              <span>{t(word)}</span>
             </button>
           </Tooltip>
         );
@@ -196,7 +195,7 @@ function Summary(props: {
           <span key={word} className="flex items-center gap-1 px-1 text-slate-400">
             <Icon className={`size-3.5 ${color}`} />
             <span className="font-mono">{n}</span>
-            {word} folder{n === 1 ? "" : "s"}
+            {t(n === 1 ? `${word} folder` : `${word} folders`)}
           </span>
         ))}
       <span className="ml-auto pr-1">
@@ -222,13 +221,13 @@ function DirRow({ dir, depth, ctx }: { dir: DirNode; depth: number; ctx: Ctx }) 
   const n = files(dir);
   const Chevron = isOpen ? ChevronDown : ChevronRight;
   const look = {
-    new: { icon: FolderPlus, color: "text-added", note: "new folder", says: `New folder with ${n} file${n === 1 ? "" : "s"}` },
-    gone: { icon: FolderMinus, color: "text-problem", note: "folder deleted", says: `Deleted folder: its ${n} file${n === 1 ? " is" : "s are"} gone` },
+    new: { icon: FolderPlus, color: "text-added", note: t("new folder"), says: t("New folder with {files}", { files: plural(n, "file") }) },
+    gone: { icon: FolderMinus, color: "text-problem", note: t("folder deleted"), says: t("Deleted folder: {files} gone", { files: plural(n, "file") }) },
     moved: {
       icon: FolderInput,
       color: "text-moved",
       note: movedNote(dir.from ?? "", dir.path),
-      says: `Moved as a whole from ${dir.from}/ with its ${n} file${n === 1 ? "" : "s"}`,
+      says: t("Moved as a whole from {from}/ with its {files}", { from: dir.from ?? "", files: plural(n, "file") }),
     },
     changed: { icon: isOpen ? FolderOpen : Folder, color: "text-slate-500", note: "", says: "" },
   }[dir.state];
@@ -292,11 +291,11 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
   const lookedKey = reviewKey(ctx.repo.path, file.path, ctx.diffs.get(file.path), `${c.status}:${c.added}:${c.removed}`);
   const looked = ctx.reviewed(lookedKey);
   const notes = [
-    file.withFolder ? null : file.renamed ? `was ${nameOf(c.from!)}` : c.status === "R" ? movedNote(dirOf(c.from!), dirOf(c.path), nameOf(c.from!), file.name) : null,
-    c.status === "C" ? `copy of ${c.from}` : null,
-    (c.status === "R" || c.status === "C") && c.similarity !== null && c.similarity < 100 ? `edited, ${c.similarity} % alike` : null,
+    file.withFolder ? null : file.renamed ? t("was {name}", { name: nameOf(c.from!) }) : c.status === "R" ? movedNote(dirOf(c.from!), dirOf(c.path), nameOf(c.from!), file.name) : null,
+    c.status === "C" ? t("copy of {from}", { from: c.from ?? "" }) : null,
+    (c.status === "R" || c.status === "C") && c.similarity !== null && c.similarity < 100 ? t("edited, {n} % alike", { n: c.similarity }) : null,
     modeNote(c),
-    c.added === null ? "binary" : null,
+    c.added === null ? t("binary") : null,
   ].filter(Boolean);
 
   return (
@@ -334,7 +333,7 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
         {ctx.who?.(file.path)}
         {notes.length > 0 && <span className="min-w-0 truncate text-[11px] text-slate-500">{notes.join(" · ")}</span>}
         {working?.status?.staged && (
-          <Hint text="Staged: part of the next commit">
+          <Hint text={t("Staged: part of the next commit")}>
             <span className="size-1.5 shrink-0 rounded-full bg-slate-400" />
           </Hint>
         )}
@@ -351,7 +350,7 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
         <div className="mr-2 mb-2 overflow-hidden rounded-md border border-line" style={{ marginLeft: 8 + depth * 16 + 18 }}>
           <DiffBody
             file={ctx.diffs.get(file.path)}
-            missing={c.similarity === 100 ? "Same content, only its place changed" : undefined}
+            missing={c.similarity === 100 ? t("Same content, only its place changed") : undefined}
             notePath={file.kind === "deleted" ? undefined : toProject(ctx.repo, file.path)}
           />
         </div>
@@ -363,34 +362,39 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
 function fileLook(file: FileNode): { icon: LucideIcon; color: string; says: string } {
   const c = file.change;
   if (c.newMode === "160000" || c.oldMode === "160000") {
-    return { icon: FolderGit2, color: KIND[file.kind].color, says: "A repository of its own inside this one" };
+    return { icon: FolderGit2, color: KIND[file.kind].color, says: t("A repository of its own inside this one") };
   }
   if (file.withFolder) {
     return c.similarity === 100
-      ? { icon: File, color: "text-slate-500", says: "Moved with its folder, content unchanged" }
-      : { icon: FilePen, color: "text-changed", says: `Moved with its folder and edited (${c.similarity} % alike)` };
+      ? { icon: File, color: "text-slate-500", says: t("Moved with its folder, content unchanged") }
+      : { icon: FilePen, color: "text-changed", says: t("Moved with its folder and edited ({n} % alike)", { n: c.similarity ?? 0 }) };
   }
   const { icon, color } = KIND[file.kind];
   const says =
     c.status === "A"
-      ? "New file"
+      ? t("New file")
       : c.status === "C"
-        ? `New file, a copy of ${c.from}`
+        ? t("New file, a copy of {from}", { from: c.from ?? "" })
         : c.status === "D"
-          ? "Deleted file"
+          ? t("Deleted file")
           : c.status === "R"
-            ? `${file.renamed ? "Renamed" : "Moved"} from ${c.from}${c.similarity === 100 ? ", content unchanged" : `, and edited (${c.similarity} % alike)`}`
+            ? t(
+                file.renamed
+                  ? c.similarity === 100 ? "Renamed from {from}, content unchanged" : "Renamed from {from}, and edited ({n} % alike)"
+                  : c.similarity === 100 ? "Moved from {from}, content unchanged" : "Moved from {from}, and edited ({n} % alike)",
+                { from: c.from ?? "", n: c.similarity ?? 0 },
+              )
             : c.status === "T"
-              ? "Changed its type (file, link or repository)"
-              : "Content changed";
+              ? t("Changed its type (file, link or repository)")
+              : t("Content changed");
   return { icon, color, says };
 }
 
 /** `from src/net/` when only the folder changed, `from src/net/old.rs` when the name too. */
 function movedNote(fromDir: string, toDir: string, fromName?: string, toName?: string): string {
   const name = fromName !== undefined && fromName !== toName ? fromName : "";
-  if (dirOf(fromDir) === dirOf(toDir) && fromName === undefined) return `renamed from ${nameOf(fromDir)}`;
-  return `from ${fromDir ? `${fromDir}/` : "top level/"}${name}`;
+  if (dirOf(fromDir) === dirOf(toDir) && fromName === undefined) return t("renamed from {name}", { name: nameOf(fromDir) });
+  return t("from {path}", { path: `${fromDir ? `${fromDir}/` : t("top level/")}${name}` });
 }
 
 const dirOf = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf("/")));

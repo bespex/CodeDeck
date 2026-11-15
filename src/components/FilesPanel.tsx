@@ -28,7 +28,8 @@ import { AppName, openAs } from "../apps";
 import { useSessionMarks } from "../assistant";
 import { RepoTooltip } from "./RepoTooltip";
 import { ProjectHeader, type OpenProject } from "./ProjectHeader";
-import { inWorkbench, moveIntoProject, WORKBENCH_DRAG } from "../workbench";
+import { inScratch, moveIntoProject, SCRATCH_DRAG } from "../scratch";
+import { plural, T, t } from "../i18n";
 
 /** MIME type used when dragging a file or folder onto the context area. */
 export const DRAG_TYPE = "application/x-codedeck-entry";
@@ -151,7 +152,7 @@ export function FilesPanel(props: Props) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter open folders"
+            placeholder={t("Filter open folders")}
             className="w-full bg-transparent text-slate-200 outline-none placeholder:text-slate-600"
           />
         </label>
@@ -160,19 +161,19 @@ export function FilesPanel(props: Props) {
       <div
         className={`min-h-0 flex-1 overflow-y-auto px-1 py-2 ${rootDrop ? "ring-1 ring-ai ring-inset" : ""}`}
         role="tree"
-        // A workbench file dropped here, not on a folder: into the project root
+        // A scratch file dropped here, not on a folder: into the project root
         onDragOver={(e) => {
-          if (!e.dataTransfer.types.includes(WORKBENCH_DRAG)) return;
+          if (!e.dataTransfer.types.includes(SCRATCH_DRAG)) return;
           e.preventDefault();
           e.dataTransfer.dropEffect = "move";
           setRootDrop(true);
         }}
         onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setRootDrop(false)}
         onDrop={(e) => {
-          if (!e.dataTransfer.types.includes(WORKBENCH_DRAG)) return;
+          if (!e.dataTransfer.types.includes(SCRATCH_DRAG)) return;
           e.preventDefault();
           setRootDrop(false);
-          void moveIntoProject(e.dataTransfer.getData(WORKBENCH_DRAG), "");
+          void moveIntoProject(e.dataTransfer.getData(SCRATCH_DRAG), "");
         }}
       >
         {error ? (
@@ -186,7 +187,7 @@ export function FilesPanel(props: Props) {
       {recentPaths.length > 0 && (
         <footer className="flex shrink-0 items-center gap-2 border-t border-line px-3 py-2 text-[11px] text-slate-500">
           <span className="ai-dot" />
-          {recentPaths.length} changed recently
+          {t("{n} changed recently", { n: recentPaths.length })}
         </footer>
       )}
     </aside>
@@ -243,10 +244,10 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
   const inside = entry.isDir && !repo && !state && !isOpen ? tree.git.changesIn(entry.path) : 0;
   const Icon = repo ? (repo.worktreeOf ? GitFork : FolderGit2) : entry.isDir ? (isOpen ? FolderOpen : Folder) : iconFor(entry.name);
   const Chevron = isOpen ? ChevronDown : ChevronRight;
-  // A workbench file can be dropped on a folder of the project, to move it in there
+  // A scratch file can be dropped on a folder of the project, to move it in there
   const [dropping, setDropping] = useState(false);
   const opening = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const takes = (e: DragEvent) => entry.isDir && !inWorkbench(entry.path) && e.dataTransfer.types.includes(WORKBENCH_DRAG);
+  const takes = (e: DragEvent) => entry.isDir && !inScratch(entry.path) && e.dataTransfer.types.includes(SCRATCH_DRAG);
   const leave = () => {
     clearTimeout(opening.current);
     setDropping(false);
@@ -280,7 +281,7 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
           e.preventDefault();
           e.stopPropagation();
           leave();
-          void moveIntoProject(e.dataTransfer.getData(WORKBENCH_DRAG), entry.path);
+          void moveIntoProject(e.dataTransfer.getData(SCRATCH_DRAG), entry.path);
         }}
         onClick={() => (entry.isDir ? tree.toggle(entry.path) : tree.onSelect(entry.path))}
         onDoubleClick={() => !entry.isDir && openAs(entry.path, "view")}
@@ -291,8 +292,8 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
         style={{ paddingLeft: 6 + depth * 14 }}
         className={`group relative flex h-[26px] cursor-default items-center gap-1.5 rounded-md pr-1.5 transition-opacity ${
           dropping ? "bg-ai/20 ring-1 ring-ai" : isSelected ? "bg-indigo-500/25 text-slate-50" : "hover:bg-raised"
-        } ${faded ? "opacity-40" : inWorkbench(entry.path) ? "opacity-55" : ""}`}
-        title={entry.path === ".workbench" ? "Drafts and scratch files of sessions; Git ignores it. See the Workbench view." : undefined}
+        } ${faded ? "opacity-40" : inScratch(entry.path) ? "opacity-55" : ""}`}
+        title={entry.path === ".scratch" ? t("Drafts and scratch files of sessions; Git ignores it. See the Workbench view.") : undefined}
       >
         {entry.isDir ? (
           <Chevron className="size-3.5 shrink-0 text-slate-500" />
@@ -302,7 +303,7 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
         <Icon className={`size-4 shrink-0 ${entry.isDir ? "text-slate-300" : "text-slate-500"}`} />
         <span
           className={`truncate ${inside ? "text-changed" : ""}`}
-          title={inside ? `${inside} uncommitted change${inside === 1 ? "" : "s"} inside` : undefined}
+          title={inside ? t("{changes} inside", { changes: plural(inside, "uncommitted change") }) : undefined}
         >
           {entry.name}
         </span>
@@ -313,15 +314,15 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
             <span
               className={`ai-dot ${entry.isDir ? "opacity-60" : ""}`}
               style={dot ? ({ "--dot": dot } as CSSProperties) : undefined}
-              title={`${entry.isDir ? "Changed on disk just now, somewhere inside" : "Changed on disk just now"}${
-                writer ? `; written by session ${marks.of(writer)?.short ?? ""}` : ""
+              title={`${entry.isDir ? t("Changed on disk just now, somewhere inside") : t("Changed on disk just now")}${
+                writer ? `; ${t("written by session {short}", { short: marks.of(writer)?.short ?? "" })}` : ""
               }`}
             />
           )}
           {state && (
             <span
               className={`w-3 text-center font-mono text-[11px] ${stateColor[state]}`}
-              title={entry.isDir && state === "?" ? "New folder: nothing in it is in Git yet" : stateMeaning[state]}
+              title={entry.isDir && state === "?" ? t("New folder: nothing in it is in Git yet") : t(stateMeaning[state])}
             >
               {stateSymbol(state)}
             </span>
@@ -359,16 +360,16 @@ function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinn
         <>
           <Tool
             icon={Eye}
-            label="View"
-            says={<>Opens it in <AppName path={entry.path} role="view" /></>}
-            hint="Also: double-click the file"
+            label={t("View")}
+            says={<T text="Opens it in {app}" app={<AppName path={entry.path} role="view" />} />}
+            hint={t("Also: double-click the file")}
             onClick={() => openAs(entry.path, "view")}
           />
           <Tool
             icon={SquarePen}
-            label="Edit"
-            says={<>Opens it in <AppName path={entry.path} role="edit" /></>}
-            hint="Also: middle-click the file"
+            label={t("Edit")}
+            says={<T text="Opens it in {app}" app={<AppName path={entry.path} role="edit" />} />}
+            hint={t("Also: middle-click the file")}
             onClick={() => openAs(entry.path, "edit")}
           />
           <Gap />
@@ -376,8 +377,8 @@ function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinn
       )}
       <Tool
         icon={FolderSearch}
-        label="Show in file manager"
-        says={entry.isDir ? "Opens this folder in the file manager" : "Opens its folder in the file manager, with it selected"}
+        label={t("Show in file manager")}
+        says={entry.isDir ? t("Opens this folder in the file manager") : t("Opens its folder in the file manager, with it selected")}
         onClick={() => (entry.isDir ? openPath(entry.path) : showInFileManager(entry.path)).catch(report)}
       />
       {entry.isDir && tree.project && (
@@ -385,8 +386,8 @@ function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinn
           <Gap />
           <Tool
             icon={FolderInput}
-            label="Open as project"
-            says="Opens this folder as the project of this window · Ctrl+click: in a new window"
+            label={t("Open as project")}
+            says={t("Opens this folder as the project of this window · Ctrl+click: in a new window")}
             onClick={(e) => openAsProject(e, e.ctrlKey || e.metaKey)}
             onAuxClick={(e) => e.button === 1 && openAsProject(e, true)}
           />
@@ -395,8 +396,8 @@ function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinn
       <Gap />
       <Tool
         icon={Paperclip}
-        label={pinned ? "Remove from next prompt" : "Attach to next prompt"}
-        says={pinned ? "It is attached to your next prompt; click to remove it" : "Attaches its path to your next prompt; the assistant reads it as far as it needs"}
+        label={pinned ? t("Remove from next prompt") : t("Attach to next prompt")}
+        says={pinned ? t("It is attached to your next prompt; click to remove it") : t("Attaches its path to your next prompt; the assistant reads it as far as it needs")}
         active={pinned}
         onClick={() => (pinned ? tree.onUnpin(entry.path) : tree.onPin(entry))}
       />
@@ -453,7 +454,7 @@ function RepoBadge({ repo, tree }: { repo: RepoStatus; tree: TreeState }) {
     <Tooltip content={<RepoTooltip repo={repo} runs={tree.git.runs} />}>
       <button
         type="button"
-        aria-label={`Git actions for ${repo.name}, branch ${repo.branch ?? "detached"}`}
+        aria-label={t("Git actions for {repo}, branch {branch}", { repo: repo.name, branch: repo.branch ?? t("detached") })}
         onClick={(e) => {
           e.stopPropagation();
           tree.onRepoActions(repo.path, e.currentTarget, false);
@@ -463,7 +464,7 @@ function RepoBadge({ repo, tree }: { repo: RepoStatus; tree: TreeState }) {
         }`}
       >
         <GitBranch className="size-3 shrink-0" />
-        <span className="truncate">{repo.error ? "error" : (repo.branch ?? "detached")}</span>
+        <span className="truncate">{repo.error ? t("error") : (repo.branch ?? t("detached"))}</span>
         {sync && <span className="shrink-0 text-slate-500">{sync}</span>}
       </button>
     </Tooltip>

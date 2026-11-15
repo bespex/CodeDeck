@@ -5,6 +5,7 @@ import { Row, Rows, Section } from "../blocks";
 import { SessionBadge } from "../SessionBadge";
 import { LOCALE } from "../Trail";
 import { Tooltip } from "../Tooltip";
+import { t } from "../../i18n";
 
 /**
  * What are the sessions doing? For now the documents they wrote: the results of their work, to
@@ -16,9 +17,9 @@ export function ActivityView({ assistant }: { assistant: AssistantState }) {
   const button = "rounded p-1 text-slate-500 hover:bg-overlay-hover hover:text-slate-100";
   return (
     <div className="flex min-h-full flex-col">
-      <Section title="Documents written" note="last 24 hours">
+      <Section title={t("Documents written")} note={t("last 24 hours")}>
         {docs.length === 0 ? (
-          <p>None yet. Documents a session writes in this project show up here, to read first.</p>
+          <p>{t("None yet. Documents a session writes in this project show up here, to read first.")}</p>
         ) : (
           <Rows>
             {docs.map(([path, at]) => {
@@ -31,13 +32,13 @@ export function ActivityView({ assistant }: { assistant: AssistantState }) {
                   <span className="text-[11px] text-slate-500 tabular-nums">
                     {new Date(at).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" })}
                   </span>
-                  <Tooltip content={<span>View</span>}>
-                    <button type="button" aria-label={`View ${path}`} onClick={() => openFile(path, "view")} className={button}>
+                  <Tooltip content={<span>{t("View")}</span>}>
+                    <button type="button" aria-label={t("View {path}", { path })} onClick={() => openFile(path, "view")} className={button}>
                       <Eye className="size-3.5" />
                     </button>
                   </Tooltip>
-                  <Tooltip content={<span>Edit, e.g. to add comments for the assistant</span>}>
-                    <button type="button" aria-label={`Edit ${path}`} onClick={() => openFile(path, "edit")} className={button}>
+                  <Tooltip content={<span>{t("Edit, e.g. to add comments for the assistant")}</span>}>
+                    <button type="button" aria-label={t("Edit {path}", { path })} onClick={() => openFile(path, "edit")} className={button}>
                       <ExternalLink className="size-3.5" />
                     </button>
                   </Tooltip>
@@ -47,8 +48,8 @@ export function ActivityView({ assistant }: { assistant: AssistantState }) {
           </Rows>
         )}
       </Section>
-      <Section title="Timeline">
-        <p>Not built yet: what each session did when, and how safe your work is.</p>
+      <Section title={t("Timeline")}>
+        <p>{t("Not built yet: what each session did when, and how safe your work is.")}</p>
       </Section>
     </div>
   );

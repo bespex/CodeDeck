@@ -174,8 +174,3 @@ export function useAttachEnabled(): boolean {
   }, []);
   return enabled;
 }
-
-/** How many things are attached, counted the same everywhere: each file on its own, each other part once. */
-export function attachmentCount(state: AssistantState, files: number): number {
-  return state.attachments.filter((a) => a.key !== "files").length + files;
-}

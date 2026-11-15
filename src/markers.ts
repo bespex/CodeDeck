@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { findMarkers, onFsChanged, type Marker } from "./backend";
 import { plural } from "./git";
 import { createPart } from "./attachments";
+import { t } from "./i18n";
 
 /** Lines move when text is edited: a comment is recognised by file and text. */
 export const markerKey = (m: Marker) => `${m.path}\u0000${m.text}`;
@@ -25,7 +26,9 @@ export function markerTask(markers: Marker[]): string {
 
 function markersLabel(list: Marker[]): string {
   const files = new Set(list.map((m) => m.path)).size;
-  return `${plural(list.length, "hint")}${files > 1 ? ` in ${files} files` : ` in ${list[0]?.path ?? ""}`}`;
+  return files > 1
+    ? t("{hints} in {files}", { hints: plural(list.length, "hint"), files: plural(files, "file") })
+    : t("{hints} in {path}", { hints: plural(list.length, "hint"), path: list[0]?.path ?? "" });
 }
 
 /** Hints sent with a prompt in this window, oldest first: their progress is shown until the window closes. */

@@ -1,16 +1,18 @@
 import { useEffect, useState, type DragEvent, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronRight, ClipboardCopy, File, Folder, Paperclip, Pencil, TextSelect, Trash2, X } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, ChevronRight, ClipboardCopy, Paperclip, Pencil, X } from "lucide-react";
 import { DRAG_TYPE } from "./FilesPanel";
 import { HookPanel } from "./AssistantStatus";
 import { Tooltip } from "./Tooltip";
-import { forgetSession, renameSession, type AssistantState, type Attachment, type Entry, type Session } from "../backend";
+import { forgetSession, renameSession, type AssistantState, type Entry, type Session } from "../backend";
 import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
 import { SessionBadge } from "./SessionBadge";
-import { FILES_KEY, filesText, type Pin } from "../files";
-import { attachmentCount, removeAttachment } from "../attachments";
+import { files, filesText, type Pin } from "../files";
+import { formatTokens, useAttachedKinds } from "./AttachmentList";
+import { openView } from "../view";
 import { AttachTarget, TargetLost } from "./AttachTarget";
 import { plural } from "../git";
 import { LOCALE } from "./Trail";
+import { known, T, t } from "../i18n";
 
 interface Props {
   assistant: AssistantState;
@@ -37,7 +39,7 @@ export function SessionsPanel(props: Props) {
 }
 
 const time = (ms: number) => new Date(ms).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
-const titleOf = (s: Session) => s.title ?? `Session ${shortId(s.id)}`;
+const titleOf = (s: Session) => s.title ?? t("Session {id}", { id: shortId(s.id) });
 const markOf = (s: Session, known: SessionMark | null): SessionMark =>
   known ?? { color: `var(--color-session-${s.color})`, short: s.short, title: s.title };
 
@@ -94,9 +96,9 @@ function NeedsYou({ state }: { state: AssistantState }) {
 
   return (
     <section className={`flex max-h-[40vh] min-h-0 flex-col border-b border-line ${waiting.length > 0 ? "bg-[var(--color-area-wait)]" : ""}`}>
-      <AreaHeader title="Needs you" count={waiting.length} />
+      <AreaHeader title={t("Needs you")} count={waiting.length} />
       {waiting.length === 0 ? (
-        <p className="px-3 pb-2.5 text-[12px] text-slate-500">Nothing. No session waits for you.</p>
+        <p className="px-3 pb-2.5 text-[12px] text-slate-500">{t("Nothing. No session waits for you.")}</p>
       ) : (
         <ul className="flex min-h-0 flex-col gap-1.5 overflow-y-auto px-2 pb-2">
           {waiting.map((s) => {
@@ -112,13 +114,13 @@ function NeedsYou({ state }: { state: AssistantState }) {
                   <span className={`size-2 shrink-0 rounded-full ${asks ? "bg-changed" : "bg-slate-400"}`} />
                   <SessionBadge mark={markOf(s, marks.of(s.id))} />
                   <span className="min-w-0 flex-1 truncate font-medium text-slate-100">
-                    {titleOf(s)} <span className="font-normal text-slate-400">{asks ? "asks" : "finished its turn"}</span>
+                    {titleOf(s)} <span className="font-normal text-slate-400">{asks ? t("asks") : t("finished its turn")}</span>
                   </span>
                   {!asks && (
                     <button
                       type="button"
-                      title="Put aside until its next turn"
-                      aria-label={`Put ${titleOf(s)} aside`}
+                      title={t("Put aside until its next turn")}
+                      aria-label={t("Put {name} aside", { name: titleOf(s) })}
                       onClick={() => setAside((current) => new Set(current).add(key(s)))}
                       className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-overlay-hover hover:text-slate-100"
                     >
@@ -127,7 +129,7 @@ function NeedsYou({ state }: { state: AssistantState }) {
                   )}
                 </div>
                 <p className={`mt-1 line-clamp-3 text-[12px] ${asks ? "text-changed" : "text-slate-300"}`}>
-                  {asks ? (s.message ?? "Waits for your answer") : `Waits for your next prompt since ${time(s.turnDone ?? s.last)}`}
+                  {asks ? (s.message ?? t("Waits for your answer")) : t("Waits for your next prompt since {time}", { time: time(s.turnDone ?? s.last) })}
                 </p>
               </li>
             );
@@ -171,12 +173,12 @@ function StatusDot({ status }: { status: Session["status"] }) {
  * asks there is none here; the fold-out says when its last step was.
  */
 function statusWords(s: Session): { words: string; timed: boolean } {
-  if (s.status === "working") return { words: "working", timed: false };
-  if (s.status === "waiting") return { words: "waiting for you", timed: false };
-  if (s.status === "ended") return { words: `ended · ${time(s.last)}`, timed: true };
+  if (s.status === "working") return { words: t("working"), timed: false };
+  if (s.status === "waiting") return { words: t("waiting for you"), timed: false };
+  if (s.status === "ended") return { words: `${t("ended")} · ${time(s.last)}`, timed: true };
   // Nothing was heard from it: whether it works right now is not known
-  if (!s.capabilities.liveStatus) return { words: `from its log · ${time(s.last)}`, timed: true };
-  return { words: `${s.turnDone != null ? "turn done" : "idle"} · ${time(s.turnDone ?? s.last)}`, timed: true };
+  if (!s.capabilities.liveStatus) return { words: `${t("from its log")} · ${time(s.last)}`, timed: true };
+  return { words: `${s.turnDone != null ? t("turn done") : t("idle")} · ${time(s.turnDone ?? s.last)}`, timed: true };
 }
 
 /**
@@ -185,10 +187,10 @@ function statusWords(s: Session): { words: string; timed: boolean } {
  */
 function headline(s: Session): { text: string; from: "step" | "prompt" | "message" | "result" } {
   const prompt = { text: s.prompt ?? "", from: "prompt" as const };
-  if (s.status === "working") return s.step ? { text: s.step, from: "step" } : s.prompt ? prompt : { text: "Working", from: "result" };
-  if (s.status === "waiting") return { text: s.message ?? "Waits for your answer", from: "message" };
-  if (s.touched.length > 0) return { text: `Wrote ${plural(s.touched.length, "file")}`, from: "result" };
-  return s.prompt ? prompt : { text: "Nothing written", from: "result" };
+  if (s.status === "working") return s.step ? { text: s.step, from: "step" } : s.prompt ? prompt : { text: t("Working"), from: "result" };
+  if (s.status === "waiting") return { text: s.message ?? t("Waits for your answer"), from: "message" };
+  if (s.touched.length > 0) return { text: t("Wrote {files}", { files: plural(s.touched.length, "file") }), from: "result" };
+  return s.prompt ? prompt : { text: t("Nothing written"), from: "result" };
 }
 
 function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (path: string) => void }) {
@@ -205,7 +207,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
   const Fold = showEarlier ? ChevronDown : ChevronRight;
   return (
     <section className="flex min-h-0 flex-col border-b border-line bg-[var(--color-area-ai)]">
-      <AreaHeader title="Sessions" />
+      <AreaHeader title={t("Sessions")} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {state.sessions.length > 0 ? (
           // Left as a whole: between two sessions the highlight stays, so nothing flickers on the way
@@ -217,7 +219,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
                 ))}
               </ul>
             ) : (
-              <p className="px-3 pb-2 text-[12px] text-slate-500">No session is at work here right now.</p>
+              <p className="px-3 pb-2 text-[12px] text-slate-500">{t("No session is at work here right now.")}</p>
             )}
             {earlier.length > 0 && (
               <>
@@ -228,7 +230,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
                   className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold tracking-wider text-slate-500 uppercase hover:text-slate-300"
                 >
                   <Fold className="size-3.5" />
-                  Earlier
+                  {t("Earlier")}
                   <span className="font-normal tracking-normal normal-case">{earlier.length}</span>
                 </button>
                 {showEarlier && (
@@ -247,8 +249,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
           </div>
         ) : (
           <p className="grid h-full place-items-center px-6 text-center text-slate-500">
-            No {harness.name} session has worked in this project since CodeDeck opened it. Start one in the
-            project's folder: it shows up here with its first step.
+            {t("No {tool} session has worked in this project since CodeDeck opened it. Start one in the project's folder: it shows up here with its first step.", { tool: harness.name })}
           </p>
         )}
       </div>
@@ -288,8 +289,8 @@ function SessionItem({ session: s, onShowFile }: { session: Session; onShowFile:
         </button>
         <button
           type="button"
-          aria-label={`Rename session ${mark.short}`}
-          title="Rename"
+          aria-label={t("Rename session {short}", { short: mark.short })}
+          title={t("Rename")}
           onClick={() => {
             setOpen(true);
             setRenaming(!renaming);
@@ -309,15 +310,15 @@ function SessionItem({ session: s, onShowFile }: { session: Session; onShowFile:
           {s.prompt && head.from !== "prompt" && <p className="line-clamp-3 text-slate-400 italic">“{s.prompt}”</p>}
           {s.touched.length > 0 && (
             <ul className="mt-1.5 flex flex-col">
-              {s.touched.map((t) => (
-                <li key={t.path}>
+              {s.touched.map((touch) => (
+                <li key={touch.path}>
                   <button
                     type="button"
-                    onClick={() => onShowFile(t.path)}
+                    onClick={() => onShowFile(touch.path)}
                     className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left font-mono text-[11px] text-slate-400 hover:bg-overlay-hover hover:text-slate-100"
                   >
                     <span className="size-1.5 shrink-0 rounded-full" style={{ background: mark.color }} />
-                    <span className="truncate">{t.path}</span>
+                    <span className="truncate">{touch.path}</span>
                   </button>
                 </li>
               ))}
@@ -325,13 +326,13 @@ function SessionItem({ session: s, onShowFile }: { session: Session; onShowFile:
           )}
           {s.received.length > 0 && (
             <div className="mt-1.5">
-              <div className="text-[11px] text-slate-500">Got from CodeDeck</div>
+              <div className="text-[11px] text-slate-500">{t("Got from CodeDeck")}</div>
               <ul className="flex flex-col">
                 {s.received.map((r, i) => (
                   <li key={i} className="flex gap-2 px-1 py-0.5 text-[11px] text-slate-400">
                     <span className="shrink-0 text-slate-500 tabular-nums">{time(r.at)}</span>
                     <Paperclip className="mt-0.5 size-3 shrink-0 text-slate-500" />
-                    <span className="min-w-0">{r.labels.filter(Boolean).join(", ") || "attachments"}</span>
+                    <span className="min-w-0">{r.labels.filter(Boolean).map(known).join(", ") || t("attachments")}</span>
                   </li>
                 ))}
               </ul>
@@ -343,17 +344,17 @@ function SessionItem({ session: s, onShowFile }: { session: Session; onShowFile:
             <span className="min-w-0 flex-1 pt-0.5">
               {s.model && <span className="font-medium text-slate-300">{s.model}</span>}
               {s.model && " · "}
-              {s.cwd === "" ? "project root" : s.cwd}
-              {!status.timed && ` · last step ${time(s.last)}`}
+              {s.cwd === "" ? t("project root") : s.cwd}
+              {!status.timed && ` · ${t("last step {time}", { time: time(s.last) })}`}
               {s.step && head.from !== "step" && ` · ${s.step}`}
             </span>
             <button
               type="button"
-              title="Takes it off this list. It comes back by itself when the session takes its next step"
+              title={t("Takes it off this list. It comes back by itself when the session takes its next step")}
               onClick={() => forgetSession(s.id)}
               className="flex shrink-0 items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-slate-300 hover:border-overlay-line hover:bg-overlay-hover hover:text-slate-100"
             >
-              <X className="size-3" /> Remove from list
+              <X className="size-3" /> {t("Remove from list")}
             </button>
           </div>
         </div>
@@ -378,24 +379,24 @@ function RenameForm({ session: s, onClose }: { session: Session; onClose: () => 
       onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
       <div className="flex gap-1.5">
-        <input autoFocus aria-label="Title" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} className={`${field} flex-1`} />
-        <input aria-label="Short name" placeholder="A" maxLength={4} value={short} onChange={(e) => setShort(e.target.value)} className={`${field} w-14 text-center`} />
+        <input autoFocus aria-label={t("Title")} placeholder={t("Title")} value={title} onChange={(e) => setTitle(e.target.value)} className={`${field} flex-1`} />
+        <input aria-label={t("Short name")} placeholder="A" maxLength={4} value={short} onChange={(e) => setShort(e.target.value)} className={`${field} w-14 text-center`} />
       </div>
       <div className="flex items-center gap-1.5">
         <button type="submit" className={`${button} bg-brand-fill text-white hover:bg-brand-fill-hover`}>
-          Save
+          {t("Save")}
         </button>
         <button type="button" onClick={onClose} className={`${button} text-slate-400 hover:bg-overlay-hover hover:text-slate-100`}>
-          Cancel
+          {t("Cancel")}
         </button>
         {s.renamed && (
           <button
             type="button"
-            title="Back to the title the tool gave the session"
+            title={t("Back to the title the tool gave the session")}
             onClick={() => renameSession(s.id, null, short).then(onClose)}
             className={`${button} ml-auto text-slate-400 hover:bg-overlay-hover hover:text-slate-100`}
           >
-            Use its own title
+            {t("Use its own title")}
           </button>
         )}
       </div>
@@ -405,32 +406,34 @@ function RenameForm({ session: s, onClose }: { session: Session; onClose: () => 
 
 /* ── Next prompt: what is attached to it, only when asked ──────────────────── */
 
-const kindIcon = { file: File, folder: Folder, snippet: TextSelect };
-
 /** The context window the token meter measures against. */
 const CONTEXT_TOKENS = 200_000;
 
 /**
- * The short form of the Next prompt view, always in sight. You write the prompt in the tool;
- * CodeDeck attaches what is listed here (D20): pinned files, line comments, hints. Each with its
- * exact text on demand, who gets it, and the receipt once a session took it.
+ * The summary of the next prompt, always in sight, like a small dashboard: how many files, changes,
+ * comments and hints are attached, what reading the files costs, who it is for, and the receipt once
+ * a session took it. The items themselves are in the Next prompt view, one click away. Files can be
+ * dropped here.
  */
-function NextPrompt({ assistant, pins, onPin, onUnpin, onClear }: Props) {
+function NextPrompt({ assistant, onPin }: Props) {
   const [over, setOver] = useState(false);
-  const [filesPreview, setFilesPreview] = useState(false);
-  const used = pins.reduce((sum, p) => sum + p.tokens, 0);
-  const share = Math.min(1, used / CONTEXT_TOKENS);
+  const kinds = useAttachedKinds();
+  const count = kinds.files + kinds.changes + kinds.comments + kinds.hints;
+  const share = Math.min(1, kinds.tokens / CONTEXT_TOKENS);
   const barColor = share > 0.5 ? "bg-problem" : share > 0.25 ? "bg-changed" : "bg-ai";
   const { connected } = useConnections();
   const marks = useSessionMarks();
   // What is offered follows the tool's capabilities, never its name
   const { shortName, name, capabilities } = mainHarness(assistant);
   const attaches = capabilities.attach === "withNextPrompt";
-  // The pins are listed one by one, not as their part
-  const parts = assistant.attachments.filter((h) => h.key !== FILES_KEY);
-  const filesPart = assistant.attachments.find((h) => h.key === FILES_KEY);
-  const attached = parts.length > 0 || pins.length > 0;
+  const pins = files.use();
   const { delivered } = assistant;
+  const tiles: [number, string][] = [
+    [kinds.files, t("Files")],
+    [kinds.changes, t("Changes")],
+    [kinds.comments, t("Comments")],
+    [kinds.hints, t("Hints")],
+  ];
 
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
@@ -438,11 +441,10 @@ function NextPrompt({ assistant, pins, onPin, onUnpin, onClear }: Props) {
     const data = e.dataTransfer.getData(DRAG_TYPE);
     if (data) onPin(JSON.parse(data) as Entry);
   };
-  const small = "flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-[12px] text-slate-300 hover:bg-raised hover:text-slate-100 disabled:opacity-40";
 
   return (
     <section
-      className="flex min-h-0 flex-col bg-[var(--color-area-you)]"
+      className={`flex min-h-0 flex-col bg-[var(--color-area-you)] transition-shadow ${over ? "shadow-[inset_0_0_0_1px_var(--color-ai)]" : ""}`}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes(DRAG_TYPE)) {
           e.preventDefault();
@@ -453,166 +455,97 @@ function NextPrompt({ assistant, pins, onPin, onUnpin, onClear }: Props) {
       onDragLeave={() => setOver(false)}
       onDrop={onDrop}
     >
-      <AreaHeader title="Next prompt">
-        {attached && <span className="truncate text-[11px] text-slate-500">{plural(attachmentCount(assistant, pins.length), "attachment")}</span>}
+      <AreaHeader title={t("Next prompt")}>
+        <button
+          type="button"
+          onClick={() => openView("next")}
+          className="flex items-center gap-0.5 rounded px-1 text-[11px] text-slate-400 hover:bg-raised hover:text-slate-100"
+        >
+          {t("Open")} <ArrowUpRight className="size-3.5" />
+        </button>
       </AreaHeader>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <p className="px-3 pb-1.5 text-[12px] text-slate-500">
-          You write the prompt in {shortName}. {attached ? "CodeDeck attaches this to it:" : "CodeDeck attaches only what is listed here."}
-        </p>
-        {!attached && delivered && (
-          <p className="flex items-start gap-1.5 px-3 pb-1 text-[12px] text-slate-300">
-            <Check className="mt-0.5 size-3.5 shrink-0 text-added" />
-            <span className="min-w-0">
-              Sent at {time(delivered.at)} to{" "}
-              {marks.of(delivered.session) && <SessionBadge mark={marks.of(delivered.session)!} className="mx-0.5 align-[-2px]" />}
-              {marks.of(delivered.session)?.title ?? `session ${shortId(delivered.session)}`}
-              <span className="text-slate-500">: {delivered.labels.filter(Boolean).join(", ") || "the attachments"}</span>
-            </span>
-          </p>
-        )}
-        {!attached && (
-          <p className="px-3 text-[12px] text-slate-500">
-            Nothing attached. Pin files or folders (drag them here, or the paperclip in the file list), comment lines in
-            Changes, or attach hints from the Next prompt view.
-          </p>
-        )}
-
-        <div className={`mx-1 rounded-lg border border-dashed p-1 transition-colors ${over ? "border-ai bg-ai/10" : "border-transparent"}`}>
-          <ul className="divide-y divide-line/70">
-            {parts.map((h) => (
-              <Attached key={h.key} part={h} />
-            ))}
-            {pins.map((pin) => {
-              const Icon = kindIcon[pin.kind];
-              return (
-                <li key={pin.id} className="group flex items-center gap-2 px-2 py-1">
-                  <Icon className="size-4 shrink-0 text-slate-500" />
-                  <div className="min-w-0 flex-1">
-                    <div className={`truncate text-slate-100 ${pin.kind === "snippet" ? "font-mono text-[12px]" : ""}`}>{pin.label}</div>
-                    <div className="flex items-center gap-1.5 truncate text-[11px] text-slate-500">
-                      {pin.via && <span className="rounded bg-ai/15 px-1 text-ai">from {pin.via}</span>}
-                      <span className="truncate">{pin.detail}</span>
-                    </div>
-                  </div>
-                  <span className="shrink-0 font-mono text-[11px] text-slate-500 tabular-nums">{formatTokens(pin.tokens)}</span>
-                  <button
-                    type="button"
-                    onClick={() => onUnpin(pin.id)}
-                    aria-label={`Remove ${pin.label} from the next prompt`}
-                    className="shrink-0 rounded p-0.5 text-slate-600 hover:bg-overlay-hover hover:text-slate-100"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          {over && pins.length === 0 && <p className="p-3 text-center text-[12px] text-slate-400">Drop to attach it</p>}
+      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3 pb-3">
+        <div className="grid grid-cols-4 gap-1">
+          {tiles.map(([n, label]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => openView("next")}
+              className={`flex min-w-0 flex-col items-center rounded-md py-1.5 hover:bg-raised/70 ${n ? "" : "opacity-40"}`}
+            >
+              <span className="text-[22px] leading-none font-semibold text-slate-100 tabular-nums">{n}</span>
+              <span className="mt-1 max-w-full truncate px-0.5 text-[10px] tracking-wider text-slate-400 uppercase">{label}</span>
+            </button>
+          ))}
         </div>
 
-        {pins.length > 0 && (
-          <div className="px-3 pt-1">
+        {kinds.files > 0 && (
+          <div>
             <div
               className="h-1.5 overflow-hidden rounded-full bg-base"
               role="meter"
-              aria-label="Size of the attached files"
+              aria-label={t("Size of the attached files")}
               aria-valuemin={0}
               aria-valuemax={CONTEXT_TOKENS}
-              aria-valuenow={used}
+              aria-valuenow={kinds.tokens}
             >
               <div className={`h-full rounded-full transition-[width] ${barColor}`} style={{ width: `${Math.max(share * 100, 1.5)}%` }} />
             </div>
-            <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
-              <span className="min-w-0 flex-1">
-                about <span className="text-slate-300">{formatTokens(used)}</span> tokens if {shortName} reads all files
-              </span>
-              {filesPart && (
-                <button
-                  type="button"
-                  aria-expanded={filesPreview}
-                  onClick={() => setFilesPreview(!filesPreview)}
-                  className="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-slate-400 hover:bg-raised hover:text-slate-100"
-                >
-                  {filesPreview ? "Hide" : "Preview"}
-                </button>
-              )}
-              {capabilities.attach === "clipboard" && (
-                <Tooltip content={<span>Copy the files to paste into {shortName}</span>}>
-                  <button type="button" onClick={() => navigator.clipboard.writeText(filesText(pins))} className={small}>
-                    <ClipboardCopy className="size-3.5" />
-                    Copy
-                  </button>
-                </Tooltip>
-              )}
-              <button
-                type="button"
-                onClick={onClear}
-                title="Remove all files"
-                aria-label="Remove all files"
-                className="rounded p-1 text-slate-500 hover:bg-raised hover:text-slate-200"
-              >
-                <Trash2 className="size-3.5" />
-              </button>
+            <div className="mt-1 text-[11px] text-slate-500">
+              <T text="about {tokens} tokens if {tool} reads all files" tokens={<span className="text-slate-300">{formatTokens(kinds.tokens)}</span>} tool={shortName} />
             </div>
-            {filesPart && filesPreview && (
-              <pre className="selectable mt-1.5 max-h-40 overflow-auto rounded-md border border-line bg-base p-2 font-mono text-[11px] whitespace-pre-wrap text-slate-300">
-                {filesPart.text}
-              </pre>
-            )}
           </div>
         )}
 
-        {attached && attaches && (
-          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 px-3 pt-2 pb-2 text-[12px] text-slate-400">
-            <span className="size-1.5 shrink-0 rounded-full bg-changed" /> Goes out with the next prompt of
-            <AttachTarget state={assistant} className="max-w-full" />
+        {count > 0 && attaches && (
+          <div className="flex flex-col gap-1 text-[12px] text-slate-400">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span>{t("For")}</span>
+              <AttachTarget state={assistant} className="min-w-0 flex-1" />
+            </div>
+            <span className="flex items-center gap-1.5">
+              <span className="size-1.5 shrink-0 rounded-full bg-changed" /> {t("Waiting for your next prompt")}
+            </span>
             <TargetLost state={assistant} />
-            {!connected && <span className="text-changed">Not connected: nothing reaches {name} (status bar).</span>}
+            {!connected && <span className="text-changed">{t("Not connected: nothing reaches {tool} (status bar).", { tool: name })}</span>}
           </div>
+        )}
+        {count === 0 && delivered && (
+          <p className="flex items-start gap-1.5 text-[12px] text-slate-300">
+            <Check className="mt-0.5 size-3.5 shrink-0 text-added" />
+            <span className="min-w-0">
+              <T
+                text="Sent at {time} to {who}"
+                time={time(delivered.at)}
+                who={
+                  <>
+                    {marks.of(delivered.session) && <SessionBadge mark={marks.of(delivered.session)!} className="mx-0.5 align-[-2px]" />}
+                    {marks.of(delivered.session)?.title ?? t("session {id}", { id: shortId(delivered.session) })}
+                  </>
+                }
+              />
+            </span>
+          </p>
+        )}
+        {count === 0 && (
+          <p className="text-[12px] text-slate-500">
+            {over ? t("Drop to attach it") : t("Nothing attached. Drag files here; the other ways are in the Next prompt view.")}
+          </p>
+        )}
+        {capabilities.attach === "clipboard" && pins.length > 0 && (
+          <Tooltip content={<span>{t("Copy the files to paste into {tool}", { tool: shortName })}</span>}>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(filesText(pins))}
+              className="flex items-center gap-1 self-start rounded-md border border-line px-2 py-0.5 text-[12px] text-slate-300 hover:bg-raised hover:text-slate-100"
+            >
+              <ClipboardCopy className="size-3.5" />
+              {t("Copy")}
+            </button>
+          </Tooltip>
         )}
       </div>
     </section>
   );
-}
-
-/** One attachment other than files: what it is, its exact text on demand, and removing it. */
-function Attached({ part }: { part: Attachment }) {
-  const [preview, setPreview] = useState(false);
-  return (
-    <li className="px-2 py-1.5 text-[12px]">
-      <div className="flex items-center gap-2">
-        <Paperclip className="size-3.5 shrink-0 text-ai" />
-        <span className="min-w-0 flex-1 truncate text-slate-200">{part.label || part.key}</span>
-        <button
-          type="button"
-          aria-expanded={preview}
-          onClick={() => setPreview(!preview)}
-          className="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-slate-400 hover:bg-raised hover:text-slate-100"
-        >
-          {preview ? "Hide" : "Preview"}
-        </button>
-        <button
-          type="button"
-          aria-label={`Remove: ${part.label || part.key}`}
-          title="Remove from the next prompt"
-          onClick={() => removeAttachment(part.key)}
-          className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-raised hover:text-slate-100"
-        >
-          <X className="size-3.5" />
-        </button>
-      </div>
-      {preview && (
-        // The exact text: the one framed thing here
-        <pre className="selectable mt-1.5 max-h-40 overflow-auto rounded-md border border-line bg-base p-2 font-mono text-[11px] whitespace-pre-wrap text-slate-300">
-          {part.text}
-        </pre>
-      )}
-    </li>
-  );
-}
-
-function formatTokens(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n);
 }

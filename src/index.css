@@ -61,6 +61,8 @@
 
 /* Not in the theme above: Tailwind drops theme variables no utility uses, and these are used inline */
 :root {
+  /* Native controls (select lists, checkboxes, scrollbars) are drawn dark, as the rest */
+  color-scheme: dark;
   /*
    * Sessions: one of six cool tones each, to tell them apart wherever they show up. They start
    * with the assistant's indigo and keep clear of orange (your action), the warm tone (needs

@@ -32,6 +32,7 @@ import { stateColor } from "../FilesPanel";
 import { Tooltip } from "../Tooltip";
 import { AttachChange, Commands, DiffBody, FileButtons, inUntrackedDir, LineCounts, LookedAt, You, type Working } from "./DiffParts";
 import { StructureTree } from "./StructureTree";
+import { known, snapshotLabel, t } from "../../i18n";
 
 /** Diffs longer than this open collapsed. */
 const LONG_DIFF = 400;
@@ -114,11 +115,11 @@ export function ChangesView(props: Props) {
     const repo = git.repos.find((r) => r.path === point.repo);
     title = entry ? (
       <>
-        <span>Commit</span>
+        <span>{t("Commit")}</span>
         <code className="font-mono text-[11px] text-slate-300">{entry.commit.short}</code>
       </>
     ) : (
-      "Commit"
+      t("Commit")
     );
     body =
       entry && repo ? (
@@ -134,14 +135,14 @@ export function ChangesView(props: Props) {
           onRewritten={(index, hashes) => setRewritten({ repo: repo.path, index, hashes })}
         />
       ) : (
-        <Empty>That commit is no longer in the history shown.</Empty>
+        <Empty>{t("That commit is no longer in the history shown.")}</Empty>
       );
   } else if (point.kind === "snapshot") {
     const snapshot = snapshots.find((s) => s.repo === point.repo && s.hash === point.hash);
     const repo = git.repos.find((r) => r.path === point.repo);
     title = (
       <>
-        <span>Since snapshot</span>
+        <span>{t("Since snapshot")}</span>
         {snapshot && <code className="font-mono text-[11px] text-slate-300">{snapshot.short}</code>}
       </>
     );
@@ -163,7 +164,7 @@ export function ChangesView(props: Props) {
           }}
         />
       ) : (
-        <Empty>That snapshot is gone: snapshots are kept for 14 days, 50 per repository.</Empty>
+        <Empty>{t("That snapshot is gone: snapshots are kept for 14 days, 50 per repository.")}</Empty>
       );
   } else if (point.kind === "compare") {
     const repo = git.repos.find((r) => r.path === point.repo);
@@ -176,7 +177,7 @@ export function ChangesView(props: Props) {
     const [from, to] = [describe(point.from), describe(point.to)];
     title = (
       <>
-        <span>Between</span>
+        <span>{t("Between")}</span>
         <code className="font-mono text-[11px] text-slate-300">{from.short}</code>
         <ArrowRight className="size-3" />
         <code className="font-mono text-[11px] text-slate-300">{to.short}</code>
@@ -185,7 +186,7 @@ export function ChangesView(props: Props) {
     body = repo ? (
       <CompareChanges key={`${point.from}:${point.to}`} repo={repo} point={point} from={from} to={to} several={git.repos.length > 1} mode={mode} selected={selected} onShowNow={onShowNow} />
     ) : (
-      <Empty>That repository is no longer in the project.</Empty>
+      <Empty>{t("That repository is no longer in the project.")}</Empty>
     );
   } else if (turn && turnRepo) {
     title = <Scopes turns={turns} scope={turn.key} onScope={setScope} repos={git.repos} />;
@@ -203,15 +204,15 @@ export function ChangesView(props: Props) {
     );
   } else {
     const dirty = git.repos.filter((r) => r.files.length > 0);
-    title = turns.length > 0 ? <Scopes turns={turns} scope={null} onScope={setScope} repos={git.repos} /> : "Uncommitted changes";
+    title = turns.length > 0 ? <Scopes turns={turns} scope={null} onScope={setScope} repos={git.repos} /> : t("Uncommitted changes");
     body =
       git.repos.length === 0 ? (
-        <Empty>No Git repository in this project.</Empty>
+        <Empty>{t("No Git repository in this project.")}</Empty>
       ) : dirty.length === 0 ? (
         <Empty>
-          Nothing uncommitted: every file is as in its last commit.
+          {t("Nothing uncommitted: every file is as in its last commit.")}
           <br />
-          Pick a point on the trail to see what a commit changed.
+          {t("Pick a point on the trail to see what a commit changed.")}
         </Empty>
       ) : (
         <div className="flex flex-col gap-6 p-4">
@@ -242,34 +243,34 @@ function Scopes(props: { turns: Turn[]; scope: string | null; onScope: (key: str
   const chip = (on: boolean) =>
     `flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 ${on ? "bg-raised text-slate-100" : "text-slate-400 hover:bg-raised/70 hover:text-slate-100"}`;
   return (
-    <div className="flex min-w-0 items-center gap-1 overflow-x-auto" role="radiogroup" aria-label="Which changes to show">
-      {props.turns.map((t) => {
-        const mark = marks.of(t.session);
-        const repo = props.repos.length > 1 ? props.repos.find((r) => r.path === t.repo)?.name : null;
+    <div className="flex min-w-0 items-center gap-1 overflow-x-auto" role="radiogroup" aria-label={t("Which changes to show")}>
+      {props.turns.map((turn) => {
+        const mark = marks.of(turn.session);
+        const repo = props.repos.length > 1 ? props.repos.find((r) => r.path === turn.repo)?.name : null;
         return (
           <Tooltip
-            key={t.key}
+            key={turn.key}
             content={
               <>
-                <span>{t.prompt ?? "A turn without a prompt"}</span>
+                <span>{turn.prompt ?? t("A turn without a prompt")}</span>
                 <span className="text-slate-400">
-                  {mark?.title ?? (t.session ? `Session ${shortId(t.session)}` : "")}
-                  {t.to ? ` · done ${clock(t.at)}` : " · still working"}
+                  {mark?.title ?? (turn.session ? t("Session {id}", { id: shortId(turn.session) }) : "")}
+                  {turn.to ? ` · ${t("done {time}", { time: clock(turn.at) })}` : ` · ${t("still working")}`}
                 </span>
               </>
             }
           >
-            <button type="button" role="radio" aria-checked={props.scope === t.key} onClick={() => props.onScope(t.key)} className={chip(props.scope === t.key)}>
+            <button type="button" role="radio" aria-checked={props.scope === turn.key} onClick={() => props.onScope(turn.key)} className={chip(props.scope === turn.key)}>
               {mark && <SessionBadge mark={mark} />}
-              Turn {t.n}
+              {t("Turn {n}", { n: turn.n })}
               {repo && <span className="text-slate-500">{repo}</span>}
-              {!t.to && <span className="size-1.5 animate-pulse rounded-full bg-ai" />}
+              {!turn.to && <span className="size-1.5 animate-pulse rounded-full bg-ai" />}
             </button>
           </Tooltip>
         );
       })}
       <button type="button" role="radio" aria-checked={props.scope === null} onClick={() => props.onScope(null)} className={chip(props.scope === null)}>
-        All uncommitted
+        {t("All uncommitted")}
       </button>
     </div>
   );
@@ -314,7 +315,13 @@ function Report({ turn, who }: { turn: Turn; who: string }) {
   }, []);
   const lines = (turn.report ?? "").split("\n").filter((l) => l.trim());
   const more = lines.length - REPORT_LINES;
-  const page = [`# Turn ${turn.n}: what ${who} said at the end`, turn.prompt ? `> You asked: ${turn.prompt}` : "", turn.report ?? ""].filter(Boolean).join("\n\n");
+  const page = [
+    `# ${t("Turn {n}: what {who} said at the end", { n: turn.n, who })}`,
+    turn.prompt ? `> ${t("You asked:")} ${turn.prompt}` : "",
+    turn.report ?? "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
   const link = "text-[12px] text-ai hover:underline";
   return (
     <div className="selectable border-l-2 border-ai/60 pl-3 text-slate-200">
@@ -324,12 +331,12 @@ function Report({ turn, who }: { turn: Turn; who: string }) {
         {installed ? (
           <button type="button" onClick={() => showMarkdown(page).then(() => setFailed(null), (e) => setFailed(String(e)))} className={`flex items-center gap-1 ${link}`}>
             <ExternalLink className="size-3" />
-            Read in Marq
+            {t("Read in Marq")}
           </button>
         ) : (
           more > 0 && (
             <button type="button" onClick={() => setAll(!all)} className={link}>
-              {all ? "Show less" : "Show all"}
+              {all ? t("Show less") : t("Show all")}
             </button>
           )
         )}
@@ -366,22 +373,23 @@ function TurnChanges(props: {
     repo,
     range: turn.to ? ["diff", short(turn.from), short(turn.to)] : ["diff", short(turn.from)],
     label: `Turn ${turn.n}${mark?.title ? ` (${mark.title})` : ""}${turn.to ? "" : " so far"}${inRepo(repo)}`,
+    shown: `${t("Turn {n}", { n: turn.n })}${mark?.title ? ` (${mark.title})` : ""}${turn.to ? "" : ` ${t("so far")}`}${inRepoShown(repo)}`,
     worktree: turn.to === null,
   };
 
   return (
     <ChangeScopeContext.Provider value={scope}>
       <Section
-        title={turn.to ? `What ${props.who} did in turn ${turn.n}` : `What ${props.who} is doing in turn ${turn.n}`}
-        note={turn.to ? `done ${clock(turn.at)}` : "still working"}
+        title={turn.to ? t("What {who} did in turn {n}", { who: props.who, n: turn.n }) : t("What {who} is doing in turn {n}", { who: props.who, n: turn.n })}
+        note={turn.to ? t("done {time}", { time: clock(turn.at) }) : t("still working")}
         aside={
           <>
             <AttachChange />
             <DirqButton patch={patch} />
-            <Tooltip content={<span>Shows the point this turn began at. From there you can put the files back as they were.</span>}>
+            <Tooltip content={<span>{t("Shows the point this turn began at. From there you can put the files back as they were.")}</span>}>
               <button type="button" onClick={props.onStart} className="flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-[12px] text-slate-300 hover:bg-raised hover:text-slate-100">
                 <Undo2 className="size-3" />
-                Before this turn…
+                {t("Before this turn…")}
               </button>
             </Tooltip>
           </>
@@ -390,14 +398,14 @@ function TurnChanges(props: {
         <div className="flex max-w-3xl flex-col gap-2">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
             {mark && <SessionBadge mark={mark} />}
-            {turn.session && <span className="text-slate-300">{mark?.title ?? `Session ${shortId(turn.session)}`}</span>}
+            {turn.session && <span className="text-slate-300">{mark?.title ?? t("Session {id}", { id: shortId(turn.session) })}</span>}
             {props.several && <span className="font-semibold text-slate-300">{repo.name}</span>}
-            {patch && <span>{plural(patch.changes.length, "file")} changed</span>}
+            {patch && <span>{t("{files} changed", { files: plural(patch.changes.length, "file") })}</span>}
             <LookedCount repo={repo} files={files} />
           </div>
           {turn.prompt && (
             <p className="selectable">
-              <span className="text-slate-500">You asked: </span>
+              <span className="text-slate-500">{t("You asked:")} </span>
               <span className="text-slate-300">{turn.prompt}</span>
             </p>
           )}
@@ -406,12 +414,12 @@ function TurnChanges(props: {
           ) : (
             <p className="text-slate-500">
               {turn.to
-                ? "It said nothing at the end of this turn."
-                : "This is what changed so far. Its closing words appear here when it is done."}
+                ? t("It said nothing at the end of this turn.")
+                : t("This is what changed so far. Its closing words appear here when it is done.")}
             </p>
           )}
           <p className="text-[12px] text-slate-500">
-            A turn is what changed between two points of the trail. Ctrl+click any two points there to compare them the same way.
+            {t("A turn is what changed between two points of the trail. Ctrl+click any two points there to compare them the same way.")}
           </p>
         </div>
       </Section>
@@ -419,14 +427,14 @@ function TurnChanges(props: {
       <NoteSessionContext.Provider value={turn.session}>
       <div className="px-4 pt-3 pb-4">
         {error && <p className="selectable text-problem">{error}</p>}
-        {patch && patch.changes.length === 0 && <p className="text-slate-500">Nothing changed in this turn yet.</p>}
+        {patch && patch.changes.length === 0 && <p className="text-slate-500">{t("Nothing changed in this turn yet.")}</p>}
         {patch && props.mode === "structure" && <StructureTree patch={patch} files={files} repo={repo} selected={props.selected} />}
         {patch && props.mode === "code" && (
           <div className="flex flex-col gap-2">
             {files.map((file) => (
               <FileSection key={file.path} repo={repo} id={`diff:${toProject(repo, file.path)}`} file={file} />
             ))}
-            {patch.truncated && <p className="text-[12px] text-changed">The diff is very long and was cut off here.</p>}
+            {patch.truncated && <p className="text-[12px] text-changed">{t("The diff is very long and was cut off here.")}</p>}
           </div>
         )}
       </div>
@@ -437,22 +445,23 @@ function TurnChanges(props: {
 
 /** For a change's name: which repository, when it is not the project's own. */
 const inRepo = (repo: RepoStatus) => (repo.path ? ` in ${repo.name}` : "");
+const inRepoShown = (repo: RepoStatus) => (repo.path ? ` ${t("in {repo}", { repo: repo.name })}` : "");
 
 /** How many of the files shown are ticked as looked at. */
 function LookedCount({ repo, files }: { repo: RepoStatus; files: FileDiff[] }) {
   const reviewed = useReviewed();
   if (files.length === 0) return null;
   const done = files.filter((f) => reviewed(reviewKey(repo.path, f.path, f))).length;
-  return <span className={done === files.length ? "text-added" : "text-slate-500"}>{done} of {files.length} looked at</span>;
+  return <span className={done === files.length ? "text-added" : "text-slate-500"}>{t("{done} of {all} looked at", { done, all: files.length })}</span>;
 }
 
 function ModeSwitch({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }) {
   const options: [Mode, typeof ListTree, string, string][] = [
-    ["structure", ListTree, "Structure", "Which files and folders are new, deleted, moved, renamed or changed, as a tree. Click a file for its diff."],
-    ["code", Code, "Code", "Every changed line, file after file"],
+    ["structure", ListTree, t("Structure"), t("Which files and folders are new, deleted, moved, renamed or changed, as a tree. Click a file for its diff.")],
+    ["code", Code, t("Code"), t("Every changed line, file after file")],
   ];
   return (
-    <div className="ml-auto flex rounded-md border border-line p-0.5" role="radiogroup" aria-label="Show changes as">
+    <div className="ml-auto flex rounded-md border border-line p-0.5" role="radiogroup" aria-label={t("Show changes as")}>
       {options.map(([m, Icon, label, says]) => (
         <Tooltip key={m} content={<span>{says}</span>}>
           <button
@@ -537,7 +546,7 @@ function RepoChanges(props: {
     : undefined;
 
   // Before the first commit there is no HEAD: everything is new against the empty tree
-  const scope: ChangeScope = { repo, range: ["diff", repo.head ? "HEAD" : EMPTY_TREE], label: `Uncommitted changes${inRepo(repo)}`, worktree: true };
+  const scope: ChangeScope = { repo, range: ["diff", repo.head ? "HEAD" : EMPTY_TREE], label: `Uncommitted changes${inRepo(repo)}`, shown: `${t("Uncommitted changes")}${inRepoShown(repo)}`, worktree: true };
 
   return (
     <ChangeScopeContext.Provider value={scope}>
@@ -581,7 +590,7 @@ function RepoChanges(props: {
               />
             );
           })}
-          {patch.truncated && <p className="text-[12px] text-changed">The diff is very long and was cut off here.</p>}
+          {patch.truncated && <p className="text-[12px] text-changed">{t("The diff is very long and was cut off here.")}</p>}
         </div>
       )}
     </section>
@@ -612,7 +621,7 @@ function CommitLine({ repo, onDone }: { repo: RepoStatus; onDone: () => void }) 
           onChange={(e) => setMessage(e.target.value)}
           onFocus={() => setFocus(true)}
           onBlur={() => setFocus(false)}
-          placeholder={`Commit message for ${repo.name}`}
+          placeholder={t("Commit message for {repo}", { repo: repo.name })}
           disabled={running}
           className="selectable min-w-0 flex-1 rounded-md border border-line bg-base px-2 py-1 text-slate-200 outline-none placeholder:text-slate-600 focus:border-brand"
         />
@@ -621,8 +630,8 @@ function CommitLine({ repo, onDone }: { repo: RepoStatus; onDone: () => void }) 
             <>
               <span>
                 {staged > 0
-                  ? `Commits the ${staged} staged file${staged === 1 ? "" : "s"}; the rest stays uncommitted`
-                  : `Commits all ${repo.files.length} changed file${repo.files.length === 1 ? "" : "s"}`}
+                  ? t("Commits the {files} staged; the rest stays uncommitted", { files: plural(staged, "file") })
+                  : t("Commits all {files} changed", { files: plural(repo.files.length, "file") })}
               </span>
               <Commands steps={steps} />
             </>
@@ -634,7 +643,7 @@ function CommitLine({ repo, onDone }: { repo: RepoStatus; onDone: () => void }) 
             className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-white not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
           >
             <Check className="size-3.5" />
-            Commit
+            {t("Commit")}
           </button>
         </Tooltip>
       </form>
@@ -669,7 +678,7 @@ export function CommandLine({ preview, done, running }: { preview: Steps | null;
           </div>
         ))
       ) : (
-        <div className="text-slate-500">{running ? "Running…" : "Type a message; the command appears here"}</div>
+        <div className="text-slate-500">{running ? t("Running…") : t("Type a message; the command appears here")}</div>
       )}
     </div>
   );
@@ -693,7 +702,7 @@ function CommitChanges(props: {
   const { patch, error } = usePatch(() => gitCommitDiff(props.repo.path, c.hash), `${props.repo.path}:${c.hash}`);
   const files = useMemo(() => (patch ? parsePatch(patch.text) : []), [patch]);
   const [editing, setEditing] = useState(false);
-  const scope: ChangeScope = { repo: props.repo, range: ["show", short(c.hash)], label: `Commit ${c.short} "${c.subject}"${inRepo(props.repo)}`, worktree: false };
+  const scope: ChangeScope = { repo: props.repo, range: ["show", short(c.hash)], label: `Commit ${c.short} "${c.subject}"${inRepo(props.repo)}`, shown: `${t("Commit")} ${c.short} "${c.subject}"${inRepoShown(props.repo)}`, worktree: false };
   return (
     <ChangeScopeContext.Provider value={scope}>
     <div className="p-4">
@@ -720,14 +729,14 @@ function CommitChanges(props: {
               <Tooltip
                 content={
                   <>
-                    <span>Change the message</span>
-                    <span className="text-slate-400">Not pushed yet, so it can still be changed without rewriting what others have</span>
+                    <span>{t("Change the message")}</span>
+                    <span className="text-slate-400">{t("Not pushed yet, so it can still be changed without rewriting what others have")}</span>
                   </>
                 }
               >
                 <button
                   type="button"
-                  aria-label="Change the commit message"
+                  aria-label={t("Change the commit message")}
                   onClick={() => setEditing(true)}
                   className="mt-0.5 rounded p-1 text-slate-500 opacity-0 group-hover:opacity-100 hover:bg-raised hover:text-slate-100 focus-visible:opacity-100"
                 >
@@ -740,14 +749,14 @@ function CommitChanges(props: {
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-slate-400">
           <code className="selectable rounded bg-panel px-1.5 font-mono text-[11px] text-slate-200">{c.short}</code>
           {props.several && <span className="font-semibold text-slate-300">{props.repo.name}</span>}
-          <span>{c.byYou ? "you" : c.author}</span>
+          <span>{c.byYou ? t("you") : c.author}</span>
           {c.assistant && (
             <span className="flex items-center gap-1 text-ai">
-              <Sparkles className="size-3" /> with {c.assistant}
+              <Sparkles className="size-3" /> {t("with {tool}", { tool: c.assistant })}
             </span>
           )}
           <span>{new Date(c.at * 1000).toLocaleString(LOCALE)}</span>
-          {c.unpushed && <span className="text-changed">not pushed yet</span>}
+          {c.unpushed && <span className="text-changed">{t("not pushed yet")}</span>}
           <AttachChange />
           <DirqButton patch={patch} />
           <button
@@ -755,7 +764,7 @@ function CommitChanges(props: {
             onClick={props.onShowNow}
             className="ml-auto rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised hover:text-slate-100"
           >
-            Back to uncommitted
+            {t("Back to uncommitted")}
           </button>
         </div>
         {c.body && !editing && <p className="selectable mt-2 whitespace-pre-line text-slate-300">{c.body}</p>}
@@ -769,7 +778,7 @@ function CommitChanges(props: {
           {files.map((file) => (
             <FileSection key={file.path} repo={props.repo} id={`diff:${toProject(props.repo, file.path)}`} file={file} />
           ))}
-          {patch.truncated && <p className="text-[12px] text-changed">The diff is very long and was cut off here.</p>}
+          {patch.truncated && <p className="text-[12px] text-changed">{t("The diff is very long and was cut off here.")}</p>}
         </div>
       )}
     </div>
@@ -814,7 +823,7 @@ function SnapshotChanges(props: {
   const [running, setRunning] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const changed = patch?.changes.length ?? 0;
-  const scope: ChangeScope = { repo, range: ["diff", short(s.hash)], label: `Changes since the snapshot "${s.label}"${inRepo(repo)}`, worktree: true };
+  const scope: ChangeScope = { repo, range: ["diff", short(s.hash)], label: `Changes since the snapshot "${s.label}"${inRepo(repo)}`, shown: `${t("Changes since the snapshot \"{name}\"", { name: snapshotLabel(s.label) })}${inRepoShown(repo)}`, worktree: true };
 
   const goBack = async () => {
     setRunning(true);
@@ -836,7 +845,7 @@ function SnapshotChanges(props: {
       <header className="mb-3">
         <div className="flex items-start gap-2">
           {s.back ? <Undo2 className="mt-1 size-4 shrink-0 text-slate-400" /> : s.turnFrom ? <Flag className="mt-1 size-4 shrink-0 text-changed" /> : <Anchor className="mt-1 size-4 shrink-0 text-changed" />}
-          <h2 className="selectable text-[15px] font-semibold text-slate-50">{s.label}</h2>
+          <h2 className="selectable text-[15px] font-semibold text-slate-50">{snapshotLabel(s.label)}</h2>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-slate-400">
           <code className="selectable rounded bg-panel px-1.5 font-mono text-[11px] text-slate-200">{s.short}</code>
@@ -846,15 +855,15 @@ function SnapshotChanges(props: {
             (mark ? (
               <span className="flex min-w-0 items-center gap-1.5 text-slate-300">
                 <SessionBadge mark={mark} />
-                <span className="truncate">{mark.title ?? `Session ${shortId(s.session)}`}</span>
+                <span className="truncate">{mark.title ?? t("Session {id}", { id: shortId(s.session) })}</span>
               </span>
             ) : (
               <span className="flex items-center gap-1 text-ai">
-                <Sparkles className="size-3" /> session {shortId(s.session)}
+                <Sparkles className="size-3" /> {t("session {id}", { id: shortId(s.session) })}
               </span>
             ))}
           {s.session && (
-            <Tooltip content={<span>{props.filtered ? "Show the snapshots of every session again" : "Show only this session's snapshots on the trail"}</span>}>
+            <Tooltip content={<span>{props.filtered ? t("Show the snapshots of every session again") : t("Show only this session's snapshots on the trail")}</span>}>
               <button
                 type="button"
                 onClick={() => props.onFilter(!props.filtered)}
@@ -863,7 +872,7 @@ function SnapshotChanges(props: {
                 }`}
               >
                 {props.filtered ? <X className="size-3" /> : <Filter className="size-3" />}
-                only this session
+                {t("only this session")}
               </button>
             </Tooltip>
           )}
@@ -875,7 +884,7 @@ function SnapshotChanges(props: {
             onClick={props.onShowNow}
             className="ml-auto rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised hover:text-slate-100"
           >
-            Back to uncommitted
+            {t("Back to uncommitted")}
           </button>
         </div>
         <div className="mt-3 rounded-lg border border-line bg-panel p-3">
@@ -883,8 +892,12 @@ function SnapshotChanges(props: {
             <div className="flex items-center gap-3">
               <p className="flex-1 text-slate-400">
                 {changed === 0
-                  ? "Nothing changed since this snapshot."
-                  : `${plural(changed, "file")} changed since this snapshot${s.back ? "" : s.turnFrom ? " was taken, when the turn was over" : " was taken, before the assistant wrote"}.`}
+                  ? t("Nothing changed since this snapshot.")
+                  : s.back
+                    ? t("{files} changed since this snapshot.", { files: plural(changed, "file") })
+                    : s.turnFrom
+                      ? t("{files} changed since this snapshot was taken, when the turn was over.", { files: plural(changed, "file") })
+                      : t("{files} changed since this snapshot was taken, before the assistant wrote.", { files: plural(changed, "file") })}
               </p>
               <button
                 type="button"
@@ -893,21 +906,20 @@ function SnapshotChanges(props: {
                 className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-white not-disabled:hover:bg-brand-fill-hover disabled:opacity-40"
               >
                 <Undo2 className="size-3.5" />
-                Go back to here
+                {t("Go back to here")}
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-3">
               <p className="flex-1 text-slate-300">
-                Puts {plural(changed, "file")} back as they were in {repo.name}; files that are new since then are
-                deleted. What is there now is kept as a snapshot first, so you can come back to it.
+                {t("Puts {files} back as they were in {repo}; files that are new since then are deleted. What is there now is kept as a snapshot first, so you can come back to it.", { files: plural(changed, "file"), repo: repo.name })}
               </p>
               <button
                 type="button"
                 onClick={() => setAsking(false)}
                 className="rounded-md border border-line px-2.5 py-1 text-slate-300 hover:bg-raised"
               >
-                Cancel
+                {t("Cancel")}
               </button>
               <button
                 type="button"
@@ -916,7 +928,7 @@ function SnapshotChanges(props: {
                 className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-white not-disabled:hover:bg-brand-fill-hover disabled:opacity-40"
               >
                 <Undo2 className="size-3.5" />
-                {running ? "Going back…" : "Go back"}
+                {running ? t("Going back…") : t("Go back")}
               </button>
             </div>
           )}
@@ -932,7 +944,7 @@ function SnapshotChanges(props: {
           {files.map((file) => (
             <FileSection key={file.path} repo={repo} id={`diff:${toProject(repo, file.path)}`} file={file} />
           ))}
-          {patch.truncated && <p className="text-[12px] text-changed">The diff is very long and was cut off here.</p>}
+          {patch.truncated && <p className="text-[12px] text-changed">{t("The diff is very long and was cut off here.")}</p>}
         </div>
       )}
     </div>
@@ -958,6 +970,7 @@ function CompareChanges(props: {
     repo,
     range: ["diff", short(point.from), short(point.to)],
     label: `Changes from ${props.from.short} "${props.from.title}" to ${props.to.short} "${props.to.title}"${inRepo(repo)}`,
+    shown: `${t("Changes from {from} to {to}", { from: props.from.short, to: props.to.short })}${inRepoShown(repo)}`,
     worktree: false,
   };
   const side = (p: typeof props.from, label: string) => (
@@ -968,7 +981,7 @@ function CompareChanges(props: {
         <code className="font-mono text-slate-300">{p.short}</code>
         {p.at > 0 && <span>{new Date(p.at * 1000).toLocaleString(LOCALE)}</span>}
       </div>
-      <div className={`truncate ${p.snapshot ? "text-slate-400 italic" : "text-slate-100"}`}>{p.title}</div>
+      <div className={`truncate ${p.snapshot ? "text-slate-400 italic" : "text-slate-100"}`}>{p.snapshot ? snapshotLabel(p.title) : p.title}</div>
     </div>
   );
   return (
@@ -983,7 +996,7 @@ function CompareChanges(props: {
         <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-slate-400">
           {props.several && <span className="font-semibold text-slate-300">{repo.name}</span>}
           {patch && <span>{plural(patch.changes.length, "file")} changed</span>}
-          <span className="text-slate-500">Ctrl+click another point to compare with that one instead</span>
+          <span className="text-slate-500">{t("Ctrl+click another point to compare with that one instead")}</span>
           <AttachChange />
           <DirqButton patch={patch} />
           <button
@@ -991,7 +1004,7 @@ function CompareChanges(props: {
             onClick={props.onShowNow}
             className="ml-auto rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised hover:text-slate-100"
           >
-            Back to uncommitted
+            {t("Back to uncommitted")}
           </button>
         </div>
       </header>
@@ -1002,7 +1015,7 @@ function CompareChanges(props: {
           {files.map((file) => (
             <FileSection key={file.path} repo={repo} id={`diff:${toProject(repo, file.path)}`} file={file} />
           ))}
-          {patch.truncated && <p className="text-[12px] text-changed">The diff is very long and was cut off here.</p>}
+          {patch.truncated && <p className="text-[12px] text-changed">{t("The diff is very long and was cut off here.")}</p>}
         </div>
       )}
     </div>
@@ -1025,8 +1038,8 @@ function DirqButton({ patch }: { patch: Patch | null }) {
     <Tooltip
       content={
         <>
-          <span>Open in Dirq, old and new side by side</span>
-          {patch.truncated && <span className="text-changed">Only the part shown here: the diff is very long</span>}
+          <span>{t("Open in Dirq, old and new side by side")}</span>
+          {patch.truncated && <span className="text-changed">{t("Only the part shown here: the diff is very long")}</span>}
           {failed && <span className="text-problem">{failed}</span>}
         </>
       }
@@ -1086,27 +1099,27 @@ function MessageEditor(props: {
       />
       <div className="flex items-center gap-2 border-t border-line px-2 py-1.5 text-[12px]">
         <span className={refused ? "text-problem" : "text-slate-500"}>
-          {refused ??
+          {(refused && known(refused)) ??
             (props.repo.head === props.commit.hash
-              ? "The newest commit is amended; staged changes stay out of it"
-              : `The ${newer} newer commit${newer === 1 ? "" : "s"} get${newer === 1 ? "s" : ""} new hashes too; your uncommitted changes are put aside and back`)}
+              ? t("The newest commit is amended; staged changes stay out of it")
+              : t("{commits} after it get new hashes too; your uncommitted changes are put aside and back", { commits: plural(newer, "commit") }))}
         </span>
         <button
           type="button"
           onClick={props.onCancel}
           className="ml-auto rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised"
         >
-          Cancel
+          {t("Cancel")}
         </button>
         <button
           type="button"
           aria-disabled={!ready}
           onClick={save}
-          title="Ctrl+Enter"
+          title={t("Ctrl+Enter")}
           className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-0.5 font-medium text-white not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
         >
           <Check className="size-3.5" />
-          Change message
+          {t("Change message")}
         </button>
       </div>
       <CommandLine preview={!refused && !running && done.length === 0 ? (steps as Steps) : null} done={done} running={running} />
@@ -1144,7 +1157,7 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
         >
           <Chevron className="size-3.5 shrink-0 text-slate-500" />
           <Tooltip
-            content={<span>{stateMeaning[state]}{working?.status?.staged ? " · staged for the next commit" : ""}</span>}
+            content={<span>{t(stateMeaning[state])}{working?.status?.staged ? ` · ${t("staged for the next commit")}` : ""}</span>}
             className="flex shrink-0"
           >
             <span className={`w-3 text-center font-mono text-[11px] ${stateColor[state]}`}>{stateSymbol(state)}</span>
@@ -1155,7 +1168,7 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
             <span className={looked ? "text-slate-400" : "text-slate-100"}>{file.path.slice(slash + 1)}</span>
           </span>
           <LineCounts added={file.added} removed={file.removed} />
-          {working?.status?.staged && <span className="shrink-0 text-[11px] text-slate-500">staged</span>}
+          {working?.status?.staged && <span className="shrink-0 text-[11px] text-slate-500">{t("staged")}</span>}
         </button>
         <AttachChange path={file.path} added={file.status === "A"} />
         {who}
@@ -1168,7 +1181,7 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
           onClick={() => setOpen(true)}
           className="w-full border-t border-line py-1.5 text-[12px] text-slate-500 hover:text-slate-200"
         >
-          Show {size} lines
+          {t("Show {n} lines", { n: size })}
         </button>
       )}
     </article>

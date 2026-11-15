@@ -77,23 +77,29 @@ the settings changes, the file as it was is kept as `settings.json.before-codede
   can be undone the same way. 50 per repository are kept, for 14 days.
 - **Comments for the assistant:** in whatever editor, begin a line with `@ai …`, or begin it with
   a comment whose text starts with `@ai` (`<!-- @ai …`, `// @ai …`, `# @ai …`). Text before it on
-  the line, or a Markdown code block around it, makes it no hint. The **Next prompt** view collects them (with `git grep`, so ignored
-  files stay out) and turns them into a task: copied, or **attached** to the next prompt
-  of the session you choose (or of whichever session in the project prompts first). Comments that are
-  gone afterwards count as done. The view also shows the exact text that goes out. The
-  documents the assistant wrote recently are in the **Activity** view.
-- **Workbench:** `.workbench/` in the project is for drafts, mock-ups, throwaway scripts and test data.
-  CodeDeck adds it to `.git/info/exclude` (never `.gitignore`), so git leaves it alone. The **Workbench**
-  view lists its files with size, age and the session that wrote them; drag one onto a folder in the file
-  list to move it into the project, or send it to the trash (also everything older than 7 days).
+  the line, or a Markdown code block around it, makes it no hint. The **Workbench** view collects them (with
+  `git grep`, so ignored files stay out) in a tile of their own; the paperclip at a hint **attaches** it to
+  the next prompt of the session you choose (or of whichever session in the project prompts first), or
+  they are copied as a task. Comments that are gone afterwards count as done. The documents the assistant
+  wrote recently are in the **Activity** view.
+- **Workbench:** what came up that is not part of the project yet, in tiles. The **scratch folder**
+  `.scratch/` is for drafts, mock-ups, throwaway scripts and test data; CodeDeck adds it to
+  `.git/info/exclude` (never `.gitignore`), so git leaves it alone. Its tile lists the files with size, age
+  and the session that wrote them; drag one onto a folder in the file list to move it into the project, or
+  send it to the trash (also everything older than 7 days). The second tile holds the `@ai` hints.
 - **Start rules:** a few short, fixed rules every new session gets when it starts (today: put temporary
-  things into `.workbench/`, and name a page published elsewhere with its link). Always on, shown word for word in the **Next prompt** view, apart from the attachments.
+  things into `.scratch/`, and name a page published elsewhere with its link). Always on, shown word for word in the **Next prompt** view, apart from the attachments.
 - **Attaching files:** click the paperclip of a file or folder (or drag it onto Next prompt) and it is
   attached: Claude gets its path with the next prompt and reads what it needs. Files, changes, line
   comments and hints can be attached together; all go with the same prompt, and then the list is empty again.
+  The **Next prompt** view lists every attachment with where it comes from, the exact text, and the start
+  rules; the right column sums it up (how many of each, tokens, who it is for) and opens that view.
 - **Attaching changes:** the paperclip on a turn, commit, snapshot, comparison or the uncommitted changes, or on
   one file of them, attaches the git command that shows the change (not the diff itself). What a session got
   from CodeDeck is listed in its details.
+
+**Language:** the interface is in English or German, following the system; switch it in the project menu
+(click the project name, top left). What the assistant gets stays in English.
 
 **Git commands** (click the last command in the status bar, or Ctrl+Shift+G) lists every git
 command CodeDeck ran with what git printed and its exit code. Commands that changed something stand

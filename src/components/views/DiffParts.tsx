@@ -12,6 +12,7 @@ import { useAttachEnabled } from "../../attachments";
 import { useSessionMarks } from "../../assistant";
 import { changeRef, changes, useChangeScope, type ChangeScope } from "../../changes";
 import { Tooltip, TooltipHint } from "../Tooltip";
+import { T, t } from "../../i18n";
 
 export function Commands({ steps }: { steps: Steps }) {
   return (
@@ -50,13 +51,13 @@ export function FileButtons({ path, from, added, working }: { path: string; from
   const [confirm, setConfirm] = useState(false);
   const failed = done.find((d) => !d.ok);
   const toggle = status?.staged
-    ? actions.unstage && { steps: actions.unstage, label: "Unstage", icon: Minus, says: "Takes it out of the next commit; the change stays" }
-    : actions.stage && { steps: actions.stage, label: "Stage", icon: Plus, says: "Marks it for the next commit" };
+    ? actions.unstage && { steps: actions.unstage, label: t("Unstage"), icon: Minus, says: t("Takes it out of the next commit; the change stays") }
+    : actions.stage && { steps: actions.stage, label: t("Stage"), icon: Plus, says: t("Marks it for the next commit") };
 
   if (confirm && actions.discard) {
     return (
       <span className="flex shrink-0 items-center gap-1.5 text-[12px]">
-        <span className="text-problem">{actions.discardMeans}. Cannot be undone.</span>
+        <span className="text-problem">{actions.discardMeans && t(actions.discardMeans)}. {t("Cannot be undone.")}</span>
         <button
           type="button"
           onClick={async (e) => {
@@ -66,7 +67,7 @@ export function FileButtons({ path, from, added, working }: { path: string; from
           }}
           className="rounded-md border border-problem/60 px-2 py-0.5 text-problem hover:bg-problem/15"
         >
-          Discard
+          {t("Discard")}
         </button>
         <button
           type="button"
@@ -76,7 +77,7 @@ export function FileButtons({ path, from, added, working }: { path: string; from
           }}
           className="rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised"
         >
-          Keep
+          {t("Keep")}
         </button>
       </span>
     );
@@ -85,8 +86,8 @@ export function FileButtons({ path, from, added, working }: { path: string; from
   return (
     <span className="flex shrink-0 items-center gap-1">
       {failed && (
-        <Tooltip content={<><span className="text-problem">{failed.command} failed</span><span className="font-mono text-[11px]">{failed.output}</span></>}>
-          <span className="text-[11px] text-problem">failed</span>
+        <Tooltip content={<><span className="text-problem">{t("{command} failed", { command: failed.command })}</span><span className="font-mono text-[11px]">{failed.output}</span></>}>
+          <span className="text-[11px] text-problem">{t("failed")}</span>
         </Tooltip>
       )}
       {toggle && (
@@ -109,9 +110,9 @@ export function FileButtons({ path, from, added, working }: { path: string; from
         <Tooltip
           content={
             <>
-              <span>{actions.discardMeans}</span>
+              <span>{actions.discardMeans && t(actions.discardMeans)}</span>
               <Commands steps={actions.discard} />
-              <TooltipHint>Asks before it runs: this cannot be undone</TooltipHint>
+              <TooltipHint>{t("Asks before it runs: this cannot be undone")}</TooltipHint>
             </>
           }
         >
@@ -122,7 +123,7 @@ export function FileButtons({ path, from, added, working }: { path: string; from
               e.stopPropagation();
               setConfirm(true);
             }}
-            aria-label={`Discard changes to ${path}`}
+            aria-label={t("Discard changes to {path}", { path })}
             className="rounded-md p-1 text-slate-500 opacity-0 group-hover:opacity-100 hover:bg-raised hover:text-problem focus-visible:opacity-100"
           >
             {added && !from ? <Trash2 className="size-3.5" /> : <Undo2 className="size-3.5" />}
@@ -143,15 +144,15 @@ export function DiffBody({ file, missing, notePath }: { file: FileDiff | undefin
   if (!file) {
     return (
       <p className="border-t border-line px-3 py-2 text-[12px] text-slate-500">
-        {missing ?? "The diff is too long to show here."}
+        {missing ?? t("The diff is too long to show here.")}
       </p>
     );
   }
-  if (file.binary) return <p className="border-t border-line px-3 py-2 text-[12px] text-slate-500">Binary file</p>;
+  if (file.binary) return <p className="border-t border-line px-3 py-2 text-[12px] text-slate-500">{t("Binary file")}</p>;
   if (file.hunks.length === 0) {
     return (
       <p className="border-t border-line px-3 py-2 text-[12px] text-slate-500">
-        {file.status === "R" ? "Same content, only its place changed" : "No lines changed"}
+        {file.status === "R" ? t("Same content, only its place changed") : t("No lines changed")}
       </p>
     );
   }
@@ -204,8 +205,8 @@ function HunkRows({ hunk, notePath, notes }: { hunk: FileDiff["hunks"][number]; 
                 {canNote && (
                   <button
                     type="button"
-                    aria-label={`Comment line ${at} for the next prompt`}
-                    title="Comment this line for the next prompt"
+                    aria-label={t("Comment line {n} for the next prompt", { n: at })}
+                    title={t("Comment this line for the next prompt")}
                     onClick={() => setDraft(at!)}
                     className="absolute inset-y-0 right-0 hidden w-7 items-center justify-center rounded-sm bg-brand-fill text-white group-hover/line:flex hover:bg-brand-fill-hover focus-visible:flex"
                   >
@@ -227,11 +228,11 @@ function HunkRows({ hunk, notePath, notes }: { hunk: FileDiff["hunks"][number]; 
                 <td colSpan={3} className="bg-[var(--color-area-you)] px-3 py-1.5 font-sans text-[12px] leading-[18px]">
                   <div className="flex max-w-3xl items-start gap-2 border-l-2 border-brand pl-2">
                     <p className="min-w-0 flex-1 whitespace-pre-wrap text-slate-100">{note.text}</p>
-                    <span className="shrink-0 text-[11px] text-brand-soft">attached</span>
+                    <span className="shrink-0 text-[11px] text-brand-soft">{t("attached")}</span>
                     <button
                       type="button"
-                      aria-label="Remove this comment"
-                      title="Remove this comment"
+                      aria-label={t("Remove this comment")}
+                      title={t("Remove this comment")}
                       onClick={() => removeNote(note.id)}
                       className="shrink-0 rounded p-0.5 text-slate-500 hover:bg-raised hover:text-slate-100"
                     >
@@ -271,7 +272,7 @@ function NoteForm({ onAdd, onCancel }: { onAdd: (text: string) => void; onCancel
         autoFocus
         value={text}
         rows={2}
-        placeholder="What should change here?"
+        placeholder={t("What should change here?")}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Escape") onCancel();
@@ -283,18 +284,18 @@ function NoteForm({ onAdd, onCancel }: { onAdd: (text: string) => void; onCancel
         className="selectable block w-full resize-y rounded-md border border-line bg-base px-2 py-1 leading-[18px] text-slate-100 outline-none placeholder:text-slate-600 focus:border-brand"
       />
       <div className="flex items-center gap-2">
-        <span className="text-[11px] text-slate-500">Attached to your next prompt, with the file, the line and its text.</span>
+        <span className="text-[11px] text-slate-500">{t("Attached to your next prompt, with the file, the line and its text.")}</span>
         <button type="button" onClick={onCancel} className="ml-auto rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised">
-          Cancel
+          {t("Cancel")}
         </button>
         <button
           type="button"
           aria-disabled={!ready}
-          title="Ctrl+Enter"
+          title={t("Ctrl+Enter")}
           onClick={() => ready && onAdd(text)}
           className="rounded-md bg-brand-fill px-2.5 py-0.5 font-medium text-white not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
         >
-          Attach to next prompt
+          {t("Attach to next prompt")}
         </button>
       </div>
     </div>
@@ -323,8 +324,8 @@ export function LookedAt({ checked, onChange, name }: { checked: boolean; onChan
       checked={checked}
       onChange={onChange}
       onClick={(e) => e.stopPropagation()}
-      aria-label={`Looked at ${name}`}
-      title="Tick it when you have looked at it. The tick goes away when the file changes again."
+      aria-label={t("Looked at {name}", { name })}
+      title={t("Tick it when you have looked at it. The tick goes away when the file changes again.")}
       className="size-3.5 shrink-0 cursor-pointer accent-ai [color-scheme:dark]"
     />
   );
@@ -342,19 +343,19 @@ export function AttachChange({ path, added, scope: given }: { path?: string; add
   if (!scope || !offered) return null;
   const ref = changeRef(scope, path, added);
   const on = attached.some((c) => c.id === ref.id);
-  const what = path ? "this file's change" : "this change";
+  const what = path ? t("this file's change") : t("this change");
   return (
     <Tooltip
       content={
         <>
-          <span>{on ? `Attached to your next prompt; click to remove it` : `Attach ${what} to your next prompt`}</span>
+          <span>{on ? t("Attached to your next prompt; click to remove it") : t("Attach {what} to your next prompt", { what })}</span>
           <TooltipHint>
             {ref.command ? (
               <>
-                As the command that shows it, not the diff itself: <code className="font-mono">{ref.command}</code>
+                <T text="As the command that shows it, not the diff itself: {command}" command={<code className="font-mono">{ref.command}</code>} />
               </>
             ) : (
-              "A new file: attached as its path, to be read"
+              t("A new file: attached as its path, to be read")
             )}
           </TooltipHint>
         </>
@@ -363,7 +364,7 @@ export function AttachChange({ path, added, scope: given }: { path?: string; add
     >
       <button
         type="button"
-        aria-label={on ? `Remove ${what} from the next prompt` : `Attach ${what} to the next prompt`}
+        aria-label={on ? t("Remove {what} from the next prompt", { what }) : t("Attach {what} to the next prompt", { what })}
         aria-pressed={on}
         onClick={() => changes.toggle([ref])}
         className={
@@ -373,7 +374,7 @@ export function AttachChange({ path, added, scope: given }: { path?: string; add
         }
       >
         <Paperclip className="size-3.5" />
-        {!path && (on ? "Attached" : "Attach")}
+        {!path && (on ? t("Attached") : t("Attach"))}
       </button>
     </Tooltip>
   );
@@ -383,10 +384,10 @@ export function AttachChange({ path, added, scope: given }: { path?: string; add
 export function You() {
   return (
     <span
-      title="No session reported changing it since the last commit"
+      title={t("No session reported changing it since the last commit")}
       className="shrink-0 rounded-full border border-line px-1.5 text-[10px] leading-4 text-slate-400"
     >
-      You
+      {t("You")}
     </span>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { AppWindow, ChevronDown, FolderOpen } from "lucide-react";
+import { AppWindow, ChevronDown, FolderOpen, Languages } from "lucide-react";
 import { pickFolder, recentProjects, type ProjectInfo, type RecentProject } from "../backend";
+import { lang, setLang, t } from "../i18n";
 
 /** Opens a directory: here, or in a new window of its own. */
 export type OpenProject = (path: string, newWindow: boolean) => Promise<void>;
@@ -80,7 +81,7 @@ export function ProjectHeader({ project, onOpen }: { project: ProjectInfo | null
           type="button"
           aria-haspopup="menu"
           aria-expanded={menu}
-          title="Switch project"
+          title={t("Switch project")}
           onClick={() => setMenu(!menu)}
           className={`-mx-1 flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 font-semibold text-slate-100 hover:bg-raised ${
             menu ? "bg-raised" : ""
@@ -92,7 +93,7 @@ export function ProjectHeader({ project, onOpen }: { project: ProjectInfo | null
 
         {/* Right-aligned; a long path is cut off on the left, the project end stays visible */}
         <nav
-          aria-label="Path"
+          aria-label={t("Path")}
           className="ml-auto flex min-w-0 justify-end overflow-hidden font-mono text-[11px] whitespace-nowrap text-slate-500"
           title={project?.root}
         >
@@ -107,7 +108,7 @@ export function ProjectHeader({ project, onOpen }: { project: ProjectInfo | null
                 ) : (
                   <button
                     type="button"
-                    title={`Open ${crumb.path} here · Ctrl+click: new window`}
+                    title={t("Open {path} here · Ctrl+click: new window", { path: crumb.path })}
                     onClick={(e) => open(crumb.path, wantsNewWindow(e))}
                     onAuxClick={(e) => e.button === 1 && open(crumb.path, true)}
                     className="rounded px-px hover:bg-raised hover:text-slate-200"
@@ -129,10 +130,10 @@ export function ProjectHeader({ project, onOpen }: { project: ProjectInfo | null
           className="surface-overlay absolute inset-x-2 top-full z-20 mt-1 overflow-hidden rounded-lg"
         >
           <div className="px-3 pt-2 pb-1 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
-            Recent
+            {t("Recent")}
           </div>
           <div className="max-h-80 overflow-y-auto px-1">
-            {recent.length === 0 && <p className="px-2 py-1.5 text-slate-500 italic">No other projects yet</p>}
+            {recent.length === 0 && <p className="px-2 py-1.5 text-slate-500 italic">{t("No other projects yet")}</p>}
             {recent.map((item) => (
               <MenuRow
                 key={item.path}
@@ -146,21 +147,43 @@ export function ProjectHeader({ project, onOpen }: { project: ProjectInfo | null
             <MenuRow
               icon={<FolderOpen className="size-4 text-slate-400" />}
               onOpen={browse}
-              label="Open folder…"
-              shortcut="Ctrl+O"
+              label={t("Open folder…")}
+              shortcut={t("Ctrl+O")}
               single
             />
             <MenuRow
               icon={<AppWindow className="size-4 text-slate-400" />}
               onOpen={() => browse(true)}
-              label="Open in new window…"
-              shortcut="Ctrl+Shift+O"
+              label={t("Open in new window…")}
+              shortcut={t("Ctrl+Shift+O")}
               single
             />
           </div>
           <p className="border-t border-overlay-line px-3 py-1.5 text-[11px] text-slate-500">
-            Ctrl+click opens in a new window
+            {t("Ctrl+click opens in a new window")}
           </p>
+          {/* The language of the interface, kept for this machine; each name in its own language */}
+          <div className="flex items-center gap-2 border-t border-overlay-line px-3 py-1.5 text-[12px]">
+            <Languages className="size-4 text-slate-400" />
+            <span className="text-slate-400">{t("Language")}</span>
+            <div className="ml-auto flex rounded-md border border-overlay-line p-0.5" role="radiogroup" aria-label={t("Language")}>
+              {(["en", "de"] as const).map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  role="radio"
+                  aria-checked={lang === l}
+                  onClick={() => {
+                    setMenu(false);
+                    setLang(l);
+                  }}
+                  className={`rounded px-2 py-0.5 ${lang === l ? "bg-overlay-hover text-slate-100" : "text-slate-500 hover:text-slate-200"}`}
+                >
+                  {l === "en" ? "English" : "Deutsch"}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </header>
@@ -197,8 +220,8 @@ function MenuRow(props: {
       {!props.single && (
         <button
           type="button"
-          title="Open in new window"
-          aria-label={`Open ${props.label} in new window`}
+          title={t("Open in new window")}
+          aria-label={t("Open {name} in new window", { name: props.label })}
           onClick={() => props.onOpen(true)}
           className="mr-1 rounded p-1 text-slate-500 opacity-0 hover:bg-slate-700 hover:text-slate-100 focus-visible:opacity-100 group-hover:opacity-100"
         >

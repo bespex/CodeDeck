@@ -3,6 +3,7 @@
 // that appeared or disappeared.
 
 import type { Change, Patch } from "./backend";
+import { t } from "./i18n";
 
 /** What happened to a file, in the words of the structure view. */
 export type Kind = "added" | "deleted" | "moved" | "modified";
@@ -203,10 +204,10 @@ export function countDirs(dir: DirNode): Record<"new" | "gone" | "moved", number
 /** What a change of mode means, if anything worth saying. */
 export function modeNote(change: Change): string | null {
   const { oldMode: a, newMode: b } = change;
-  if (b === "160000" && a !== "160000") return "a repository of its own";
-  if (b === "120000" && a !== "120000") return a === "000000" ? "symbolic link" : "now a symbolic link";
-  if (a === "120000" && b !== "120000" && b !== "000000") return "no longer a link";
-  if (a === "100644" && b === "100755") return "now executable";
-  if (a === "100755" && b === "100644") return "no longer executable";
+  if (b === "160000" && a !== "160000") return t("a repository of its own");
+  if (b === "120000" && a !== "120000") return a === "000000" ? t("symbolic link") : t("now a symbolic link");
+  if (a === "120000" && b !== "120000" && b !== "000000") return t("no longer a link");
+  if (a === "100644" && b === "100755") return t("now executable");
+  if (a === "100755" && b === "100644") return t("no longer executable");
   return null;
 }

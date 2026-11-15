@@ -14,8 +14,10 @@ export interface ChangeScope {
   repo: RepoStatus;
   /** git arguments without the paths, e.g. `["diff", "3f2a…", "9c1b…"]` or `["show", "3f2a…"]` */
   range: string[];
-  /** For people and the assistant, e.g. `Turn 2 (Rate limiter)` */
+  /** For the assistant, in English like everything it gets, e.g. `Turn 2 (Rate limiter)` */
   label: string;
+  /** The same in the language of the interface, for the list of attachments */
+  shown: string;
   /**
    * It reaches up to the files on disk. CodeDeck shows new files there that git does not know yet
    * (it stages them in a scratch index); a plain `git diff` does not, so they are named apart.
@@ -26,7 +28,10 @@ export interface ChangeScope {
 export interface ChangeRef {
   /** The command, or the new file: the same change attached twice is one */
   id: string;
+  /** For the assistant (English) */
   label: string;
+  /** For the interface */
+  shown: string;
   /** What shows it; `null` for a file new on disk, which is simply read */
   command: string | null;
   /** For a new file: its project-relative path */
@@ -59,10 +64,16 @@ const quote = (s: string) => (/^[\w./:@+-]+$/.test(s) ? s : `'${s.replace(/'/g, 
 export function changeRef(scope: ChangeScope, path?: string, added = false): ChangeRef {
   if (path !== undefined && added && scope.worktree) {
     const file = toProject(scope.repo, path);
-    return { id: `new:${file}`, label: `${scope.label}, ${path}`, command: null, path: file, worktree: true };
+    return { id: `new:${file}`, label: `${scope.label}, ${path}`, shown: `${scope.shown}, ${path}`, command: null, path: file, worktree: true };
   }
   const command = changeCommand(scope, path);
-  return { id: command, label: path ? `${scope.label}, ${path}` : scope.label, command, worktree: scope.worktree };
+  return {
+    id: command,
+    label: path ? `${scope.label}, ${path}` : scope.label,
+    shown: path ? `${scope.shown}, ${path}` : scope.shown,
+    command,
+    worktree: scope.worktree,
+  };
 }
 
 /** The changes as text for the assistant. */

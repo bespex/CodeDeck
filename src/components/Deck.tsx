@@ -9,16 +9,17 @@ import { mainHarness } from "../assistant";
 import type { GitView } from "../git";
 import { useHistory, useSnapshots } from "../history";
 import { useMarkers } from "../markers";
-import { attachmentCount } from "../attachments";
+import { useAttachedCount } from "./AttachmentList";
+import { useView, type ViewId } from "../view";
+import { t } from "../i18n";
 
-type ViewId = "activity" | "changes" | "workbench" | "next";
 
 /** Four views for the four questions that come up when working with an assistant; `who` is its name. */
 const views: { id: ViewId; label: string; question: (who: string) => string }[] = [
-  { id: "activity", label: "Activity", question: () => "What are the sessions doing?" },
-  { id: "changes", label: "Changes", question: (who) => `What did ${who} change?` },
-  { id: "workbench", label: "Workbench", question: () => "What else came up that is not part of the project yet?" },
-  { id: "next", label: "Next prompt", question: () => "What do you attach to your next prompt?" },
+  { id: "activity", label: "Activity", question: () => t("What are the sessions doing?") },
+  { id: "changes", label: "Changes", question: (who) => t("What did {who} change?", { who }) },
+  { id: "workbench", label: "Workbench", question: () => t("What else came up that is not part of the project yet?") },
+  { id: "next", label: "Next prompt", question: () => t("What do you attach to your next prompt?") },
 ];
 
 interface Props {
@@ -26,16 +27,15 @@ interface Props {
   /** Selected in the file list */
   selected: string | null;
   assistant: AssistantState;
-  /** Files and folders attached to the next prompt */
-  pinned: number;
 }
 
-export function Deck({ git, selected, assistant, pinned }: Props) {
-  const [view, setView] = useState<ViewId>("changes");
+export function Deck({ git, selected, assistant }: Props) {
+  const [view, setView] = useView();
   const [point, setPoint] = useState<Point>({ kind: "now" });
   const commits = useHistory(git.repos);
   const { snapshots, reload: reloadSnapshots } = useSnapshots(git.repos);
   const marks = useMarkers();
+  const attachedCount = useAttachedCount();
   const openMarkers = marks.markers?.length ?? 0;
   const changed = git.changed;
 
@@ -77,14 +77,20 @@ export function Deck({ git, selected, assistant, pinned }: Props) {
       <nav
         className="flex h-11 shrink-0 items-center gap-1 border-b border-line bg-panel px-2"
         role="tablist"
-        aria-label="Deck views"
+        aria-label={t("Deck views")}
       >
         {views.map(({ id, label }) => {
           const active = id === view;
-          // Next prompt: how much is attached (each file on its own), else the hints waiting to be
-          const attached = attachmentCount(assistant, pinned);
+          // Next prompt: how much is attached (every item counts); Workbench: the hints still open
+          const attached = attachedCount;
           const badge =
-            id === "changes" && changed > 0 ? changed : id === "next" && (attached || openMarkers) ? attached || openMarkers : undefined;
+            id === "changes" && changed > 0
+              ? changed
+              : id === "next" && attached > 0
+                ? attached
+                : id === "workbench" && openMarkers > 0
+                  ? openMarkers
+                  : undefined;
           return (
             <button
               key={id}
@@ -92,13 +98,13 @@ export function Deck({ git, selected, assistant, pinned }: Props) {
               role="tab"
               aria-selected={active}
               onClick={() => setView(id)}
-              className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 font-medium outline-none focus-visible:ring-2 focus-visible:ring-ai ${
+              className={`flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 font-medium whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-ai ${
                 active
                   ? "bg-raised text-slate-50 shadow-[inset_0_-2px_0_var(--color-brand)]"
                   : "text-slate-400 hover:bg-raised/70 hover:text-slate-100"
               }`}
             >
-              {label}
+              {t(label)}
               {badge !== undefined && (
                 <span className="rounded-full bg-brand/20 px-1.5 text-[11px] font-semibold text-brand-soft">
                   {badge}
@@ -135,8 +141,8 @@ export function Deck({ git, selected, assistant, pinned }: Props) {
               assistant={assistant}
             />
           )}
-          {view === "workbench" && <WorkbenchView />}
-          {view === "next" && <NextPromptView assistant={assistant} marks={marks} pinned={pinned} onChanges={() => setView("changes")} />}
+          {view === "workbench" && <WorkbenchView marks={marks} assistant={assistant} />}
+          {view === "next" && <NextPromptView assistant={assistant} />}
         </section>
       </div>
     </main>

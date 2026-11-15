@@ -532,21 +532,26 @@ was jedes KI-Werkzeug mit CodeDeck kann.
 Sitzungen legen Entwürfe, Mock-ups, Hilfsscripts und Messdaten gern außerhalb des Projekts ab: in
 temporären Ordnern oder als Seite auf claude.ai. Das blieb bisher unbemerkt.
 
-- **Ein Standardordner im Projekt**, `.workbench/` (seit Schritt 2.1). Git ignoriert ihn lokal: CodeDeck
-  trägt ihn beim Öffnen eines Projekts in `.git/info/exclude` ein (nie in `.gitignore`, die gehört dem
-  Projekt), sichtbar im Git-Protokoll. Der Reiter Workbench zeigt Inhalt, Größe, Alter und welche Sitzung
-  eine Datei schrieb. Ins Projekt übernimmt man eine Datei, indem man sie auf einen Ordner im Dateibaum
+Der Reiter **Werkbank** sammelt das in Kacheln (D23):
+
+- **Der Scratch-Ordner im Projekt**, `.scratch/` (seit Schritt 2.1, bis D23 `.workbench/`). Git ignoriert
+  ihn lokal: CodeDeck trägt ihn beim Öffnen eines Projekts in `.git/info/exclude` ein (nie in `.gitignore`,
+  die gehört dem Projekt), sichtbar im Git-Protokoll. Die Kachel zeigt Inhalt, Größe, Alter und welche
+  Sitzung eine Datei schrieb. Ins Projekt übernimmt man eine Datei, indem man sie auf einen Ordner im Dateibaum
   zieht; aufgeräumt wird in den Papierkorb („Delete n older than 7 days“ oder einzeln). Im Dateibaum
   steht der Ordner gedimmt. Snapshots enthalten ihn nicht, „Go back“ lässt ihn stehen.
+- **Hinweise in deinen Dateien:** die `@ai`-Kommentare. Auch sie gehören nicht für immer zum Projekt; sie
+  verschwinden, wenn Claude erledigt hat, worum sie bitten. Die Büroklammer an einem Hinweis hängt ihn an
+  den nächsten Prompt, wie im Dateibaum (beim Überfahren sichtbar, angehängt bleibt sie hell).
 - **Seiten auf claude.ai** bleiben, wo sie sind. CodeDeck merkt sich Titel, Link, Konto und Sitzung.
   Kopiert wird nicht, weil solche Seiten oft nur dort laufen.
 - **Fundstücke von anderswo:** Was eine Sitzung trotzdem außerhalb ablegt, meldet CodeDeck und
-  bietet an, es auf die Workbench zu holen.
+  bietet an, es in den Scratch-Ordner zu holen.
 
 ## 4.5 Regeln, die jede Sitzung beim Start bekommt
 
 CodeDeck gibt jeder verbundenen Sitzung beim Start wenige kurze, feste Regeln mit: Temporäres gehört
-nach `.workbench/` (seit Schritt 2.1), und eine veröffentlichte Seite wird mit Link genannt (seit 1.6). Technisch gibt der Hook „Sitzung
+nach `.scratch/` (seit Schritt 2.1), und eine veröffentlichte Seite wird mit Link genannt (seit 1.6). Technisch gibt der Hook „Sitzung
 beginnt“ den Text aus, sofern ein CodeDeck-Fenster das Projekt offen hat; eine fortgesetzte Sitzung
 (`resume`) bekommt ihn nicht erneut, eine geleerte oder verdichtete (`clear`, `compact`) schon. Die Regeln sind immer an, es gibt
 keinen Schalter, und sie stehen wörtlich im Reiter Next prompt, getrennt von den Anhängen. Damit bleibt der Grundsatz gewahrt: Claude bekommt nichts, was du nicht siehst.

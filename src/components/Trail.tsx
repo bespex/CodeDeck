@@ -34,7 +34,10 @@ const ROW = "h-[42px]";
 const WIDTH = 400;
 
 /** Dates in the language of the interface, with the 24-hour clock. */
-export const LOCALE = "en-GB";
+// Dates follow the language of the interface (a live binding)
+import { LOCALE } from "../i18n";
+import { snapshotLabel, t } from "../i18n";
+export { LOCALE };
 
 /**
  * The history as a vertical line on the left of the deck, newest on top. At rest a narrow
@@ -82,7 +85,7 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
   let lastDay = "";
 
   return (
-    <div ref={column} className="relative w-11 shrink-0 border-r border-line bg-panel" aria-label="Trail">
+    <div ref={column} className="relative w-11 shrink-0 border-r border-line bg-panel" aria-label={t("Trail")}>
       <div
         onMouseEnter={enter}
         onMouseLeave={leave}
@@ -107,12 +110,14 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
                   <CircleDot className={`size-3 ${uncommitted ? "text-changed" : "text-slate-500"}`} />
                 </span>
               }
-              time="now"
+              time={t("now")}
               detail={plural(uncommitted, "file")}
               title={
                 uncommitted
-                  ? `Uncommitted changes${several ? ` in ${dirtyRepos} repo${dirtyRepos === 1 ? "" : "s"}` : ""}`
-                  : "Nothing uncommitted: the working tree matches the last commit"
+                  ? several
+                    ? t("Uncommitted changes in {repos}", { repos: plural(dirtyRepos, "repository") })
+                    : t("Uncommitted changes")
+                  : t("Nothing uncommitted: the working tree matches the last commit")
               }
             />
           </li>
@@ -162,7 +167,7 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
                     time={clock(at)}
                     detail={plural(item.commit.files, "file")}
                     title={item.commit.subject}
-                    label={`${item.commit.subject} (${ZONE_WORDS[zone]})`}
+                    label={`${item.commit.subject} (${t(ZONE_WORDS[zone])})`}
                     warm={zone === "unpushed"}
                     repo={repoName}
                     remote={boundary.get(repo) === hash ? remoteMark(byPath.get(repo)) : undefined}
@@ -174,9 +179,9 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
                     onClick={(e) => (e.ctrlKey ? onCompare(repo, hash) : onSelect({ kind: "snapshot", repo, hash }))}
                     dot={<SnapshotDot snapshot={item.snapshot} selected={selected} color={mark?.color} />}
                     time={clock(at)}
-                    detail={mark ? `session ${mark.short}` : "snapshot"}
-                    title={item.snapshot.label}
-                    label={`Snapshot${mark ? ` of session ${mark.short}` : ""}: ${item.snapshot.label}`}
+                    detail={mark ? t("session {id}", { id: mark.short }) : t("snapshot")}
+                    title={snapshotLabel(item.snapshot.label)}
+                    label={`${mark ? t("Snapshot of session {short}", { short: mark.short }) : t("Snapshot")}: ${snapshotLabel(item.snapshot.label)}`}
                     quiet
                     repo={repoName}
                   />
@@ -186,7 +191,7 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
           })}
         </ol>
         {items.length === 0 && open && (
-          <p className="py-2 pr-14 text-right text-[11px] text-slate-500">No commits yet.</p>
+          <p className="py-2 pr-14 text-right text-[11px] text-slate-500">{t("No commits yet.")}</p>
         )}
       </div>
     </div>
@@ -287,9 +292,9 @@ function remoteMark(repo: RepoStatus | undefined) {
   // The branch is on the folder and in the status bar already; here only where it is
   const name = repo.upstream?.split("/")[0] ?? repo.remotes[0] ?? "remote";
   const hint = [
-    repo.upstream ? `${repo.upstream} is here` : "The newest commit on a remote; the branch has no upstream",
-    repo.ahead > 0 && `${plural(repo.ahead, "commit")} above to push`,
-    repo.behind > 0 && `${plural(repo.behind, "commit")} on the remote to pull`,
+    repo.upstream ? t("{upstream} is here", { upstream: repo.upstream }) : t("The newest commit on a remote; the branch has no upstream"),
+    repo.ahead > 0 && t("{commits} above to push", { commits: plural(repo.ahead, "commit") }),
+    repo.behind > 0 && t("{commits} on the remote to pull", { commits: plural(repo.behind, "commit") }),
   ]
     .filter(Boolean)
     .join(". ");
@@ -385,8 +390,8 @@ function dayLabel(at: number): string {
   const date = new Date(at * 1000);
   const today = new Date();
   const days = Math.round((startOfDay(today) - startOfDay(date)) / 86_400_000);
-  if (days === 0) return "Today";
-  if (days === 1) return "Yesterday";
+  if (days === 0) return t("Today");
+  if (days === 1) return t("Yesterday");
   if (days < 7) return date.toLocaleDateString(LOCALE, { weekday: "long" });
   return date.toLocaleDateString(LOCALE, {
     day: "numeric",

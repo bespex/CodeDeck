@@ -150,7 +150,9 @@ export function aheadBehind(repo: RepoStatus): string {
   return [repo.ahead && `↑${repo.ahead}`, repo.behind && `↓${repo.behind}`].filter(Boolean).join(" ");
 }
 
-export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+// Counting follows the language of the interface
+import { plural, t } from "./i18n";
+export { plural };
 
 /** What a status letter means, in a few words. */
 export const stateMeaning: Record<GitState, string> = {
@@ -167,7 +169,7 @@ export const stateSymbol = (state: GitState) => (state === "?" ? "N" : state);
 
 /** The uncommitted changes in plain words: "3 uncommitted changes: 2 modified, 1 new". */
 export function changeSummary(repo: RepoStatus): string {
-  if (repo.files.length === 0) return "No uncommitted changes";
+  if (repo.files.length === 0) return t("No uncommitted changes");
   const kinds: [string, (s: GitState) => boolean][] = [
     ["modified", (s) => s === "M" || s === "R"],
     ["new", (s) => s === "A" || s === "?"],
@@ -177,20 +179,20 @@ export function changeSummary(repo: RepoStatus): string {
   const parts = kinds
     .map(([label, test]) => [label, repo.files.filter((f) => test(f.state)).length] as const)
     .filter(([, n]) => n > 0)
-    .map(([label, n]) => `${n} ${label}`);
+    .map(([label, n]) => `${n} ${t(label)}`);
   return `${plural(repo.files.length, "uncommitted change")}: ${parts.join(", ")}`;
 }
 
 /** Where the branch stands against its upstream, in plain words. */
 export function syncSummary(repo: RepoStatus): string {
-  if (!repo.branch) return "Detached HEAD: no branch checked out";
-  if (repo.remotes.length === 0) return "Local only: no remote to push to yet";
-  if (!repo.upstream) return "Not published yet: the branch has no upstream";
+  if (!repo.branch) return t("Detached HEAD: no branch checked out");
+  if (repo.remotes.length === 0) return t("Local only: no remote to push to yet");
+  if (!repo.upstream) return t("Not published yet: the branch has no upstream");
   const parts = [
-    repo.ahead > 0 && `${plural(repo.ahead, "commit")} to push`,
-    repo.behind > 0 && `${plural(repo.behind, "commit")} to pull`,
+    repo.ahead > 0 && t("{commits} to push", { commits: plural(repo.ahead, "commit") }),
+    repo.behind > 0 && t("{commits} to pull", { commits: plural(repo.behind, "commit") }),
   ].filter(Boolean);
-  return parts.length ? `${parts.join(", ")} (${repo.upstream})` : `In sync with ${repo.upstream}`;
+  return parts.length ? `${parts.join(", ")} (${repo.upstream})` : t("In sync with {upstream}", { upstream: repo.upstream });
 }
 
 /** An argument as one would type it in a shell; the backend's `quote` does the same. */
@@ -255,7 +257,7 @@ export const addRemoteSteps = (url: string): Steps => [["remote", "add", "origin
 
 export function ago(at: number): string {
   const s = Math.round((Date.now() - at) / 1000);
-  if (s < 5) return "just now";
-  if (s < 60) return `${s} s ago`;
-  return `${Math.round(s / 60)} min ago`;
+  if (s < 5) return t("just now");
+  if (s < 60) return t("{n} s ago", { n: s });
+  return t("{n} min ago", { n: Math.round(s / 60) });
 }
