@@ -15,6 +15,7 @@ mod identity;
 mod markers;
 mod project;
 mod recent;
+mod rules;
 mod snapshot;
 mod watch;
 
@@ -309,6 +310,18 @@ fn hand_over(key: String, text: Option<String>, label: Option<String>, app: AppH
     bridge.hand_over(&app, key, text.map(|t| (t, label.unwrap_or_default())));
 }
 
+/// The session the hand-over is meant for; `None`: whichever session in the project prompts first.
+#[tauri::command]
+fn hand_over_to(session: Option<String>, app: AppHandle, bridge: State<Arc<Bridge>>) {
+    bridge.set_target(&app, session);
+}
+
+/// The rules every session gets when it starts, word for word.
+#[tauri::command]
+fn start_rules() -> &'static str {
+    rules::START_RULES
+}
+
 /// The user's title and short name for a session; an empty title brings the tool's back.
 #[tauri::command]
 fn rename_session(id: String, title: Option<String>, short: Option<String>, app: AppHandle, bridge: State<Arc<Bridge>>) {
@@ -402,6 +415,8 @@ pub fn run() {
             find_markers,
             assistant_state,
             hand_over,
+            hand_over_to,
+            start_rules,
             rename_session,
             forget_session,
             harness_connections,

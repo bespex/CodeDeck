@@ -14,8 +14,7 @@ import {
   FolderOpen,
   Eye,
   FolderSearch,
-  Pin,
-  PinOff,
+  Paperclip,
   Search,
   SquarePen,
   Settings2,
@@ -281,9 +280,9 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
               {stateSymbol(state)}
             </span>
           )}
-          {/* At rest only a pinned entry shows its pin; on hover it is the toolbar's last tool */}
+          {/* At rest only an attached entry shows its paperclip; on hover it is the toolbar's last tool */}
           <span className="grid w-5 place-items-center group-hover:hidden group-has-[:focus-visible]:hidden">
-            {isPinned && <Pin className="size-3.5 text-brand-soft" fill="currentColor" />}
+            {isPinned && <Paperclip className="size-3.5 text-brand-soft" />}
           </span>
         </span>
       </div>
@@ -294,8 +293,8 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
 
 /**
  * The tools of a row, shown while the mouse is on it, before the branch and status (those stay
- * clickable). From the right: the pin (again to unpin), open as project (folders), show in the file manager, and for
- * files view and edit. The pin is where a pinned entry shows it at rest.
+ * clickable). From the right: the paperclip (again to remove it), open as project (folders), show in the file manager, and for
+ * files view and edit. The paperclip is where an attached entry shows it at rest.
  */
 function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinned: boolean }) {
   const report = (e: unknown) => console.error(e);
@@ -349,9 +348,9 @@ function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinn
       )}
       <Gap />
       <Tool
-        icon={pinned ? PinOff : Pin}
-        label={pinned ? "Unpin" : "Pin"}
-        says={pinned ? "Takes it out of the assistant's context" : "Adds it to the assistant's context"}
+        icon={Paperclip}
+        label={pinned ? "Remove from next prompt" : "Attach to next prompt"}
+        says={pinned ? "It is attached to your next prompt; click to remove it" : "Attaches its path to your next prompt; the assistant reads it as far as it needs"}
         active={pinned}
         onClick={() => (pinned ? tree.onUnpin(entry.path) : tree.onPin(entry))}
       />
@@ -360,7 +359,7 @@ function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinn
 }
 
 function Tool(props: {
-  icon: typeof Pin;
+  icon: typeof Paperclip;
   label: string;
   says: React.ReactNode;
   /** How else to reach it, in its own quiet line */

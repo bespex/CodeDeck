@@ -21,20 +21,23 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src-tauri/src/harness/claude.rs` | Einziger Ort für Claude-Spezifisches: Hook-Ereignisse und -Felder, `settings.json`, Konfigurationen (`config_dirs`), Log-Format |
 | `src-tauri/src/harness/fake.rs` | Test-Adapter ohne echtes Werkzeug (nur in Tests) |
 | `src-tauri/src/identity.rs` | Farbe, Kurzname und eigener Titel je Sitzung, je Projekt in `~/.config/codedeck/sessions.json` |
-| `src-tauri/src/markers.rs` | `@ai`-Marker per `git grep` |
+| `src-tauri/src/markers.rs` | `@ai`-Marker (Regel D18): `git grep` als Vorauswahl, `marker_text` entscheidet, Codeblöcke in Markdown zählen nicht |
+| `src-tauri/src/rules.rs` | Startregeln: der eine Text für Hook und Reiter Next prompt |
 | `src-tauri/src/{watch,project,apps,recent,config}.rs` | Dateiwächter, Projektpfade, externe Programme, letzte Projekte, Config-Dateien |
 | `src/backend.ts` | Alle `invoke`-Wrapper **mit Mock** für die Browser-Vorschau |
 | `src/git.ts`, `src/history.ts`, `src/assistant.ts` | React-Hooks: Git-Status, Trail/Snapshots, Sitzungen |
 | `src/components/Trail.tsx` | Zeitleiste (Zonen, Remote-Chip, Snapshots) |
 | `src/components/views/ChangesView.tsx`, `DiffParts.tsx` | Diffs für jetzt / Runde / Commit / Snapshot / Vergleich; Kurzbericht der Runde; Zeile kommentieren, Datei abhaken |
-| `src/components/Deck.tsx` | Vier Reiter mit ihrer Frage (Activity, Changes, Workbench, Handover), öffnet in Changes |
+| `src/components/Deck.tsx` | Vier Reiter mit ihrer Frage (Activity, Changes, Workbench, Next prompt), öffnet in Changes |
 | `src/components/blocks.tsx` | Die fünf Erscheinungsformen: `Toolbar`, `Section`, `Rows`/`Row`, `Document`, `Decision` (neue Ansichten bauen damit) |
-| `src/components/views/HandoverView.tsx` | Was mit dem nächsten Prompt rausgeht, Marker, Übergabe-Fortschritt |
+| `src/components/views/NextPromptView.tsx` | Reiter Next prompt: Anhänge mit genauem Text, was man anhängen kann, Marker; getrennt die Startregeln |
+| `src/components/HandoverTarget.tsx` | Für wen die Anhänge sind („any session“ oder eine bestimmte) |
 | `src/components/views/ActivityView.tsx`, `WorkbenchView.tsx` | Zuletzt geschriebene Dokumente (Zeitleiste folgt in 2.3); Platzhalter bis 2.1 |
-| `src/components/SessionsPanel.tsx` | Rechte Spalte: „Needs you“, Sitzungen (zwei Zeilen, „Earlier“, Umbenennen, Entfernen, Hover), „Next prompt“ (Warteschlange, Vorschau, Quittung, Fokus) |
+| `src/components/SessionsPanel.tsx` | Rechte Spalte: „Needs you“, Sitzungen (zwei Zeilen, „Earlier“, Umbenennen, Entfernen, Hover), „Next prompt“ (alle Anhänge, Vorschau, für wen, Quittung) |
 | `src/components/SessionBadge.tsx`, `useSessionMarks` in `src/assistant.ts` | Schild einer Sitzung; Farbe/Kurzname/Schreiber je Datei für alle Komponenten |
 | `src/components/AssistantStatus.tsx` | KI-Werkzeug in der Statusleiste, `HookPanel` (verbinden); Namen und Angebote aus `mainHarness` |
-| `src/focus.ts`, `src/markers.ts` | Pin-Typ und Fokus-Text; Marker laden und „erledigt“ erkennen |
+| `src/focus.ts`, `src/markers.ts` | Angehängte Dateien (Pin = Anhang, `useAttachedFiles`, `attachmentCount`); Marker laden und „erledigt“ erkennen |
+| `src/changes.ts` | Änderungen als Anhang (Git-Befehl statt Diff), `ChangeScopeContext` je Diff-Ansicht |
 | `src/turns.ts`, `src/notes.ts`, `src/reviewed.ts` | Runden aus Snapshots und laufenden Sitzungen, wer welche Datei geändert hat; Zeilenkommentare als Teil der Übergabe; „looked at“ je Datei |
 | `src/mock.ts` | Beispieldaten für die Vorschau |
 | `design/click-dummy/` | Zielbild als Click-Dummy (Vorlage für `PLAN.md` „Zielbild“; README dort lesen, nicht die ganze `Main.dc.html`) |

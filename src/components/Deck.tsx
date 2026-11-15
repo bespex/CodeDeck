@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Trail, type Point } from "./Trail";
 import { ActivityView } from "./views/ActivityView";
 import { ChangesView } from "./views/ChangesView";
-import { HandoverView } from "./views/HandoverView";
+import { NextPromptView } from "./views/NextPromptView";
 import { WorkbenchView } from "./views/WorkbenchView";
 import type { AssistantState } from "../backend";
 import { mainHarness } from "../assistant";
@@ -10,15 +10,17 @@ import type { GitView } from "../git";
 import { useHistory, useSnapshots } from "../history";
 import { useMarkers } from "../markers";
 import { useNotesSync } from "../notes";
+import { useChangesSync } from "../changes";
+import { attachmentCount } from "../focus";
 
-type ViewId = "activity" | "changes" | "workbench" | "handover";
+type ViewId = "activity" | "changes" | "workbench" | "next";
 
 /** Four views for the four questions that come up when working with an assistant; `who` is its name. */
 const views: { id: ViewId; label: string; question: (who: string) => string }[] = [
   { id: "activity", label: "Activity", question: () => "What are the sessions doing?" },
   { id: "changes", label: "Changes", question: (who) => `What did ${who} change?` },
   { id: "workbench", label: "Workbench", question: () => "What else came up that is not part of the project yet?" },
-  { id: "handover", label: "Handover", question: (who) => `What do you give ${who} with your next prompt?` },
+  { id: "next", label: "Next prompt", question: () => "What do you attach to your next prompt?" },
 ];
 
 interface Props {
@@ -26,15 +28,18 @@ interface Props {
   /** Selected in the file list */
   selected: string | null;
   assistant: AssistantState;
+  /** Files and folders attached to the next prompt */
+  pinned: number;
 }
 
-export function Deck({ git, selected, assistant }: Props) {
+export function Deck({ git, selected, assistant, pinned }: Props) {
   const [view, setView] = useState<ViewId>("changes");
   const [point, setPoint] = useState<Point>({ kind: "now" });
   const commits = useHistory(git.repos);
   const { snapshots, reload: reloadSnapshots } = useSnapshots(git.repos);
   const marks = useMarkers();
   useNotesSync(assistant, mainHarness(assistant).capabilities.handover !== "none");
+  useChangesSync(assistant);
   const openMarkers = marks.markers?.length ?? 0;
   const changed = git.changed;
 
@@ -80,8 +85,10 @@ export function Deck({ git, selected, assistant }: Props) {
       >
         {views.map(({ id, label }) => {
           const active = id === view;
+          // Next prompt: how much is attached (each file on its own), else the hints waiting to be
+          const attached = attachmentCount(assistant, pinned);
           const badge =
-            id === "changes" && changed > 0 ? changed : id === "handover" && openMarkers > 0 ? openMarkers : undefined;
+            id === "changes" && changed > 0 ? changed : id === "next" && (attached || openMarkers) ? attached || openMarkers : undefined;
           return (
             <button
               key={id}
@@ -133,7 +140,7 @@ export function Deck({ git, selected, assistant }: Props) {
             />
           )}
           {view === "workbench" && <WorkbenchView />}
-          {view === "handover" && <HandoverView assistant={assistant} marks={marks} />}
+          {view === "next" && <NextPromptView assistant={assistant} marks={marks} pinned={pinned} onChanges={() => setView("changes")} />}
         </section>
       </div>
     </main>

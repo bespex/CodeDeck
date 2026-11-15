@@ -18,9 +18,14 @@ braucht man nur noch bei Grundsatzfragen.
 3. Im Abschnitt „Zielbild: MVP-Phasen“ den nächsten offenen Schritt nehmen und nach „So läuft jeder
    Schritt“ vorgehen. Die älteren Pakete P0–P10 weiter unten sind nur noch Nachschlagewerk für Details.
 
-## Stand (2026-11-15, Commit `c428158`)
+## Stand (2026-11-15, Commit `1c35bdc`)
 
-Das Zielbild ist abgestimmt (Click-Dummy, `KONZEPT.md` Teil 4), umgesetzt ist davon noch nichts.
+Das Zielbild ist abgestimmt (Click-Dummy, `KONZEPT.md` Teil 4). Von MVP 1 sind die Schritte 1.1 bis 1.6
+gebaut, dazu 1.6a (einheitliche Begriffe) und 1.6b (Änderungen anhängen); 1.6 ist erst in Tests, Vorschau und mit nachgestellten
+Hook-Meldungen geprüft.
+
+**Nächste Session:** Praxistest von 1.5, 1.6, 1.6a und 1.6b in der echten App mit dem Nutzer (Listen „Offen“ in den
+Notizen), Gefundenes beheben. Danach Schritt 1.7 (Aufräumen nach dem Review), dann MVP 2, Schritt 2.1.
 
 Fertig in der App (P1, P2, P3, P5, siehe „Ältere Pakete“): Trail mit drei Zonen (nicht committet / nicht
 gepusht / gepusht) und Remote-Chip, Vergleich zweier Punkte · Hook-Brücke `codedeck hook` → Socket je
@@ -51,9 +56,15 @@ Optimistic Flow: Die KI schreibt direkt, abgesichert wird über die Sicherungspu
 | D9 | Temporäres außerhalb des Projekts | entschieden 2026-11-15: Standardordner im Projekt (Arbeitsname `.workbench/`), per Startregel mitgeteilt; claude.ai-Seiten nur als Link |
 | D10 | Profile | entschieden 2026-11-15: „Arbeitszeit“ und „Freizeit“ |
 | D11 | KI-Anbindung | entschieden 2026-11-15: hinter einer Schnittstelle gekapselt, siehe „Kapselung der KI-Anbindung“ |
-| D12 | Name des Standardordners (`.workbench`, `.drafts`, `.scratch`) | offen, vor Schritt 2.1 klären |
+| D12 | Name des Standardordners (`.workbench`, `.drafts`, `.scratch`) | entschieden 2026-11-15: `.workbench` |
 | D13 | Erlaubnisfragen aus CodeDeck beantworten („Allow once“) | offen. Im Dummy gezeigt; berührt D5 |
 | D14 | Öffnet ein Projekt in Activity oder in Changes? | entschieden 2026-11-15: Changes (Activity gibt es erst mit 2.3). Am Ende von MVP 2 noch einmal prüfen, ist leicht zu ändern |
+| D16 | Welche Startregeln gehen mit 1.6 raus? | entschieden 2026-11-15: nur die Link-Regel (eine veröffentlichte Seite wird mit Link genannt). Die Ordner-Regel (`.workbench/`) kommt erst mit 2.1, wenn CodeDeck den Ordner anlegt, ignoriert und anzeigt |
+| D17 | Sind die Startregeln abschaltbar? | entschieden 2026-11-15: nein, immer an und im Reiter sichtbar. Sie sind ein Baustein von CodeDeck; ein Schalter kommt nur, wenn es einen bewussten Grund gibt |
+| D18 | Was gilt als `@ai`-Marker? | entschieden 2026-11-15: `@ai` am Zeilenanfang (Leerraum davor zählt nicht, alles andere schon), oder am Anfang eines Kommentars, der die Zeile beginnt: `<!-- @ai` (HTML/XML) und ebenso nach den Kommentarzeichen von Code (`// @ai`, `# @ai`, …). Zwischen Kommentarzeichen und `@ai` darf nur Leerraum stehen, nach `@ai` nur Leerraum, `:` oder das Zeilenende (Review: sonst zählten Decorators wie `@ai.tool`). Die Form `[!AI: …]` entfällt. Keine Ausnahmelisten je Projekt |
+| D19 | Übergabe an eine bestimmte Sitzung? | entschieden 2026-11-15: Zielsitzung wählbar („any session“ oder eine bestimmte) |
+| D20 | Wie heißt, was CodeDeck an eine Sitzung gibt? | entschieden 2026-11-15: ein Vorgang **anhängen** („Attach“), ein Ort **Next prompt** (Reiter, vorher „Handover“, und Bereich rechts). Den Prompt schreibt der Nutzer im Werkzeug, CodeDeck hängt nur an. Startregeln sind kein Anhang und stehen getrennt. Ändert D8 (Reitername) |
+| D21 | Fokus als Sammelliste vor der Übergabe? | entschieden 2026-11-15: nein. Anpinnen hängt direkt an (Büroklammer); nach dem Absenden ist die Liste leer. Ändert D1 („Sessions & Focus“) |
 | D15 | Sitzungs-Identität (Farbe + Kurzname, feste Reihenfolge, Umbenennen) als eigener Teilschritt vor 1.3 oder in 1.4? | entschieden 2026-11-15: eigener Teilschritt 1.2a vor 1.3 |
 
 ## Reihenfolge
@@ -100,7 +111,10 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 | 1.3 Grundgerüst ✅ 2026-11-15 | Projekt öffnet in Changes (D14). Vier Reiter mit ihrer Frage, Bereichsfarben, die fünf Erscheinungsformen als wiederverwendbare Bausteine (Werkzeugleiste, Abschnitt, Zeile, Dokument, Entscheidung). Bestehende Ansichten einsortieren: Docs → Handover, Workspace/Map/Tests entfallen als Reiter | Projektansicht, alle Reiter | `Deck.tsx`, `views/*`, `index.css`, `App.tsx` | Alle heutigen Funktionen sind im neuen Gerüst erreichbar; Vorschau zeigt vier Reiter |
 | 1.4 Rechte Spalte ✅ 2026-11-15 | „Needs you“, Sitzungen als zwei Zeilen mit aufklappbaren Details, „Next prompt“ mit Vorschau des Textes und Empfangsbestätigung | rechte Spalte, Szenen 2–7 | `SessionsPanel.tsx`, `assistant.ts`, `bridge.rs` (Übergabe abgeholt melden) | Wartende Sitzung erscheint oben mit Grund; nach dem nächsten Prompt steht „Delivered“ |
 | 1.5 Changes je Runde ✅ 2026-11-15 | Auswahl „Turn n / All uncommitted“ (macht den Strg+Klick-Vergleich entdeckbar, ersetzt ihn nicht), Kurzbericht aus dem Log, Datei abhaken, „Claude“ oder „You“ je Datei, Zeile kommentieren | Changes, Szenen 4–7 | `ChangesView.tsx`, `DiffParts.tsx`, `history.rs`, `sessions.rs`, `focus.ts` | Ein Zeilenkommentar landet in „Next prompt“ und kommt bei Claude an |
-| 1.6 Handover ☐ | Reiter mit Warteschlange, genauem Text, Quellen, `@ai`-Hinweisen; Startregeln (abhängig von 1.1) sichtbar | Handover | `DocsView.tsx` → Handover, `markers.ts`, `hook.rs` | Regeln stehen wörtlich im Reiter und kommen in einer neuen Sitzung an |
+| 1.6 Handover ✅ 2026-11-15 (Praxistest offen) | Reiter mit Warteschlange, genauem Text, Quellen, `@ai`-Hinweisen; Startregeln (abhängig von 1.1) sichtbar; Marker-Regel D18, Zielsitzung D19. Auftrag: Notiz „Vorbereitung 1.6“ | Handover | `DocsView.tsx` → Handover, `markers.ts`, `hook.rs` | Regeln stehen wörtlich im Reiter und kommen in einer neuen Sitzung an |
+| 1.6b Änderungen anhängen ✅ 2026-11-15 | Runde, Commit, Snapshot, Vergleich, nicht Committetes oder eine Datei davon als Verweis anhängen (Git-Befehl, nicht der Diff); Angehängtes am Ursprung markiert; je Sitzung „Got from CodeDeck“ | Changes, rechte Spalte | `changes.ts`, `ChangesView.tsx`, `DiffParts.tsx`, `StructureTree.tsx`, `bridge.rs` | Eine angehängte Runde kommt als `git diff …` bei Claude an, und die Sitzung zeigt danach, was sie bekommen hat |
+| 1.7 Anhänge aus einem Guss ☐ | Aus dem Review vom 2026-11-15 (Notiz „Review 1.6–1.6b“): (A) ein Modul `attachments.ts` mit einem gemeinsamen Baustein je Anhangsteil (Speicher, Abgleich, Zählen) für Dateien, Änderungen, Zeilenkommentare und Hinweise; behebt den Wettlauf beim Absenden und zu viel „attached“ an Hinweisen. (B) Das Backend liefert den fertigen Text der Anhänge (`AssistantState.preview`), das Frontend setzt ihn nicht mehr selbst zusammen. (C) Mit umbenennen: `hand_over` → `attach`, `handovers` → `attachments`, `focus.ts` → `files.ts`, `HandoverTarget` → `AttachTarget` (rein mechanisch, Oberfläche unverändert). Kein neues Verhalten | – | `notes.ts`, `changes.ts`, `focus.ts`, `markers.ts`, `App.tsx`, `bridge.rs`, `lib.rs`, `backend.ts` | Ein Anhang, der während des Absendens dazukommt, bleibt stehen und geht mit dem nächsten Prompt raus; die Vorschau zeigt den Text aus dem Backend |
+| 1.6a Einheitliche Begriffe ✅ 2026-11-15 | D20, D21: „Attach“ und „Next prompt“ überall; Reiter „Handover“ → „Next prompt“; Fokus weg, Anpinnen hängt direkt an | Handover, rechte Spalte (Dummy nennt es noch anders) | `NextPromptView.tsx`, `SessionsPanel.tsx`, `focus.ts`, `FilesPanel.tsx`, `DiffParts.tsx` | Kein „Handover“, „Focus“, „Hand to“, „Queue“ mehr in der Oberfläche; Anhänge an drei Stellen gleich gezählt |
 
 ### MVP 2: Nichts bleibt unbemerkt
 
@@ -108,7 +122,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 
 | Schritt | Ziel | Dummy | Dateien | Fertig wenn |
 |---|---|---|---|---|
-| 2.1 Workbench-Ordner ☐ | Ordner anlegen und lokal ignorieren (`.git/info/exclude`, nicht `.gitignore`), Inhalt mit Größe und Alter, Öffnen, ins Projekt übernehmen, löschen, „älter als … löschen“. D12 vorher klären | Workbench | neu `workbench.rs`, `views/WorkbenchView.tsx`, `watch.rs` | Eine Datei im Ordner erscheint sofort, Aufräumen löscht nur Altes |
+| 2.1 Workbench-Ordner ☐ | Ordner anlegen und lokal ignorieren (`.git/info/exclude`, nicht `.gitignore`), Inhalt mit Größe und Alter, Öffnen, ins Projekt übernehmen, löschen, „älter als … löschen“. Dazu (Idee des Nutzers, D20): **externe Dateien anhängen**, CodeDeck kopiert sie nach `.workbench/` und hängt den Pfad an (keine Erlaubnisfrage für Pfade außerhalb). Startregel zu `.workbench/` (D16) | Workbench | neu `workbench.rs`, `views/WorkbenchView.tsx`, `watch.rs` | Eine Datei im Ordner erscheint sofort, Aufräumen löscht nur Altes |
 | 2.2 Fundstücke und Links ☐ | Schreibvorgänge außerhalb des Projekts der Sitzung zuordnen und melden; claude.ai-Seiten als Link merken (je nach Ergebnis von 1.1 über Hook oder über die Startregel) | Workbench: „Still somewhere else“, „Pages on claude.ai“ | `bridge.rs`, `sessions.rs`, Adapter | Eine in `/tmp` geschriebene Datei wird gemeldet und lässt sich holen |
 | 2.3 Activity und Hinweise ☐ | Zeitleiste der Sitzungen aus den Ereignissen, „How safe is your work“, geschriebene Dokumente; Panel „Notices and tips“ | Activity, Glocke | neu `views/ActivityView.tsx`, `bridge.rs` (Ereignisse merken) | Ein Vormittag ist als Zeitleiste nachvollziehbar |
 | 2.4 Verbrauch ☐ | P4: erst den Spike. Ohne verlässliche Quelle entfällt die Anzeige, nicht schätzen | Activity, Statusleiste | siehe P4 | D2 ist entschieden und umgesetzt oder gestrichen |
@@ -517,6 +531,89 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   App zu prüfen: Ende-Punkt nach `Stop`, Bericht, Kommentar kommt bei Claude an; ob „Runde“ für den Nutzer
   nachvollziehbar ist (mehrere Sitzungen gleichzeitig landen im selben Diff). `StatusDot`: Der Ring läuft auch bei
   „reduzierter Bewegung“, weil GTK das hier meldet (`gtk-enable-animations = False`), ohne dass der Nutzer es gewählt hat.
+- **Vorbereitung 1.6 (2026-11-15, mit dem Nutzer entschieden, noch nichts gebaut):**
+  - *Startregeln (D16, D17):* Jede Sitzung bekommt beim Start über den Hook „Sitzung beginnt“ einen festen Text
+    (Claude: stdout von `SessionStart` bzw. `hookSpecificOutput.additionalContext`, laut Doku; **live noch nicht
+    geprüft**, das ist der erste Prüfpunkt des Schritts). Inhalt in 1.6: nur die Link-Regel. Die Regel zu
+    `.workbench/` (D12) erst mit 2.1. Immer an, kein Schalter. Der Text steht wörtlich im Reiter Handover.
+    Technik: `Capabilities.start_rules` für Claude auf `true`, `Harness::reply` liefert den Text beim Ereignis
+    `SessionStarted`; der Regeltext selbst gehört in den Kern (ein Ort, von Reiter und Hook gelesen), nicht in
+    den Adapter. Zu klären beim Bauen: `SessionStart` feuert auch bei `resume`/`compact`/`clear` (Feld `source`):
+    Regeln dann erneut mitgeben? Vorschlag: ja bei `clear` und `compact` (der Kontext ist weg), nein bei `resume`.
+  - *Marker (D18):* `markers.rs` `PATTERNS` ersetzen durch eine Regel:
+    `^[[:space:]]*((<!--|//|/\*|\*|#|--|;|%)[[:space:]]*)?@ai`, danach Wortgrenze, Doppelpunkt freiwillig. Die
+    Kommentarzeichen: `<!--`, `//`, `/*` und `*` (Folgezeile eines Blockkommentars), `#`, `--`, `;`, `%`. `[!AI:`
+    streichen (auch in Doku, Mock und Tests). Mit dem Nutzer besprochene Folgen: Der Kommentar muss die Zeile
+    beginnen; `Text <!-- @ai … -->` und `code(); // @ai …` zählen nicht. In Markdown sind `#` und `*` auch
+    Überschrift und Listenpunkt: `# @ai …` und `* @ai …` zählen dort ebenfalls, das ist gewollt hingenommen. Übrig bleiben können Beispiele, die allein auf einer Zeile stehen (Codeblock in
+    README/Konzept): nach dem Umbau im CodeDeck-Repo zählen; sind es noch welche, Zeilen in Markdown-Codeblöcken
+    (zwischen ```-Zeilen) ausnehmen, statt Ausnahmen je Projekt zu pflegen. README und `KONZEPT.md` nennen die
+    Schreibweise: Beispiele dort so setzen, dass sie nicht am Zeilenanfang stehen.
+  - *Zielsitzung (D19):* In „Next prompt“ (rechte Spalte und Reiter) wählbar: „any session“ (wie heute: wer im
+    Projekt zuerst promptet) oder eine gelistete Sitzung mit `handover = withNextPrompt`. `bridge.rs`: Ziel an
+    der Warteschlange merken, in `take_in` bei `PromptSubmitted` nur ausliefern, wenn die Sitzung passt; endet
+    die Zielsitzung oder wird sie entfernt, fällt das Ziel auf „any“ zurück und die Oberfläche sagt es. Vorauswahl
+    bei Zeilenkommentaren: die Sitzung der Runde, in der kommentiert wurde (`Turn.session`; `notes.ts` kennt sie
+    heute nicht). Ein Ziel für die ganze Warteschlange, nicht je Teil.
+  - *Reiter Handover:* heute `HandoverView.tsx` (Warteschlange mit „Take back“, Marker, Fortschritt). Laut Dummy
+    kommen dazu: der genaue Text als ein Dokument (`Document` aus `blocks.tsx`, bisher ohne Nutzer), Quellen zum
+    Aufnehmen, die Startregeln. Bekannte Mängel aus 1.1 (Test E): Fehltreffer `README.md:70` gilt als übergeben
+    und wird nie „erledigt“ (löst D18), Tooltip von „Hand to …“ wird rechts abgeschnitten, ein Satz Erklärung fehlt.
+  - *Fertig wenn:* Regeln stehen wörtlich im Reiter und kommen in einer neuen Sitzung an (braucht den Nutzer).
+- 1.6 (2026-11-15): **Startregeln:** Text in `rules.rs` (`START_RULES`, ein Ort für Hook und Reiter, Befehl
+  `start_rules`). Das Fenster, das die Sitzung betrifft, antwortet auf `SessionStarted` damit, wenn das Werkzeug
+  `start_rules` kann und die Sitzung nicht fortgesetzt ist (`Event.resumed`; Claude: `source == "resume"`; `clear` und
+  `compact` bekommen die Regeln erneut). Der Claude-Adapter druckt bei `SessionStart` wie bei `UserPromptSubmit`;
+  `codedeck hook` entdoppelt gleiche Texte (zwei Fenster auf einem Projekt). Ohne offenes Fenster bekommt eine Sitzung
+  keine Regeln, so steht es auch im Reiter. `AssistantState.ruled` = wer sie zuletzt bekam. Mit dem echten Binary und
+  nachgestellten Meldungen geprüft (startup/compact: Text, resume: nichts, anderes Projekt: nichts). **Marker
+  (D18):** `git grep` nur als grobe Vorauswahl, `markers.rs::marker_text` entscheidet (Kommentarzeichen dürfen
+  verdoppelt sein: `///`, `##`, `/**`); Zeilen in Markdown-Codeblöcken (``` und ~~~) zählen nicht (`drop_fenced`, liest
+  nur Markdown-Dateien mit Treffern). Im CodeDeck-Repo bleiben damit 0 Treffer, auch `README.md:70` ist weg.
+  **Zielsitzung (D19):** `Inner.target`/`target_lost`, Befehl `hand_over_to`; ausgeliefert wird nur an die Zielsitzung
+  (oder an jede ohne Ziel); geliefert oder Warteschlange leer → Ziel wieder „any“; endet die Zielsitzung, wird sie
+  entfernt oder fällt aus der Liste, gilt „any“ und `TargetLost` sagt es. Auswahl `HandoverTarget.tsx` (natives
+  `select`) in „Next prompt“ und oben im Reiter. Vorauswahl beim ersten Zeilenkommentar: die Sitzung der Runde
+  (`NoteSessionContext` aus `TurnChanges`), sonst wer die Datei zuletzt schrieb. **Reiter:** `Toolbar` (Ziel, wartet),
+  „Queued“ mit dem genauen Text als `Document` (erster Nutzer), „Pick up for the next prompt“ (Zeilenkommentare, Fokus,
+  Hinweise; „Failing test“ erst mit 4.3), Hinweise mit einem Satz Erklärung, Startregeln wörtlich. **Offen, braucht den
+  Nutzer:** ob der Tooltip von „Hand to …“ noch abgeschnitten wird (nicht geprüft; `Tooltip` begrenzt die Lage schon auf
+  das Fenster); kommt der Text aus `SessionStart` in einer echten Claude-Sitzung an (Frage in einer neuen Sitzung: „Welche
+  Regeln von CodeDeck hast du bekommen?“), auch nach `/clear`; Zielsitzung mit zwei echten Sitzungen.
+- 1.6a (2026-11-15, D20, D21): Anlass war die Frage des Nutzers, was „Handover“, Pins und „Next prompt“
+  voneinander unterscheidet: nichts, alles ist Text, den CodeDeck an den nächsten Prompt hängt. Jetzt: Reiter
+  `NextPromptView.tsx` (`ViewId` `next`), Verb „Attach“ / „Remove“, Büroklammer statt Pin (Dateibaum, Liste).
+  Pins sind der Übergabeteil `files` (vorher `focus`): `useAttachedFiles` in `focus.ts` (aus `App.tsx`) hält Pins
+  und Teil gleich und leert die Pins, wenn der Teil weg ist (abgeschickt oder entfernt), wie `useNotesSync`.
+  `attachmentCount` zählt jede Datei einzeln und jeden anderen Teil einmal (Reiter-Badge, Abschnitt, rechte
+  Spalte). Startregeln heißen „Every session gets this when it starts“ und sagen „Not an attachment“. Interne Namen
+  (`hand_over`, `Handover`, `capabilities.handover`, `HandoverTarget`) bleiben, nur die Oberfläche ist umbenannt.
+  Der Dummy nennt es noch „Handover“; er ist Vorlage, kein Bauplan. Nur in Vorschau und `tsc` geprüft.
+- 1.6b (2026-11-15): **Änderung als Verweis** (mit dem Nutzer entschieden): angehängt wird der Git-Befehl, der sie
+  zeigt, nicht der Diff (Grundsatz „Pfade, keine Inhalte“; Snapshots sind Refs im selben Repo). `changes.ts`:
+  `ChangeScope` (Repo, Git-Argumente, Name) als Context je Ansicht in `ChangesView` (Runde `diff from [to]`, nicht
+  Committetes `diff HEAD`, Commit `show`, Snapshot `diff <snap>`, Vergleich `diff a b`), `changeCommand` mit `-C` für
+  eingebettete Repos und `:/pfad`, wenn das Projekt im Repo liegt; Hashes auf 12 Zeichen. Teil `changes` wie `notes`
+  (`useChangesSync` in `Deck`). Knopf `AttachChange` (DiffParts): am Kopf mit Text, je Datei nur die Büroklammer (beim
+  Überfahren; angehängt bleibt sie sichtbar), auch in der Strukturansicht. Claude muss `git` ausführen dürfen (evtl.
+  Erlaubnisfrage). **Markiert am
+  Ursprung:** Dateien (Dateibaum), Zeilen („attached“), Änderungen (Büroklammer hell), Hinweise („attached“, solange
+  der Teil `markers` wartet; `handed` sammelt alle je Fenster, kann also zu viel markieren, wenn man Hinweise nach dem
+  Entfernen neu wählt). **Rückblick:** `Session.received` (zuletzt 10: Zeit und Namen der Teile, auch „Start rules“),
+  in den Sitzungsdetails als „Got from CodeDeck“; ersetzt „got the hand-over“. Nur in Tests und Vorschau geprüft.
+- **Review 1.6–1.6b (2026-11-15):** Behoben: (1) Änderungen gegen den Arbeitsstand (`ChangeScope.worktree`: laufende
+  Runde, nicht Committetes, seit Snapshot) nannten nur `git diff`, das ungetrackte neue Dateien nicht zeigt, CodeDeck
+  aber schon (ScratchIndex). Jetzt wird eine neue Datei als Pfad angehängt („a new file, read …“), und der Text nennt
+  `git status --short` für die übrigen. (2) Marker: nach `@ai` nur Leerraum, `:` oder Zeilenende, sonst wären
+  Decorators wie `@ai.tool` Hinweise. (5) Repo ohne Commit: Vergleich mit dem leeren Baum statt `HEAD`. `Session.handed`
+  entfernt (ersetzt durch `received`). Offen und als Schritt 1.7 geplant: Wettlauf beim Absenden (ein Anhang, der
+  zwischen Abholen und Ereignis dazukommt, wird mit gelöscht, ein Zeilenkommentar kann doppelt rausgehen), zu viel
+  „attached“ an Hinweisen, drei Bauweisen für dieselbe Sache (Modul-Speicher in `notes.ts`/`changes.ts`, Zustand in
+  `App` für Pins, `handOver` direkt bei Hinweisen), Gesamttext doppelt gebaut (Frontend und `take_parts`), Namen im Code
+  (`hand_over` usw.). Bekannt, ohne Schritt: Werkzeuge mit `handover = clipboard` bekommen Kommentare und Änderungen
+  nie (kein Adapter dieser Art); Desktop-Sitzungen und solche ohne offenes Fenster beim Start bekommen weder Regeln
+  noch Anhänge, das sagt nur die Doku, nicht die App (für den Praxistest im Blick behalten). `ChangesView.tsx` (über
+  1150 Zeilen, fünf Ansichten mit gleichem Muster) bekommt einen gemeinsamen Rahmen mit dem nächsten Changes-Schritt.
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FilesPanel } from "./components/FilesPanel";
 import { GitLog } from "./components/GitLog";
 import { Deck } from "./components/Deck";
@@ -6,9 +6,9 @@ import { SessionsPanel } from "./components/SessionsPanel";
 import { StatusBar } from "./components/StatusBar";
 import { live, openProject, openWindow, projectInfo, type Entry, type ProjectInfo } from "./backend";
 import { initialPins } from "./mock";
-import { pinFromEntry, type Pin } from "./focus";
+import { pinFromEntry, useAttachedFiles, type Pin } from "./focus";
 import { useGit } from "./git";
-import { SessionMarksContext, sessionMarks, touchedFiles, useAssistant } from "./assistant";
+import { mainHarness, SessionMarksContext, sessionMarks, touchedFiles, useAssistant } from "./assistant";
 import { RepoActions, type Anchor } from "./components/RepoActions";
 
 export default function App() {
@@ -20,6 +20,9 @@ export default function App() {
   // The session the mouse is on in the list: its snapshots and files stand out everywhere
   const [hoveredSession, setHoveredSession] = useState<string | null>(null);
   const marks = useMemo(() => sessionMarks(assistant, hoveredSession, setHoveredSession), [assistant, hoveredSession]);
+  // What is pinned is attached to the next prompt, and gone once it went out
+  const clearPins = useCallback(() => setPins([]), []);
+  useAttachedFiles(pins, clearPins, assistant, mainHarness(assistant).capabilities.handover === "withNextPrompt");
   // Git actions of one repository, hanging at the element that opened them
   const [actions, setActions] = useState<{ repo: string; anchor: Anchor } | null>(null);
   const [logOpen, setLogOpen] = useState(false);
@@ -78,13 +81,13 @@ export default function App() {
           onRepoActions={openActions}
           touched={touchedFiles(assistant)}
         />
-        <Deck key={`deck:${project?.path}`} git={git} selected={selected} assistant={assistant} />
+        <Deck key={`deck:${project?.path}`} git={git} selected={selected} assistant={assistant} pinned={pins.length} />
         <SessionsPanel
           assistant={assistant}
           pins={pins}
           onPin={pin}
           onUnpin={unpin}
-          onClear={() => setPins([])}
+          onClear={clearPins}
           onShowFile={setSelected}
         />
       </div>

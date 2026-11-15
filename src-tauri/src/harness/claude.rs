@@ -63,8 +63,8 @@ impl Harness for Claude {
             live_status: true,
             before_write: true,
             handover: Handover::WithNextPrompt,
-            // Possible (text on stdout of `SessionStart`), but not used before step 1.6
-            start_rules: false,
+            // What the `SessionStart` hook prints is added to the session's context
+            start_rules: true,
             past_sessions: true,
             usage: false,
         }
@@ -101,12 +101,17 @@ impl Harness for Claude {
             message: cut(&raw["message"], 300),
             report: cut(&raw["last_assistant_message"], REPORT_MAX).filter(|_| kind == EventKind::TurnDone),
             log: cut(&raw["transcript_path"], usize::MAX),
+            // `startup`, `resume`, `clear`, `compact`: after clearing or compacting what it was
+            // told is gone, so only a resumed session still has the rules
+            resumed: kind == EventKind::SessionStarted && raw["source"] == "resume",
         })
     }
 
-    /// Claude Code adds what the `UserPromptSubmit` hook prints to that prompt.
+    /// Claude Code adds what the `UserPromptSubmit` hook prints to that prompt, and what the
+    /// `SessionStart` hook prints to the session's context. Other hooks must print nothing.
     fn reply(&self, event: &Event, handed: &[String]) -> Option<String> {
-        (event.kind == EventKind::PromptSubmitted && !handed.is_empty()).then(|| handed.join("\n\n"))
+        let speaks = matches!(event.kind, EventKind::PromptSubmitted | EventKind::SessionStarted);
+        (speaks && !handed.is_empty()).then(|| handed.join("\n\n"))
     }
 
     fn past_sessions(&self, project: &Path) -> Vec<SessionInfo> {
@@ -431,12 +436,21 @@ mod tests {
     }
 
     #[test]
-    fn hands_over_with_the_prompt_only() {
+    fn speaks_only_with_a_prompt_and_at_the_start() {
         let event = |i: usize| Claude.translate(&serde_json::from_str(RECORDED[i]).unwrap()).unwrap();
         let handed = ["focus".to_string(), "comments".to_string()];
         assert_eq!(Claude.reply(&event(1), &handed).as_deref(), Some("focus\n\ncomments"));
         assert_eq!(Claude.reply(&event(1), &[]), None);
-        assert_eq!(Claude.reply(&event(0), &handed), None);
+        // The start rules, printed by `SessionStart`
+        assert_eq!(Claude.reply(&event(0), &handed[..1]).as_deref(), Some("focus"));
+        assert!(!event(0).resumed);
+        for i in 2..RECORDED.len() - 2 {
+            assert_eq!(Claude.reply(&event(i), &handed), None, "{}", RECORDED[i]);
+        }
+        let resumed = RECORDED[0].replace("startup", "resume");
+        assert!(Claude.translate(&serde_json::from_str(&resumed).unwrap()).unwrap().resumed);
+        let cleared = RECORDED[0].replace("startup", "clear");
+        assert!(!Claude.translate(&serde_json::from_str(&cleared).unwrap()).unwrap().resumed);
     }
 
     #[test]

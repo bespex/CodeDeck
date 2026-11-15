@@ -23,7 +23,7 @@ impl Harness for Fake {
     }
 
     fn capabilities(&self) -> Capabilities {
-        Capabilities { live_status: true, before_write: true, handover: Handover::Clipboard, start_rules: false, past_sessions: true, usage: false }
+        Capabilities { live_status: true, before_write: true, handover: Handover::Clipboard, start_rules: true, past_sessions: true, usage: false }
     }
 
     fn connections(&self) -> Vec<Connection> {
@@ -58,6 +58,7 @@ impl Harness for Fake {
             message: text("text").filter(|_| !asked),
             report: text("said"),
             log: None,
+            resumed: raw["again"] == true,
         })
     }
 

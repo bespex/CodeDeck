@@ -1,13 +1,15 @@
 // Pieces both ways of showing a change use: the commands an action runs, the actions on one
 // uncommitted file, and a file's diff.
 
-import { Fragment, useState } from "react";
-import { MessageSquarePlus, Minus, Plus, Trash2, Undo2, X } from "lucide-react";
+import { Fragment, useContext, useState } from "react";
+import { MessageSquarePlus, Minus, Paperclip, Plus, Trash2, Undo2, X } from "lucide-react";
 import type { FileStatus, RepoStatus } from "../../backend";
 import { commandLine, type Steps } from "../../git";
 import type { FileDiff } from "../../diff";
 import { fileActions, useGitRun } from "../../history";
-import { addNote, removeNote, useNotes, type Note } from "../../notes";
+import { addNote, NoteSessionContext, removeNote, useNotes, type Note } from "../../notes";
+import { useSessionMarks } from "../../assistant";
+import { changeRef, toggleChange, useChangeScope, useChanges, type ChangeScope } from "../../changes";
 import { Tooltip, TooltipHint } from "../Tooltip";
 
 export function Commands({ steps }: { steps: Steps }) {
@@ -167,6 +169,9 @@ export function DiffBody({ file, missing, notePath }: { file: FileDiff | undefin
 function HunkRows({ hunk, notePath, notes }: { hunk: FileDiff["hunks"][number]; notePath?: string; notes: Note[] }) {
   /** The line (new side) a comment is being written for */
   const [draft, setDraft] = useState<number | null>(null);
+  // Who the comment is preferably for: the session of the turn shown, else the one that wrote the file last
+  const turnSession = useContext(NoteSessionContext);
+  const { writer } = useSessionMarks();
   return (
     <>
       <tr className="bg-panel/60 text-slate-500">
@@ -220,7 +225,7 @@ function HunkRows({ hunk, notePath, notes }: { hunk: FileDiff["hunks"][number]; 
                 <td colSpan={3} className="bg-[var(--color-area-you)] px-3 py-1.5 font-sans text-[12px] leading-[18px]">
                   <div className="flex max-w-3xl items-start gap-2 border-l-2 border-brand pl-2">
                     <p className="min-w-0 flex-1 whitespace-pre-wrap text-slate-100">{note.text}</p>
-                    <span className="shrink-0 text-[11px] text-brand-soft">in next prompt</span>
+                    <span className="shrink-0 text-[11px] text-brand-soft">attached</span>
                     <button
                       type="button"
                       aria-label="Remove this comment"
@@ -240,7 +245,7 @@ function HunkRows({ hunk, notePath, notes }: { hunk: FileDiff["hunks"][number]; 
                   <NoteForm
                     onCancel={() => setDraft(null)}
                     onAdd={(text) => {
-                      addNote(notePath, at, line.text, text);
+                      addNote(notePath, at, line.text, text, turnSession ?? writer(notePath));
                       setDraft(null);
                     }}
                   />
@@ -276,7 +281,7 @@ function NoteForm({ onAdd, onCancel }: { onAdd: (text: string) => void; onCancel
         className="selectable block w-full resize-y rounded-md border border-line bg-base px-2 py-1 leading-[18px] text-slate-100 outline-none placeholder:text-slate-600 focus:border-brand"
       />
       <div className="flex items-center gap-2">
-        <span className="text-[11px] text-slate-500">Goes out with your next prompt, with the file, the line and its text.</span>
+        <span className="text-[11px] text-slate-500">Attached to your next prompt, with the file, the line and its text.</span>
         <button type="button" onClick={onCancel} className="ml-auto rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised">
           Cancel
         </button>
@@ -287,7 +292,7 @@ function NoteForm({ onAdd, onCancel }: { onAdd: (text: string) => void; onCancel
           onClick={() => ready && onAdd(text)}
           className="rounded-md bg-brand-fill px-2.5 py-0.5 font-medium text-white not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
         >
-          Add to next prompt
+          Attach to next prompt
         </button>
       </div>
     </div>
@@ -320,6 +325,55 @@ export function LookedAt({ checked, onChange, name }: { checked: boolean; onChan
       title="Tick it when you have looked at it. The tick goes away when the file changes again."
       className="size-3.5 shrink-0 cursor-pointer accent-ai [color-scheme:dark]"
     />
+  );
+}
+
+/**
+ * Attaches the change shown (the scope around, or the one given) to the next prompt, or one file
+ * of it: as the git command that shows it. Only where the tool takes attachments.
+ */
+export function AttachChange({ path, added, scope: given }: { path?: string; added?: boolean; scope?: ChangeScope }) {
+  const around = useChangeScope();
+  const attached = useChanges();
+  const { offered } = useNotes();
+  const scope = given ?? around;
+  if (!scope || !offered) return null;
+  const ref = changeRef(scope, path, added);
+  const on = attached.some((c) => c.id === ref.id);
+  const what = path ? "this file's change" : "this change";
+  return (
+    <Tooltip
+      content={
+        <>
+          <span>{on ? `Attached to your next prompt; click to remove it` : `Attach ${what} to your next prompt`}</span>
+          <TooltipHint>
+            {ref.command ? (
+              <>
+                As the command that shows it, not the diff itself: <code className="font-mono">{ref.command}</code>
+              </>
+            ) : (
+              "A new file: attached as its path, to be read"
+            )}
+          </TooltipHint>
+        </>
+      }
+      className="flex shrink-0"
+    >
+      <button
+        type="button"
+        aria-label={on ? `Remove ${what} from the next prompt` : `Attach ${what} to the next prompt`}
+        aria-pressed={on}
+        onClick={() => toggleChange(ref)}
+        className={
+          path
+            ? `rounded-md p-1 hover:bg-raised ${on ? "text-brand-soft" : "text-slate-500 opacity-0 group-hover:opacity-100 hover:text-slate-100 focus-visible:opacity-100"}`
+            : `flex items-center gap-1 rounded-md border px-2 py-0.5 text-[12px] ${on ? "border-brand/50 text-brand-soft" : "border-line text-slate-300 hover:bg-raised hover:text-slate-100"}`
+        }
+      >
+        <Paperclip className="size-3.5" />
+        {!path && (on ? "Attached" : "Attach")}
+      </button>
+    </Tooltip>
   );
 }
 

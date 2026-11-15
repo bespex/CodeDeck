@@ -32,7 +32,7 @@ import {
 import { Tooltip, TooltipHint } from "../Tooltip";
 import { pathItems, useContextMenu } from "../ContextMenu";
 import { reviewKey, toggleReviewed, useReviewed } from "../../reviewed";
-import { DiffBody, FileButtons, inUntrackedDir, LineCounts, LookedAt, type Working } from "./DiffParts";
+import { AttachChange, DiffBody, FileButtons, inUntrackedDir, LineCounts, LookedAt, type Working } from "./DiffParts";
 
 /** A new folder with more files than this opens collapsed. */
 const MANY = 12;
@@ -340,6 +340,10 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
         )}
         <span className="ml-auto flex shrink-0 items-center gap-2">
           <LineCounts added={c.added} removed={c.removed} />
+          {/* Not a click on the row: that opens the diff */}
+          <span className="flex" onClick={(e) => e.stopPropagation()}>
+            <AttachChange path={file.path} added={file.kind === "added"} />
+          </span>
           {working && <FileButtons path={c.path} from={c.from ?? undefined} added={file.kind === "added"} working={working} />}
         </span>
       </div>

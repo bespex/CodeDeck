@@ -1,12 +1,13 @@
 import { useEffect, useState, type DragEvent, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronRight, ClipboardCopy, File, Folder, Pencil, Send, TextSelect, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, ClipboardCopy, File, Folder, Paperclip, Pencil, TextSelect, Trash2, X } from "lucide-react";
 import { DRAG_TYPE } from "./FilesPanel";
 import { HookPanel } from "./AssistantStatus";
 import { Tooltip } from "./Tooltip";
 import { forgetSession, handOver, renameSession, type AssistantState, type Entry, type Handover, type Session } from "../backend";
 import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
 import { SessionBadge } from "./SessionBadge";
-import { FOCUS_KEY, focusText, type Pin } from "../focus";
+import { attachmentCount, FILES_KEY, filesText, type Pin } from "../focus";
+import { HandoverTarget, TargetLost } from "./HandoverTarget";
 import { plural } from "../git";
 import { LOCALE } from "./Trail";
 
@@ -321,6 +322,20 @@ function SessionItem({ session: s, onShowFile }: { session: Session; onShowFile:
               ))}
             </ul>
           )}
+          {s.received.length > 0 && (
+            <div className="mt-1.5">
+              <div className="text-[11px] text-slate-500">Got from CodeDeck</div>
+              <ul className="flex flex-col">
+                {s.received.map((r, i) => (
+                  <li key={i} className="flex gap-2 px-1 py-0.5 text-[11px] text-slate-400">
+                    <span className="shrink-0 text-slate-500 tabular-nums">{time(r.at)}</span>
+                    <Paperclip className="mt-0.5 size-3 shrink-0 text-slate-500" />
+                    <span className="min-w-0">{r.labels.filter(Boolean).join(", ") || "attachments"}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {/* The session's own little status bar: the model first, then where it runs. Set apart
               by a faint dotted line, quieter than the hairlines between the sessions */}
           <div className="mt-2 flex items-start gap-2 border-t border-dotted border-line/60 pt-1.5 text-[11px] text-slate-500">
@@ -330,7 +345,6 @@ function SessionItem({ session: s, onShowFile }: { session: Session; onShowFile:
               {s.cwd === "" ? "project root" : s.cwd}
               {!status.timed && ` · last step ${time(s.last)}`}
               {s.step && head.from !== "step" && ` · ${s.step}`}
-              {s.handed && <span className="text-ai"> · got the hand-over</span>}
             </span>
             <button
               type="button"
@@ -388,7 +402,7 @@ function RenameForm({ session: s, onClose }: { session: Session; onClose: () => 
   );
 }
 
-/* ── Next prompt: what the assistant gets, only when asked ─────────────────── */
+/* ── Next prompt: what is attached to it, only when asked ──────────────────── */
 
 const kindIcon = { file: File, folder: Folder, snippet: TextSelect };
 
@@ -396,11 +410,13 @@ const kindIcon = { file: File, folder: Folder, snippet: TextSelect };
 const CONTEXT_TOKENS = 200_000;
 
 /**
- * The short form of the Handover view, always in sight: what is queued for the next prompt (with
- * its exact text on demand), the receipt once a session took it, and the focus to queue from.
+ * The short form of the Next prompt view, always in sight. You write the prompt in the tool;
+ * CodeDeck attaches what is listed here (D20): pinned files, line comments, hints. Each with its
+ * exact text on demand, who gets it, and the receipt once a session took it.
  */
 function NextPrompt({ assistant, pins, onPin, onUnpin, onClear }: Props) {
   const [over, setOver] = useState(false);
+  const [filesPreview, setFilesPreview] = useState(false);
   const used = pins.reduce((sum, p) => sum + p.tokens, 0);
   const share = Math.min(1, used / CONTEXT_TOKENS);
   const barColor = share > 0.5 ? "bg-problem" : share > 0.25 ? "bg-changed" : "bg-ai";
@@ -408,9 +424,12 @@ function NextPrompt({ assistant, pins, onPin, onUnpin, onClear }: Props) {
   const marks = useSessionMarks();
   // What is offered follows the tool's capabilities, never its name
   const { shortName, name, capabilities } = mainHarness(assistant);
-  const queued = assistant.handovers;
+  const attaches = capabilities.handover === "withNextPrompt";
+  // The pins are listed one by one, not as their part
+  const parts = assistant.handovers.filter((h) => h.key !== FILES_KEY);
+  const filesPart = assistant.handovers.find((h) => h.key === FILES_KEY);
+  const attached = parts.length > 0 || pins.length > 0;
   const { delivered } = assistant;
-  const focusQueued = queued.some((h) => h.key === FOCUS_KEY);
 
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
@@ -434,109 +453,40 @@ function NextPrompt({ assistant, pins, onPin, onUnpin, onClear }: Props) {
       onDrop={onDrop}
     >
       <AreaHeader title="Next prompt">
-        <span className="truncate text-[11px] text-slate-500">to the session you prompt next</span>
+        {attached && <span className="truncate text-[11px] text-slate-500">{plural(attachmentCount(assistant, pins.length), "attachment")}</span>}
       </AreaHeader>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {queued.length > 0 && (
-          <ul className="divide-y divide-line/70 border-y border-line/70">
-            {queued.map((h) => (
-              <Queued key={h.key} part={h} />
-            ))}
-          </ul>
-        )}
-        {queued.length > 0 && (
-          <p className="flex items-center gap-1.5 px-3 pt-1.5 text-[12px] text-slate-400">
-            <span className="size-1.5 shrink-0 rounded-full bg-changed" /> Waiting for your next prompt in this project
-          </p>
-        )}
-        {queued.length === 0 && delivered && (
+        <p className="px-3 pb-1.5 text-[12px] text-slate-500">
+          You write the prompt in {shortName}. {attached ? "CodeDeck attaches this to it:" : "CodeDeck attaches only what is listed here."}
+        </p>
+        {!attached && delivered && (
           <p className="flex items-start gap-1.5 px-3 pb-1 text-[12px] text-slate-300">
             <Check className="mt-0.5 size-3.5 shrink-0 text-added" />
             <span className="min-w-0">
-              Delivered at {time(delivered.at)} to{" "}
+              Sent at {time(delivered.at)} to{" "}
               {marks.of(delivered.session) && <SessionBadge mark={marks.of(delivered.session)!} className="mx-0.5 align-[-2px]" />}
               {marks.of(delivered.session)?.title ?? `session ${shortId(delivered.session)}`}
-              <span className="text-slate-500">: {delivered.labels.filter(Boolean).join(", ") || "the hand-over"}</span>
+              <span className="text-slate-500">: {delivered.labels.filter(Boolean).join(", ") || "the attachments"}</span>
             </span>
           </p>
         )}
-        {queued.length === 0 && !delivered && pins.length === 0 && (
+        {!attached && (
           <p className="px-3 text-[12px] text-slate-500">
-            Nothing queued: {shortName} works without extra context and only ever gets what is listed here. Pin files or
-            folders (drag them here or use the pin in the file list), or queue the hints in the Handover view.
+            Nothing attached. Pin files or folders (drag them here, or the paperclip in the file list), comment lines in
+            Changes, or attach hints from the Next prompt view.
           </p>
         )}
 
-        {pins.length > 0 && (
-          <div className="mt-2">
-            <div className="flex items-center gap-2 px-3">
-              <span className="text-[12px] font-semibold text-slate-200">Focus</span>
-              <span className="text-[12px] text-slate-500">{pins.length}</span>
-              <div className="ml-auto flex items-center gap-1">
-                {capabilities.handover === "clipboard" && (
-                  <Tooltip content={<span>Copy the focus to paste into {shortName}</span>}>
-                    <button type="button" onClick={() => navigator.clipboard.writeText(focusText(pins))} className={small}>
-                      <ClipboardCopy className="size-3.5" />
-                      Copy
-                    </button>
-                  </Tooltip>
-                )}
-                {capabilities.handover === "withNextPrompt" && (
-                  <Tooltip
-                    content={
-                      <>
-                        <span>Give the focus to {shortName} with the next prompt you send in this project</span>
-                        {!connected && <span className="text-slate-400">Needs {name} connected (status bar)</span>}
-                      </>
-                    }
-                  >
-                    <button
-                      type="button"
-                      disabled={!connected}
-                      onClick={() => handOver(FOCUS_KEY, focusText(pins), `Focus: ${plural(pins.length, "item")}`)}
-                      className={small}
-                    >
-                      <Send className="size-3.5" />
-                      {focusQueued ? "Queue again" : "Add to next prompt"}
-                    </button>
-                  </Tooltip>
-                )}
-                <button
-                  type="button"
-                  onClick={onClear}
-                  title="Clear the focus"
-                  aria-label="Clear the focus"
-                  className="rounded p-1 text-slate-500 hover:bg-raised hover:text-slate-200"
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
-              </div>
-            </div>
-            <div className="px-3 pt-1.5">
-              <div
-                className="h-1.5 overflow-hidden rounded-full bg-base"
-                role="meter"
-                aria-label="Size of the focus"
-                aria-valuemin={0}
-                aria-valuemax={CONTEXT_TOKENS}
-                aria-valuenow={used}
-              >
-                <div className={`h-full rounded-full transition-[width] ${barColor}`} style={{ width: `${Math.max(share * 100, 1.5)}%` }} />
-              </div>
-              <div className="mt-1 text-[11px] text-slate-500">
-                about <span className="text-slate-300">{formatTokens(used)}</span> tokens if {shortName} reads all of it
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className={`m-2 rounded-lg border border-dashed p-1 transition-colors ${over ? "border-ai bg-ai/10" : "border-transparent"}`}>
+        <div className={`mx-1 rounded-lg border border-dashed p-1 transition-colors ${over ? "border-ai bg-ai/10" : "border-transparent"}`}>
           <ul className="divide-y divide-line/70">
+            {parts.map((h) => (
+              <Attached key={h.key} part={h} />
+            ))}
             {pins.map((pin) => {
               const Icon = kindIcon[pin.kind];
               return (
-                <li key={pin.id} className="group flex items-center gap-2 px-1 py-1">
+                <li key={pin.id} className="group flex items-center gap-2 px-2 py-1">
                   <Icon className="size-4 shrink-0 text-slate-500" />
                   <div className="min-w-0 flex-1">
                     <div className={`truncate text-slate-100 ${pin.kind === "snippet" ? "font-mono text-[12px]" : ""}`}>{pin.label}</div>
@@ -549,7 +499,7 @@ function NextPrompt({ assistant, pins, onPin, onUnpin, onClear }: Props) {
                   <button
                     type="button"
                     onClick={() => onUnpin(pin.id)}
-                    aria-label={`Remove ${pin.label} from the focus`}
+                    aria-label={`Remove ${pin.label} from the next prompt`}
                     className="shrink-0 rounded p-0.5 text-slate-600 hover:bg-overlay-hover hover:text-slate-100"
                   >
                     <X className="size-3.5" />
@@ -558,20 +508,81 @@ function NextPrompt({ assistant, pins, onPin, onUnpin, onClear }: Props) {
               );
             })}
           </ul>
-          {over && pins.length === 0 && <p className="p-3 text-center text-[12px] text-slate-400">Drop to pin it</p>}
+          {over && pins.length === 0 && <p className="p-3 text-center text-[12px] text-slate-400">Drop to attach it</p>}
         </div>
+
+        {pins.length > 0 && (
+          <div className="px-3 pt-1">
+            <div
+              className="h-1.5 overflow-hidden rounded-full bg-base"
+              role="meter"
+              aria-label="Size of the attached files"
+              aria-valuemin={0}
+              aria-valuemax={CONTEXT_TOKENS}
+              aria-valuenow={used}
+            >
+              <div className={`h-full rounded-full transition-[width] ${barColor}`} style={{ width: `${Math.max(share * 100, 1.5)}%` }} />
+            </div>
+            <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
+              <span className="min-w-0 flex-1">
+                about <span className="text-slate-300">{formatTokens(used)}</span> tokens if {shortName} reads all files
+              </span>
+              {filesPart && (
+                <button
+                  type="button"
+                  aria-expanded={filesPreview}
+                  onClick={() => setFilesPreview(!filesPreview)}
+                  className="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-slate-400 hover:bg-raised hover:text-slate-100"
+                >
+                  {filesPreview ? "Hide" : "Preview"}
+                </button>
+              )}
+              {capabilities.handover === "clipboard" && (
+                <Tooltip content={<span>Copy the files to paste into {shortName}</span>}>
+                  <button type="button" onClick={() => navigator.clipboard.writeText(filesText(pins))} className={small}>
+                    <ClipboardCopy className="size-3.5" />
+                    Copy
+                  </button>
+                </Tooltip>
+              )}
+              <button
+                type="button"
+                onClick={onClear}
+                title="Remove all files"
+                aria-label="Remove all files"
+                className="rounded p-1 text-slate-500 hover:bg-raised hover:text-slate-200"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            </div>
+            {filesPart && filesPreview && (
+              <pre className="selectable mt-1.5 max-h-40 overflow-auto rounded-md border border-line bg-base p-2 font-mono text-[11px] whitespace-pre-wrap text-slate-300">
+                {filesPart.text}
+              </pre>
+            )}
+          </div>
+        )}
+
+        {attached && attaches && (
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 px-3 pt-2 pb-2 text-[12px] text-slate-400">
+            <span className="size-1.5 shrink-0 rounded-full bg-changed" /> Goes out with the next prompt of
+            <HandoverTarget state={assistant} className="max-w-full" />
+            <TargetLost state={assistant} />
+            {!connected && <span className="text-changed">Not connected: nothing reaches {name} (status bar).</span>}
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
-/** One part waiting for the next prompt: what it is, its exact text on demand, and taking it back. */
-function Queued({ part }: { part: Handover }) {
+/** One attachment other than files: what it is, its exact text on demand, and removing it. */
+function Attached({ part }: { part: Handover }) {
   const [preview, setPreview] = useState(false);
   return (
-    <li className="px-3 py-1.5 text-[12px]">
+    <li className="px-2 py-1.5 text-[12px]">
       <div className="flex items-center gap-2">
-        <Send className="size-3.5 shrink-0 text-ai" />
+        <Paperclip className="size-3.5 shrink-0 text-ai" />
         <span className="min-w-0 flex-1 truncate text-slate-200">{part.label || part.key}</span>
         <button
           type="button"
@@ -583,8 +594,8 @@ function Queued({ part }: { part: Handover }) {
         </button>
         <button
           type="button"
-          aria-label={`Take back: ${part.label || part.key}`}
-          title="Take back"
+          aria-label={`Remove: ${part.label || part.key}`}
+          title="Remove from the next prompt"
           onClick={() => handOver(part.key, null)}
           className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-raised hover:text-slate-100"
         >

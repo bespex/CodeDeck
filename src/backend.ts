@@ -474,7 +474,7 @@ export function onSnapshotTaken(callback: () => void): () => void {
   return () => {};
 }
 
-/** A comment for the assistant in a document: `<!-- @ai: … -->` or `[!AI: …]`. */
+/** A comment for the assistant: a line that begins with `@ai`, or with a comment that does (`<!-- @ai …`, `// @ai …`, `# @ai …`). */
 export interface Marker {
   /** Project-relative */
   path: string;
@@ -555,8 +555,8 @@ export interface Session {
   turn: { repo: string; hash: string }[];
   /** Files it wrote, project-relative, newest first */
   touched: { path: string; at: number }[];
-  /** It got the hand-over with its latest prompt */
-  handed: boolean;
+  /** What it got from CodeDeck, the newest first: attachments with a prompt, the rules at its start */
+  received: { at: number; labels: string[] }[];
 }
 
 export interface AssistantState {
@@ -572,17 +572,23 @@ export interface AssistantState {
   handovers: Handover[];
   /** The hand-over that went out last (which session took it, when, what it was made of), until the next one is queued */
   delivered: { session: string; at: number; labels: string[] } | null;
+  /** The session the hand-over is meant for; `null`: whichever session in the project prompts first */
+  target: string | null;
+  /** The session it was meant for until that one ended or left the list: it now goes to any session */
+  targetLost: string | null;
+  /** The session that got the start rules last, and when */
+  ruled: { session: string; at: number } | null;
 }
 
 /** One part of what the assistant gets with the next prompt. */
 export interface Handover {
-  /** `markers` (Handover view) or `focus` (the focus list) */
+  /** `markers` (Handover view), `focus` (the focus list) or `notes` (line comments) */
   key: string;
   text: string;
   label: string;
 }
 
-const MOCK_CAPABILITIES: Capabilities = { liveStatus: true, beforeWrite: true, handover: "withNextPrompt", startRules: false, pastSessions: true, usage: false };
+const MOCK_CAPABILITIES: Capabilities = { liveStatus: true, beforeWrite: true, handover: "withNextPrompt", startRules: true, pastSessions: true, usage: false };
 
 const mockAssistant: AssistantState = {
   heard: true,
@@ -612,7 +618,10 @@ const mockAssistant: AssistantState = {
         { path: "tests/rate_limit.rs", at: Date.now() - 40_000 },
         { path: "src/middleware/rate_limit.rs", at: Date.now() - 120_000 },
       ],
-      handed: false,
+      received: [
+        { at: Date.now() - 12 * 60_000, labels: ["2 line comments", "1 change"] },
+        { at: Date.now() - 20 * 60_000, labels: ["Start rules"] },
+      ],
     },
     {
       id: "b07e11d4-6c3a-4f2e-8d90-1a2b3c4d5e6f",
@@ -634,7 +643,7 @@ const mockAssistant: AssistantState = {
       turnDone: null,
       turn: [],
       touched: [{ path: "docs/api.md", at: Date.now() - 4 * 60_000 }],
-      handed: false,
+      received: [],
     },
     {
       id: "c41d7e02-5b9f-4a3c-8e21-9d0f1a2b3c4d",
@@ -656,7 +665,7 @@ const mockAssistant: AssistantState = {
       turnDone: Date.now() - 6 * 60_000,
       turn: [],
       touched: [{ path: "src/config.rs", at: Date.now() - 7 * 60_000 }],
-      handed: false,
+      received: [],
     },
     {
       id: "d92a0b13-7c4e-4d5f-9a6b-0e1f2a3b4c5d",
@@ -679,7 +688,7 @@ const mockAssistant: AssistantState = {
       turnDone: null,
       turn: [],
       touched: [],
-      handed: false,
+      received: [],
     },
   ],
   identities: [
@@ -690,6 +699,9 @@ const mockAssistant: AssistantState = {
   ],
   handovers: [],
   delivered: null,
+  target: null,
+  targetLost: null,
+  ruled: { session: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a", at: Date.now() - 20 * 60_000 },
 };
 /** The titles the tool gave the mock sessions, to go back to */
 const mockToolTitles = new Map(mockAssistant.sessions.map((s) => [s.id, s.title]));
@@ -715,8 +727,26 @@ export function handOver(key: string, text: string | null, label?: string): Prom
   const rest = mockAssistant.handovers.filter((h) => h.key !== key);
   mockAssistant.handovers = text === null ? rest : [...rest, { key, text, label: label ?? "" }];
   if (text !== null) mockAssistant.delivered = null;
+  if (mockAssistant.handovers.length === 0) Object.assign(mockAssistant, { target: null, targetLost: null });
   mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
   return Promise.resolve();
+}
+
+/** The session the hand-over is meant for; `null`: whichever session in the project prompts first. */
+export function handOverTo(session: string | null): Promise<void> {
+  if (live) return invoke("hand_over_to", { session });
+  Object.assign(mockAssistant, { target: session, targetLost: null });
+  mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+  return Promise.resolve();
+}
+
+/** The rules every session gets when it starts, word for word (the mock copies the backend's). */
+export function startRules(): Promise<string> {
+  if (live) return invoke("start_rules");
+  return Promise.resolve(
+    "Rules from CodeDeck, the app the user watches this project with. They are always the same and the user sees them there:\n" +
+      "- When you publish a page somewhere else (a shared document, an artifact, a gist, a paste), say so in your answer and give its link.",
+  );
 }
 
 /** The user's title and short name for a session; an empty title brings the tool's back, an empty short name keeps it. */

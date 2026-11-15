@@ -20,6 +20,8 @@ import {
 import { mainHarness, shortId, useSessionMarks } from "../../assistant";
 import { reviewKey, toggleReviewed, useReviewed } from "../../reviewed";
 import { turnsOf, useTurnWriters, type Turn } from "../../turns";
+import { NoteSessionContext } from "../../notes";
+import { ChangeScopeContext, EMPTY_TREE, short, type ChangeScope } from "../../changes";
 import { Section, Toolbar } from "../blocks";
 import { SessionBadge } from "../SessionBadge";
 import { changeSummary, commitSteps, commandLine, plural, rewordSteps, stateMeaning, stateSymbol, type GitView, type Steps } from "../../git";
@@ -28,7 +30,7 @@ import { toProject, useGitRun, type Done, type TrailCommit } from "../../history
 import { LOCALE, type Point } from "../Trail";
 import { stateColor } from "../FilesPanel";
 import { Tooltip } from "../Tooltip";
-import { Commands, DiffBody, FileButtons, inUntrackedDir, LineCounts, LookedAt, You, type Working } from "./DiffParts";
+import { AttachChange, Commands, DiffBody, FileButtons, inUntrackedDir, LineCounts, LookedAt, You, type Working } from "./DiffParts";
 import { StructureTree } from "./StructureTree";
 
 /** Diffs longer than this open collapsed. */
@@ -360,14 +362,21 @@ function TurnChanges(props: {
     `${repo.path}:${turn.from}:${turn.to}:${tick}`,
   );
   const files = useMemo(() => (patch ? parsePatch(patch.text) : []), [patch]);
+  const scope: ChangeScope = {
+    repo,
+    range: turn.to ? ["diff", short(turn.from), short(turn.to)] : ["diff", short(turn.from)],
+    label: `Turn ${turn.n}${mark?.title ? ` (${mark.title})` : ""}${turn.to ? "" : " so far"}${inRepo(repo)}`,
+    worktree: turn.to === null,
+  };
 
   return (
-    <>
+    <ChangeScopeContext.Provider value={scope}>
       <Section
         title={turn.to ? `What ${props.who} did in turn ${turn.n}` : `What ${props.who} is doing in turn ${turn.n}`}
         note={turn.to ? `done ${clock(turn.at)}` : "still working"}
         aside={
           <>
+            <AttachChange />
             <DirqButton patch={patch} />
             <Tooltip content={<span>Shows the point this turn began at. From there you can put the files back as they were.</span>}>
               <button type="button" onClick={props.onStart} className="flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-[12px] text-slate-300 hover:bg-raised hover:text-slate-100">
@@ -406,6 +415,8 @@ function TurnChanges(props: {
           </p>
         </div>
       </Section>
+      {/* A line commented here is preferably meant for the session of this turn */}
+      <NoteSessionContext.Provider value={turn.session}>
       <div className="px-4 pt-3 pb-4">
         {error && <p className="selectable text-problem">{error}</p>}
         {patch && patch.changes.length === 0 && <p className="text-slate-500">Nothing changed in this turn yet.</p>}
@@ -419,9 +430,13 @@ function TurnChanges(props: {
           </div>
         )}
       </div>
-    </>
+      </NoteSessionContext.Provider>
+    </ChangeScopeContext.Provider>
   );
 }
+
+/** For a change's name: which repository, when it is not the project's own. */
+const inRepo = (repo: RepoStatus) => (repo.path ? ` in ${repo.name}` : "");
 
 /** How many of the files shown are ticked as looked at. */
 function LookedCount({ repo, files }: { repo: RepoStatus; files: FileDiff[] }) {
@@ -521,7 +536,11 @@ function RepoChanges(props: {
       }
     : undefined;
 
+  // Before the first commit there is no HEAD: everything is new against the empty tree
+  const scope: ChangeScope = { repo, range: ["diff", repo.head ? "HEAD" : EMPTY_TREE], label: `Uncommitted changes${inRepo(repo)}`, worktree: true };
+
   return (
+    <ChangeScopeContext.Provider value={scope}>
     <section>
       <header className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
         {several && <FolderGit2 className="size-4 self-center text-slate-400" />}
@@ -534,6 +553,11 @@ function RepoChanges(props: {
         <span className="text-[12px]">
           <LookedCount repo={repo} files={files} />
         </span>
+        {files.length > 0 && (
+          <span className="ml-auto self-center">
+            <AttachChange />
+          </span>
+        )}
       </header>
       <CommitLine repo={repo} onDone={git.refresh} />
       {error && <p className="selectable mt-2 text-problem">{error}</p>}
@@ -561,6 +585,7 @@ function RepoChanges(props: {
         </div>
       )}
     </section>
+    </ChangeScopeContext.Provider>
   );
 }
 
@@ -668,7 +693,9 @@ function CommitChanges(props: {
   const { patch, error } = usePatch(() => gitCommitDiff(props.repo.path, c.hash), `${props.repo.path}:${c.hash}`);
   const files = useMemo(() => (patch ? parsePatch(patch.text) : []), [patch]);
   const [editing, setEditing] = useState(false);
+  const scope: ChangeScope = { repo: props.repo, range: ["show", short(c.hash)], label: `Commit ${c.short} "${c.subject}"${inRepo(props.repo)}`, worktree: false };
   return (
+    <ChangeScopeContext.Provider value={scope}>
     <div className="p-4">
       <header className="group mb-3">
         {editing ? (
@@ -721,6 +748,7 @@ function CommitChanges(props: {
           )}
           <span>{new Date(c.at * 1000).toLocaleString(LOCALE)}</span>
           {c.unpushed && <span className="text-changed">not pushed yet</span>}
+          <AttachChange />
           <DirqButton patch={patch} />
           <button
             type="button"
@@ -745,6 +773,7 @@ function CommitChanges(props: {
         </div>
       )}
     </div>
+    </ChangeScopeContext.Provider>
   );
 }
 
@@ -785,6 +814,7 @@ function SnapshotChanges(props: {
   const [running, setRunning] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const changed = patch?.changes.length ?? 0;
+  const scope: ChangeScope = { repo, range: ["diff", short(s.hash)], label: `Changes since the snapshot "${s.label}"${inRepo(repo)}`, worktree: true };
 
   const goBack = async () => {
     setRunning(true);
@@ -801,6 +831,7 @@ function SnapshotChanges(props: {
   };
 
   return (
+    <ChangeScopeContext.Provider value={scope}>
     <div className="p-4">
       <header className="mb-3">
         <div className="flex items-start gap-2">
@@ -837,6 +868,7 @@ function SnapshotChanges(props: {
             </Tooltip>
           )}
           {s.tool && <code className="font-mono text-[11px] text-slate-500">{s.tool}</code>}
+          {changed > 0 && <AttachChange />}
           <DirqButton patch={patch} />
           <button
             type="button"
@@ -904,6 +936,7 @@ function SnapshotChanges(props: {
         </div>
       )}
     </div>
+    </ChangeScopeContext.Provider>
   );
 }
 
@@ -921,6 +954,12 @@ function CompareChanges(props: {
   const { repo, point } = props;
   const { patch, error } = usePatch(() => gitCompare(repo.path, point.from, point.to), `${repo.path}:${point.from}:${point.to}`);
   const files = useMemo(() => (patch ? parsePatch(patch.text) : []), [patch]);
+  const scope: ChangeScope = {
+    repo,
+    range: ["diff", short(point.from), short(point.to)],
+    label: `Changes from ${props.from.short} "${props.from.title}" to ${props.to.short} "${props.to.title}"${inRepo(repo)}`,
+    worktree: false,
+  };
   const side = (p: typeof props.from, label: string) => (
     <div className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2.5 py-1.5">
       <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
@@ -933,6 +972,7 @@ function CompareChanges(props: {
     </div>
   );
   return (
+    <ChangeScopeContext.Provider value={scope}>
     <div className="p-4">
       <header className="mb-3">
         <div className="flex items-stretch gap-2">
@@ -944,6 +984,7 @@ function CompareChanges(props: {
           {props.several && <span className="font-semibold text-slate-300">{repo.name}</span>}
           {patch && <span>{plural(patch.changes.length, "file")} changed</span>}
           <span className="text-slate-500">Ctrl+click another point to compare with that one instead</span>
+          <AttachChange />
           <DirqButton patch={patch} />
           <button
             type="button"
@@ -965,6 +1006,7 @@ function CompareChanges(props: {
         </div>
       )}
     </div>
+    </ChangeScopeContext.Provider>
   );
 }
 
@@ -1115,6 +1157,7 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
           <LineCounts added={file.added} removed={file.removed} />
           {working?.status?.staged && <span className="shrink-0 text-[11px] text-slate-500">staged</span>}
         </button>
+        <AttachChange path={file.path} added={file.status === "A"} />
         {who}
         {working && <FileButtons path={file.path} from={file.from} added={file.status === "A"} working={working} />}
       </header>

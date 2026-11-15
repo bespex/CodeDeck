@@ -81,6 +81,9 @@ pub fn forward(args: &[String]) -> i32 {
             Err(_) => {}
         }
     }
+    // Two windows on one project both give the start rules: once is enough
+    let mut seen = std::collections::HashSet::new();
+    handed.retain(|t| seen.insert(t.clone()));
     trace(&event, &format!("{windows} window(s) reached, {} text(s) handed", handed.len()));
     if let Some(text) = harness.reply(&event, &handed) {
         print!("{text}");

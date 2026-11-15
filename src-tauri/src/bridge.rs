@@ -20,6 +20,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::git::{Git, GitRun};
 use crate::harness::{self, Capabilities, Event, EventKind, Harness, HarnessInfo, SessionInfo};
 use crate::identity::{self, Identities, Listed};
+use crate::rules;
 use crate::snapshot::Origin;
 use crate::{Current, GIT_RAN};
 
@@ -76,8 +77,27 @@ pub struct Session {
     turn: Vec<TurnStart>,
     /// Files it wrote, project-relative, newest first
     touched: Vec<Touch>,
-    /// It received the hand-over with its latest prompt
-    handed: bool,
+    /// What it got from CodeDeck, the newest first: attachments with a prompt, rules at its start
+    received: Vec<Received>,
+}
+
+/// Something a session got from CodeDeck.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct Received {
+    /// Unix milliseconds
+    at: u64,
+    /// What it was, as the parts were called
+    labels: Vec<String>,
+}
+
+/// Deliveries remembered per session.
+const RECEIVED_KEPT: usize = 10;
+
+impl Session {
+    fn got(&mut self, at: u64, labels: Vec<String>) {
+        self.received.insert(0, Received { at, labels });
+        self.received.truncate(RECEIVED_KEPT);
+    }
 }
 
 /// The snapshot a turn began at in one repository.
@@ -122,6 +142,21 @@ pub struct AssistantState {
     handovers: Vec<Handover>,
     /// The hand-over that went out last, until the next one is queued
     delivered: Option<Delivery>,
+    /// The session the hand-over is meant for; `None`: whichever prompts first in the project
+    target: Option<String>,
+    /// The session the hand-over was meant for until it ended or left the list; it now goes
+    /// to any session, and the interface says so
+    target_lost: Option<String>,
+    /// The session that got the start rules last
+    ruled: Option<Ruled>,
+}
+
+/// A session got the start rules.
+#[derive(Serialize, Clone)]
+pub struct Ruled {
+    session: String,
+    /// Unix milliseconds
+    at: u64,
 }
 
 /// A hand-over a session took with its prompt.
@@ -150,6 +185,9 @@ struct Inner {
     turn: HashMap<String, HashSet<PathBuf>>,
     handovers: Vec<Handover>,
     delivered: Option<Delivery>,
+    target: Option<String>,
+    target_lost: Option<String>,
+    ruled: Option<Ruled>,
     /// Sessions whose log was read since their turn ended
     looked_up: HashSet<String>,
     /// Colour, short name and title per session, of the project they were read for
@@ -200,7 +238,17 @@ impl Bridge {
     pub fn state(&self) -> AssistantState {
         let inner = self.inner.lock().unwrap();
         let harnesses = harness::all().iter().map(|h| HarnessInfo::of(*h)).collect();
-        AssistantState { heard: inner.heard, harnesses, sessions: inner.listed(), identities: inner.identity_list(), handovers: inner.handovers.clone(), delivered: inner.delivered.clone() }
+        AssistantState {
+            heard: inner.heard,
+            harnesses,
+            sessions: inner.listed(),
+            identities: inner.identity_list(),
+            handovers: inner.handovers.clone(),
+            delivered: inner.delivered.clone(),
+            target: inner.target.clone(),
+            target_lost: inner.target_lost.clone(),
+            ruled: inner.ruled.clone(),
+        }
     }
 
     /// A new project: what was known about the old one does not apply.
@@ -211,6 +259,7 @@ impl Bridge {
             inner.turn.clear();
             inner.handovers.clear();
             inner.delivered = None;
+            (inner.target, inner.target_lost, inner.ruled) = (None, None, None);
             inner.looked_up.clear();
         }
         let _ = app.emit(ASSISTANT_CHANGED, self.state());
@@ -257,6 +306,20 @@ impl Bridge {
                 inner.delivered = None;
             }
             set_part(&mut inner.handovers, key, part);
+            // Nothing left to deliver: nothing to aim at either
+            if inner.handovers.is_empty() {
+                (inner.target, inner.target_lost) = (None, None);
+            }
+        }
+        let _ = app.emit(ASSISTANT_CHANGED, self.state());
+    }
+
+    /// The session the hand-over is meant for; `None`: whichever prompts first in the project.
+    pub fn set_target(&self, app: &AppHandle, session: Option<String>) {
+        {
+            let mut inner = self.inner.lock().unwrap();
+            inner.target = session;
+            inner.target_lost = None;
         }
         let _ = app.emit(ASSISTANT_CHANGED, self.state());
     }
@@ -461,6 +524,15 @@ impl Inner {
         self.turn.remove(id);
         self.looked_up.remove(id);
         self.identities.hide(id, true);
+        self.lose_target(id);
+    }
+
+    /// The session is gone: a hand-over meant for it goes to any session now.
+    fn lose_target(&mut self, id: &str) {
+        if self.target.as_deref() == Some(id) {
+            self.target = None;
+            self.target_lost = Some(id.to_string());
+        }
     }
 
     /// The user's title and short name for a listed session.
@@ -514,7 +586,6 @@ impl Inner {
                 session.message = None;
                 session.step = None;
                 session.turn_done = None;
-                session.handed = false;
             }
             EventKind::BeforeWrite | EventKind::AfterWrite => {
                 session.status = "working";
@@ -543,6 +614,10 @@ impl Inner {
                 session.message = None;
             }
         }
+        if e.kind == EventKind::SessionEnded {
+            self.lose_target(&e.session);
+        }
+        let session = self.sessions.get_mut(&e.session).expect("just looked up");
         if e.kind == EventKind::AfterWrite {
             if let Some(path) = file.as_deref().and_then(|f| relative(root, f)) {
                 session.touched.retain(|t| t.path != path);
@@ -558,16 +633,27 @@ impl Inner {
         if over {
             self.turn.remove(&e.session);
         }
+        // A fresh session (not one resumed with what it knew) gets the rules, if its tool can take them
+        if e.kind == EventKind::SessionStarted && capabilities.start_rules && !e.resumed {
+            context = Some(rules::START_RULES.to_string());
+            self.ruled = Some(Ruled { session: e.session.clone(), at: now });
+            if let Some(s) = self.sessions.get_mut(&e.session) {
+                s.got(now, vec!["Start rules".to_string()]);
+            }
+        }
         if e.kind == EventKind::PromptSubmitted {
-            // Only a tool that adds the text to the prompt takes it; for others it keeps waiting
-            if capabilities.handover == harness::Handover::WithNextPrompt {
+            // Only a tool that adds the text to the prompt takes it, and only the session it is
+            // meant for; otherwise it keeps waiting
+            let meant = self.target.as_ref().is_none_or(|t| *t == e.session);
+            if capabilities.handover == harness::Handover::WithNextPrompt && meant {
                 let labels: Vec<String> = self.handovers.iter().map(|h| h.label.clone()).collect();
                 if let Some(text) = take_parts(&mut self.handovers) {
                     context = Some(text);
-                    self.delivered = Some(Delivery { session: e.session.clone(), at: now, labels });
+                    (self.target, self.target_lost) = (None, None);
                     if let Some(s) = self.sessions.get_mut(&e.session) {
-                        s.handed = true;
+                        s.got(now, labels.clone());
                     }
+                    self.delivered = Some(Delivery { session: e.session.clone(), at: now, labels });
                 }
             }
         }
@@ -638,7 +724,7 @@ fn new_session(id: &str, harness: &dyn Harness) -> Session {
         turn_done: None,
         turn: Vec::new(),
         touched: Vec::new(),
-        handed: false,
+        received: Vec::new(),
     }
 }
 
@@ -649,6 +735,7 @@ fn trim(inner: &mut Inner) {
         inner.sessions.remove(&oldest);
         inner.turn.remove(&oldest);
         inner.looked_up.remove(&oldest);
+        inner.lose_target(&oldest);
     }
 }
 
@@ -815,7 +902,7 @@ mod tests {
         assert_eq!(asked.context.as_deref(), Some("do this\n\nlook here"));
         let delivered = inner.delivered.clone().unwrap();
         assert_eq!((delivered.session.as_str(), delivered.at, delivered.labels), ("a1", 10, vec!["2 comments".to_string(), "1 item".to_string()]));
-        assert!(inner.handovers.is_empty() && inner.sessions["a1"].handed);
+        assert!(inner.handovers.is_empty() && inner.sessions["a1"].received.len() == 1);
 
         step(&mut inner, r#"{"who":"a1","did":"will-write","in":"/p","path":"/p/docs/api.md","with":"patch"}"#, 20);
         assert_eq!((inner.sessions["a1"].step.as_deref(), inner.sessions["a1"].turn_done), (Some("patch docs/api.md"), None));
@@ -840,7 +927,7 @@ mod tests {
         assert!(inner.sessions.contains_key("old"));
         // The next prompt: a new turn, nothing to deliver, the receipt stays
         let next = step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"More"}"#, 110);
-        assert!(next.context.is_none() && inner.sessions["a1"].turn_done.is_none() && !inner.sessions["a1"].handed);
+        assert!(next.context.is_none() && inner.sessions["a1"].turn_done.is_none() && inner.sessions["a1"].received.len() == 1);
         assert!(inner.delivered.is_some());
     }
 
@@ -878,6 +965,72 @@ mod tests {
         inner.sessions.remove("a1");
         step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Back"}"#, 40);
         assert_eq!(order(&inner), before.iter().map(|(id, s, c)| (id.clone(), if id == "old" { "Doc".into() } else { s.clone() }, *c)).collect::<Vec<_>>());
+    }
+
+    /// A fresh session gets the start rules, a resumed one not; a tool without them gets none.
+    #[test]
+    fn gives_the_start_rules_to_fresh_sessions() {
+        let root = Path::new("/p");
+        let mut inner = Inner::default();
+        let step = |inner: &mut Inner, raw: &str, harness: &dyn Harness| {
+            let event = Fake.translate(&serde_json::from_str(raw).unwrap()).unwrap();
+            inner.take_in(&event, harness, root, Vec::new, 5).unwrap().context
+        };
+        assert_eq!(step(&mut inner, r#"{"who":"a1","did":"started","in":"/p"}"#, &Prompting).as_deref(), Some(rules::START_RULES));
+        assert_eq!(inner.ruled.as_ref().map(|r| r.session.as_str()), Some("a1"));
+        assert_eq!(step(&mut inner, r#"{"who":"a1","did":"started","in":"/p","again":true}"#, &Prompting), None);
+        // Elsewhere: not ours to rule
+        let event = Fake.translate(&serde_json::from_str(r#"{"who":"x","did":"started","in":"/q"}"#).unwrap()).unwrap();
+        assert!(inner.take_in(&event, &Prompting, root, Vec::new, 5).is_none());
+        struct Silent;
+        impl Harness for Silent {
+            fn id(&self) -> &'static str { "silent" }
+            fn name(&self) -> &'static str { "Silent" }
+            fn short_name(&self) -> &'static str { "Silent" }
+            fn capabilities(&self) -> Capabilities { Capabilities { start_rules: false, ..Fake.capabilities() } }
+            fn connections(&self) -> Vec<harness::Connection> { Vec::new() }
+            fn connect(&self, a: &str, on: bool) -> Result<(), String> { Fake.connect(a, on) }
+            fn translate(&self, raw: &serde_json::Value) -> Option<Event> { Fake.translate(raw) }
+            fn reply(&self, _: &Event, _: &[String]) -> Option<String> { None }
+            fn past_sessions(&self, _: &Path) -> Vec<SessionInfo> { Vec::new() }
+            fn read_log(&self, _: &Path) -> Option<SessionInfo> { None }
+        }
+        assert_eq!(step(&mut inner, r#"{"who":"b2","did":"started","in":"/p"}"#, &Silent), None);
+    }
+
+    /// A hand-over meant for one session waits for that one; when it ends, any session gets it.
+    #[test]
+    fn hands_over_to_the_session_it_is_meant_for() {
+        let root = Path::new("/p");
+        let mut inner = Inner::default();
+        let step = |inner: &mut Inner, raw: &str| {
+            let event = Fake.translate(&serde_json::from_str(raw).unwrap()).unwrap();
+            inner.take_in(&event, &Prompting, root, Vec::new, 5).unwrap().context
+        };
+        step(&mut inner, r#"{"who":"a1","did":"started","in":"/p"}"#);
+        step(&mut inner, r#"{"who":"b2","did":"started","in":"/p"}"#);
+        set_part(&mut inner.handovers, "notes".into(), Some(("look at line 3".into(), "1 line comment".into())));
+        inner.target = Some("b2".into());
+        assert_eq!(step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Go"}"#), None);
+        assert_eq!(step(&mut inner, r#"{"who":"b2","did":"asked","in":"/p","text":"Go"}"#).as_deref(), Some("look at line 3"));
+        assert!(inner.target.is_none() && inner.delivered.as_ref().is_some_and(|d| d.session == "b2"));
+        // Each session remembers what it got: b2 the rules, then the comment; a1 only the rules
+        let got = |id: &str| inner.sessions[id].received.iter().map(|r| r.labels.join(", ")).collect::<Vec<_>>();
+        assert_eq!(got("b2"), ["1 line comment", "Start rules"]);
+        assert_eq!(got("a1"), ["Start rules"]);
+
+        set_part(&mut inner.handovers, "notes".into(), Some(("again".into(), "1 line comment".into())));
+        inner.target = Some("b2".into());
+        step(&mut inner, r#"{"who":"b2","did":"left","in":"/p"}"#);
+        assert_eq!((inner.target.as_deref(), inner.target_lost.as_deref()), (None, Some("b2")));
+        assert_eq!(step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Go"}"#).as_deref(), Some("again"));
+        assert!(inner.target_lost.is_none());
+
+        // Taken off the list: the same
+        set_part(&mut inner.handovers, "notes".into(), Some(("third".into(), "1 line comment".into())));
+        inner.target = Some("a1".into());
+        inner.forget("a1");
+        assert_eq!((inner.target.as_deref(), inner.target_lost.as_deref()), (None, Some("a1")));
     }
 
     #[test]

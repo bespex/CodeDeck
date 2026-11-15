@@ -28,7 +28,7 @@ pub trait Harness: Send + Sync {
     /// A raw message of the tool as a neutral event; `None` for what CodeDeck does not use.
     fn translate(&self, raw: &Value) -> Option<Event>;
     /// What `codedeck hook` prints for the tool after the windows answered: how text handed
-    /// over reaches the session.
+    /// over (with a prompt) or the start rules (with the start of a session) reach the session.
     fn reply(&self, event: &Event, handed: &[String]) -> Option<String>;
     /// Sessions of the last day in or around the project, from the tool's logs.
     fn past_sessions(&self, project: &Path) -> Vec<SessionInfo>;
@@ -108,6 +108,10 @@ pub struct Event {
     pub report: Option<String>,
     /// The tool's log of the session
     pub log: Option<String>,
+    /// With the start of a session: it goes on from before and still knows what it was told,
+    /// so it needs no start rules again
+    #[serde(default)]
+    pub resumed: bool,
 }
 
 /// What a log tells about its session.

@@ -65,17 +65,17 @@ redet nicht dazwischen, es zeigt.
 So ist CodeDeck aufgebaut:
 
 ```
-┌─ Dateien ────────────┬─ Deck ──────────────────────────────────┬─ Sessions & Focus ──────┐
-│ ▾ src            main│  Activity  Changes  Handover ②  …       │ Sessions                │
+┌─ Dateien ────────────┬─ Deck ──────────────────────────────────┬─ Sessions ──────────────┐
+│ ▾ src            main│  Activity  Changes  Next prompt ②  …    │ Sessions                │
 │   ● limit.rs         │ ┌──────────────────────────────────────┐│ ● Rate limiter fix      │
 │   ● main.rs          │ │ Uncommitted changes                  ││   working · opus        │
 │     util.rs          │ │  ~ src/limit.rs   +40 −12            ││   limit.rs, main.rs     │
 │ ▸ docs               │ │  ~ src/main.rs    +3  −1             ││ ○ Doku überarbeiten     │
 │   README.md          │ │                                      ││   turn done             │
 │                      │ │  (Diff der gewählten Datei)          ││                         │
-│                      │ │                                      ││ Focus                   │
+│                      │ │                                      ││ Next prompt             │
 │  ● = von Claude      │ └──────────────────────────────────────┘│   📄 docs/api.md        │
-│      geändert        │ Trail │ ● jetzt  ⚓ vor Claudes Runde    │   [Hand to Claude]      │
+│      geändert        │ Trail │ ● jetzt  ⚓ vor Claudes Runde    │   for: any session      │
 ├──────────────────────┴───────┴──────────────────────────────────┴─────────────────────────┤
 │ main ↑1 · Claude: 1 working                                    git status --porcelain … │
 └───────────────────────────────────────────────────────────────────────────────────────────┘
@@ -84,8 +84,8 @@ So ist CodeDeck aufgebaut:
 - **Links, die Dateien:** der Projektbaum. Was Claude geändert hat, trägt einen Punkt.
 - **Mitte, das Deck:** die Änderungen (was ist anders, als Baum oder als Diff), die Dokumente mit
   Hinweisen für Claude, und am linken Rand der **Trail**, die Zeitleiste des Projekts.
-- **Rechts, Sessions & Focus:** welche Claude-Sitzungen im Projekt arbeiten und was sie tun;
-  darunter, was du Claude als Nächstes mitgeben willst.
+- **Rechts, Sessions und Next prompt:** welche Claude-Sitzungen im Projekt arbeiten und was sie tun;
+  darunter, was an deinen nächsten Prompt angehängt wird.
 - **Unten, die Statusleiste:** Branch, Zustand von Claude in einem Wort, der letzte Git-Befehl.
 
 ## 1.3 Ein Vormittag mit CodeDeck
@@ -150,10 +150,10 @@ Claude umständlich zu beschreiben, schreibst du an die Stelle:
 <!-- @ai: Hier ein kurzes Beispiel mit curl ergänzen -->
 ```
 
-Der Reiter **Handover** zeigt sofort eine ①. Dort stehen alle solchen Hinweise des Projekts mit Datei und
-Zeile. Du klickst **Hand to Claude**. Beim nächsten Prompt, den du im Terminal abschickst (auch nur
+Der Reiter **Next prompt** zeigt sofort eine ①. Dort stehen alle solchen Hinweise des Projekts mit Datei und
+Zeile. Du klickst **Attach**. Beim nächsten Prompt, den du im Terminal abschickst (auch nur
 „mach weiter“), bekommt Claude die Hinweise mitgeliefert und arbeitet sie ab. Sind die Kommentare
-danach aus den Dateien verschwunden, zeigt Handover **1 of 1 done**.
+danach aus den Dateien verschwunden, zeigt Next prompt **1 of 1 done**.
 
 *Einfach:* Du markierst dort, wo du gerade liest, in deinem gewohnten Editor. *Sehen:* Du siehst,
 was übergeben ist, was wartet und was erledigt ist.
@@ -161,9 +161,9 @@ was übergeben ist, was wartet und was erledigt ist.
 ### Szene 7: Claude gezielt auf Dateien lenken
 
 Für den nächsten Schritt soll Claude sich an `docs/api.md` und dem Ordner `src/http/` orientieren.
-Du ziehst beide in **Focus** (oder klickst im Baum das Pin-Symbol) und dann **Hand to Claude**.
-Mit dem nächsten Prompt bekommt Claude die Pfade und liest selbst, was es braucht. Solange die
-Übergabe wartet, steht im Focus „Waiting for the next prompt“; du kannst sie zurücknehmen.
+Du ziehst beide auf **Next prompt** (oder klickst im Baum die Büroklammer); damit sind sie angehängt.
+Mit dem nächsten Prompt bekommt Claude die Pfade und liest selbst, was es braucht. Bis dahin stehen
+sie in „Next prompt“, und du kannst jeden Anhang wieder entfernen.
 
 *Einfach:* Ziehen statt Pfade tippen. *Sehen:* Claude bekommt nie heimlich Kontext. Nur was du
 ausdrücklich übergibst, und du siehst, dass es wartet.
@@ -184,8 +184,8 @@ nur auf deinem Rechner. Nach dem Push wird sie ruhig grau, und am obersten Commi
 | Arbeitet Claude oder wartet es? | Ins richtige Terminal schauen | Status je Sitzung, orange bei Rückfrage |
 | Wie komme ich zurück? | `git stash`/`checkout`, nur für Committetes sicher | ⚓ vor jeder Runde, „Go back“, auch wieder vorwärts |
 | Wie sicher ist meine Arbeit? | `git status`, `git log origin..` | Drei Farben auf dem Trail |
-| Wie zeige ich Claude eine Stelle? | Pfad und Stelle beschreiben | `@ai`-Kommentar an die Stelle, „Hand to Claude“ |
-| Was sieht Claude zusätzlich? | Unklar | Nur was im Focus übergeben wurde, sichtbar bis zur Abholung |
+| Wie zeige ich Claude eine Stelle? | Pfad und Stelle beschreiben | `@ai`-Kommentar an die Stelle, „Attach“ |
+| Was sieht Claude zusätzlich? | Unklar | Nur was an den nächsten Prompt angehängt ist (sichtbar bis zum Absenden), und die festen Startregeln |
 | Was lief gestern, was läuft parallel? | Mehrere Terminals durchsehen | Alle Sitzungen des Projekts rechts, mit Titel |
 
 ## 1.5 Was CodeDeck bewusst nicht tut
@@ -240,8 +240,8 @@ CodeDeck hat vier Wege, um zu wissen, was geschieht, und einen, um etwas zurück
    CodeDeck offen war.
 3. **Git: die Wahrheit über die Dateien.** Was wirklich geändert, committet und gepusht ist, sagt
    Git. Darauf beruhen Trail, Changes und Anker.
-4. **Übergabe: CodeDeck gibt Claude etwas mit.** Hinweise und Focus wandern beim nächsten Prompt
-   mit zu Claude.
+4. **Anhänge: CodeDeck gibt Claude etwas mit.** Den Prompt schreibst du in Claude; CodeDeck hängt
+   angepinnte Dateien, Zeilenkommentare und Hinweise an deinen nächsten Prompt an.
 
 Der Dateiwächter kommt als Hilfe dazu: Ändert sich eine Datei, schaut CodeDeck sofort neu nach,
 egal ob Claude, du oder ein anderes Programm sie geändert hat.
@@ -304,12 +304,12 @@ CodeDeck kann nicht in Claudes Terminal tippen, und das soll es auch nicht: Du s
 was Claude gesagt bekommt. Claude Code erlaubt aber eines: Beim Ereignis „Prompt abgeschickt“ darf
 der Hook Text anhängen, den Claude zusammen mit deinem Prompt liest. Genau das nutzt CodeDeck.
 
-Klickst du **Hand to Claude**, legt CodeDeck den Text bereit. Schickst du den nächsten Prompt ab,
+Hängst du etwas an (**Attach**, Büroklammer, Zeilenkommentar), legt CodeDeck den Text bereit. Schickst du den nächsten Prompt ab,
 holt `codedeck hook` ihn ab und gibt ihn mit. Zu deinem Prompt „Mach weiter.“ bekommt Claude dann
 diesen Text (so baut CodeDeck ihn heute):
 
 ```
-Work in these comments that I left for you in documents of this project (`<!-- @ai: … -->` or `[!AI: …]`).
+Work in these comments that I left for you in files of this project (lines beginning with `@ai`, or with a comment that begins with it).
 Change the text around each one as it asks, then remove the comment. Leave a comment in place if you are unsure, and tell me why.
 
 - docs/api.md:42: Hier ein kurzes Beispiel mit curl ergänzen
@@ -320,10 +320,28 @@ For my next request, focus on these parts of the project; read them as far as yo
 - src/http/ (folder)
 ```
 
-- Kommentare und Focus können gleichzeitig warten; beide gehen mit demselben Prompt raus.
+- Mehrere Anhänge (Dateien, Änderungen, Zeilenkommentare, Hinweise) können gleichzeitig warten; alle gehen mit demselben Prompt raus.
+- Auch eine **Änderung** lässt sich anhängen (Büroklammer an einer Runde, einem Commit, einem Snapshot, einem
+  Vergleich oder an einer Datei darin). Angehängt wird nicht der Diff, sondern der Git-Befehl, der ihn zeigt,
+  z. B. „Turn 2: `git diff 3f2a… 9c1b…`“; Claude liest selbst, was es braucht. Eine neue Datei, die Git noch
+  nicht kennt, steht nicht in `git diff`; sie wird deshalb als Pfad angehängt.
+- Was angehängt ist, sieht man an drei Stellen: in „Next prompt“ (rechts und im Reiter), am Ursprung (Büroklammer
+  im Dateibaum und an der Änderung, „attached“ an Zeile und Hinweis) und danach je Sitzung unter „Got from
+  CodeDeck“.
+- Einheitliche Begriffe (D20, D21): Es gibt einen Vorgang, **anhängen** („Attach“), und einen Ort, **Next prompt**
+  (Reiter ausführlich, rechte Spalte kurz). Anpinnen ist anhängen, es gibt keine Sammelliste davor. Was jede
+  Sitzung beim Start bekommt (Startregeln), ist kein Anhang und steht getrennt.
 - Übergeben werden **Pfade, keine Inhalte**: Claude liest selbst, was es braucht. Das hält den
   Prompt klein und Claude auf dem aktuellen Stand.
 - Bis zur Abholung siehst du die wartende Übergabe und kannst sie zurücknehmen.
+- Wer sie bekommt, wählst du: „any session“ (die Sitzung im Projekt, die zuerst einen Prompt schickt) oder
+  eine bestimmte. Kommentierst du eine Zeile in einer Runde, ist deren Sitzung vorgewählt. Endet die
+  gewählte Sitzung, geht die Übergabe an jede, und CodeDeck sagt es.
+- Als Hinweis zählt eine Zeile, die mit `@ai` beginnt (Leerraum davor zählt nicht), oder mit einem
+  Kommentar, der mit `@ai` beginnt: nach `<!--`, `//`, `/*`, `*`, `#`, `--`, `;` oder `%`. Nach `@ai` folgt
+  Leerraum, ein Doppelpunkt oder nichts (`@ai.tool` ist kein Hinweis). Steht davor
+  anderer Text, ist es kein Hinweis; so werden Texte *über* die Schreibweise (Code, Doku) nicht
+  mitgezählt, und Beispiele in Markdown-Codeblöcken auch nicht.
 - „Erledigt“ erkennt CodeDeck daran, dass ein übergebener Kommentar aus der Datei verschwunden ist.
 
 ## 2.5 Anker: sichern, ohne Git durcheinanderzubringen
@@ -474,7 +492,7 @@ KI stellt, und die Frage steht in der Reiterleiste.
 | **Activity** | Was tun die Sitzungen? | Zeitleiste aller Sitzungen, Sicherheit der Arbeit, Verbrauch, heute geschriebene Dokumente |
 | **Changes** | Was hat Claude geändert? | Auswahl je Runde, Kurzbericht, Testergebnis, Diff; Zeile kommentieren, Datei abhaken, zurückgehen, committen |
 | **Workbench** | Was ist sonst entstanden, das noch nicht zum Projekt gehört? | siehe 4.4 |
-| **Handover** | Was gebe ich Claude mit dem nächsten Prompt? | Warteschlange, der genaue Text, Quellen zum Aufnehmen, `@ai`-Hinweise, Regeln |
+| **Next prompt** | Was hänge ich an meinen nächsten Prompt? | Anhänge, der genaue Text, was man anhängen kann, `@ai`-Hinweise; getrennt davon die Startregeln |
 
 Ein Projekt öffnet in Changes (D14 im Plan; wird geprüft, sobald Activity mehr zeigt). Die vier Reiter
 gibt es seit Schritt 1.3; Activity zeigt bisher nur die geschriebenen Dokumente, Workbench ist noch leer.
@@ -486,11 +504,11 @@ CodeDeck fasst nichts selbst zusammen) und den Diff zwischen ihren
 beiden Ankern; das ist dasselbe wie Strg+Klick auf zwei Punkte im Trail. In „All uncommitted“ trägt
 jede Datei das Schild der Sitzung, deren Runde sie zuletzt geändert hat, sonst „You“. Jede Datei
 lässt sich abhaken („looked at“); der Haken verschwindet, sobald sich die Datei wieder ändert. An
-jeder Zeile eines Diffs lässt sich ein Kommentar schreiben, der mit Datei, Zeile und Zeilentext in
-„Next prompt“ wartet.
+jeder Zeile eines Diffs lässt sich ein Kommentar schreiben, der mit Datei, Zeile und Zeilentext
+an „Next prompt“ angehängt wird.
 
 Tests sind kein eigener Ort: Das Ergebnis gehört zur Runde und steht in Changes. Die frühere
-Docs-Ansicht geht auf: Hinweise sind etwas, das man mitgibt (Handover), geschriebene Dokumente sind
+Docs-Ansicht geht auf: Hinweise sind etwas, das man anhängt (Next prompt), geschriebene Dokumente sind
 Ergebnisse (Activity).
 
 Links bleiben Dateien und Trail. Die rechte Spalte hat drei Bereiche:
@@ -503,7 +521,7 @@ Links bleiben Dateien und Trail. Die rechte Spalte hat drei Bereiche:
   und Steuerung klappen auf. Beendete, nur aus dem Log bekannte und seit Stunden untätige Sitzungen
   liegen eingeklappt unter *Earlier*; *Remove from list* nimmt eine Sitzung heraus, bis sie sich
   wieder meldet.
-- **Next prompt:** die Kurzform von Handover, immer sichtbar, mit Empfangsbestätigung.
+- **Next prompt:** die Kurzform des gleichnamigen Reiters, immer sichtbar: alle Anhänge, für wen, Empfangsbestätigung.
 
 Ein schwebendes Panel **Notices and tips** (Glocke in der Reiterleiste) sammelt, was sonst Fläche
 kosten würde: die letzten Ereignisse, zwei Tipps passend zur offenen Ansicht, und zum Nachschlagen,
@@ -524,9 +542,12 @@ temporären Ordnern oder als Seite auf claude.ai. Das blieb bisher unbemerkt.
 
 ## 4.5 Regeln, die jede Sitzung beim Start bekommt
 
-CodeDeck gibt jeder verbundenen Sitzung beim Start wenige kurze, feste Regeln mit, zuerst: Temporäres
-gehört nach `.workbench/`, und eine veröffentlichte Seite wird mit Link genannt. Die Regeln stehen
-wörtlich in Handover. Damit bleibt der Grundsatz gewahrt: Claude bekommt nichts, was du nicht siehst.
+CodeDeck gibt jeder verbundenen Sitzung beim Start wenige kurze, feste Regeln mit: Eine
+veröffentlichte Seite wird mit Link genannt (ab Schritt 1.6), und Temporäres gehört nach `.workbench/`
+(ab Schritt 2.1, wenn CodeDeck den Ordner anlegt und anzeigt). Technisch gibt der Hook „Sitzung
+beginnt“ den Text aus, sofern ein CodeDeck-Fenster das Projekt offen hat; eine fortgesetzte Sitzung
+(`resume`) bekommt ihn nicht erneut, eine geleerte oder verdichtete (`clear`, `compact`) schon. Die Regeln sind immer an, es gibt
+keinen Schalter, und sie stehen wörtlich im Reiter Next prompt, getrennt von den Anhängen. Damit bleibt der Grundsatz gewahrt: Claude bekommt nichts, was du nicht siehst.
 `CLAUDE.md` wird dafür nicht angefasst, sie gehört dem Projekt.
 
 ## 4.6 Andere KI-Werkzeuge
