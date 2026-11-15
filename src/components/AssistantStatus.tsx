@@ -91,8 +91,12 @@ export function HookPanel({ hooks, heard }: { hooks: Hooks; heard: boolean }) {
       <ul className="mt-2 flex flex-col gap-1.5">
         {hooks.setups.map((s) => (
           <li key={s.dir} className="flex items-center gap-2 rounded-md border border-overlay-line px-2 py-1.5">
-            <span className={`size-2 shrink-0 rounded-full ${s.installed ? "bg-added" : "bg-slate-600"}`} />
             <div className="min-w-0 flex-1">
+              {/* Said in words: the button on the right names the action, not the state */}
+              <span className={`flex items-center gap-1.5 text-[11px] font-medium ${s.installed ? "text-added" : "text-slate-400"}`}>
+                <span className={`size-2 shrink-0 rounded-full ${s.installed ? "bg-added" : "bg-slate-600"}`} />
+                {s.installed ? "Connected" : "Not connected"}
+              </span>
               <code className="block truncate font-mono text-[11px] text-slate-200">{s.dir}</code>
               {s.other && <span className="block truncate text-[11px] text-changed">runs another CodeDeck: {s.other}</span>}
             </div>

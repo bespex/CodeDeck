@@ -62,12 +62,17 @@ pub fn forward() -> i32 {
         return 0;
     }
     let Ok(hook) = serde_json::from_str::<Value>(&input) else { return 0 };
+    record_raw(&input);
     let event = extract(&hook);
     let line = event.to_string();
     let prompt_event = event["event"] == "UserPromptSubmit";
 
     let mut handed = Vec::new();
-    let Ok(entries) = std::fs::read_dir(socket_dir()) else { return 0 };
+    let mut windows = 0;
+    let Ok(entries) = std::fs::read_dir(socket_dir()) else {
+        trace(&event, "no socket directory");
+        return 0;
+    };
     for entry in entries.flatten() {
         let path = entry.path();
         if path.extension().is_none_or(|e| e != "sock") {
@@ -75,6 +80,7 @@ pub fn forward() -> i32 {
         }
         match UnixStream::connect(&path) {
             Ok(stream) => {
+                windows += 1;
                 if let Some(text) = ask(stream, &line) {
                     handed.push(text);
                 }
@@ -86,10 +92,37 @@ pub fn forward() -> i32 {
             Err(_) => {}
         }
     }
+    trace(&event, &format!("{windows} window(s) reached, {} text(s) handed", handed.len()));
     if prompt_event && !handed.is_empty() {
         print!("{}", handed.join("\n\n"));
     }
     0
+}
+
+/// One line per hook message in the private socket directory, so "does the hook run at all?" can be
+/// answered from outside Claude Code (which logs nothing about hooks). Names only, no content.
+fn trace(event: &Value, outcome: &str) {
+    let Ok(dir) = ensure_socket_dir() else { return };
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    let path = dir.join("hook-trace.log");
+    // Kept short: start over when it grows
+    if std::fs::metadata(&path).is_ok_and(|m| m.len() > 64 * 1024) {
+        let _ = std::fs::remove_file(&path);
+    }
+    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        let id = event["session"].as_str().unwrap_or_default();
+        let _ = writeln!(file, "{now} {} {} {outcome}", event["event"].as_str().unwrap_or_default(), &id[..id.len().min(8)]);
+    }
+}
+
+/// Debug aid for checking what Claude Code really sends: with `CODEDECK_HOOK_LOG=<file>` in the
+/// environment of the session, every raw hook message is appended there as one line. Off by default,
+/// because the raw message holds more than CodeDeck keeps (file contents, commands).
+fn record_raw(input: &str) {
+    let Some(path) = std::env::var_os("CODEDECK_HOOK_LOG").filter(|p| !p.is_empty()) else { return };
+    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(file, "{}", input.replace('\n', " "));
+    }
 }
 
 /// Sends the event, waits for the answer; the text handed over, if any.

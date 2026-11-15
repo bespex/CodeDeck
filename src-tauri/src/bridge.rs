@@ -263,8 +263,16 @@ impl Bridge {
                     session.status = "waiting";
                     session.message = e.message.clone();
                 }
-                "Stop" => session.status = "idle",
-                "SessionEnd" => session.status = "ended",
+                // Bash has no PostToolUse hook, so after an allowed command nothing else clears the
+                // permission question: the end of the turn must
+                "Stop" => {
+                    session.status = "idle";
+                    session.message = None;
+                }
+                "SessionEnd" => {
+                    session.status = "ended";
+                    session.message = None;
+                }
                 _ => {}
             }
             if e.event == "PostToolUse" {
