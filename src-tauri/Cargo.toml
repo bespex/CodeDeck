@@ -5,7 +5,7 @@ description = "AI coding deck: project, changes and assistant side by side – b
 authors = ["Skrrytch <skrrytch@speckels.net>"]
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/be-spex/CodeDeck"
+repository = "https://github.com/bespex/CodeDeck"
 publish = false
 
 [lib]

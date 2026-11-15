@@ -43,7 +43,7 @@
     "targets": ["deb", "appimage"],
     "publisher": "Bert Speckels <skrrytch@speckels.net>",
     "license": "MIT",
-    "homepage": "https://github.com/be-spex/CodeDeck",
+    "homepage": "https://github.com/bespex/CodeDeck",
     "category": "Development",
     "shortDescription": "AI coding deck: project, changes and assistant side by side – by be-spex",
     "longDescription": "CodeDeck puts a project directory, its changes and an AI assistant side by side. It is not an IDE: files open in small external viewers, and the deck keeps track of context and history.",
