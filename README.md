@@ -59,7 +59,11 @@ the settings changes, the file as it was is kept as `settings.json.before-codede
   Code gave them, their latest prompt, model and the files they wrote; those files carry the dot in
   the file list. Sessions of the last day are read from Claude Code's logs
   (`<configuration>/projects/`), so they appear even when they started before CodeDeck. The status bar counts
-  them and shows when one waits for you.
+  them and shows when one waits for you. Each session has a colour and a short name (A, B, C …) that it
+  keeps wherever it shows up: in the list, on its snapshots on the trail, on the dot of the files it
+  wrote. Hovering a session makes its snapshots and files stand out. The list is in the order the sessions
+  came in and does not jump; the pencil gives a session a title and short name of your own, kept per
+  project in `~/.config/codedeck/sessions.json`.
 - **Snapshots:** before a session writes for the first time in a turn (a file edit, or any shell
   command), CodeDeck keeps the repository's working tree, untracked files included, as a commit
   under `refs/codedeck/snapshots/`. That goes through a copy of the index: the real index, the

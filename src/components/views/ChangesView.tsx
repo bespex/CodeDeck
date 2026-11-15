@@ -14,7 +14,8 @@ import {
   type RepoStatus,
   type Snapshot,
 } from "../../backend";
-import { shortId } from "../../assistant";
+import { shortId, useSessionMarks } from "../../assistant";
+import { SessionBadge } from "../SessionBadge";
 import { changeSummary, commitSteps, commandLine, plural, rewordSteps, stateMeaning, stateSymbol, type GitView, type Steps } from "../../git";
 import { diffSize, parsePatch, type FileDiff } from "../../diff";
 import { toProject, useGitRun, type Done, type TrailCommit } from "../../history";
@@ -503,6 +504,7 @@ function SnapshotChanges(props: {
   onFilter: (on: boolean) => void;
 }) {
   const { snapshot: s, repo } = props;
+  const mark = useSessionMarks().of(s.session);
   // What changed since depends on the disk: read again when it changes
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -548,11 +550,17 @@ function SnapshotChanges(props: {
           <code className="selectable rounded bg-panel px-1.5 font-mono text-[11px] text-slate-200">{s.short}</code>
           {props.several && <span className="font-semibold text-slate-300">{repo.name}</span>}
           <span>{new Date(s.at * 1000).toLocaleString(LOCALE)}</span>
-          {s.session && (
-            <span className="flex items-center gap-1 text-ai">
-              <Sparkles className="size-3" /> session {shortId(s.session)}
-            </span>
-          )}
+          {s.session &&
+            (mark ? (
+              <span className="flex min-w-0 items-center gap-1.5 text-slate-300">
+                <SessionBadge mark={mark} />
+                <span className="truncate">{mark.title ?? `Session ${shortId(s.session)}`}</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-ai">
+                <Sparkles className="size-3" /> session {shortId(s.session)}
+              </span>
+            ))}
           {s.session && (
             <Tooltip content={<span>{props.filtered ? "Show the snapshots of every session again" : "Show only this session's snapshots on the trail"}</span>}>
               <button

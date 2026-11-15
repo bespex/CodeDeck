@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Anchor, CircleDot, GitMerge, Sparkles, Undo2 } from "lucide-react";
 import type { RepoStatus, Snapshot } from "../backend";
+import { useSessionMarks } from "../assistant";
 import type { TrailCommit } from "../history";
 import { aheadBehind, plural } from "../git";
 
@@ -41,6 +42,7 @@ export const LOCALE = "en-GB";
  * with days, messages and repositories. A point shows what changed there.
  */
 export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, focusRepo }: Props) {
+  const marks = useSessionMarks();
   const [open, setOpen] = useState(false);
   const [width, setWidth] = useState(WIDTH);
   const column = useRef<HTMLDivElement>(null);
@@ -126,7 +128,10 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
               point.kind === "compare"
                 ? point.repo === repo && (point.from === hash || point.to === hash)
                 : point.kind === item.kind && point.repo === repo && point.hash === hash;
-            const dimmed = focusRepo !== null && repo !== focusRepo;
+            const session = item.kind === "snapshot" ? item.snapshot.session : null;
+            const mark = marks.of(session);
+            // A session hovered in the list: only its snapshots stay bright
+            const dimmed = (focusRepo !== null && repo !== focusRepo) || (marks.hovered !== null && session !== marks.hovered);
             // Snapshots are newer than their repository's last commit: work not committed yet
             const zone = item.kind === "commit" ? zoneOf(item.commit, byPath.get(repo)) : null;
             const repoName = several ? (byPath.get(repo)?.name ?? repo) : undefined;
@@ -166,11 +171,11 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
                     open={open}
                     selected={selected}
                     onClick={(e) => (e.ctrlKey ? onCompare(repo, hash) : onSelect({ kind: "snapshot", repo, hash }))}
-                    dot={<SnapshotDot snapshot={item.snapshot} selected={selected} />}
+                    dot={<SnapshotDot snapshot={item.snapshot} selected={selected} color={mark?.color} />}
                     time={clock(at)}
-                    detail="snapshot"
+                    detail={mark ? `session ${mark.short}` : "snapshot"}
                     title={item.snapshot.label}
-                    label={`Snapshot: ${item.snapshot.label}`}
+                    label={`Snapshot${mark ? ` of session ${mark.short}` : ""}: ${item.snapshot.label}`}
                     quiet
                     repo={repoName}
                   />
@@ -356,16 +361,21 @@ function trailItems(commits: TrailCommit[], snapshots: Snapshot[]): TrailItem[] 
   return items.sort((a, b) => at(b) - at(a));
 }
 
-/** An anchor where the assistant was about to write; a turning arrow where one went back. */
-function SnapshotDot({ snapshot, selected }: { snapshot: Snapshot; selected: boolean }) {
+/**
+ * An anchor where the assistant was about to write, in its session's colour; a turning arrow
+ * where one went back.
+ */
+function SnapshotDot({ snapshot, selected, color }: { snapshot: Snapshot; selected: boolean; color?: string }) {
   const Icon = snapshot.back ? Undo2 : Anchor;
+  const own = !snapshot.back && !selected ? color : undefined;
   return (
     <span
+      style={own ? { borderColor: `color-mix(in srgb, ${own} 65%, transparent)` } : undefined}
       className={`grid size-[18px] place-items-center rounded-[5px] border ${
         selected ? "border-brand bg-brand/25" : "border-changed/60 bg-panel"
       }`}
     >
-      <Icon className={`size-[11px] ${snapshot.back ? "text-slate-400" : "text-changed"}`} />
+      <Icon style={!snapshot.back && color ? { color } : undefined} className={`size-[11px] ${snapshot.back ? "text-slate-400" : "text-changed"}`} />
     </span>
   );
 }

@@ -412,8 +412,8 @@ export function gitSnapshots(repos: string[]): Promise<Snapshot[]> {
   return Promise.resolve(
     repos.includes("")
       ? [
-          { repo: "", hash: "snap1".padEnd(40, "0"), short: "snap100", at: now - 90, label: "Before: Held orders in the fixture should not count against the limit.", session: "3f9c2a71", tool: "Edit tests/rate_limit.rs", back: false },
-          { repo: "", hash: "snap2".padEnd(40, "0"), short: "snap200", at: now - 150, label: "Before: Add a per-client rate limit to the orders endpoint.", session: "3f9c2a71", tool: "Write src/middleware/rate_limit.rs", back: false },
+          { repo: "", hash: "snap1".padEnd(40, "0"), short: "snap100", at: now - 90, label: "Before: Held orders in the fixture should not count against the limit.", session: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a", tool: "Edit tests/rate_limit.rs", back: false },
+          { repo: "", hash: "snap2".padEnd(40, "0"), short: "snap200", at: now - 150, label: "Before: Add a per-client rate limit to the orders endpoint.", session: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a", tool: "Write src/middleware/rate_limit.rs", back: false },
         ]
       : [],
   );
@@ -492,6 +492,10 @@ export interface Session {
   harness: string;
   /** What is possible with this session; less than its tool's while it is known from its log only */
   capabilities: Capabilities;
+  /** Index of its colour (`--color-session-<n>`), the same wherever the session shows up */
+  color: number;
+  /** A letter or a few characters to tell it apart at a glance */
+  short: string;
   /** Where it runs: project-relative (`""` is the root), or absolute outside the project */
   cwd: string;
   /** working; waiting for an answer or a permission; idle: its turn is over; ended */
@@ -502,8 +506,10 @@ export interface Session {
   /** The latest prompt, shortened */
   prompt: string | null;
   prompts: number;
-  /** The title the tool gave the session */
+  /** The title the user gave it in CodeDeck, else the one the tool gave it */
   title: string | null;
+  /** The title is the user's */
+  renamed: boolean;
   /** The model of its latest answer, as it is shown */
   model: string | null;
   /** What it is waiting for */
@@ -519,7 +525,10 @@ export interface AssistantState {
   heard: boolean;
   /** The tools CodeDeck supports, the default one first */
   harnesses: HarnessInfo[];
+  /** In the order they came in, the newest first: a session keeps its place */
   sessions: Session[];
+  /** Colour, short name and title of every session remembered for the project, also those no longer listed */
+  identities: { id: string; color: number; short: string; title: string | null }[];
   /** What waits for the next prompt, in parts that can be taken back one by one */
   handovers: Handover[];
 }
@@ -542,6 +551,9 @@ const mockAssistant: AssistantState = {
       id: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a",
       harness: "claude",
       capabilities: MOCK_CAPABILITIES,
+      color: 1,
+      short: "B",
+      renamed: false,
       cwd: "",
       status: "working",
       started: Date.now() - 20 * 60_000,
@@ -561,6 +573,9 @@ const mockAssistant: AssistantState = {
       id: "b07e11d4-6c3a-4f2e-8d90-1a2b3c4d5e6f",
       harness: "claude",
       capabilities: MOCK_CAPABILITIES,
+      color: 0,
+      short: "A",
+      renamed: false,
       cwd: "docs",
       status: "waiting",
       started: Date.now() - 50 * 60_000,
@@ -574,8 +589,14 @@ const mockAssistant: AssistantState = {
       handed: false,
     },
   ],
+  identities: [
+    { id: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a", color: 1, short: "B", title: "Per-client rate limit for orders" },
+    { id: "b07e11d4-6c3a-4f2e-8d90-1a2b3c4d5e6f", color: 0, short: "A", title: "Limiter documentation" },
+  ],
   handovers: [],
 };
+/** The titles the tool gave the mock sessions, to go back to */
+const mockToolTitles = new Map(mockAssistant.sessions.map((s) => [s.id, s.title]));
 const mockAssistantListeners = new Set<(state: AssistantState) => void>();
 
 export function assistantState(): Promise<AssistantState> {
@@ -597,6 +618,18 @@ export function handOver(key: string, text: string | null, label?: string): Prom
   if (live) return invoke("hand_over", { key, text, label: label ?? null });
   const rest = mockAssistant.handovers.filter((h) => h.key !== key);
   mockAssistant.handovers = text === null ? rest : [...rest, { key, text, label: label ?? "" }];
+  mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+  return Promise.resolve();
+}
+
+/** The user's title and short name for a session; an empty title brings the tool's back, an empty short name keeps it. */
+export function renameSession(id: string, title: string | null, short: string | null): Promise<void> {
+  if (live) return invoke("rename_session", { id, title, short });
+  const name = title?.trim() || null;
+  mockAssistant.sessions = mockAssistant.sessions.map((s) =>
+    s.id === id ? { ...s, title: name ?? mockToolTitles.get(id) ?? null, renamed: name !== null, short: short?.trim().slice(0, 4) || s.short } : s,
+  );
+  mockAssistant.identities = mockAssistant.sessions.map((s) => ({ id: s.id, color: s.color, short: s.short, title: s.title }));
   mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
   return Promise.resolve();
 }

@@ -350,6 +350,11 @@ vor:
   an alle, jedes Fenster filtert nach seinem Projekt. Zwei Projekte nebeneinander stören sich nicht.
 - **Mehrere Sitzungen im selben Projekt** erscheinen nebeneinander rechts, jede mit ihren Dateien.
   Der Filter *only this session* zeigt auf dem Trail nur die Anker einer Sitzung.
+  Jede Sitzung trägt eine eigene Farbe und einen Kurznamen (A, B, C …), überall gleich: als Schild in
+  der Liste, am Anker auf dem Trail, im Kopf eines Sicherungspunkts, am Punkt im Dateibaum. Fährst du
+  über eine Sitzung in der Liste, treten ihre Anker und Dateien hervor, der Rest tritt zurück. Die
+  Liste steht in der Reihenfolge, in der die Sitzungen kamen (neueste oben), und springt nicht. Über
+  den Stift gibst du einer Sitzung einen eigenen Titel und Kurznamen; beides bleibt je Projekt erhalten.
 - **Mehrere Claude-Konfigurationen** (z. B. `~/.claude` und ein privates `~/.claude-private`):
   Eine Sitzung meldet sich nur über die Konfiguration, mit der sie läuft. Deshalb listet *Connect*
   jede Konfiguration einzeln.

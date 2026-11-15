@@ -2,10 +2,10 @@
 // are connected, and the task waiting for the next prompt. No tool is named here or in the
 // components: names and what is offered come from `HarnessInfo` and its capabilities.
 
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { assistantState, harnessConnections, onAssistantChanged, type AssistantState, type Connection, type HarnessInfo } from "./backend";
 
-const EMPTY: AssistantState = { heard: false, harnesses: [], sessions: [], handovers: [] };
+const EMPTY: AssistantState = { heard: false, harnesses: [], sessions: [], identities: [], handovers: [] };
 
 /** Stands in until the backend told which tools there are: no name, nothing on offer. */
 const UNKNOWN: HarnessInfo = {
@@ -71,3 +71,45 @@ export function touchedFiles(state: AssistantState): Map<string, number> {
 }
 
 export const shortId = (id: string) => id.slice(0, 8);
+
+/** What tells a session apart wherever it shows up. */
+export interface SessionMark {
+  /** A CSS colour */
+  color: string;
+  short: string;
+  title: string | null;
+}
+
+/** The sessions' marks for every component, and the session the mouse is on in the list. */
+export interface SessionMarks {
+  /** The mark of a session, also of one no longer listed; `null` for one never heard of */
+  of: (id: string | null) => SessionMark | null;
+  /** The session that wrote the file last; for a folder, one that wrote inside it */
+  writer: (path: string, isDir?: boolean) => string | null;
+  /** While set, what belongs to this session stands out and the rest steps back */
+  hovered: string | null;
+  hover: (id: string | null) => void;
+}
+
+const NO_MARKS: SessionMarks = { of: () => null, writer: () => null, hovered: null, hover: () => {} };
+export const SessionMarksContext = createContext<SessionMarks>(NO_MARKS);
+export const useSessionMarks = () => useContext(SessionMarksContext);
+
+export function sessionMarks(state: AssistantState, hovered: string | null, hover: (id: string | null) => void): SessionMarks {
+  const marks = new Map<string, SessionMark>(
+    state.identities.map((i) => [i.id, { color: `var(--color-session-${i.color})`, short: i.short, title: i.title }]),
+  );
+  const writers = new Map<string, { session: string; at: number }>();
+  for (const s of state.sessions) {
+    for (const t of s.touched) {
+      if (t.at > (writers.get(t.path)?.at ?? 0)) writers.set(t.path, { session: s.id, at: t.at });
+    }
+  }
+  const writer = (path: string, isDir = false) => {
+    if (!isDir) return writers.get(path)?.session ?? null;
+    // Of those inside, the hovered session first, so that its folders stand out too
+    const inside = [...writers].filter(([file]) => file.startsWith(`${path}/`)).map(([, w]) => w);
+    return (inside.find((w) => w.session === hovered) ?? inside.sort((a, b) => b.at - a.at)[0])?.session ?? null;
+  };
+  return { of: (id) => (id ? (marks.get(id) ?? null) : null), writer, hovered, hover };
+}

@@ -59,6 +59,21 @@
   --color-moved: #8fb1cf; /* renamed, moved, copied: the same content in another place */
 }
 
+/* Not in the theme above: Tailwind drops theme variables no utility uses, and these are used inline */
+:root {
+  /*
+   * Sessions: one of six cool tones each, to tell them apart wherever they show up. They start
+   * with the assistant's indigo and keep clear of orange (your action), the warm tone (needs
+   * you) and red (a problem), which mean something.
+   */
+  --color-session-0: #818cf8;
+  --color-session-1: #c08cf5;
+  --color-session-2: #4fc9bd;
+  --color-session-3: #ee8fbd;
+  --color-session-4: #62b6ee;
+  --color-session-5: #c3cf6c;
+}
+
 /*
  * While another window has the focus, CodeDeck steps back: the accents lose their colour and
  * the edge dims. Whichever CodeDeck window is active is the one that is fully in colour.
@@ -69,6 +84,12 @@
   --color-brand-fill: #6e5a4c;
   --color-brand-fill-hover: #6e5a4c;
   --color-ai: #8a8eb8;
+  --color-session-0: #8a8eb8;
+  --color-session-1: #a391b8;
+  --color-session-2: #7fa8a4;
+  --color-session-3: #b593a4;
+  --color-session-4: #86a3b6;
+  --color-session-5: #a9ad8a;
 }
 
 /* A fine light edge around the whole window: on a dark desktop it keeps the window apart from
@@ -123,20 +144,20 @@ body {
   scrollbar-color: var(--color-slate-700) transparent;
 }
 
-/* Marker for files the AI has touched recently */
+/* Marker for files changed recently; `--dot` is the colour of the session that wrote it, if one did */
 .ai-dot {
   width: 6px;
   height: 6px;
   border-radius: 9999px;
-  background: var(--color-ai);
-  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--color-ai) 70%, transparent);
+  background: var(--dot, var(--color-ai));
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--dot, var(--color-ai)) 70%, transparent);
   animation: ai-pulse 2.4s ease-in-out infinite;
 }
 
 @keyframes ai-pulse {
   50% {
     opacity: 0.45;
-    box-shadow: 0 0 2px 0 color-mix(in srgb, var(--color-ai) 40%, transparent);
+    box-shadow: 0 0 2px 0 color-mix(in srgb, var(--dot, var(--color-ai)) 40%, transparent);
   }
 }
 

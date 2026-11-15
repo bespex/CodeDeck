@@ -1,10 +1,11 @@
 import { useState, type DragEvent } from "react";
-import { ChevronDown, ChevronRight, ClipboardCopy, File, Folder, Layers, Send, Sparkles, TextSelect, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardCopy, File, Folder, Layers, Pencil, Send, Sparkles, TextSelect, Trash2, X } from "lucide-react";
 import { DRAG_TYPE } from "./FilesPanel";
 import { HookPanel } from "./AssistantStatus";
 import { Tooltip } from "./Tooltip";
-import { handOver, type AssistantState, type Entry, type Session } from "../backend";
-import { mainHarness, shortId, useConnections } from "../assistant";
+import { handOver, renameSession, type AssistantState, type Entry, type Session } from "../backend";
+import { mainHarness, shortId, useConnections, useSessionMarks } from "../assistant";
+import { SessionBadge } from "./SessionBadge";
 import { FOCUS_KEY, focusText, type Pin } from "../focus";
 import { plural } from "../git";
 import { LOCALE } from "./Trail";
@@ -83,15 +84,44 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
 
 function SessionItem({ session: s, onShowFile }: { session: Session; onShowFile: (path: string) => void }) {
   const [open, setOpen] = useState(s.status !== "ended");
+  const [renaming, setRenaming] = useState(false);
+  const marks = useSessionMarks();
+  const mark = marks.of(s.id) ?? { color: `var(--color-session-${s.color})`, short: s.short, title: s.title };
   const Chevron = open ? ChevronDown : ChevronRight;
   return (
-    <li className={`rounded-md border border-line bg-raised ${s.status === "ended" ? "opacity-55" : ""}`}>
-      <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-2 py-1.5 text-left">
-        <Chevron className="size-3.5 shrink-0 text-slate-500" />
-        <span className={`size-2 shrink-0 rounded-full ${STATUS_COLOR[s.status]} ${s.status === "working" ? "animate-pulse" : ""}`} />
-        <span className="min-w-0 truncate font-medium text-slate-100">{s.title ?? `Session ${shortId(s.id)}`}</span>
-        <span className="ml-auto shrink-0 text-[11px] text-slate-500">{STATUS_WORDS[s.status]}</span>
-      </button>
+    <li
+      // On the list: what belongs to this session stands out on the trail and in the file list
+      onMouseEnter={() => marks.hover(s.id)}
+      onMouseLeave={() => marks.hover(null)}
+      style={{ borderLeftColor: mark.color }}
+      className={`group/session rounded-md border border-l-2 border-line bg-raised ${s.status === "ended" ? "opacity-55" : ""}`}
+    >
+      <div className="flex items-center">
+        <button type="button" onClick={() => setOpen(!open)} className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pr-1 pl-2 text-left">
+          <Chevron className="size-3.5 shrink-0 text-slate-500" />
+          <SessionBadge mark={mark} />
+          <span className="min-w-0 truncate font-medium text-slate-100">{s.title ?? `Session ${shortId(s.id)}`}</span>
+          <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[11px] text-slate-500">
+            <span className={`size-2 shrink-0 rounded-full ${STATUS_COLOR[s.status]} ${s.status === "working" ? "animate-pulse" : ""}`} />
+            {STATUS_WORDS[s.status]}
+          </span>
+        </button>
+        <button
+          type="button"
+          aria-label={`Rename session ${mark.short}`}
+          title="Rename"
+          onClick={() => {
+            setOpen(true);
+            setRenaming(!renaming);
+          }}
+          className={`mr-1 shrink-0 rounded p-1 text-slate-500 hover:bg-overlay-hover hover:text-slate-100 focus-visible:opacity-100 ${
+            renaming ? "opacity-100" : "opacity-0 group-hover/session:opacity-100"
+          }`}
+        >
+          <Pencil className="size-3" />
+        </button>
+      </div>
+      {open && renaming && <RenameForm session={s} onClose={() => setRenaming(false)} />}
       {open && (
         <div className="px-2 pb-2 pl-[30px] text-[12px]">
           {s.message && <p className="text-changed">{s.message}</p>}
@@ -120,6 +150,47 @@ function SessionItem({ session: s, onShowFile }: { session: Session; onShowFile:
         </div>
       )}
     </li>
+  );
+}
+
+/** The user's title and short name for a session; they stay with it in this project. */
+function RenameForm({ session: s, onClose }: { session: Session; onClose: () => void }) {
+  const [title, setTitle] = useState(s.title ?? "");
+  const [short, setShort] = useState(s.short);
+  const field = "min-w-0 rounded border border-line bg-base px-1.5 py-0.5 text-slate-100 outline-none focus:border-indigo-500";
+  const button = "rounded px-2 py-0.5 text-[11px]";
+  return (
+    <form
+      className="mx-2 mb-2 ml-[30px] flex flex-col gap-1.5 text-[12px]"
+      onSubmit={(e) => {
+        e.preventDefault();
+        renameSession(s.id, title, short).then(onClose);
+      }}
+      onKeyDown={(e) => e.key === "Escape" && onClose()}
+    >
+      <div className="flex gap-1.5">
+        <input autoFocus aria-label="Title" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} className={`${field} flex-1`} />
+        <input aria-label="Short name" placeholder="A" maxLength={4} value={short} onChange={(e) => setShort(e.target.value)} className={`${field} w-14 text-center`} />
+      </div>
+      <div className="flex items-center gap-1.5">
+        <button type="submit" className={`${button} bg-brand-fill text-white hover:bg-brand-fill-hover`}>
+          Save
+        </button>
+        <button type="button" onClick={onClose} className={`${button} text-slate-400 hover:bg-overlay-hover hover:text-slate-100`}>
+          Cancel
+        </button>
+        {s.renamed && (
+          <button
+            type="button"
+            title="Back to the title the tool gave the session"
+            onClick={() => renameSession(s.id, null, short).then(onClose)}
+            className={`${button} ml-auto text-slate-400 hover:bg-overlay-hover hover:text-slate-100`}
+          >
+            Use its own title
+          </button>
+        )}
+      </div>
+    </form>
   );
 }
 

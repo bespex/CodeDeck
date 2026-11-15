@@ -20,6 +20,7 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src-tauri/src/harness/mod.rs` | Trait `Harness`, `Capabilities`, neutrales `Event`, `SessionInfo`, `Connection`; `all()`/`by_id` |
 | `src-tauri/src/harness/claude.rs` | Einziger Ort für Claude-Spezifisches: Hook-Ereignisse und -Felder, `settings.json`, Konfigurationen (`config_dirs`), Log-Format |
 | `src-tauri/src/harness/fake.rs` | Test-Adapter ohne echtes Werkzeug (nur in Tests) |
+| `src-tauri/src/identity.rs` | Farbe, Kurzname und eigener Titel je Sitzung, je Projekt in `~/.config/codedeck/sessions.json` |
 | `src-tauri/src/markers.rs` | `@ai`-Marker per `git grep` |
 | `src-tauri/src/{watch,project,apps,recent,config}.rs` | Dateiwächter, Projektpfade, externe Programme, letzte Projekte, Config-Dateien |
 | `src/backend.ts` | Alle `invoke`-Wrapper **mit Mock** für die Browser-Vorschau |
@@ -27,7 +28,8 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src/components/Trail.tsx` | Zeitleiste (Zonen, Remote-Chip, Snapshots) |
 | `src/components/views/ChangesView.tsx` | Diffs für jetzt / Commit / Snapshot |
 | `src/components/views/DocsView.tsx` | Marker, Übergabe-Fortschritt, zuletzt geschriebene Dokumente |
-| `src/components/SessionsPanel.tsx` | Rechte Spalte: Sitzungen + Fokus (Pins, „Hand to Claude“) |
+| `src/components/SessionsPanel.tsx` | Rechte Spalte: Sitzungen (Schild, Umbenennen, Hover) + Fokus (Pins, „Hand to …“) |
+| `src/components/SessionBadge.tsx`, `useSessionMarks` in `src/assistant.ts` | Schild einer Sitzung; Farbe/Kurzname/Schreiber je Datei für alle Komponenten |
 | `src/components/AssistantStatus.tsx` | KI-Werkzeug in der Statusleiste, `HookPanel` (verbinden); Namen und Angebote aus `mainHarness` |
 | `src/focus.ts`, `src/markers.ts` | Pin-Typ und Fokus-Text; Marker laden und „erledigt“ erkennen |
 | `src/mock.ts`, `WorkspaceView.tsx` | Beispieldaten (Vorschau; Workspace noch unecht) |

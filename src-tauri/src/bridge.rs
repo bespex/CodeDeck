@@ -19,6 +19,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::git::{Git, GitRun};
 use crate::harness::{self, Capabilities, Event, EventKind, Harness, HarnessInfo, SessionInfo};
+use crate::identity::{self, Identities, Listed};
 use crate::snapshot::Origin;
 use crate::{Current, GIT_RAN};
 
@@ -43,16 +44,25 @@ pub struct Session {
     capabilities: Capabilities,
     /// Where it runs: project-relative, or absolute when outside the project
     cwd: String,
+    /// Index into the interface's session colours, the same wherever the session shows up
+    color: u8,
+    /// A letter or a few characters to tell it apart at a glance
+    short: String,
     /// `working`, `waiting` (for an answer or a permission), `idle` (its turn is over), `ended`
     status: &'static str,
-    /// Unix milliseconds
+    /// Unix milliseconds: when CodeDeck first heard of it; the list is in this order
     started: u64,
     last: u64,
     /// The latest prompt, shortened
     prompt: Option<String>,
     prompts: u32,
-    /// The title the tool gave the session, from its log
+    /// The title the user gave the session in CodeDeck, else the tool's, from its log
     title: Option<String>,
+    /// The tool's title
+    #[serde(skip)]
+    log_title: Option<String>,
+    /// The title is the user's
+    renamed: bool,
     /// The model of its latest answer, from its log
     model: Option<String>,
     /// What it is waiting for
@@ -88,8 +98,19 @@ pub struct AssistantState {
     /// The tools CodeDeck supports, the default one first
     harnesses: Vec<HarnessInfo>,
     sessions: Vec<Session>,
+    /// Colour, short name and title of every session remembered for the project, also those no
+    /// longer listed: their snapshots stay
+    identities: Vec<IdentityInfo>,
     /// What waits for the next prompt, in the order it was handed over
     handovers: Vec<Handover>,
+}
+
+#[derive(Serialize, Clone)]
+pub struct IdentityInfo {
+    id: String,
+    color: u8,
+    short: String,
+    title: Option<String>,
 }
 
 #[derive(Default)]
@@ -101,6 +122,9 @@ struct Inner {
     handovers: Vec<Handover>,
     /// Sessions whose log was read since their turn ended
     looked_up: HashSet<String>,
+    /// Colour, short name and title per session, of the project they were read for
+    identities: Identities,
+    project: Option<PathBuf>,
 }
 
 pub struct Bridge {
@@ -145,10 +169,8 @@ impl Bridge {
 
     pub fn state(&self) -> AssistantState {
         let inner = self.inner.lock().unwrap();
-        let mut sessions: Vec<Session> = inner.sessions.values().cloned().collect();
-        sessions.sort_by(|a, b| b.last.cmp(&a.last));
         let harnesses = harness::all().iter().map(|h| HarnessInfo::of(*h)).collect();
-        AssistantState { heard: inner.heard, harnesses, sessions, handovers: inner.handovers.clone() }
+        AssistantState { heard: inner.heard, harnesses, sessions: inner.listed(), identities: inner.identity_list(), handovers: inner.handovers.clone() }
     }
 
     /// A new project: what was known about the old one does not apply.
@@ -176,14 +198,19 @@ impl Bridge {
                 .flat_map(|h| h.past_sessions(&root).into_iter().map(move |info| (*h, info)))
                 .collect();
             {
+                let mut found = found;
+                // Oldest first, so that colours and letters follow the order the sessions came in
+                found.sort_by_key(|(_, info)| info.last);
                 let mut inner = me.inner.lock().unwrap();
                 if app.state::<Arc<Current>>().get().root != root {
                     return; // the project changed meanwhile
                 }
+                inner.use_project(&root);
                 for (harness, info) in found {
                     inner.take_log(harness, info, &root);
                 }
                 trim(&mut inner);
+                inner.save_identities();
             }
             let _ = app.emit(ASSISTANT_CHANGED, me.state());
         });
@@ -193,6 +220,17 @@ impl Bridge {
     /// takes that part back. All parts go together with the next prompt.
     pub fn hand_over(&self, app: &AppHandle, key: String, part: Option<(String, String)>) {
         set_part(&mut self.inner.lock().unwrap().handovers, key, part);
+        let _ = app.emit(ASSISTANT_CHANGED, self.state());
+    }
+
+    /// The user's title and short name for a session, kept for the project.
+    pub fn rename(&self, app: &AppHandle, id: &str, title: Option<&str>, short: Option<&str>) {
+        {
+            let mut inner = self.inner.lock().unwrap();
+            inner.use_project(&app.state::<Arc<Current>>().get().root);
+            inner.rename(id, title, short);
+            inner.save_identities();
+        }
         let _ = app.emit(ASSISTANT_CHANGED, self.state());
     }
 
@@ -213,12 +251,18 @@ impl Bridge {
         let project = app.state::<Arc<Current>>().get();
         let root = &project.root;
         let repos = || app.state::<Git>().repos(&project).iter().map(|r| r.top.clone()).collect();
-        let todo = self.inner.lock().unwrap().take_in(e, harness, root, repos, now_ms())?;
+        let todo = {
+            let mut inner = self.inner.lock().unwrap();
+            inner.use_project(root);
+            let todo = inner.take_in(e, harness, root, repos, now_ms());
+            inner.save_identities();
+            todo?
+        };
 
         if let Some(info) = todo.log.and_then(|p| harness.read_log(&p)) {
-            if let Some(session) = self.inner.lock().unwrap().sessions.get_mut(&e.session) {
-                apply(session, info, root);
-            }
+            let mut inner = self.inner.lock().unwrap();
+            inner.apply(&e.session, info, root);
+            inner.save_identities();
         }
 
         if !todo.snapshot_repos.is_empty() {
@@ -260,6 +304,85 @@ struct Todo {
 }
 
 impl Inner {
+    /// Reads the identities kept for the project, unless they are the ones at hand.
+    fn use_project(&mut self, root: &Path) {
+        if self.project.as_deref() != Some(root) {
+            self.identities = identity::load(root);
+            self.project = Some(root.to_path_buf());
+        }
+    }
+
+    fn save_identities(&mut self) {
+        if let Some(root) = &self.project {
+            identity::save(root, &mut self.identities, now_ms());
+        }
+    }
+
+    /// The sessions in the order they came in, the newest first: a session keeps its place.
+    fn listed(&self) -> Vec<Session> {
+        let mut sessions: Vec<Session> = self.sessions.values().cloned().collect();
+        sessions.sort_by(|a, b| b.started.cmp(&a.started).then_with(|| a.id.cmp(&b.id)));
+        sessions
+    }
+
+    fn identity_list(&self) -> Vec<IdentityInfo> {
+        let mut list: Vec<IdentityInfo> = self
+            .identities
+            .all()
+            .map(|(id, i)| IdentityInfo { id: id.clone(), color: i.color, short: i.short.clone(), title: i.shown_title() })
+            .collect();
+        list.sort_by(|a, b| a.id.cmp(&b.id));
+        list
+    }
+
+    /// The session of that id; a new one gets its identity: the one kept for it, else a colour
+    /// and a letter that tell it apart from the sessions listed.
+    fn session(&mut self, id: &str, now: u64, harness: &dyn Harness) -> &mut Session {
+        if !self.sessions.contains_key(id) {
+            let listed: Vec<Listed> =
+                self.sessions.values().map(|s| Listed { color: s.color, short: &s.short, active: s.status != "ended" }).collect();
+            let identity = self.identities.of(id, now, &listed);
+            let mut session = new_session(id, harness);
+            (session.renamed, session.title) = (identity.name.is_some(), identity.shown_title());
+            (session.color, session.short, session.started, session.last) = (identity.color, identity.short, identity.first, now);
+            self.sessions.insert(id.to_string(), session);
+        }
+        self.identities.touch(id, now);
+        self.sessions.get_mut(id).expect("just put there")
+    }
+
+    /// Takes in what a session's log says: title, model, and writes that were not reported.
+    fn apply(&mut self, id: &str, seen: SessionInfo, root: &Path) {
+        let Some(session) = self.sessions.get_mut(id) else { return };
+        session.log_title = seen.title.or(session.log_title.take());
+        self.identities.set_title(id, session.log_title.as_deref());
+        if !session.renamed {
+            session.title = session.log_title.clone();
+        }
+        session.model = seen.model.or(session.model.take());
+        if session.prompt.is_none() {
+            session.prompt = seen.prompt.as_deref().map(shorten);
+        }
+        for (file, at) in seen.writes {
+            if let Some(path) = relative(root, &file) {
+                if !session.touched.iter().any(|t| t.path == path) {
+                    session.touched.push(Touch { path, at });
+                }
+            }
+        }
+        session.touched.sort_by(|a, b| b.at.cmp(&a.at));
+        session.touched.truncate(TOUCHED_KEPT);
+    }
+
+    /// The user's title and short name for a listed session.
+    fn rename(&mut self, id: &str, title: Option<&str>, short: Option<&str>) {
+        let Some(session) = self.sessions.get_mut(id) else { return };
+        let Some(identity) = self.identities.rename(id, title, short) else { return };
+        session.short = identity.short.clone();
+        session.renamed = identity.name.is_some();
+        session.title = identity.name.clone().or_else(|| session.log_title.clone());
+    }
+
     /// Takes in one event of a session of `harness`; `None` when it does not concern the
     /// project at `root`. `repos` gives the top-level paths of the project's repositories.
     /// Free of the window and of git, so that it can be tested with any adapter.
@@ -277,7 +400,7 @@ impl Inner {
         }
         self.heard = true;
         let capabilities = harness.capabilities();
-        let session = self.sessions.entry(e.session.clone()).or_insert_with(|| new_session(&e.session, now, harness));
+        let session = self.session(&e.session, now, harness);
         // It reports: from now on everything its tool can do is possible with it
         session.capabilities = capabilities;
         if let Some(c) = &cwd {
@@ -364,53 +487,40 @@ impl Inner {
     /// known from its log only.
     fn take_log(&mut self, harness: &dyn Harness, info: SessionInfo, root: &Path) {
         self.looked_up.insert(info.id.clone());
-        let session = self.sessions.entry(info.id.clone()).or_insert_with(|| new_session(&info.id, info.last, harness));
+        let id = info.id.clone();
+        let session = self.session(&id, info.last, harness);
         if let Some(c) = &info.cwd {
             if session.cwd.is_empty() {
                 session.cwd = relative(root, c).unwrap_or_else(|| c.display().to_string());
             }
         }
         session.last = session.last.max(info.last);
-        apply(session, info, root);
+        self.apply(&id, info, root);
     }
 }
 
-fn new_session(id: &str, now: u64, harness: &dyn Harness) -> Session {
+fn new_session(id: &str, harness: &dyn Harness) -> Session {
     Session {
         id: id.to_string(),
         harness: harness.id(),
         // Until it reports itself
         capabilities: harness.capabilities().from_log_only(),
         cwd: String::new(),
+        color: 0,
+        short: String::new(),
         status: "idle",
-        started: now,
-        last: now,
+        started: 0,
+        last: 0,
         prompt: None,
         prompts: 0,
         title: None,
+        log_title: None,
+        renamed: false,
         model: None,
         message: None,
         touched: Vec::new(),
         handed: false,
     }
-}
-
-/// Takes in what a session's log says: title, model, and writes that were not reported.
-fn apply(session: &mut Session, seen: SessionInfo, root: &Path) {
-    session.title = seen.title.or(session.title.take());
-    session.model = seen.model.or(session.model.take());
-    if session.prompt.is_none() {
-        session.prompt = seen.prompt.as_deref().map(shorten);
-    }
-    for (file, at) in seen.writes {
-        if let Some(path) = relative(root, &file) {
-            if !session.touched.iter().any(|t| t.path == path) {
-                session.touched.push(Touch { path, at });
-            }
-        }
-    }
-    session.touched.sort_by(|a, b| b.at.cmp(&a.at));
-    session.touched.truncate(TOUCHED_KEPT);
 }
 
 /// Forgets the sessions heard of longest ago beyond [`SESSIONS_KEPT`].
@@ -525,6 +635,42 @@ mod tests {
         let old = &inner.sessions["old"];
         assert!(old.capabilities.live_status && old.status == "working" && old.title.as_deref() == Some("Earlier work"));
         assert!(inner.heard && inner.handovers.len() == 1 && inner.sessions.len() == 2);
+    }
+
+    /// Colour and letter are given once, the list keeps its order whoever works, and the
+    /// user's title goes before the tool's until it is taken back.
+    #[test]
+    fn sessions_keep_their_identity_and_their_place() {
+        let root = Path::new("/p");
+        let mut inner = Inner::default();
+        let step = |inner: &mut Inner, raw: &str, now: u64| {
+            let event = Fake.translate(&serde_json::from_str(raw).unwrap()).unwrap();
+            inner.take_in(&event, &Fake, root, Vec::new, now).unwrap();
+        };
+        for info in Fake.past_sessions(root) {
+            inner.take_log(&Fake, info, root);
+        }
+        step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"One"}"#, 10);
+        step(&mut inner, r#"{"who":"b2","did":"asked","in":"/p","text":"Two"}"#, 20);
+        let order = |inner: &Inner| inner.listed().iter().map(|s| (s.id.clone(), s.short.clone(), s.color)).collect::<Vec<_>>();
+        let before = order(&inner);
+        assert_eq!(before, [("b2".to_string(), "C".to_string(), 2), ("a1".to_string(), "B".to_string(), 1), ("old".to_string(), "A".to_string(), 0)]);
+        // The oldest works again: nothing moves
+        step(&mut inner, r#"{"who":"old","did":"asked","in":"/p","text":"Again"}"#, 30);
+        assert_eq!(order(&inner), before);
+
+        inner.rename("old", Some("My notes"), Some("Doc"));
+        let old = &inner.sessions["old"];
+        assert_eq!((old.title.as_deref(), old.short.as_str(), old.renamed), (Some("My notes"), "Doc", true));
+        assert_eq!(inner.identity_list()[2].title.as_deref(), Some("My notes"));
+        inner.rename("old", None, None);
+        let old = &inner.sessions["old"];
+        assert_eq!((old.title.as_deref(), old.short.as_str(), old.renamed), (Some("Earlier work"), "Doc", false));
+
+        // Forgotten from the list and back: the same colour and letter
+        inner.sessions.remove("a1");
+        step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Back"}"#, 40);
+        assert_eq!(order(&inner), before.iter().map(|(id, s, c)| (id.clone(), if id == "old" { "Doc".into() } else { s.clone() }, *c)).collect::<Vec<_>>());
     }
 
     #[test]

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   Braces,
   ChevronDown,
@@ -26,6 +26,7 @@ import { aheadBehind, stateMeaning, stateSymbol, type GitView } from "../git";
 import { Tooltip, TooltipHint } from "./Tooltip";
 import { pathItems, useContextMenu } from "./ContextMenu";
 import { AppName, openAs } from "../apps";
+import { useSessionMarks } from "../assistant";
 import { RepoTooltip } from "./RepoTooltip";
 import { ProjectHeader, type OpenProject } from "./ProjectHeader";
 
@@ -207,6 +208,11 @@ function Rows({ dir, depth, tree }: { dir: string; depth: number; tree: TreeStat
 }
 
 function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeState }) {
+  const marks = useSessionMarks();
+  // The session that wrote here: its colour on the dot; hovered in the list, its files stand out
+  const writer = marks.writer(entry.path, entry.isDir);
+  const dot = marks.of(writer)?.color;
+  const faded = marks.hovered !== null && writer !== marks.hovered;
   const isOpen = entry.isDir && (tree.open.has(entry.path) || (!!tree.needle && !!tree.listings[entry.path]));
   const isSelected = tree.selected === entry.path;
   const isPinned = tree.pinned.has(entry.path);
@@ -239,9 +245,9 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
         onAuxClick={(e) => e.button === 1 && !entry.isDir && openAs(entry.path, "edit")}
         onContextMenu={(e) => tree.menu(e, entry.path || entry.name, pathItems(entry.path, entry.isDir))}
         style={{ paddingLeft: 6 + depth * 14 }}
-        className={`group relative flex h-[26px] cursor-default items-center gap-1.5 rounded-md pr-1.5 ${
+        className={`group relative flex h-[26px] cursor-default items-center gap-1.5 rounded-md pr-1.5 transition-opacity ${
           isSelected ? "bg-indigo-500/25 text-slate-50" : "hover:bg-raised"
-        }`}
+        } ${faded ? "opacity-40" : ""}`}
       >
         {entry.isDir ? (
           <Chevron className="size-3.5 shrink-0 text-slate-500" />
@@ -261,7 +267,10 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
           {changed && (
             <span
               className={`ai-dot ${entry.isDir ? "opacity-60" : ""}`}
-              title={entry.isDir ? "Changed on disk just now, somewhere inside" : "Changed on disk just now"}
+              style={dot ? ({ "--dot": dot } as CSSProperties) : undefined}
+              title={`${entry.isDir ? "Changed on disk just now, somewhere inside" : "Changed on disk just now"}${
+                writer ? `; written by session ${marks.of(writer)?.short ?? ""}` : ""
+              }`}
             />
           )}
           {state && (

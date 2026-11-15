@@ -302,6 +302,8 @@ fn read(path: &Path) -> Option<SessionInfo> {
 
 fn parse<'a>(lines: impl Iterator<Item = &'a str>) -> SessionInfo {
     let mut seen = SessionInfo::default();
+    // A name the user gave the session in Claude Code goes before the generated one
+    let mut custom = None;
     for line in lines {
         let Ok(entry) = serde_json::from_str::<Value>(line) else { continue };
         let str_of = |key: &str| entry[key].as_str().map(String::from);
@@ -317,6 +319,7 @@ fn parse<'a>(lines: impl Iterator<Item = &'a str>) -> SessionInfo {
         }
         match entry["type"].as_str().unwrap_or_default() {
             "ai-title" => seen.title = str_of("aiTitle").or(seen.title.take()),
+            "custom-title" => custom = str_of("customTitle").or(custom.take()),
             "last-prompt" => seen.prompt = str_of("lastPrompt").or(seen.prompt.take()),
             "user" => {
                 if let Some(text) = entry["message"]["content"].as_str() {
@@ -342,6 +345,7 @@ fn parse<'a>(lines: impl Iterator<Item = &'a str>) -> SessionInfo {
             _ => {}
         }
     }
+    seen.title = custom.or(seen.title);
     seen
 }
 
@@ -487,6 +491,10 @@ mod tests {
         assert_eq!(s.writes, vec![(PathBuf::from("/p/a.rs"), iso_ms("2026-11-13T10:00:05.000Z").unwrap())]);
         assert_eq!(s.last, iso_ms("2026-11-13T10:01:00.000Z").unwrap());
         assert_eq!(s.cwd.as_deref(), Some(Path::new("/p")));
+
+        // Named by the user: that name wins, wherever the generated title stands
+        let named = [r#"{"type":"custom-title","customTitle":"Limiter","sessionId":"s1"}"#, log[3]];
+        assert_eq!(parse(named.into_iter()).title.as_deref(), Some("Limiter"));
     }
 
     /// Against the real logs of this machine: `cargo test real_logs -- --ignored --nocapture`

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FilesPanel } from "./components/FilesPanel";
 import { GitLog } from "./components/GitLog";
 import { Deck } from "./components/Deck";
@@ -8,7 +8,7 @@ import { live, openProject, openWindow, projectInfo, type Entry, type ProjectInf
 import { initialPins } from "./mock";
 import { pinFromEntry, type Pin } from "./focus";
 import { useGit } from "./git";
-import { touchedFiles, useAssistant } from "./assistant";
+import { SessionMarksContext, sessionMarks, touchedFiles, useAssistant } from "./assistant";
 import { RepoActions, type Anchor } from "./components/RepoActions";
 
 export default function App() {
@@ -17,6 +17,9 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const git = useGit(project?.path);
   const assistant = useAssistant();
+  // The session the mouse is on in the list: its snapshots and files stand out everywhere
+  const [hoveredSession, setHoveredSession] = useState<string | null>(null);
+  const marks = useMemo(() => sessionMarks(assistant, hoveredSession, setHoveredSession), [assistant, hoveredSession]);
   // Git actions of one repository, hanging at the element that opened them
   const [actions, setActions] = useState<{ repo: string; anchor: Anchor } | null>(null);
   const [logOpen, setLogOpen] = useState(false);
@@ -59,6 +62,7 @@ export default function App() {
   const unpin = (id: string) => setPins((current) => current.filter((p) => p.id !== id));
 
   return (
+    <SessionMarksContext.Provider value={marks}>
     <div className="flex h-full flex-col">
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(220px,20%)_minmax(0,1fr)_minmax(300px,25%)]">
         <FilesPanel
@@ -102,5 +106,6 @@ export default function App() {
         />
       )}
     </div>
+    </SessionMarksContext.Provider>
   );
 }

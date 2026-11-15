@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { Check, ClipboardCopy, Eye, ExternalLink, FileText, MessageSquareText, Send, Sparkles, X } from "lucide-react";
 import { handOver, openFile, type AssistantState, type HarnessInfo, type Marker } from "../../backend";
-import { mainHarness, touchedFiles, useConnections } from "../../assistant";
+import { mainHarness, touchedFiles, useConnections, useSessionMarks } from "../../assistant";
+import { SessionBadge } from "../SessionBadge";
 import { markerKey, type Markers } from "../../markers";
 import { LOCALE } from "../Trail";
 import { plural } from "../../git";
@@ -141,16 +142,20 @@ function recentDocs(state: AssistantState): [string, number][] {
 }
 
 function RecentDocs({ docs }: { docs: [string, number][] }) {
+  const marks = useSessionMarks();
   return (
     <section className="mx-4 mb-4">
       <h3 className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-slate-400">
         <Sparkles className="size-3.5 text-ai" /> Recently written by the assistant
       </h3>
       <ul className="rounded-lg border border-line bg-panel py-1">
-        {docs.map(([path, at]) => (
+        {docs.map(([path, at]) => {
+          const mark = marks.of(marks.writer(path));
+          return (
           <li key={path} className="group flex items-center gap-2 px-3 py-1 hover:bg-raised">
             <FileText className="size-3.5 shrink-0 text-slate-500" />
             <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-slate-200">{path}</span>
+            {mark && <SessionBadge mark={mark} />}
             <span className="text-[11px] text-slate-500 tabular-nums">
               {new Date(at).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" })}
             </span>
@@ -175,7 +180,8 @@ function RecentDocs({ docs }: { docs: [string, number][] }) {
               </button>
             </Tooltip>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </section>
   );

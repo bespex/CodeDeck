@@ -96,7 +96,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 |---|---|---|---|---|
 | 1.1 Praxistest ✅ 2026-11-15 | P0 durchführen (braucht den Nutzer). Zusätzlich klären: Kommt Text aus dem Hook „Sitzung beginnt“ in der Sitzung an? Sieht der Hook Schreibvorgänge außerhalb des Projekts und Werkzeugaufrufe, die eine Seite veröffentlichen (mit Link)? Feuern die Hooks auch, wenn der Prompt über Desktop/Web kommt? | – | `hook.rs`, `bridge.rs` | Die fünf Punkte aus P0 und die drei Fragen sind beantwortet und unter „Notizen“ festgehalten |
 | 1.2 Schnittstelle für KI-Werkzeuge ✅ 2026-11-15 | Alles Claude-Spezifische hinter die Schnittstelle aus „Kapselung der KI-Anbindung“ ziehen. Kein neues Verhalten | – | `hook.rs`, `sessions.rs`, `bridge.rs`, `lib.rs`, `backend.ts` | Tests grün; ein Test-Adapter ohne Claude liefert Sitzungen; Frontend fragt Fähigkeiten statt Werkzeugnamen |
-| 1.2a Sitzungs-Identität ☐ | D15: Jede Sitzung bekommt Farbe und Kurzname, überall gleich (Liste, Trail, Snapshots, Dateien); Hover hebt Zugehöriges hervor; feste Reihenfolge nach Start statt nach Aktivität; Umbenennen (Titel, Kurzname) je Projekt. Titel aus dem Log: zuerst `custom-title`, dann `ai-title` | rechte Spalte, Trail | `bridge.rs` (`sort_by last`), `harness/claude.rs` (Log), `config.rs`, `SessionsPanel.tsx`, `Trail.tsx` | Zwei Sitzungen sind in Liste, Trail und Dateibaum an Farbe und Kurzname zu unterscheiden; die Liste springt nicht mehr; ein vergebener Name überlebt den Neustart |
+| 1.2a Sitzungs-Identität ✅ 2026-11-15 | D15: Jede Sitzung bekommt Farbe und Kurzname, überall gleich (Liste, Trail, Snapshots, Dateien); Hover hebt Zugehöriges hervor; feste Reihenfolge nach Start statt nach Aktivität; Umbenennen (Titel, Kurzname) je Projekt. Titel aus dem Log: zuerst `custom-title`, dann `ai-title` | rechte Spalte, Trail | `bridge.rs` (`sort_by last`), `harness/claude.rs` (Log), `config.rs`, `SessionsPanel.tsx`, `Trail.tsx` | Zwei Sitzungen sind in Liste, Trail und Dateibaum an Farbe und Kurzname zu unterscheiden; die Liste springt nicht mehr; ein vergebener Name überlebt den Neustart |
 | 1.3 Grundgerüst ☐ | Projekt öffnet in Changes (D14). Vier Reiter mit ihrer Frage, Bereichsfarben, die fünf Erscheinungsformen als wiederverwendbare Bausteine (Werkzeugleiste, Abschnitt, Zeile, Dokument, Entscheidung). Bestehende Ansichten einsortieren: Docs → Handover, Workspace/Map/Tests entfallen als Reiter | Projektansicht, alle Reiter | `Deck.tsx`, `views/*`, `index.css`, `App.tsx` | Alle heutigen Funktionen sind im neuen Gerüst erreichbar; Vorschau zeigt vier Reiter |
 | 1.4 Rechte Spalte ☐ | „Needs you“, Sitzungen als zwei Zeilen mit aufklappbaren Details, „Next prompt“ mit Vorschau des Textes und Empfangsbestätigung | rechte Spalte, Szenen 2–7 | `SessionsPanel.tsx`, `assistant.ts`, `bridge.rs` (Übergabe abgeholt melden) | Wartende Sitzung erscheint oben mit Grund; nach dem nächsten Prompt steht „Delivered“ |
 | 1.5 Changes je Runde ☐ | Auswahl „Turn n / All uncommitted“ (macht den Strg+Klick-Vergleich entdeckbar, ersetzt ihn nicht), Kurzbericht aus dem Log, Datei abhaken, „Claude“ oder „You“ je Datei, Zeile kommentieren | Changes, Szenen 4–7 | `ChangesView.tsx`, `DiffParts.tsx`, `history.rs`, `sessions.rs`, `focus.ts` | Ein Zeilenkommentar landet in „Next prompt“ und kommt bei Claude an |
@@ -441,6 +441,17 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   In der echten App geprüft (CLI-Sitzung, 2026-11-15): Status, Titel, Sicherungspunkt („Before: <Prompt>“) und
   Übergabe mit dem nächsten Prompt funktionieren wie vor dem Umbau. Die Übergabe enthielt nur den Fehltreffer
   `README.md:70` (Zeile, die die Marker-Schreibweise erklärt); er gilt als übergeben und wird nie „erledigt“ (für 1.6).
+- 1.2a (2026-11-15): Identität je Sitzung in `identity.rs`, gespeichert in `~/.config/codedeck/sessions.json` je
+  Projektpfad (Farbe als Index 0–5, Kurzname, eigener Titel, letzter Werkzeug-Titel, zuerst/zuletzt gesehen; nach
+  30 Tagen vergessen). Neue Sitzung: die Farbe, die die wenigsten nicht beendeten Sitzungen tragen; nächster Buchstabe,
+  den keine gelistete Sitzung hat. `Session.started` = „zuerst gesehen“, die Liste sortiert danach (neueste oben); für
+  Sitzungen aus dem Log ist das deren letzte Aktivität beim ersten Einlesen. `AssistantState.identities` enthält auch
+  nicht mehr gelistete Sitzungen, damit alte Snapshots ihre Farbe behalten. Frontend: `useSessionMarks()` (Kontext aus
+  `App.tsx`) liefert `of(id)`, `writer(path)`, `hovered`/`hover`; `SessionBadge` ist das Schild. Farben stehen als
+  `--color-session-0…5` in `index.css` **außerhalb** von `@theme` (Tailwind verwirft Theme-Variablen, die keine
+  Utility nutzt). Titel aus dem Log: `custom-title` vor `ai-title` (im Adapter). Offen: Hover nur von der Liste aus
+  (Gegenrichtung mit 1.4); der Punkt im Dateibaum erscheint weiter nur 2 Minuten, gefärbt nur für gelistete Sitzungen;
+  zwei Fenster auf demselben Projekt können sich beim Speichern überschreiben. Nur in Tests und Vorschau geprüft.
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

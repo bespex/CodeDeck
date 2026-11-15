@@ -11,6 +11,7 @@ mod git;
 mod harness;
 mod history;
 pub mod hook;
+mod identity;
 mod markers;
 mod project;
 mod recent;
@@ -296,6 +297,12 @@ fn hand_over(key: String, text: Option<String>, label: Option<String>, app: AppH
     bridge.hand_over(&app, key, text.map(|t| (t, label.unwrap_or_default())));
 }
 
+/// The user's title and short name for a session; an empty title brings the tool's back.
+#[tauri::command]
+fn rename_session(id: String, title: Option<String>, short: Option<String>, app: AppHandle, bridge: State<Arc<Bridge>>) {
+    bridge.rename(&app, &id, title.as_deref(), short.as_deref());
+}
+
 /// Whether the coding tools report to CodeDeck, per tool and account.
 #[tauri::command]
 fn harness_connections() -> Vec<Connection> {
@@ -375,6 +382,7 @@ pub fn run() {
             find_markers,
             assistant_state,
             hand_over,
+            rename_session,
             harness_connections,
             set_harness_connection,
             git_log
