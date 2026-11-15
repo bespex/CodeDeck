@@ -322,6 +322,32 @@ impl Git {
     }
 }
 
+impl Git {
+    /// Puts a change into the log that CodeDeck made without git, written as one would type it in
+    /// the repository (e.g. a line added to `.git/info/exclude`): nothing changes unseen.
+    pub(crate) fn note_change(&self, report: Report, repo: &Repo, command: &str, result: Result<(), String>) {
+        let run = GitRun {
+            id: self.count.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1,
+            repo: name_of(&repo.top),
+            command: command.to_string(),
+            ok: result.is_ok(),
+            code: Some(if result.is_ok() { 0 } else { 1 }),
+            ms: 0,
+            at: SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64),
+            changes: true,
+            output: result.err().unwrap_or_default(),
+        };
+        {
+            let mut log = self.changes.lock().unwrap();
+            if log.len() == LOG_LIMIT {
+                log.pop_front();
+            }
+            log.push_back(run.clone());
+        }
+        report(&run);
+    }
+}
+
 /// Whether a command goes into the log (and to the status bar).
 #[derive(PartialEq, Clone, Copy)]
 enum Logged {

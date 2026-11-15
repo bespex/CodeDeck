@@ -24,8 +24,8 @@ Das Zielbild ist abgestimmt (Click-Dummy, `KONZEPT.md` Teil 4). Von MVP 1 sind d
 gebaut, dazu 1.6a (einheitliche Begriffe), 1.6b (Änderungen anhängen) und 1.7 (Anhänge aus einem Guss); alles erst
 in Tests, Vorschau und mit nachgestellten Hook-Meldungen geprüft.
 
-**Nächste Session:** Praxistest von 1.5 bis 1.7 in der echten App mit dem Nutzer (Listen „Offen“ in den Notizen,
-Ablauf in der Notiz zu 1.7), Gefundenes beheben. Danach MVP 2, Schritt 2.1. (1.7 kam auf Wunsch des Nutzers vor den
+**Nächste Session:** Praxistest von 1.5 bis 1.7 und 2.1 in der echten App mit dem Nutzer (Ablauf in den Notizen zu
+1.7 und 2.1), Gefundenes beheben. Danach Schritt 2.2. (1.7 kam auf Wunsch des Nutzers vor den
 Test: es baut genau den Code um, den der Test prüft.)
 
 Fertig in der App (P1, P2, P3, P5, siehe „Ältere Pakete“): Trail mit drei Zonen (nicht committet / nicht
@@ -123,7 +123,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 
 | Schritt | Ziel | Dummy | Dateien | Fertig wenn |
 |---|---|---|---|---|
-| 2.1 Workbench-Ordner ☐ | Ordner anlegen und lokal ignorieren (`.git/info/exclude`, nicht `.gitignore`), Inhalt mit Größe und Alter, Öffnen, ins Projekt übernehmen, löschen, „älter als … löschen“. Dazu (Idee des Nutzers, D20): **externe Dateien anhängen**, CodeDeck kopiert sie nach `.workbench/` und hängt den Pfad an (keine Erlaubnisfrage für Pfade außerhalb). Startregel zu `.workbench/` (D16) | Workbench | neu `workbench.rs`, `views/WorkbenchView.tsx`, `watch.rs` | Eine Datei im Ordner erscheint sofort, Aufräumen löscht nur Altes |
+| 2.1 Workbench-Ordner ✅ 2026-11-15 (Praxistest offen) | Ordner anlegen und lokal ignorieren (`.git/info/exclude`, nicht `.gitignore`), Inhalt mit Größe und Alter, Öffnen, ins Projekt übernehmen, löschen, „älter als … löschen“. Startregel zu `.workbench/` (D16). Externe Dateien anhängen: verschoben nach „Später“ | Workbench | neu `workbench.rs`, `views/WorkbenchView.tsx`, `watch.rs` | Eine Datei im Ordner erscheint sofort, Aufräumen löscht nur Altes |
 | 2.2 Fundstücke und Links ☐ | Schreibvorgänge außerhalb des Projekts der Sitzung zuordnen und melden; claude.ai-Seiten als Link merken (je nach Ergebnis von 1.1 über Hook oder über die Startregel) | Workbench: „Still somewhere else“, „Pages on claude.ai“ | `bridge.rs`, `sessions.rs`, Adapter | Eine in `/tmp` geschriebene Datei wird gemeldet und lässt sich holen |
 | 2.3 Activity und Hinweise ☐ | Zeitleiste der Sitzungen aus den Ereignissen, „How safe is your work“, geschriebene Dokumente; Panel „Notices and tips“ | Activity, Glocke | neu `views/ActivityView.tsx`, `bridge.rs` (Ereignisse merken) | Ein Vormittag ist als Zeitleiste nachvollziehbar |
 | 2.4 Verbrauch ☐ | P4: erst den Spike. Ohne verlässliche Quelle entfällt die Anzeige, nicht schätzen | Activity, Statusleiste | siehe P4 | D2 ist entschieden und umgesetzt oder gestrichen |
@@ -161,6 +161,10 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
   MCP-Server-Teil von CodeDeck könnte das einer KI bereitstellen, um Arbeitszeiten und -themen zu erkennen. Braucht
   ein dauerhaftes Ereignisprotokoll je Projekt (entsteht mit 2.3 „Ereignisse merken“) und eine Antwort auf die
   Frage, was davon das Gerät verlassen darf.
+- **Externe Dateien anhängen** (Idee des Nutzers, 2026-11-15, bei 2.1 zurückgestellt): eine Datei von außerhalb des
+  Projekts als Kopie nach `.workbench/attached/` holen (Stand des Moments) und ihren Pfad anhängen, per Ziehen aus dem
+  Dateimanager auf Next prompt (Tauri `drag-drop`-Ereignis) oder Knopf „Attach a file from elsewhere…“ (Dialog-Plugin
+  ist da). Nur der Pfad ginge auch, dann fragt Claude meist um Erlaubnis.
 - **Einstellungsseite** (Wunsch des Nutzers, 2026-11-15): z. B. wie lange eine fertige Runde unter „Needs you“
   steht, ab wann Sitzungen unter „Earlier“ einklappen.
 
@@ -634,6 +638,57 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   anpinnen, Zeile kommentieren, Runde und Hinweis anhängen, prompten: alles kommt an, `git diff` läuft, danach „Sent
   at …“ und „Got from CodeDeck“. (5) Zielsitzung: in der anderen Sitzung prompten, dort kommt nichts an. (6) Tooltip von
   „Attach“ abgeschnitten? Begriffe klar?
+- **Vorbereitung 2.1 (2026-11-15, geprüft, noch nichts gebaut; Fragen F1–F6 an den Nutzer offen):**
+  - *Technik (an Wegwerf-Repos ausprobiert):* Der Eintrag `.workbench/` (ohne führenden `/`) in der Datei, die
+    `git rev-parse --git-path info/exclude` nennt, wirkt in jeder Tiefe: auch wenn das Projekt nur ein Unterordner
+    seines Repos ist (`Repo.prefix`), und für alle verknüpften Worktrees, weil sie `info/exclude` des Haupt-Repos
+    teilen. Damit lassen ohne weiteren Code die Diffs von CodeDeck (`ScratchIndex`, `add -A --intent-to-add`), die
+    Marker-Suche (`git grep --untracked`) und `git status` den Ordner aus. Snapshots enthalten ihn nicht, und „Go back“
+    lässt ihn stehen (`restore_snapshot` löscht nur, was im Snapshot-Vergleich neu ist, Ignoriertes nie): Entwürfe
+    überleben ein Zurückgehen, sind aber auch durch keinen Snapshot gesichert, darum Löschen in den Papierkorb
+    (`gio::File::trash`, `gio` ist schon Abhängigkeit). Ein Projekt ohne Repo braucht keinen Eintrag; liegen nur
+    eingebettete Repos im Projekt, gehört `.workbench/` keinem davon. Die Datei `info/exclude` wird direkt geschrieben,
+    nicht über Git; damit es trotzdem sichtbar ist, soll der Schritt im Git-Protokoll erscheinen (Eintrag wie ein
+    Befehl, Vorschlag) oder als Hinweis.
+  - *Bestand:* Der Dateibaum zeigt Punktordner (versteckt ist nur `.git`, `project.rs` `HIDDEN`), `.workbench/`
+    erscheint dort also schon. `watch.rs` beobachtet nur geöffnete Ordner, nicht rekursiv: Für „erscheint sofort“ muss
+    `.workbench/` (mit Unterordnern) eigens beobachtet werden, sobald es existiert. Von der KI geschriebene Dateien dort
+    tragen über `Session.touched` schon ihre Sitzung (nur Write/Edit, nicht per Shell erzeugte). `WorkbenchView.tsx`
+    ist Platzhalter. Der Dialog-Plugin ist da (Dateiauswahl für „von woanders anhängen“). Dateien aus dem
+    Dateimanager ins Fenster ziehen liefert Tauri als `drag-drop`-Ereignis mit Pfaden (`dragDropEnabled` ist Standard);
+    das interne Ziehen in Next prompt (HTML5) läuft daneben weiter, unter Linux ohne bekannten Konflikt.
+  - *Gestaltung (Dummy):* Kopf mit Ordnername, Summe und „Delete n older than 7 days (Größe)“; ein Satz Erklärung;
+    je Datei Name, „Alter · Sitzung“ (alt: gelb), Größe, „Open“, „Move into project“, „Delete“; darüber „Still
+    somewhere else“ (2.2) und darunter „Pages on claude.ai“ (2.2). In 2.1 nur der Ordner-Teil.
+  - *Fragen an den Nutzer (je mit Vorschlag):* **F1** Wann wird der Ignorier-Eintrag geschrieben? Vorschlag:
+    automatisch beim Öffnen eines Projekts mit Repo (er ist lokal, ändert nichts Geteiltes), sichtbar im
+    Git-Protokoll; den Ordner selbst legt erst an, wer ihn braucht (die KI nach der Startregel, oder „Open folder“).
+    **F2** Löschen: in den Papierkorb (Vorschlag) oder endgültig. **F3** „Move into project“: kleiner Dialog mit
+    Zielpfad, vorbelegt mit Projektwurzel + Dateiname (Vorschlag), oder Ziehen in den Dateibaum. **F4** `.workbench/`
+    im Dateibaum: zeigen, gedimmt wie Ignoriertes (Vorschlag), oder ausblenden, weil es einen eigenen Reiter hat.
+    **F5** „Älter als“: fest 7 Tage, später Einstellung (Vorschlag). **F6** Externe Dateien anhängen: als Kopie nach
+    `.workbench/attached/` (Stand des Moments; Vorschlag), per Ziehen auf Next prompt und Knopf „Attach a file from
+    elsewhere…“; oder nur den Pfad anhängen (dann fragt Claude meist um Erlaubnis). Startregel, Vorschlag: „Put drafts,
+    mock-ups, throwaway scripts and test data into .workbench/ in this project, not into /tmp or your home folder.“
+- 2.1 (2026-11-15): Antworten des Nutzers auf F1–F6: Eintrag automatisch (ja), Papierkorb, Übernehmen per Ziehen
+  (Dialog nur, wenn etwas dagegen spräche: nichts), im Dateibaum gedimmt, fest 7 Tage, externe Dateien später.
+  `workbench.rs`: `Git::exclude_workbench` (beim Start und bei `open_project`, im Hintergrund; nur im Repo mit
+  `path == ""`, also dem, zu dem die Projektwurzel gehört; erkennt vorhandene Schreibweisen), Eintrag samt Kommentarzeile,
+  im Git-Protokoll als `echo '.workbench/' >> .git/info/exclude` über das neue `Git::note_change` (Protokolleintrag für
+  Änderungen ohne Git). `list` (rekursiv, Links werden nicht verfolgt, bis 1000 Dateien; die Ordner beobachtet
+  `workbench_list` danach), `trash` (`gio::File::trash`, nur Pfade im Workbench), `move_into` (Ziel im Projekt, nicht
+  im Workbench, nicht belegt, keine `..`/absoluten Pfade, Ordner unterwegs werden angelegt, Link-Ausbruch geprüft).
+  Frontend: `WorkbenchView` (Summe, „Delete n older than 7 days“, je Datei Alter · Sitzung aus `Session.touched`,
+  Größe, Öffnen, Papierkorb; Zeilen sind ziehbar), `workbench.ts` (`moveIntoProject`, letzte Verschiebung für die
+  Ansicht), `FilesPanel`: Ordner und Wurzel nehmen `WORKBENCH_DRAG` an, ein zugeklappter Ordner öffnet sich nach 0,7 s
+  Verweilen, `.workbench` gedimmt mit Erklärung. Zweite Startregel ist aktiv (Text in `rules.rs`). Geprüft: Tests
+  (Eintrag, Liste, Verschieben und seine Grenzen), echtes Binary zweimal auf einem Unterordner-Projekt gestartet
+  (Eintrag genau einmal, Ordner danach ignoriert), Ziehen in der Vorschau mit nachgestellten Drag-Ereignissen.
+  **Praxistest 2.1:** (1) Projekt öffnen: Git-Protokoll zeigt den `echo`-Eintrag, `git status` ignoriert `.workbench/`.
+  (2) Neue Sitzung bitten, ein Wegwerf-Script zu schreiben: landet es in `.workbench/` (Startregel), erscheint es sofort
+  im Reiter mit Sitzung? (3) Datei auf einen Ordner im Dateibaum ziehen, auch tief (Ordner öffnet sich beim Verweilen).
+  (4) Löschen: liegt die Datei im Papierkorb? Nicht geprüft: echtes Ziehen mit der Maus unter WebKitGTK (nur
+  nachgestellt in Chromium).
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

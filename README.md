@@ -82,8 +82,12 @@ the settings changes, the file as it was is kept as `settings.json.before-codede
   of the session you choose (or of whichever session in the project prompts first). Comments that are
   gone afterwards count as done. The view also shows the exact text that goes out. The
   documents the assistant wrote recently are in the **Activity** view.
-- **Start rules:** a few short, fixed rules every new session gets when it starts (today: name a page
-  published elsewhere with its link). Always on, shown word for word in the **Next prompt** view, apart from the attachments.
+- **Workbench:** `.workbench/` in the project is for drafts, mock-ups, throwaway scripts and test data.
+  CodeDeck adds it to `.git/info/exclude` (never `.gitignore`), so git leaves it alone. The **Workbench**
+  view lists its files with size, age and the session that wrote them; drag one onto a folder in the file
+  list to move it into the project, or send it to the trash (also everything older than 7 days).
+- **Start rules:** a few short, fixed rules every new session gets when it starts (today: put temporary
+  things into `.workbench/`, and name a page published elsewhere with its link). Always on, shown word for word in the **Next prompt** view, apart from the attachments.
 - **Attaching files:** click the paperclip of a file or folder (or drag it onto Next prompt) and it is
   attached: Claude gets its path with the next prompt and reads what it needs. Files, changes, line
   comments and hints can be attached together; all go with the same prompt, and then the list is empty again.

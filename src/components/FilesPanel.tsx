@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type DragEvent } from "react";
 import {
   Braces,
   ChevronDown,
@@ -28,6 +28,7 @@ import { AppName, openAs } from "../apps";
 import { useSessionMarks } from "../assistant";
 import { RepoTooltip } from "./RepoTooltip";
 import { ProjectHeader, type OpenProject } from "./ProjectHeader";
+import { inWorkbench, moveIntoProject, WORKBENCH_DRAG } from "../workbench";
 
 /** MIME type used when dragging a file or folder onto the context area. */
 export const DRAG_TYPE = "application/x-codedeck-entry";
@@ -138,6 +139,7 @@ export function FilesPanel(props: Props) {
   ];
   const contextMenu = useContextMenu();
   const tree: TreeState = { ...props, listings, open, recentPaths, needle, toggle, menu: contextMenu.open };
+  const [rootDrop, setRootDrop] = useState(false);
 
   return (
     <aside className="flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
@@ -155,7 +157,24 @@ export function FilesPanel(props: Props) {
         </label>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-1 py-2" role="tree">
+      <div
+        className={`min-h-0 flex-1 overflow-y-auto px-1 py-2 ${rootDrop ? "ring-1 ring-ai ring-inset" : ""}`}
+        role="tree"
+        // A workbench file dropped here, not on a folder: into the project root
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes(WORKBENCH_DRAG)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          setRootDrop(true);
+        }}
+        onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setRootDrop(false)}
+        onDrop={(e) => {
+          if (!e.dataTransfer.types.includes(WORKBENCH_DRAG)) return;
+          e.preventDefault();
+          setRootDrop(false);
+          void moveIntoProject(e.dataTransfer.getData(WORKBENCH_DRAG), "");
+        }}
+      >
         {error ? (
           <p className="selectable px-2 text-problem">{error}</p>
         ) : (
@@ -224,7 +243,14 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
   const inside = entry.isDir && !repo && !state && !isOpen ? tree.git.changesIn(entry.path) : 0;
   const Icon = repo ? (repo.worktreeOf ? GitFork : FolderGit2) : entry.isDir ? (isOpen ? FolderOpen : Folder) : iconFor(entry.name);
   const Chevron = isOpen ? ChevronDown : ChevronRight;
-
+  // A workbench file can be dropped on a folder of the project, to move it in there
+  const [dropping, setDropping] = useState(false);
+  const opening = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const takes = (e: DragEvent) => entry.isDir && !inWorkbench(entry.path) && e.dataTransfer.types.includes(WORKBENCH_DRAG);
+  const leave = () => {
+    clearTimeout(opening.current);
+    setDropping(false);
+  };
 
   return (
     <>
@@ -237,6 +263,25 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
           e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(entry));
           e.dataTransfer.effectAllowed = "copy";
         }}
+        onDragOver={(e) => {
+          if (!takes(e)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          e.dataTransfer.dropEffect = "move";
+          if (!dropping) {
+            setDropping(true);
+            // Resting on a closed folder opens it, to get deeper while dragging
+            if (!isOpen) opening.current = setTimeout(() => tree.toggle(entry.path), 700);
+          }
+        }}
+        onDragLeave={leave}
+        onDrop={(e) => {
+          if (!takes(e)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          leave();
+          void moveIntoProject(e.dataTransfer.getData(WORKBENCH_DRAG), entry.path);
+        }}
         onClick={() => (entry.isDir ? tree.toggle(entry.path) : tree.onSelect(entry.path))}
         onDoubleClick={() => !entry.isDir && openAs(entry.path, "view")}
         // Middle button: edit. Its press would otherwise start the scrolling mode
@@ -245,8 +290,9 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
         onContextMenu={(e) => tree.menu(e, entry.path || entry.name, pathItems(entry.path, entry.isDir))}
         style={{ paddingLeft: 6 + depth * 14 }}
         className={`group relative flex h-[26px] cursor-default items-center gap-1.5 rounded-md pr-1.5 transition-opacity ${
-          isSelected ? "bg-indigo-500/25 text-slate-50" : "hover:bg-raised"
-        } ${faded ? "opacity-40" : ""}`}
+          dropping ? "bg-ai/20 ring-1 ring-ai" : isSelected ? "bg-indigo-500/25 text-slate-50" : "hover:bg-raised"
+        } ${faded ? "opacity-40" : inWorkbench(entry.path) ? "opacity-55" : ""}`}
+        title={entry.path === ".workbench" ? "Drafts and scratch files of sessions; Git ignores it. See the Workbench view." : undefined}
       >
         {entry.isDir ? (
           <Chevron className="size-3.5 shrink-0 text-slate-500" />
