@@ -36,8 +36,9 @@ Seit dem Test dazugekommen, alles auf `main` und gepusht:
   zwei Runden plus „Frühere“, der Trail faltet Snapshots ab drei in Folge, Tooltips per Portal (WebKitGTK).
 - **Konzept Seitenleiste:** `docs/SEITENLEISTE.md` mit den Schritten A (Kopf rechts), B (Leiste), C (Aufmerksamkeit).
 
-**Nächste Session:** 2.1a (Aufmerksamkeit) ist gebaut, aber nur in der Vorschau geprüft: zuerst in der echten App
-prüfen (Ablauf in den Notizen unter „2.1a“), dann Schritt 2.2.
+**Nächste Session:** 2.1a (Aufmerksamkeit) und 2.1b (Kopfleiste) sind gebaut, aber nur in der Vorschau geprüft:
+zuerst in der echten App prüfen (Ablauf in den Notizen unter „2.1a“; für 2.1b: Menüs, About, `Ctrl+,`, `F1`, „Nicht
+stören“ unterdrückt Taskleiste und Meldung), dann Schritt 2.2.
 
 Fertig in der App (P1, P2, P3, P5, siehe „Ältere Pakete“): Trail mit drei Zonen (nicht committet / nicht
 gepusht / gepusht) und Remote-Chip, Vergleich zweier Punkte · Hook-Brücke `codedeck hook` → Socket je
@@ -139,6 +140,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 |---|---|---|---|---|
 | 2.1 Workbench-Ordner ✅ 2026-11-15 (Praxistest bestanden 2026-11-16) | Ordner anlegen und lokal ignorieren (`.git/info/exclude`, nicht `.gitignore`), Inhalt mit Größe und Alter, Öffnen, ins Projekt übernehmen, löschen, „älter als … löschen“. Startregel zu `.workbench/` (D16). Externe Dateien anhängen: verschoben nach „Später“ | Workbench | neu `workbench.rs`, `views/WorkbenchView.tsx`, `watch.rs` | Eine Datei im Ordner erscheint sofort, Aufräumen löscht nur Altes |
 | 2.1a Aufmerksamkeit ✅ 2026-11-16 (in der echten App zu prüfen) | Wer über Statusänderungen informiert werden will, sieht sie deutlich: Zahl im Fenstertitel, Taskleiste verlangt Aufmerksamkeit, Desktop-Meldung, neuer Eintrag unter „Wartet auf dich“ leuchtet kurz; wobei und wie wählt man im Projektmenü (Entscheidung des Nutzers 2026-11-16, `docs/SEITENLEISTE.md`) | nicht im Dummy | `lib.rs`, `bridge.rs`, neu `attention.rs`, `SessionsPanel.tsx`, `ProjectHeader.tsx` | Eine Erlaubnisfrage bei verdecktem Fenster ist in der Taskleiste und als Meldung zu sehen |
+| 2.1b Kopfleiste ✅ 2026-11-16 (in der echten App zu prüfen) | Rechte Spalte oben: Projektmenü, Schnelleinstellungen mit „Nicht stören“, App-Menü `⋯`, About, Tastenkürzel, Einstellungsdialog (Allgemein, Meldungen, KI-Werkzeuge); links nur noch der Pfad. Ersetzt Seitenleiste A | – (`docs/KOPFLEISTE.md`) | neu `HeaderBar.tsx`, `Dialogs.tsx`, `AttentionChoice.tsx`, `dialogs.ts`; `ProjectHeader.tsx` (jetzt `ProjectMenu` und `PathBar`), `attention.rs` (`quiet_until`), `lib.rs` (`app_info`, `open_url`), `build.rs` (Commit) | Sprache und Meldungen sind nicht mehr im Projektmenü |
 | 2.2 Fundstücke und Links ☐ | Schreibvorgänge außerhalb des Projekts der Sitzung zuordnen und melden; claude.ai-Seiten als Link merken (je nach Ergebnis von 1.1 über Hook oder über die Startregel) | Workbench: „Still somewhere else“, „Pages on claude.ai“ | `bridge.rs`, `sessions.rs`, Adapter | Eine in `/tmp` geschriebene Datei wird gemeldet und lässt sich holen |
 | 2.3 Activity und Hinweise ☐ | Zeitleiste der Sitzungen aus den Ereignissen, „How safe is your work“, geschriebene Dokumente; Panel „Notices and tips“ | Activity, Glocke | neu `views/ActivityView.tsx`, `bridge.rs` (Ereignisse merken) | Ein Vormittag ist als Zeitleiste nachvollziehbar |
 | 2.4 Verbrauch ☐ | P4: erst den Spike. Ohne verlässliche Quelle entfällt die Anzeige, nicht schätzen | Activity, Statusleiste | siehe P4 | D2 ist entschieden und umgesetzt oder gestrichen |
@@ -183,7 +185,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 - **Seitenleiste** (Idee des Nutzers, 2026-11-16, Rückfragen beantwortet): per globalem Kürzel auf die rechte
   Spalte verkleinern (kein eigenes Design), zweites Kürzel blendet CodeDeck ein und aus; Projektmenü wandert nach
   rechts oben; Benachrichtigungen bei Statusänderungen. Kurzkonzept mit drei Schritten (A Kopf rechts, B Leiste,
-  C Aufmerksamkeit) in `docs/SEITENLEISTE.md`. C gehört zu MVP 2, A und B zu 2.5 oder direkt danach.
+  C Aufmerksamkeit) in `docs/SEITENLEISTE.md`. C gehört zu MVP 2, A und B zu 2.5 oder direkt danach. Schritt A ist als **Kopfleiste** ausgearbeitet (Projekt, Schnelleinstellungen, App-Menü, About, Einstellungsdialog; auch für die Startseite): `docs/KOPFLEISTE.md`, Entwurf zur Abstimmung (2026-11-16).
 - **Einstellungsseite** (Wunsch des Nutzers, 2026-11-15): z. B. wie lange eine fertige Runde unter „Needs you“
   steht, ab wann Sitzungen unter „Earlier“ einklappen.
 

@@ -23,11 +23,13 @@ pub struct Settings {
     pub taskbar: bool,
     /// A notification on the desktop
     pub desktop: bool,
+    /// "Do not disturb" until then (Unix milliseconds): no taskbar, no notification; the title still counts
+    pub quiet_until: Option<u64>,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { asks: true, done: true, git_failed: false, taskbar: true, desktop: true }
+        Self { asks: true, done: true, git_failed: false, taskbar: true, desktop: true, quiet_until: None }
     }
 }
 
@@ -58,6 +60,9 @@ pub fn title(prefix: &str, project: &str) -> String {
 /// the interface. Nothing is shown when neither way is on.
 pub fn notify(app: &AppHandle, window: &WebviewWindow, summary: &str, body: &str) {
     let settings = load();
+    if settings.quiet_until.is_some_and(|until| until > now_ms()) {
+        return;
+    }
     if settings.taskbar {
         // Ends by itself as soon as the window gets the focus
         let _ = window.request_user_attention(Some(UserAttentionType::Informational));
@@ -89,6 +94,10 @@ fn desktop(app: &AppHandle, label: &str, summary: &str, body: &str) {
     });
 }
 
+fn now_ms() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
+}
+
 /// The app's icon as a file next to the sockets: a notification names its icon by path, and
 /// a CodeDeck started from source has none installed.
 fn icon_file() -> Option<String> {
@@ -110,7 +119,7 @@ mod tests {
         assert!(s.asks && s.done && !s.git_failed && s.taskbar && s.desktop);
         // A file from a later version with fewer or more fields still reads
         let s: Settings = serde_json::from_str(r#"{"desktop":false,"newThing":1}"#).unwrap();
-        assert!(!s.desktop && s.asks);
+        assert!(!s.desktop && s.asks && s.quiet_until.is_none());
         assert_eq!(title("● 2 waiting · ", "orbit-api"), "● 2 waiting · orbit-api – CodeDeck");
     }
 }

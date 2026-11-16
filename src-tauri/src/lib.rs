@@ -75,6 +75,33 @@ fn set_attention_settings(settings: attention::Settings) -> Result<(), String> {
     attention::save(&settings)
 }
 
+/// What the About dialog and a bug report say about this program.
+#[derive(serde::Serialize)]
+struct AppInfo {
+    version: &'static str,
+    commit: &'static str,
+    os: String,
+}
+
+#[tauri::command]
+fn app_info() -> AppInfo {
+    // The distribution's name, e.g. "Linux Mint 22.1"
+    let os = std::fs::read_to_string("/etc/os-release")
+        .ok()
+        .and_then(|t| t.lines().find_map(|l| l.strip_prefix("PRETTY_NAME=").map(|v| v.trim_matches('"').to_string())))
+        .unwrap_or_else(|| std::env::consts::OS.to_string());
+    AppInfo { version: env!("CARGO_PKG_VERSION"), commit: env!("CODEDECK_COMMIT"), os }
+}
+
+/// Opens a web address in the browser; only http(s), so nothing local can be started this way.
+#[tauri::command]
+fn open_url(url: String, app: AppHandle) -> Result<(), String> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err(format!("{url}: not a web address"));
+    }
+    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
+}
+
 /// Tells the user something happened, in the ways they chose (taskbar, desktop notification).
 #[tauri::command]
 fn notify_attention(summary: String, body: String, app: AppHandle, window: tauri::WebviewWindow) {
@@ -500,7 +527,9 @@ pub fn run() {
             set_title_prefix,
             attention_settings,
             set_attention_settings,
-            notify_attention
+            notify_attention,
+            app_info,
+            open_url
         ])
         .build(tauri::generate_context!())
         .expect("error while building CodeDeck")

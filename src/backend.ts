@@ -1144,9 +1144,11 @@ export interface AttentionSettings {
   gitFailed: boolean;
   taskbar: boolean;
   desktop: boolean;
+  /** "Do not disturb" until then (Unix milliseconds); the window title still counts */
+  quietUntil: number | null;
 }
 
-let mockAttention: AttentionSettings = { asks: true, done: true, gitFailed: false, taskbar: true, desktop: true };
+let mockAttention: AttentionSettings = { asks: true, done: true, gitFailed: false, taskbar: true, desktop: true, quietUntil: null };
 
 export function attentionSettings(): Promise<AttentionSettings> {
   if (live) return invoke("attention_settings");
@@ -1172,5 +1174,27 @@ if (!live) (window as unknown as { mockNotifications: typeof mockNotifications }
 export function setTitlePrefix(prefix: string): Promise<void> {
   if (live) return invoke("set_title_prefix", { prefix });
   document.title = `${prefix}orbit-api – CodeDeck`;
+  return Promise.resolve();
+}
+
+/* ── The app itself ──────────────────────────────────────────────────────── */
+
+export interface AppInfo {
+  version: string;
+  /** Short hash of the commit it was built from; empty when built outside a repository */
+  commit: string;
+  /** The distribution, e.g. "Linux Mint 22.1" */
+  os: string;
+}
+
+export function appInfo(): Promise<AppInfo> {
+  if (live) return invoke("app_info");
+  return Promise.resolve({ version: "0.1.1", commit: "fdffba4", os: "Linux Mint 22.1 (preview)" });
+}
+
+/** Opens a web address in the browser. */
+export function openUrl(url: string): Promise<void> {
+  if (live) return invoke("open_url", { url });
+  console.info("would open", url);
   return Promise.resolve();
 }

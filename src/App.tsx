@@ -12,6 +12,7 @@ import { useGit } from "./git";
 import { SessionMarksContext, sessionMarks, touchedFiles, useAssistant } from "./assistant";
 import { RepoActions, type Anchor } from "./components/RepoActions";
 import { useAttention } from "./attention";
+import { Dialogs } from "./components/Dialogs";
 
 // The preview starts with something attached, to show what that looks like
 if (!live) files.add(initialPins);
@@ -94,6 +95,9 @@ export default function App() {
           onUnpin={unpin}
           onClear={files.clear}
           onShowFile={setSelected}
+          project={project}
+          onOpenProject={open}
+          onToggleLog={() => setLogOpen((o) => !o)}
         />
       </div>
       <StatusBar
@@ -104,6 +108,7 @@ export default function App() {
         assistant={assistant}
       />
       {logOpen && <GitLog runs={git.runs} onClose={() => setLogOpen(false)} />}
+      <Dialogs assistant={assistant} />
       {actions && actionsRepo && (
         <RepoActions
           key={actions.repo}

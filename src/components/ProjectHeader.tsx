@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { AppWindow, Bell, ChevronDown, FolderOpen, Languages } from "lucide-react";
-import { pickFolder, recentProjects, type AttentionSettings, type ProjectInfo, type RecentProject } from "../backend";
-import { useAttentionSettings } from "../attention";
-import { lang, setLang, t } from "../i18n";
+import { AppWindow, ChevronDown, Copy, FolderOpen, FolderSearch } from "lucide-react";
+import { openPath, pickFolder, recentProjects, type ProjectInfo, type RecentProject } from "../backend";
+import { t } from "../i18n";
 
 /** Opens a directory: here, or in a new window of its own. */
 export type OpenProject = (path: string, newWindow: boolean) => Promise<void>;
@@ -11,17 +10,37 @@ export type OpenProject = (path: string, newWindow: boolean) => Promise<void>;
 const wantsNewWindow = (e: MouseEvent) => e.ctrlKey || e.metaKey || e.button === 1;
 
 /**
- * Head of the file list. Switching projects lives where the project is named: the name opens
- * the recent projects, and every folder of the path above the root can be clicked to move up.
+ * A menu that hangs at its button and closes on a click elsewhere or Escape. `ref` goes on the
+ * element around button and menu.
  */
-export function ProjectHeader({ project, onOpen }: { project: ProjectInfo | null; onOpen: OpenProject }) {
-  const [menu, setMenu] = useState(false);
-  const [recent, setRecent] = useState<RecentProject[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const box = useRef<HTMLElement>(null);
+export function usePopover<T extends HTMLElement>() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+  return { open, setOpen, ref };
+}
 
+/** Opening a project, with the error it may give shown for a while. */
+function useOpen(onOpen: OpenProject, done: () => void) {
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!error) return;
+    const timer = setTimeout(() => setError(null), 6000);
+    return () => clearTimeout(timer);
+  }, [error]);
   const open = async (path: string, newWindow: boolean) => {
-    setMenu(false);
+    done();
     try {
       await onOpen(path, newWindow);
       setError(null);
@@ -29,9 +48,64 @@ export function ProjectHeader({ project, onOpen }: { project: ProjectInfo | null
       setError(String(e));
     }
   };
+  return { open, error };
+}
+
+/**
+ * Head of the file list: the path of the project. Every folder above it can be clicked to make it
+ * the project (Ctrl+click: in a new window). The project itself is named in the header bar on the
+ * right, which stays in every form of CodeDeck.
+ */
+export function PathBar({ project, onOpen }: { project: ProjectInfo | null; onOpen: OpenProject }) {
+  const { open, error } = useOpen(onOpen, () => {});
+  const crumbs = project?.crumbs ?? [];
+  return (
+    <header className="relative shrink-0 border-b border-line">
+      {/* 43 px plus the border: the same 44 px as the headers beside it, so their lines meet */}
+      <div className="flex h-[43px] items-center px-3">
+        {/* A long path is cut off on the left, the project end stays visible */}
+        <nav aria-label={t("Path")} className="flex min-w-0 flex-1 justify-end overflow-hidden font-mono text-[11px] whitespace-nowrap text-slate-500" title={project?.root}>
+          {crumbs.map((crumb, i) => {
+            const last = i === crumbs.length - 1;
+            const separator = i > 0 && crumbs[i - 1].label !== "/";
+            return (
+              <span key={crumb.path} className="flex shrink-0 items-center">
+                {separator && <span className="text-slate-600">/</span>}
+                {last ? (
+                  <span className="px-px font-semibold text-slate-300">{crumb.label}</span>
+                ) : (
+                  <button
+                    type="button"
+                    title={t("Open {path} here · Ctrl+click: new window", { path: crumb.path })}
+                    onClick={(e) => open(crumb.path, wantsNewWindow(e))}
+                    onAuxClick={(e) => e.button === 1 && open(crumb.path, true)}
+                    className="rounded px-px hover:bg-raised hover:text-slate-200"
+                  >
+                    {crumb.label}
+                  </button>
+                )}
+              </span>
+            );
+          })}
+        </nav>
+      </div>
+      {error && <p className="selectable px-3 pb-2 text-[11px] text-problem">{error}</p>}
+    </header>
+  );
+}
+
+/**
+ * The project in the header bar: its name opens the recent projects, opening a folder here or in
+ * a new window, and the project's path. Ctrl+O and Ctrl+Shift+O work from anywhere.
+ */
+export function ProjectMenu({ project, onOpen }: { project: ProjectInfo | null; onOpen: OpenProject }) {
+  const menu = usePopover<HTMLDivElement>();
+  const [recent, setRecent] = useState<RecentProject[]>([]);
+  const [copied, setCopied] = useState(false);
+  const { open, error } = useOpen(onOpen, () => menu.setOpen(false));
 
   const browse = async (newWindow: boolean) => {
-    setMenu(false);
+    menu.setOpen(false);
     const path = await pickFolder();
     if (path) await open(path, newWindow);
   };
@@ -50,108 +124,56 @@ export function ProjectHeader({ project, onOpen }: { project: ProjectInfo | null
 
   // The list is read fresh each time: other windows add to it
   useEffect(() => {
-    if (!menu) return;
-    recentProjects().then(setRecent);
-    const close = (e: Event) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !box.current?.contains(e.target as Node)) {
-        setMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [menu]);
-
-  useEffect(() => {
-    if (!error) return;
-    const timer = setTimeout(() => setError(null), 6000);
-    return () => clearTimeout(timer);
-  }, [error]);
-
-  const crumbs = project?.crumbs ?? [];
+    if (menu.open) recentProjects().then(setRecent);
+    setCopied(false);
+  }, [menu.open]);
 
   return (
-    <header ref={box} className="relative shrink-0 border-b border-line">
-      {/* 43 px plus the border: the same 44 px as the headers beside it, so their lines meet */}
-      <div className="flex h-[43px] items-center gap-2 px-3">
-        <img src="/codedeck.svg" alt="" className="size-5" />
-        <button
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded={menu}
-          title={t("Switch project")}
-          onClick={() => setMenu(!menu)}
-          className={`-mx-1 flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 font-semibold text-slate-100 hover:bg-raised ${
-            menu ? "bg-raised" : ""
-          }`}
-        >
-          {project?.name}
-          <ChevronDown className={`size-3.5 text-slate-500 transition-transform ${menu ? "rotate-180" : ""}`} />
-        </button>
+    <div ref={menu.ref} className="static min-w-0">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={menu.open}
+        title={t("Switch project")}
+        onClick={() => menu.setOpen(!menu.open)}
+        className={`flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 font-semibold text-slate-100 hover:bg-raised ${menu.open ? "bg-raised" : ""}`}
+      >
+        <img src="/codedeck.svg" alt="" className="size-[18px] shrink-0" />
+        <span className="truncate">{project?.name}</span>
+        <ChevronDown className={`size-3.5 shrink-0 text-slate-500 transition-transform ${menu.open ? "rotate-180" : ""}`} />
+      </button>
+      {error && <p className="selectable absolute top-full left-2 z-20 mt-1 rounded bg-overlay px-2 py-1 text-[11px] text-problem">{error}</p>}
 
-        {/* Right-aligned; a long path is cut off on the left, the project end stays visible */}
-        <nav
-          aria-label={t("Path")}
-          className="ml-auto flex min-w-0 justify-end overflow-hidden font-mono text-[11px] whitespace-nowrap text-slate-500"
-          title={project?.root}
-        >
-          {crumbs.map((crumb, i) => {
-            const last = i === crumbs.length - 1;
-            const separator = i > 0 && crumbs[i - 1].label !== "/";
-            return (
-              <span key={crumb.path} className="flex shrink-0 items-center">
-                {separator && <span className="text-slate-600">/</span>}
-                {last ? (
-                  <span className="px-px text-slate-400">{crumb.label}</span>
-                ) : (
-                  <button
-                    type="button"
-                    title={t("Open {path} here · Ctrl+click: new window", { path: crumb.path })}
-                    onClick={(e) => open(crumb.path, wantsNewWindow(e))}
-                    onAuxClick={(e) => e.button === 1 && open(crumb.path, true)}
-                    className="rounded px-px hover:bg-raised hover:text-slate-200"
-                  >
-                    {crumb.label}
-                  </button>
-                )}
+      {menu.open && (
+        <div role="menu" className="surface-overlay absolute inset-x-2 top-full z-30 mt-1 overflow-hidden rounded-lg text-[13px]">
+          {project && (
+            <div className="flex items-center gap-2 border-b border-overlay-line px-3 py-2">
+              <span className="selectable min-w-0 flex-1 truncate font-mono text-[11px] text-slate-400" title={project.root}>
+                {project.root}
               </span>
-            );
-          })}
-        </nav>
-      </div>
-
-      {error && <p className="selectable px-3 pb-2 text-[11px] text-problem">{error}</p>}
-
-      {menu && (
-        <div
-          role="menu"
-          className="surface-overlay absolute inset-x-2 top-full z-20 mt-1 overflow-hidden rounded-lg"
-        >
-          <div className="px-3 pt-2 pb-1 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
-            {t("Recent")}
-          </div>
+              <button
+                type="button"
+                title={t("Copy the path")}
+                onClick={() => {
+                  void navigator.clipboard.writeText(project.path);
+                  setCopied(true);
+                }}
+                className="flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-[11px] text-slate-400 hover:bg-overlay-hover hover:text-slate-100"
+              >
+                <Copy className="size-3.5" />
+                {copied && t("Copied")}
+              </button>
+            </div>
+          )}
+          <div className="px-3 pt-2 pb-1 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">{t("Recent")}</div>
           <div className="max-h-80 overflow-y-auto px-1">
             {recent.length === 0 && <p className="px-2 py-1.5 text-slate-500 italic">{t("No other projects yet")}</p>}
             {recent.map((item) => (
-              <MenuRow
-                key={item.path}
-                onOpen={(newWindow) => open(item.path, newWindow)}
-                label={item.name}
-                detail={item.display}
-              />
+              <MenuRow key={item.path} onOpen={(newWindow) => open(item.path, newWindow)} label={item.name} detail={item.display} />
             ))}
           </div>
           <div className="mt-1 border-t border-overlay-line px-1 py-1">
-            <MenuRow
-              icon={<FolderOpen className="size-4 text-slate-400" />}
-              onOpen={browse}
-              label={t("Open folder…")}
-              shortcut={t("Ctrl+O")}
-              single
-            />
+            <MenuRow icon={<FolderOpen className="size-4 text-slate-400" />} onOpen={browse} label={t("Open folder…")} shortcut={t("Ctrl+O")} single />
             <MenuRow
               icon={<AppWindow className="size-4 text-slate-400" />}
               onOpen={() => browse(true)}
@@ -159,36 +181,20 @@ export function ProjectHeader({ project, onOpen }: { project: ProjectInfo | null
               shortcut={t("Ctrl+Shift+O")}
               single
             />
+            <MenuRow
+              icon={<FolderSearch className="size-4 text-slate-400" />}
+              onOpen={() => {
+                menu.setOpen(false);
+                void openPath("");
+              }}
+              label={t("Show in file manager")}
+              single
+            />
           </div>
-          <p className="border-t border-overlay-line px-3 py-1.5 text-[11px] text-slate-500">
-            {t("Ctrl+click opens in a new window")}
-          </p>
-          <AttentionChoice />
-          {/* The language of the interface, kept for this machine; each name in its own language */}
-          <div className="flex items-center gap-2 border-t border-overlay-line px-3 py-1.5 text-[12px]">
-            <Languages className="size-4 text-slate-400" />
-            <span className="text-slate-400">{t("Language")}</span>
-            <div className="ml-auto flex rounded-md border border-overlay-line p-0.5" role="radiogroup" aria-label={t("Language")}>
-              {(["en", "de"] as const).map((l) => (
-                <button
-                  key={l}
-                  type="button"
-                  role="radio"
-                  aria-checked={lang === l}
-                  onClick={() => {
-                    setMenu(false);
-                    setLang(l);
-                  }}
-                  className={`rounded px-2 py-0.5 ${lang === l ? "bg-overlay-hover text-slate-100" : "text-slate-500 hover:text-slate-200"}`}
-                >
-                  {l === "en" ? "English" : "Deutsch"}
-                </button>
-              ))}
-            </div>
-          </div>
+          <p className="border-t border-overlay-line px-3 py-1.5 text-[11px] text-slate-500">{t("Ctrl+click opens in a new window")}</p>
         </div>
       )}
-    </header>
+    </div>
   );
 }
 
@@ -213,9 +219,7 @@ function MenuRow(props: {
         {props.icon}
         <span className="min-w-0">
           <span className="block truncate text-slate-200">{props.label}</span>
-          {props.detail && (
-            <span className="block truncate font-mono text-[11px] text-slate-500">{props.detail}</span>
-          )}
+          {props.detail && <span className="block truncate font-mono text-[11px] text-slate-500">{props.detail}</span>}
         </span>
         {props.shortcut && <kbd className="ml-auto text-[11px] text-slate-500">{props.shortcut}</kbd>}
       </button>
@@ -230,45 +234,6 @@ function MenuRow(props: {
           <AppWindow className="size-3.5" />
         </button>
       )}
-    </div>
-  );
-}
-
-/**
- * What to be told about while looking elsewhere, and how; kept for this machine, for every window.
- * The window title always says how many sessions need you.
- */
-function AttentionChoice() {
-  const [settings, update] = useAttentionSettings();
-  if (!settings) return null;
-  const box = (key: keyof AttentionSettings, label: string) => (
-    <label className="flex cursor-pointer items-center gap-2 py-0.5 whitespace-nowrap text-slate-300">
-      <input
-        type="checkbox"
-        checked={settings[key]}
-        onChange={(e) => update({ ...settings, [key]: e.target.checked })}
-        className="size-3.5 accent-[var(--color-brand)]"
-      />
-      {label}
-    </label>
-  );
-  const quiet = !settings.taskbar && !settings.desktop;
-  return (
-    <div className="border-t border-overlay-line px-3 py-2 text-[12px]">
-      <div className="mb-1 flex items-center gap-2 text-slate-400">
-        <Bell className="size-4" />
-        {t("Tell me when I look elsewhere")}
-      </div>
-      <div className="flex flex-col pl-6">
-        {box("asks", t("a session asks"))}
-        {box("done", t("a turn is finished"))}
-        {box("gitFailed", t("a git command fails"))}
-      </div>
-      <div className="mt-1 flex flex-wrap gap-x-3 pl-6">
-        {box("taskbar", t("in the taskbar"))}
-        {box("desktop", t("as a notification"))}
-      </div>
-      {quiet && <p className="mt-1 pl-6 text-[11px] text-slate-500">{t("Only the window title says it then.")}</p>}
     </div>
   );
 }

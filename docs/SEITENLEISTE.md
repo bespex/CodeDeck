@@ -44,6 +44,9 @@ geschriebene Datei an einer Sitzung und jeden Eintrag der Übersicht. Dafür rei
 
 ### Projektauswahl nach rechts oben, auch im vollen Fenster
 
+> Ausgearbeitet in `docs/KOPFLEISTE.md` (2026-11-16): Leiste mit Projekt, Schnelleinstellungen und App-Menü, dazu
+> About und Einstellungsdialog. Was hier folgt, ist der erste Gedanke dazu.
+
 Empfehlung: **ja.** Die rechte Spalte ist der Teil, der in beiden Formen bleibt. Steht Projekt und Menü dort,
 gibt es eine einzige Stelle dafür, und beim Umschalten springt nichts. Das volle Fenster liest sich dann so:
 links „wo“ (Dateien), Mitte „was“ (Deck), rechts „wer und ich“ (Sitzungen, Prompt, App).

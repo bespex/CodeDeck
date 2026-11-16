@@ -16,9 +16,11 @@ import {
 import { DRAG_TYPE } from "./FilesPanel";
 import { HookPanel } from "./AssistantStatus";
 import { Tooltip } from "./Tooltip";
-import { forgetSession, renameSession, type AssistantState, type Entry, type Session } from "../backend";
+import { forgetSession, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
 import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
 import { SessionBadge } from "./SessionBadge";
+import { HeaderBar } from "./HeaderBar";
+import type { OpenProject } from "./ProjectHeader";
 import { needsYou, OPENED_AT, putAside, useNow, useWaiting, waitKey, waitsSince } from "../attention";
 import { files, filesText, type Pin } from "../files";
 import { formatTokens, useAttachedKinds } from "./AttachmentList";
@@ -36,6 +38,9 @@ interface Props {
   onClear: () => void;
   /** Shows a file the assistant wrote: selects it in the file list and the deck */
   onShowFile: (path: string) => void;
+  project: ProjectInfo | null;
+  onOpenProject: OpenProject;
+  onToggleLog: () => void;
 }
 
 /**
@@ -44,7 +49,8 @@ interface Props {
  */
 export function SessionsPanel(props: Props) {
   return (
-    <aside className="grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,3fr)_minmax(0,2fr)] border-l border-line bg-panel">
+    <aside className="grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_minmax(0,3fr)_minmax(0,2fr)] border-l border-line bg-panel">
+      <HeaderBar project={props.project} onOpenProject={props.onOpenProject} assistant={props.assistant} onToggleLog={props.onToggleLog} />
       <NeedsYou state={props.assistant} />
       <Sessions state={props.assistant} onShowFile={props.onShowFile} />
       <NextPrompt {...props} />

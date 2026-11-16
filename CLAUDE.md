@@ -40,6 +40,9 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src/view.ts` | Welcher Reiter offen ist (`useView`, `openView`), damit die rechte Spalte in einen Reiter springen kann |
 | `src/components/SessionsPanel.tsx` | Rechte Spalte: „Needs you“, Sitzungen (zwei Zeilen, „Earlier“, Umbenennen, Entfernen, Hover), „Next prompt“ als Dashboard (Zahlen je Art, Tokens, für wen, Quittung, öffnet den Reiter) |
 | `src/components/SessionBadge.tsx`, `useSessionMarks` in `src/assistant.ts` | Schild einer Sitzung; Farbe/Kurzname/Schreiber je Datei für alle Komponenten |
+| `src/components/HeaderBar.tsx`, `ProjectHeader.tsx` | Kopfleiste der rechten Spalte (`docs/KOPFLEISTE.md`): `ProjectMenu`, Schnelleinstellungen, App-Menü `⋯`; links nur `PathBar` |
+| `src/components/Dialogs.tsx`, `src/dialogs.ts` | About, Tastenkürzel (`F1`), Einstellungsdialog (`Ctrl+,`); `openDialog` von überall |
+| `src/attention.ts`, `AttentionChoice.tsx`, `src-tauri/src/attention.rs` | „Wartet auf dich“ einmal berechnet; Fenstertitel, Taskleiste, Desktop-Meldung, „Nicht stören“ |
 | `src/components/AssistantStatus.tsx` | KI-Werkzeug in der Statusleiste, `HookPanel` (verbinden); Namen und Angebote aus `mainHarness` |
 | `src/attachments.ts` | Gemeinsamer Baustein jedes Anhangsteils (`createPart`: Einträge mit Revision, Quittung, Abgleich), `useAttachments` einmal in `App`, `attachmentCount` |
 | `src/files.ts`, `src/markers.ts` | Angehängte Dateien (Pin = Anhang); Marker laden, als Anhang, „erledigt“ erkennen |

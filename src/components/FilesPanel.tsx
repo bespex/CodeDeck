@@ -27,7 +27,7 @@ import { pathItems, useContextMenu } from "./ContextMenu";
 import { AppName, openAs } from "../apps";
 import { useSessionMarks } from "../assistant";
 import { RepoTooltip } from "./RepoTooltip";
-import { ProjectHeader, type OpenProject } from "./ProjectHeader";
+import { PathBar, type OpenProject } from "./ProjectHeader";
 import { inScratch, moveIntoProject, SCRATCH_DRAG } from "../scratch";
 import { plural, T, t } from "../i18n";
 
@@ -144,7 +144,7 @@ export function FilesPanel(props: Props) {
 
   return (
     <aside className="flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
-      <ProjectHeader project={props.project} onOpen={props.onOpenProject} />
+      <PathBar project={props.project} onOpen={props.onOpenProject} />
 
       <div className="px-2 pt-2">
         <label className="flex items-center gap-2 rounded-md border border-line bg-base px-2 py-1.5 focus-within:border-indigo-500">

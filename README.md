@@ -19,8 +19,9 @@ Part of [be spex](https://bespex.github.io) – small, focused apps for Linux. W
 
 | Column | What it is |
 | --- | --- |
-| **Files** | The project tree. A cyan dot marks files the assistant changed. The project name at the top switches to a recent project or opens a folder (`Ctrl+O`) here or in a new window (`Ctrl+Shift+O`); every folder in the path above it, and every folder in the tree, can become the project. `Ctrl+click` opens it in a new window instead. |
+| **Files** | The project tree. A cyan dot marks files the assistant changed. Every folder in the path above it, and every folder in the tree, can become the project; `Ctrl+click` opens it in a new window instead. |
 | **Deck** | The working surface, with four views, each for one question (Activity: what are the sessions doing; Changes: what did the assistant change; Workbench: what else came up; Next prompt: what is attached to your next prompt), and the **Trail**: the Git history of all repositories as one vertical line. Hovering opens it to the left, over the file list, into a timeline; a point shows what that commit changed, with its details on top. The line shows how safe the work is: amber while not committed, faint amber with hollow amber rings while committed but not pushed, grey with filled points once on a remote. Three or more snapshots in a row fold into one point with their number; a click opens them. Every symbol explains itself in a tooltip. The newest pushed commit of each repository carries its remote's name with what is left to push and pull (`origin ↑2`). A spark marks commits made with an assistant (from their `Co-authored-by` trailer); an anchor marks a snapshot (see below). Ctrl+click a second point of the same repository to see what changed between the two. Where [Dirq](https://github.com/bespex/Qiew) is installed, a commit, a snapshot or a comparison opens in it side by side. |
+| **Header bar** (top of the right column) | The project: its name switches to a recent project or opens a folder (`Ctrl+O`) here or in a new window (`Ctrl+Shift+O`), copies its path, shows it in the file manager. *Quick settings*: do not disturb, notifications, language, the AI tool's connection, *All settings…* (`Ctrl+,`). The menu `⋯`: About, keyboard shortcuts (`F1`), help, git commands, report a problem, new window. |
 | **Sessions** and **Next prompt** | The Claude Code sessions working in the project, each with its latest prompt and the files it wrote (a click shows the file); and what is attached to your next prompt. You write the prompt in Claude; CodeDeck only attaches what is listed here. Nothing attached, Claude works without extra context. |
 
 A project is a directory with an optional `.codedeck.toml`. No index, no project folder. Each window is
@@ -64,7 +65,7 @@ the settings changes, the file as it was is kept as `settings.json.before-codede
   question) and those that finished their turn; the latter can be put aside and leave by themselves
   after half an hour. The window title counts them. While you look elsewhere, CodeDeck tells you about a new one in
   the taskbar and with a desktop notification (a click brings the window back); what counts and how is
-  chosen in the project menu, *Tell me when I look elsewhere*.
+  chosen in the quick settings (top right), where *Do not disturb* also pauses them for a while.
 - **Sessions:** below, the sessions working in the project in two lines each: title and state, then
   what counts right now (the step it is at, its question, what it wrote). Prompt, model and the files it
   wrote fold out; those files carry the dot in the file list. Sessions that ended, never reported or have
@@ -105,8 +106,8 @@ the settings changes, the file as it was is kept as `settings.json.before-codede
   one file of them, attaches the git command that shows the change (not the diff itself). What a session got
   from CodeDeck is listed in its details.
 
-**Language:** the interface is in English or German, following the system; switch it in the project menu
-(click the project name, top left). What the assistant gets stays in English.
+**Language:** the interface is in English or German, following the system; switch it in the quick settings
+(top right) or in the settings. What the assistant gets stays in English.
 
 **Git commands** (click *git* next to the branch in the status bar, or Ctrl+Shift+G) lists every git
 command CodeDeck ran with what git printed and its exit code. Commands that changed something stand
