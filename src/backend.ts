@@ -478,6 +478,12 @@ export function gitSnapshots(repos: string[]): Promise<Snapshot[]> {
   return Promise.resolve(
     repos.includes("")
       ? [
+          // Since the last commit (4 minutes ago): turns in a row, to show how many of them fold
+          snap("snap9", 40, "After: Name the limiter settings consistently", c, { turnFrom: "snap8".padEnd(40, "0") }),
+          snap("snap8", 90, "After: Log rejected requests", b, { turnFrom: "snap7".padEnd(40, "0") }),
+          snap("snap7", 140, "After: Read the burst size from the config", c, { turnFrom: "snap6".padEnd(40, "0") }),
+          snap("snap6", 190, "After: Explain the limiter in the README", b, { turnFrom: "snap5".padEnd(40, "0") }),
+          snap("snap5", 220, "Before: Explain the limiter in the README", b, { tool: "Edit README.md" }),
           snap("snap4", 300, "After: Add a per-client rate limit to the orders endpoint.", b, {
             turnFrom: "snap3".padEnd(40, "0"),
             report:

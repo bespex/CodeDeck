@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -33,6 +33,8 @@ pub const SNAPSHOT_TAKEN: &str = "snapshot_taken";
 const TOUCHED_KEPT: usize = 200;
 /// Sessions remembered; the ones heard of longest ago go first.
 const SESSIONS_KEPT: usize = 20;
+/// A running turn kept for a window started later is given up after this long without news.
+const OPEN_TURN_MS: u64 = 12 * 3600_000;
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -109,6 +111,21 @@ pub struct TurnStart {
     #[serde(skip)]
     top: PathBuf,
 }
+
+/// A running turn as kept on disk for the next window on the project: a window restarted in the
+/// middle of a turn (an update, a rebuild) goes on with it instead of starting a new one, which
+/// would leave a snapshot without an end.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+struct OpenTurn {
+    repo: String,
+    hash: String,
+    top: PathBuf,
+    /// Unix milliseconds: when the session was last heard of
+    at: u64,
+}
+
+/// Per project root, per session.
+type OpenTurns = HashMap<String, HashMap<String, Vec<OpenTurn>>>;
 
 #[derive(Serialize, Clone)]
 pub struct Touch {
@@ -210,6 +227,10 @@ struct Inner {
     /// Colour, short name and title per session, of the project they were read for
     identities: Identities,
     project: Option<PathBuf>,
+    /// Running turns an earlier window left, for sessions not heard of yet in this one
+    resumable: HashMap<String, Vec<TurnStart>>,
+    /// What was last written of the running turns, to write only changes
+    open_saved: Option<HashMap<String, Vec<OpenTurn>>>,
 }
 
 pub struct Bridge {
@@ -386,6 +407,7 @@ impl Bridge {
             inner.use_project(root);
             let todo = inner.take_in(e, harness, root, repos, now_ms());
             inner.save_identities();
+            inner.save_open_turns();
             todo?
         };
 
@@ -429,7 +451,9 @@ impl Bridge {
                 if let Ok(start) = git.take_snapshot(&report, repo, &origin) {
                     taken |= start.new;
                     let start = TurnStart { repo: repo.path.clone(), hash: start.hash, top: repo.top.clone() };
-                    self.inner.lock().unwrap().turn_began(&e.session, start);
+                    let mut inner = self.inner.lock().unwrap();
+                    inner.turn_began(&e.session, start);
+                    inner.save_open_turns();
                 }
             }
             if taken {
@@ -462,7 +486,63 @@ impl Inner {
         if self.project.as_deref() != Some(root) {
             self.identities = identity::load(root);
             self.project = Some(root.to_path_buf());
+            let open = open_turns_file().map(|f| load_open(&f, root, now_ms())).unwrap_or_default();
+            self.resume(open);
         }
+    }
+
+    /// Running turns an earlier window left: a session takes its own back when it shows up.
+    fn resume(&mut self, open: HashMap<String, Vec<OpenTurn>>) {
+        self.open_saved = Some(open.clone());
+        self.resumable = open
+            .into_iter()
+            .map(|(id, turns)| (id, turns.into_iter().map(|t| TurnStart { repo: t.repo, hash: t.hash, top: t.top }).collect()))
+            .collect();
+        let ids: Vec<String> = self.sessions.keys().cloned().collect();
+        for id in ids {
+            self.take_back(&id);
+        }
+    }
+
+    /// The session goes on with the turn an earlier window left for it, unless it has one.
+    fn take_back(&mut self, id: &str) {
+        let Some(starts) = self.resumable.remove(id) else { return };
+        let Some(session) = self.sessions.get_mut(id) else { return };
+        if session.turn.is_empty() {
+            self.turn.insert(id.to_string(), starts.iter().map(|s| s.top.clone()).collect());
+            session.turn = starts;
+        }
+    }
+
+    /// The running turns as they are kept for the next window; those not taken back yet stay.
+    fn open_turns(&self) -> HashMap<String, Vec<OpenTurn>> {
+        let mut open: HashMap<String, Vec<OpenTurn>> = self
+            .resumable
+            .iter()
+            .map(|(id, starts)| {
+                let at = self.open_saved.as_ref().and_then(|o| o.get(id)).and_then(|t| t.first()).map_or(0, |t| t.at);
+                (id.clone(), starts.iter().map(|s| OpenTurn { repo: s.repo.clone(), hash: s.hash.clone(), top: s.top.clone(), at }).collect())
+            })
+            .collect();
+        for s in self.sessions.values().filter(|s| !s.turn.is_empty()) {
+            let turns = s.turn.iter().map(|t| OpenTurn { repo: t.repo.clone(), hash: t.hash.clone(), top: t.top.clone(), at: s.last });
+            open.insert(s.id.clone(), turns.collect());
+        }
+        open
+    }
+
+    /// Writes the running turns down for the next window, if they changed.
+    fn save_open_turns(&mut self) {
+        let Some(root) = self.project.clone() else { return };
+        let open = self.open_turns();
+        if self.open_saved.as_ref() == Some(&open) {
+            return;
+        }
+        if let Some(file) = open_turns_file() {
+            // A failed write only costs going on with a turn after a restart
+            let _ = save_open(&file, &root, &open, now_ms());
+        }
+        self.open_saved = Some(open);
     }
 
     fn save_identities(&mut self) {
@@ -499,6 +579,7 @@ impl Inner {
             (session.renamed, session.title) = (identity.name.is_some(), identity.shown_title());
             (session.color, session.short, session.started, session.last) = (identity.color, identity.short, identity.first, now);
             self.sessions.insert(id.to_string(), session);
+            self.take_back(id);
         }
         self.identities.touch(id, now);
         self.sessions.get_mut(id).expect("just put there")
@@ -539,6 +620,7 @@ impl Inner {
     /// back as soon as it reports again.
     fn forget(&mut self, id: &str) {
         self.sessions.remove(id);
+        self.resumable.remove(id);
         self.turn.remove(id);
         self.looked_up.remove(id);
         self.identities.hide(id, true);
@@ -805,6 +887,36 @@ fn shorten(text: &str) -> String {
     if line.chars().count() > 90 { format!("{}…", line.chars().take(89).collect::<String>()) } else { line }
 }
 
+/// Where running turns are kept between windows: next to the sockets, so a restart of the
+/// machine (which ends every turn anyway) forgets them.
+fn open_turns_file() -> Option<PathBuf> {
+    crate::hook::ensure_socket_dir().ok().map(|d| d.join("turns.json"))
+}
+
+fn read_open(file: &Path) -> OpenTurns {
+    std::fs::read(file).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+}
+
+/// The running turns kept for the project, without those not heard of for too long.
+fn load_open(file: &Path, root: &Path, now: u64) -> HashMap<String, Vec<OpenTurn>> {
+    let mut open = read_open(file).remove(root.to_string_lossy().as_ref()).unwrap_or_default();
+    open.retain(|_, turns| turns.iter().any(|t| t.at + OPEN_TURN_MS > now));
+    open
+}
+
+fn save_open(file: &Path, root: &Path, open: &HashMap<String, Vec<OpenTurn>>, now: u64) -> std::io::Result<()> {
+    // Read again: windows of other projects keep theirs in the same file
+    let mut all = read_open(file);
+    all.insert(root.to_string_lossy().into_owned(), open.clone());
+    for project in all.values_mut() {
+        project.retain(|_, turns| turns.iter().any(|t| t.at + OPEN_TURN_MS > now));
+    }
+    all.retain(|_, project| !project.is_empty());
+    let tmp = file.with_extension("json.tmp");
+    std::fs::write(&tmp, serde_json::to_vec(&all)?)?;
+    std::fs::rename(&tmp, file)
+}
+
 fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
 }
@@ -874,6 +986,48 @@ mod tests {
         let old = &inner.sessions["old"];
         assert!(old.capabilities.live_status && old.status == "working" && old.title.as_deref() == Some("Earlier work"));
         assert!(inner.heard && inner.attachments.len() == 1 && inner.sessions.len() == 2);
+    }
+
+    /// A window restarted in the middle of a turn (an update, a rebuild) goes on with it: no
+    /// second "before" snapshot, and the end comes where the turn began.
+    #[test]
+    fn a_restarted_window_goes_on_with_the_running_turn() {
+        let root = Path::new("/p");
+        let repos = || vec![PathBuf::from("/p")];
+        let step = |inner: &mut Inner, raw: &str, now: u64| {
+            let event = Fake.translate(&serde_json::from_str(raw).unwrap()).unwrap();
+            inner.take_in(&event, &Fake, root, repos, now)
+        };
+        let start = TurnStart { repo: String::new(), hash: "abc1234".into(), top: PathBuf::from("/p") };
+
+        // The first window: a turn begins, and what is kept for the next window says so
+        let mut first = Inner::default();
+        step(&mut first, r#"{"who":"a1","did":"asked","in":"/p","text":"Rename it"}"#, 10).unwrap();
+        assert_eq!(step(&mut first, r#"{"who":"a1","did":"will-write","in":"/p","with":"shell"}"#, 20).unwrap().snapshot_repos.len(), 1);
+        first.turn_began("a1", start.clone());
+        let kept = first.open_turns();
+        assert_eq!(kept["a1"], [OpenTurn { repo: String::new(), hash: "abc1234".into(), top: PathBuf::from("/p"), at: 20 }]);
+
+        // Kept on disk for the project, read back; another project's turns stay apart, old ones go
+        let file = std::env::temp_dir().join(format!("codedeck-open-turns-{}.json", std::process::id()));
+        let _ = std::fs::remove_file(&file);
+        save_open(&file, root, &kept, 30).unwrap();
+        let mut other = HashMap::new();
+        other.insert("b2".to_string(), vec![OpenTurn { repo: String::new(), hash: "def".into(), top: PathBuf::from("/q"), at: 30 }]);
+        save_open(&file, Path::new("/q"), &other, 30).unwrap();
+        let read = load_open(&file, root, 40);
+        assert_eq!(read, kept);
+        assert!(load_open(&file, root, 20 + OPEN_TURN_MS).is_empty(), "given up after a long silence");
+        std::fs::remove_file(&file).unwrap();
+
+        // The next window: the session shows up again and is in the same turn
+        let mut next = Inner::default();
+        next.resume(read);
+        let write = step(&mut next, r#"{"who":"a1","did":"will-write","in":"/p","with":"shell"}"#, 50).unwrap();
+        assert!(write.snapshot_repos.is_empty(), "no second snapshot for the same turn");
+        let done = step(&mut next, r#"{"who":"a1","did":"done","in":"/p","said":"Renamed."}"#, 60).unwrap();
+        assert_eq!(done.ends, [start]);
+        assert!(next.open_turns().is_empty(), "nothing left to keep once the turn is over");
     }
 
     /// The fake tool, but one that takes text with a prompt.

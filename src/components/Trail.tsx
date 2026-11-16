@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Anchor, CircleDot, Flag, GitMerge, Sparkles, Undo2 } from "lucide-react";
+import { Anchor, ChevronUp, CircleDot, Flag, GitMerge, Layers, Sparkles, Undo2 } from "lucide-react";
 import type { RepoStatus, Snapshot } from "../backend";
 import { useSessionMarks } from "../assistant";
 import type { TrailCommit } from "../history";
@@ -27,6 +27,9 @@ interface Props {
   focusRepo: string | null;
 }
 
+/** Snapshots in a row, from this many on, fold into one point until it is opened. */
+const FOLD_FROM = 3;
+
 /** Hovering opens the trail after this pause, so passing the mouse over it does not. */
 const OPEN_DELAY_MS = 220;
 
@@ -48,6 +51,8 @@ export { LOCALE };
 export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, focusRepo }: Props) {
   const marks = useSessionMarks();
   const [open, setOpen] = useState(false);
+  // Runs of snapshots opened by a click, by the newest snapshot of the run
+  const [unfolded, setUnfolded] = useState<Set<string>>(new Set());
   const [width, setWidth] = useState(WIDTH);
   const column = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -83,6 +88,12 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
   }
 
   const items = trailItems(commits, snapshots);
+  const rows = foldRuns(items, (run) => {
+    const newest = run[0].kind === "snapshot" ? run[0].snapshot.hash : "";
+    const picked = run.some((x) => x.kind === "snapshot" && (point.kind === "snapshot" || point.kind === "compare") && x.repo === point.repo &&
+      (point.kind === "snapshot" ? point.hash === x.snapshot.hash : point.from === x.snapshot.hash || point.to === x.snapshot.hash));
+    return !unfolded.has(newest) && !picked;
+  });
   let lastDay = "";
 
   return (
@@ -124,7 +135,36 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
             />
           </li>
 
-          {items.map((item, i) => {
+          {rows.map((row) => {
+            if (row.kind === "fold") {
+              const { run, last } = row;
+              const newest = run[0].kind === "snapshot" ? run[0].snapshot : null;
+              const oldest = run[run.length - 1].kind === "snapshot" ? (run[run.length - 1] as { snapshot: Snapshot }).snapshot : null;
+              if (!newest || !oldest) return null;
+              const day = dayLabel(newest.at);
+              const showDay = day !== lastDay;
+              lastDay = dayLabel(oldest.at);
+              const sessions = [...new Set(run.map((x) => (x.kind === "snapshot" ? x.snapshot.session : null)))].map((id) => marks.of(id)).filter((m) => !!m);
+              return (
+                <li key={`fold:${newest.hash}`} className="relative">
+                  <Segment zone="uncommitted" to={last ? "middle" : undefined} />
+                  {showDay && <DayLine day={day} open={open} />}
+                  <TrailRow
+                    open={open}
+                    selected={false}
+                    onClick={() => setUnfolded(new Set(unfolded).add(newest.hash))}
+                    dot={<FoldDot count={run.length} color={sessions.length === 1 ? sessions[0]!.color : undefined} />}
+                    symbol={<PointTip name={t("Several snapshots (stack)")} meaning={t("{n} snapshots in a row, folded so the trail stays short. A click shows them one by one.", { n: run.length })} />}
+                    time={clock(newest.at)}
+                    detail={plural(run.length, "snapshot")}
+                    title={`${t("from {from} to {to}", { from: clock(oldest.at), to: clock(newest.at) })}${sessions.length ? ` · ${sessions.map((m) => m!.short).join(", ")}` : ""}`}
+                    label={t("{n} snapshots folded; open them", { n: run.length })}
+                    quiet
+                  />
+                </li>
+              );
+            }
+            const { item, i, firstOfRun } = row;
             const { repo } = item;
             const at = item.kind === "commit" ? item.commit.at : item.snapshot.at;
             const day = dayLabel(at);
@@ -146,20 +186,21 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
             return (
               <li key={`${item.kind}:${repo}:${hash}`} className={`relative transition-opacity ${dimmed ? "opacity-35" : ""}`}>
                 <Segment zone={zone ?? "uncommitted"} to={i === items.length - 1 ? "middle" : undefined} />
-                {showDay && (
-                  open ? (
-                    // A line across the trail with the day in its middle; it stops short of the
-                    // points' column so the trail's line runs on through it
-                    <div className="flex h-6 items-center gap-2.5 pr-11 pl-3">
-                      <span className="h-px flex-1 bg-slate-600" />
-                      <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{day}</span>
-                      <span className="h-px flex-1 bg-slate-600" />
-                    </div>
-                  ) : (
-                    <div className="flex h-6 flex-row-reverse items-center">
-                      <span title={day} className="relative z-10 mr-[18px] h-px w-[9px] bg-slate-500" />
-                    </div>
-                  )
+                {showDay && <DayLine day={day} open={open} />}
+                {firstOfRun && open && (
+                  // An opened run can be folded again
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new Set(unfolded);
+                      next.delete(firstOfRun);
+                      setUnfolded(next);
+                    }}
+                    className="flex h-6 w-full items-center justify-end gap-1 pr-12 text-[11px] text-slate-500 hover:text-slate-200"
+                  >
+                    <ChevronUp className="size-3" />
+                    {t("Fold these snapshots")}
+                  </button>
                 )}
                 {item.kind === "commit" && zone ? (
                   <TrailRow
@@ -450,3 +491,64 @@ function dayLabel(at: number): string {
 const clock = (at: number) => new Date(at * 1000).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+
+/** The day between rows: a line across the open trail, a tick on the closed one. */
+function DayLine({ day, open }: { day: string; open: boolean }) {
+  return open ? (
+    // It stops short of the points' column so the trail's line runs on through it
+    <div className="flex h-6 items-center gap-2.5 pr-11 pl-3">
+      <span className="h-px flex-1 bg-slate-600" />
+      <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{day}</span>
+      <span className="h-px flex-1 bg-slate-600" />
+    </div>
+  ) : (
+    <div className="flex h-6 flex-row-reverse items-center">
+      <span title={day} className="relative z-10 mr-[18px] h-px w-[9px] bg-slate-500" />
+    </div>
+  );
+}
+
+/** Several snapshots folded into one point: a stack with their number. */
+function FoldDot({ count, color }: { count: number; color?: string }) {
+  return (
+    <span
+      style={color ? { borderColor: `color-mix(in srgb, ${color} 65%, transparent)` } : undefined}
+      className="relative grid size-[18px] place-items-center rounded-[5px] border border-changed/60 bg-panel"
+    >
+      <Layers style={color ? { color } : undefined} className="size-[11px] text-changed" />
+      <span className="absolute -top-1.5 -right-2 rounded-full bg-slate-600 px-1 text-[9px] leading-[13px] font-semibold text-slate-100 tabular-nums">{count}</span>
+    </span>
+  );
+}
+
+type Row =
+  | { kind: "item"; item: TrailItem; i: number; firstOfRun: string | null }
+  | { kind: "fold"; run: TrailItem[]; last: boolean };
+
+/**
+ * The trail's rows: runs of at least [`FOLD_FROM`] snapshots without a commit between them become
+ * one row, if `folded` says so for the run; the first row of an opened run carries the run's key,
+ * so it can be folded again.
+ */
+function foldRuns(items: TrailItem[], folded: (run: TrailItem[]) => boolean): Row[] {
+  const rows: Row[] = [];
+  let i = 0;
+  while (i < items.length) {
+    let end = i;
+    while (end < items.length && items[end].kind === "snapshot") end++;
+    const run = items.slice(i, end);
+    if (run.length >= FOLD_FROM) {
+      const key = (run[0] as { snapshot: Snapshot }).snapshot.hash;
+      if (folded(run)) {
+        rows.push({ kind: "fold", run, last: end === items.length });
+      } else {
+        run.forEach((item, k) => rows.push({ kind: "item", item, i: i + k, firstOfRun: k === 0 ? key : null }));
+      }
+      i = end;
+    } else {
+      rows.push({ kind: "item", item: items[i], i, firstOfRun: null });
+      i++;
+    }
+  }
+  return rows;
+}

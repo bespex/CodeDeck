@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Anchor, ArrowRight, Check, ChevronDown, ChevronRight, Code, ExternalLink, Filter, Flag, FolderGit2, GitBranch, ListTree, Pencil, Sparkles, Undo2, X } from "lucide-react";
 import {
   gitCommitDiff,
@@ -29,7 +29,7 @@ import { diffSize, parsePatch, type FileDiff } from "../../diff";
 import { toProject, useGitRun, type Done, type TrailCommit } from "../../history";
 import { LOCALE, type Point } from "../Trail";
 import { stateColor } from "../FilesPanel";
-import { Tooltip } from "../Tooltip";
+import { Tooltip, TooltipHint } from "../Tooltip";
 import { AttachChange, Commands, DiffBody, FileButtons, inUntrackedDir, LineCounts, LookedAt, You, type Working } from "./DiffParts";
 import { StructureTree } from "./StructureTree";
 import { known, snapshotLabel, t } from "../../i18n";
@@ -238,40 +238,114 @@ export function ChangesView(props: Props) {
  * What of the uncommitted changes is shown: one turn, or all of them. A turn is the stretch
  * between two points of the trail; choosing it here is the same as Ctrl+clicking those two.
  */
+/** Turns shown as buttons; earlier ones are in a list, so the bar stays one short row. */
+const TURNS_SHOWN = 2;
+
 function Scopes(props: { turns: Turn[]; scope: string | null; onScope: (key: string | null) => void; repos: RepoStatus[] }) {
   const marks = useSessionMarks();
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+
   const chip = (on: boolean) =>
     `flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 ${on ? "bg-raised text-slate-100" : "text-slate-400 hover:bg-raised/70 hover:text-slate-100"}`;
+  const earlier = props.turns.slice(0, Math.max(0, props.turns.length - TURNS_SHOWN));
+  const shown = props.turns.slice(earlier.length);
+  // An earlier turn that is picked stands in for the list's button, so what is shown is in sight
+  const picked = earlier.find((t) => t.key === props.scope);
+  const who = (turn: Turn) => marks.of(turn.session)?.title ?? (turn.session ? t("Session {id}", { id: shortId(turn.session) }) : "");
+  const tip = (turn: Turn) => (
+    <>
+      <span>{turn.prompt ?? t("A turn without a prompt")}</span>
+      <span className="text-slate-400">
+        {who(turn)}
+        {turn.to ? ` · ${t("done {time}", { time: clock(turn.at) })}` : ` · ${t("still working")}`}
+      </span>
+    </>
+  );
+  const label = (turn: Turn) => {
+    const mark = marks.of(turn.session);
+    const repo = props.repos.length > 1 ? props.repos.find((r) => r.path === turn.repo)?.name : null;
+    return (
+      <>
+        {mark && <SessionBadge mark={mark} />}
+        {t("Turn {n}", { n: turn.n })}
+        {repo && <span className="text-slate-500">{repo}</span>}
+        {!turn.to && <span className="size-1.5 animate-pulse rounded-full bg-ai" />}
+      </>
+    );
+  };
+
   return (
-    <div className="flex min-w-0 items-center gap-1 overflow-x-auto" role="radiogroup" aria-label={t("Which changes to show")}>
-      {props.turns.map((turn) => {
-        const mark = marks.of(turn.session);
-        const repo = props.repos.length > 1 ? props.repos.find((r) => r.path === turn.repo)?.name : null;
-        return (
+    <div className="flex min-w-0 items-center gap-1" role="radiogroup" aria-label={t("Which changes to show")}>
+      {earlier.length > 0 && (
+        <div ref={box} className="relative shrink-0">
           <Tooltip
-            key={turn.key}
             content={
               <>
-                <span>{turn.prompt ?? t("A turn without a prompt")}</span>
-                <span className="text-slate-400">
-                  {mark?.title ?? (turn.session ? t("Session {id}", { id: shortId(turn.session) }) : "")}
-                  {turn.to ? ` · ${t("done {time}", { time: clock(turn.at) })}` : ` · ${t("still working")}`}
-                </span>
+                <span>{t("{n} turns since the last commit", { n: props.turns.length })}</span>
+                <TooltipHint>{t("Committing starts the count again")}</TooltipHint>
               </>
             }
           >
-            <button type="button" role="radio" aria-checked={props.scope === turn.key} onClick={() => props.onScope(turn.key)} className={chip(props.scope === turn.key)}>
-              {mark && <SessionBadge mark={mark} />}
-              {t("Turn {n}", { n: turn.n })}
-              {repo && <span className="text-slate-500">{repo}</span>}
-              {!turn.to && <span className="size-1.5 animate-pulse rounded-full bg-ai" />}
+            <button type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} className={chip(!!picked || open)}>
+              {picked ? label(picked) : t("Earlier ({n})", { n: earlier.length })}
+              <ChevronDown className={`size-3.5 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
             </button>
           </Tooltip>
-        );
-      })}
-      <button type="button" role="radio" aria-checked={props.scope === null} onClick={() => props.onScope(null)} className={chip(props.scope === null)}>
-        {t("All uncommitted")}
-      </button>
+          {open && (
+            <div role="menu" className="surface-overlay absolute top-7 left-0 z-30 flex max-h-[60vh] w-[420px] flex-col overflow-y-auto rounded-lg p-1 text-[12px]">
+              {[...earlier].reverse().map((turn) => {
+                const mark = marks.of(turn.session);
+                return (
+                  <button
+                    key={turn.key}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={props.scope === turn.key}
+                    onClick={() => {
+                      props.onScope(turn.key);
+                      setOpen(false);
+                    }}
+                    className={`flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-overlay-hover ${props.scope === turn.key ? "bg-overlay-hover" : ""}`}
+                  >
+                    <span className="flex w-[74px] shrink-0 items-center gap-1.5 text-slate-200">
+                      {mark && <SessionBadge mark={mark} />}
+                      {t("Turn {n}", { n: turn.n })}
+                    </span>
+                    <span className="w-10 shrink-0 text-slate-500 tabular-nums">{clock(turn.at)}</span>
+                    <span className="min-w-0 flex-1 truncate text-slate-300">{turn.prompt ?? t("A turn without a prompt")}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+      {/* The rest scrolls when the deck is narrow; the list above must not, or it would be cut off */}
+      <div className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {shown.map((turn) => (
+          <Tooltip key={turn.key} className="flex shrink-0" content={tip(turn)}>
+            <button type="button" role="radio" aria-checked={props.scope === turn.key} onClick={() => props.onScope(turn.key)} className={chip(props.scope === turn.key)}>
+              {label(turn)}
+            </button>
+          </Tooltip>
+        ))}
+        <button type="button" role="radio" aria-checked={props.scope === null} onClick={() => props.onScope(null)} className={chip(props.scope === null)}>
+          {t("All uncommitted")}
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 /** Same pause as the system tooltips: passing over something does not flash it. */
 const DELAY_MS = 450;
@@ -63,7 +64,10 @@ export function Tooltip(props: {
       onContextMenu={hide}
     >
       {children}
-      {at && (
+      {/* On the page itself, not inside the element: WebKitGTK cuts a fixed element off at the
+          edge of a scrolling container around it (the trail), Chromium does not */}
+      {at &&
+        createPortal(
         <span
           role="tooltip"
           style={{
@@ -74,8 +78,9 @@ export function Tooltip(props: {
           className="pointer-events-none fixed z-40 flex flex-col gap-0.5 surface-overlay rounded-md px-2.5 py-2 font-sans text-[12px] leading-snug whitespace-normal text-slate-300"
         >
           {content}
-        </span>
-      )}
+        </span>,
+          document.body,
+        )}
     </span>
   );
 }

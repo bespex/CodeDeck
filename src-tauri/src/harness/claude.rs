@@ -106,7 +106,7 @@ impl Harness for Claude {
             cwd: cut(&raw["cwd"], usize::MAX),
             file: cut(&input["file_path"], usize::MAX).or_else(|| cut(&input["notebook_path"], usize::MAX)),
             tool: cut(&raw["tool_name"], usize::MAX),
-            prompt: cut(&raw["prompt"], 300),
+            prompt: cut(&raw["prompt"], 300).map(|p| plain_prompt(&p)),
             message: cut(&raw["message"], 300),
             report: cut(&raw["last_assistant_message"], REPORT_MAX).filter(|_| kind == EventKind::TurnDone),
             log: cut(&raw["transcript_path"], usize::MAX),
@@ -129,6 +129,20 @@ impl Harness for Claude {
 
     fn read_log(&self, log: &Path) -> Option<SessionInfo> {
         read(log)
+    }
+}
+
+/// What the user asked, as a turn is named after it. Claude Code also hands notices of its own in
+/// as a prompt (a background task finished: `<task-notification>…`); their raw markup would name the
+/// turn and its snapshots, so they get a short name instead.
+fn plain_prompt(prompt: &str) -> String {
+    let text = prompt.trim_start();
+    if text.starts_with("<task-notification>") {
+        "Background task finished".to_string()
+    } else if text.starts_with('<') && text.contains("</") && text.split_whitespace().next().is_some_and(|w| w.ends_with('>')) {
+        "Notice from Claude Code".to_string()
+    } else {
+        prompt.to_string()
     }
 }
 
@@ -380,10 +394,10 @@ fn parse<'a>(lines: impl Iterator<Item = &'a str>) -> SessionInfo {
         match entry["type"].as_str().unwrap_or_default() {
             "ai-title" => seen.title = str_of("aiTitle").or(seen.title.take()),
             "custom-title" => custom = str_of("customTitle").or(custom.take()),
-            "last-prompt" => seen.prompt = str_of("lastPrompt").or(seen.prompt.take()),
+            "last-prompt" => seen.prompt = str_of("lastPrompt").map(|p| plain_prompt(&p)).or(seen.prompt.take()),
             "user" => {
                 if let Some(text) = entry["message"]["content"].as_str() {
-                    seen.prompt = Some(text.to_string());
+                    seen.prompt = Some(plain_prompt(text));
                     // A new turn: what was said before belongs to the last one
                     seen.report = None;
                 }
@@ -592,6 +606,13 @@ mod tests {
         assert!(!follow_program(&tmp, &current).unwrap());
         assert_eq!(now(), [format!("{} hook", other.display())]);
         std::fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    #[test]
+    fn names_turns_after_what_was_asked_not_after_notices() {
+        assert_eq!(plain_prompt("Fix the <b> tag in index.html"), "Fix the <b> tag in index.html");
+        assert_eq!(plain_prompt("<task-notification> <task-id>b1</task-id> …"), "Background task finished");
+        assert_eq!(plain_prompt("<system-reminder>x</system-reminder>"), "Notice from Claude Code");
     }
 
     #[test]

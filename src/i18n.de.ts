@@ -536,4 +536,12 @@ export const de: Record<string, string> = {
   "Snapshot when a session finished its turn, in the session's colour. It shows what the turn changed.": "Snapshot, als eine Sitzung ihre Runde beendet hat, in der Farbe der Sitzung. Zeigt, was die Runde geändert hat.",
   "Before writing (anchor)": "Vor dem Schreiben (Anker)",
   "Snapshot just before a session first wrote in a turn, in the session's colour. To go back to.": "Snapshot direkt bevor eine Sitzung in einer Runde zum ersten Mal schrieb, in der Farbe der Sitzung. Zum Zurückgehen.",
+  "Earlier ({n})": "Frühere ({n})",
+  "Committing starts the count again": "Ein Commit beginnt die Zählung neu",
+  "{n} turns since the last commit": "{n} Runden seit dem letzten Commit",
+  "Several snapshots (stack)": "Mehrere Snapshots (Stapel)",
+  "{n} snapshots in a row, folded so the trail stays short. A click shows them one by one.": "{n} Snapshots hintereinander, zusammengefaltet, damit der Trail kurz bleibt. Ein Klick zeigt sie einzeln.",
+  "from {from} to {to}": "von {from} bis {to}",
+  "{n} snapshots folded; open them": "{n} Snapshots gefaltet; aufklappen",
+  "Fold these snapshots": "Diese Snapshots falten",
 };
