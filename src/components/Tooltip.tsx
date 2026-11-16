@@ -15,8 +15,13 @@ export function Tooltip(props: {
   /** Below (default; above near the window's bottom) or to the right, for things in a column */
   side?: "below" | "right";
   className?: string;
+  /** Explains an area: shows only over its empty parts, never over a button or field inside it */
+  area?: boolean;
+  /** Opens at the mouse pointer instead of at the element: for large things and areas */
+  pointer?: boolean;
 }) {
-  const { content, children, side = "below" } = props;
+  const { content, children, side = "below", area, pointer = area } = props;
+  const mouse = useRef({ x: 0, y: 0 });
   const [at, setAt] = useState<DOMRect | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const box = useRef<HTMLSpanElement>(null);
@@ -28,7 +33,7 @@ export function Tooltip(props: {
   const show = () => {
     clearTimeout(timer.current);
     if (clicked.current) return;
-    timer.current = setTimeout(() => box.current?.isConnected && setAt(box.current.getBoundingClientRect()), DELAY_MS);
+    timer.current = setTimeout(() => box.current?.isConnected && setAt(pointer ? new DOMRect(mouse.current.x, mouse.current.y + 8, 0, 0) : box.current.getBoundingClientRect()), DELAY_MS);
   };
   const hide = () => {
     clearTimeout(timer.current);
@@ -49,7 +54,17 @@ export function Tooltip(props: {
     <span
       ref={box}
       className={props.className ?? "flex min-w-0"}
-      onMouseEnter={show}
+      onMouseMove={(e) => (mouse.current = { x: e.clientX, y: e.clientY })}
+      onMouseEnter={area ? undefined : show}
+      onMouseOver={
+        area
+          ? (e) => {
+              // Over something with a tooltip of its own the area stays quiet
+              if ((e.target as HTMLElement).closest("button, a, input, select, textarea, [role=tab], [title]")) hide();
+              else if (!at) show();
+            }
+          : undefined
+      }
       onMouseLeave={() => {
         clicked.current = false;
         hide();
@@ -91,10 +106,10 @@ export function TooltipHint({ children }: { children: ReactNode }) {
 }
 
 /** What a tool's tooltip says everywhere: its name, what it does, and in a quiet line how else to reach it. */
-export function ToolTipBody({ label, says, hint }: { label: string; says: ReactNode; hint?: string }) {
+export function ToolTipBody({ label, says, hint }: { label?: string; says: ReactNode; hint?: string }) {
   return (
     <>
-      <span className="font-semibold text-slate-100">{label}</span>
+      {label && <span className="font-semibold text-slate-100">{label}</span>}
       <span>{says}</span>
       {hint && <TooltipHint>{hint}</TooltipHint>}
     </>

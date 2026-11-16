@@ -14,14 +14,15 @@ import { useMarkers } from "../markers";
 import { useAttachedCount } from "./AttachmentList";
 import { useView, type ViewId } from "../view";
 import { t } from "../i18n";
+import { Tooltip, ToolTipBody } from "./Tooltip";
 
 
 /** Four views for the four questions that come up when working with an assistant; `who` is its name. */
-const views: { id: ViewId; label: string; question: (who: string) => string }[] = [
-  { id: "activity", label: "Activity", question: () => t("What are the sessions doing?") },
-  { id: "changes", label: "Changes", question: (who) => t("What did {who} change?", { who }) },
-  { id: "workbench", label: "Workbench", question: () => t("What else came up that is not part of the project yet?") },
-  { id: "next", label: "Next prompt", question: () => t("What do you attach to your next prompt?") },
+const views: { id: ViewId; label: string; question: (who: string) => string; story: () => { says: string; hint: string } }[] = [
+  { id: "activity", label: "Activity", question: () => t("What are the sessions doing?"), story: () => ({ says: t("Your overview while the assistant works. Every session has a row on today's timeline: blue where it worked, a yellow frame where it waited for you, a small triangle where CodeDeck took a snapshot before it wrote. Below that: how safe your work is (what is not yet in Git, what exists only on this machine) and the documents the sessions wrote."), hint: t("Zoom the timeline with Ctrl and the mouse wheel; the ? beside its title explains every sign.") }) },
+  { id: "changes", label: "Changes", question: (who) => t("What did {who} change?", { who }), story: () => ({ says: t("What the sessions did to your files, shown as a diff. Normally everything that is not yet saved in Git; with a point selected on the trail it is exactly what that turn, commit or snapshot changed. Files carry the colour of the session that wrote them."), hint: t("Comment on lines (they go with your next prompt), tick files off once you have looked at them, save them in Git with a message, or go back to a snapshot if it was not what you wanted.") }) },
+  { id: "workbench", label: "Workbench", question: () => t("What else came up that is not part of the project yet?"), story: () => ({ says: t("Everything that came up around the project but is not part of it. The scratch folder holds drafts and throwaway files; below it are pages and files that sessions put elsewhere (a published page, a file in /tmp) and the @ai comments you left in your files as instructions."), hint: t("Open a file, drag it into the project if it is worth keeping, or attach it to your next prompt. An @ai comment disappears once the assistant has done what it asks.") }) },
+  { id: "next", label: "Next prompt", question: () => t("What do you attach to your next prompt?"), story: () => ({ says: t("The last step before you write: what goes along with your next prompt. The files, changes, comments on lines and @ai hints you attached, each with where it comes from, and the exact text the assistant will receive. At the bottom are the start rules every new session gets once."), hint: t("Take off what should not go along. You write the prompt itself in your AI tool; CodeDeck adds only what is listed here.") }) },
 ];
 
 interface Props {
@@ -77,12 +78,22 @@ export function Deck({ git, selected, assistant }: Props) {
 
   return (
     <main className="relative flex min-h-0 min-w-0 flex-col bg-base">
+      <Tooltip
+        area
+        className="block shrink-0"
+        content={
+          <ToolTipBody
+            says={t("This is where the work happens, from left to right: watch what the sessions do (Activity), check what they changed (Changes), collect what else came up (Workbench) and see what goes with your next prompt (Next prompt). The narrow column on the left is the trail: the history of your project with its commits and CodeDeck's snapshots.")}
+            hint={t("A click on a point in the trail shows in Changes what it changed.")}
+          />
+        }
+      >
       <nav
         className="flex h-11 shrink-0 items-center gap-1 border-b border-line bg-panel px-2"
         role="tablist"
         aria-label={t("Deck views")}
       >
-        {views.map(({ id, label }) => {
+        {views.map(({ id, label, story }) => {
           const active = id === view;
           // Next prompt: how much is attached (every item counts); Workbench: the hints still open
           // and the files left elsewhere not fetched yet
@@ -97,8 +108,8 @@ export function Deck({ git, selected, assistant }: Props) {
                   ? workbench
                   : undefined;
           return (
+            <Tooltip key={id} pointer className="flex shrink-0" content={<ToolTipBody label={t(label)} says={story().says} hint={story().hint} />}>
             <button
-              key={id}
               type="button"
               role="tab"
               aria-selected={active}
@@ -116,6 +127,7 @@ export function Deck({ git, selected, assistant }: Props) {
                 </span>
               )}
             </button>
+            </Tooltip>
           );
         })}
         {/* The question the open view answers */}
@@ -133,6 +145,7 @@ export function Deck({ git, selected, assistant }: Props) {
           <Bell className="size-4" />
         </button>
       </nav>
+      </Tooltip>
 
       <div className="flex min-h-0 flex-1">
         <Trail commits={commits} snapshots={shownSnapshots} onCompare={compare} repos={git.repos} point={point} onSelect={select} focusRepo={focusRepo} />

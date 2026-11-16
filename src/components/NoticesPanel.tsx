@@ -1,16 +1,17 @@
 import { useEffect } from "react";
-import { X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Minus, X } from "lucide-react";
 import type { AssistantState, Capabilities } from "../backend";
 import { mainHarness, shortId, useSessionMarks } from "../assistant";
 import { LOCALE, t } from "../i18n";
 import { noticesOf, useJournal } from "../timeline";
+import { useFold } from "./blocks";
 import type { ViewId } from "../view";
 
 /** Two tips for what is open: what is easy to miss in this view, not what the heading already says. */
 const tips = (view: ViewId, tool: string): string[] =>
   ({
     activity: [
-      t("Before {tool} writes, CodeDeck saves an anchor. Click it on the trail to see or undo the whole turn.", { tool }),
+      t("Before {tool} writes, CodeDeck saves a snapshot. Click it on the trail to see or undo the whole turn.", { tool }),
       t("The timeline shows when each session worked and when it waited for you. Point at a block to see the prompt."),
     ],
     changes: [
@@ -27,16 +28,20 @@ const tips = (view: ViewId, tool: string): string[] =>
     ],
   })[view];
 
-/** What a tool can do with CodeDeck, in one line, from what its adapter says it can. */
-function abilities(c: Capabilities): string {
-  const parts = [
-    c.liveStatus ? t("live status") : t("file changes only"),
-    c.beforeWrite && t("anchors before it writes"),
-    c.attach === "withNextPrompt" ? t("attachments with the next prompt") : c.attach === "clipboard" ? t("attachments by copy and paste") : false,
-    c.pastSessions && t("earlier sessions"),
-  ].filter(Boolean);
-  const text = parts.join(", ");
-  return text.charAt(0).toUpperCase() + text.slice(1) + ".";
+/** Everything a tool could do with CodeDeck, and whether this one can: so one sees what it cannot, too. */
+function abilities(c: Capabilities): { label: string; can: boolean; note?: string }[] {
+  return [
+    { label: t("Live status: working, waiting, done"), can: c.liveStatus },
+    { label: t("Snapshots before it writes"), can: c.beforeWrite },
+    {
+      label: t("Attachments with the next prompt"),
+      can: c.attach === "withNextPrompt",
+      note: c.attach === "clipboard" ? t("only by copy and paste") : undefined,
+    },
+    { label: t("Start rules for every new session"), can: c.startRules },
+    { label: t("Earlier sessions from its logs"), can: c.pastSessions },
+    { label: t("How much of the allowance is used"), can: c.usage },
+  ];
 }
 
 const Heading = ({ children }: { children: string }) => (
@@ -53,6 +58,8 @@ export function NoticesPanel({ assistant, view, onClose }: { assistant: Assistan
   const tool = mainHarness(assistant).shortName;
   const who = (id: string) => marks.of(id)?.title ?? t("session {id}", { id: shortId(id) });
   const notices = noticesOf(lines, who);
+  const tools = useFold("notices.tools", true);
+  const Fold = tools.open ? ChevronDown : ChevronRight;
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", key);
@@ -91,13 +98,23 @@ export function NoticesPanel({ assistant, view, onClose }: { assistant: Assistan
         ))}
       </div>
       <div className="flex flex-col gap-1.5">
-        <Heading>{t("What each AI tool can do with CodeDeck")}</Heading>
-        {assistant.harnesses.map((h) => (
-          <div key={h.id}>
-            <div className="text-slate-50">{h.name}</div>
-            <div className="text-[12px] text-slate-300">{abilities(h.capabilities)}</div>
-          </div>
-        ))}
+        <button type="button" aria-expanded={tools.open} onClick={tools.toggle} className="-ml-1 flex items-center gap-1 self-start rounded px-1 text-left hover:bg-overlay-hover">
+          <Fold className="size-3.5 text-slate-400" />
+          <Heading>{t("What each AI tool can do with CodeDeck")}</Heading>
+        </button>
+        {tools.open &&
+          assistant.harnesses.map((h) => (
+            <div key={h.id} className="flex flex-col gap-0.5">
+              <div className="text-slate-50">{h.name}</div>
+              {abilities(h.capabilities).map((a) => (
+                <div key={a.label} className={`flex items-center gap-2 text-[12px] ${a.can ? "text-slate-200" : "text-slate-400"}`}>
+                  {a.can ? <Check className="size-3.5 shrink-0 text-added" /> : a.note ? <Minus className="size-3.5 shrink-0 text-changed" /> : <X className="size-3.5 shrink-0 text-slate-500" />}
+                  <span>{a.label}</span>
+                  {a.note && <span className="text-slate-400">· {a.note}</span>}
+                </div>
+              ))}
+            </div>
+          ))}
       </div>
     </aside>
   );

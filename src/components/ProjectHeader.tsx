@@ -1,3 +1,4 @@
+import { Tooltip, ToolTipBody } from "./Tooltip";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { AppWindow, ChevronDown, Copy, FolderOpen, FolderSearch } from "lucide-react";
 import { openPath, pickFolder, recentProjects, type ProjectInfo, type RecentProject } from "../backend";
@@ -60,6 +61,16 @@ export function PathBar({ project, onOpen }: { project: ProjectInfo | null; onOp
   const { open, error } = useOpen(onOpen, () => {});
   const crumbs = project?.crumbs ?? [];
   return (
+    <Tooltip
+      area
+      className="block shrink-0"
+      content={
+        <ToolTipBody
+          says={t("Your project's files. At the top is the open project and where it lives, below it the file tree. Folders and files that sessions touched are marked in their colour.")}
+          hint={t("The paperclip attaches a file to your next prompt; a double click opens it.")}
+        />
+      }
+    >
     <header className="relative shrink-0 border-b border-line">
       {/* 43 px plus the border: the same 44 px as the headers beside it, so their lines meet */}
       <div className="flex h-[43px] items-center gap-3 px-3">
@@ -70,7 +81,7 @@ export function PathBar({ project, onOpen }: { project: ProjectInfo | null; onOp
           </span>
         )}
         {/* The way there is quiet; a long path is cut off on the left, the nearest folders stay visible */}
-        <nav aria-label={t("Path")} className="flex min-w-0 flex-1 justify-end overflow-hidden font-mono text-[11px] whitespace-nowrap text-slate-500" title={project?.root}>
+        <nav aria-label={t("Path")} className="flex min-w-0 flex-1 justify-end overflow-hidden font-mono text-[11px] whitespace-nowrap text-slate-500">
           {crumbs.slice(0, -1).map((crumb, i) => {
             const separator = i > 0 && crumbs[i - 1].label !== "/";
             return (
@@ -92,6 +103,7 @@ export function PathBar({ project, onOpen }: { project: ProjectInfo | null; onOp
       </div>
       {error && <p className="selectable px-3 pb-2 text-[11px] text-problem">{error}</p>}
     </header>
+    </Tooltip>
   );
 }
 

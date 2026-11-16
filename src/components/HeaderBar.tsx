@@ -1,3 +1,4 @@
+import { Tooltip, ToolTipBody } from "./Tooltip";
 import { useState, type ReactNode } from "react";
 import {
   AppWindow,
@@ -44,6 +45,16 @@ interface Props {
 export function HeaderBar(props: Props) {
   return (
     // 43 px plus the border: the same 44 px as the headers beside it, so their lines meet
+    <Tooltip
+      area
+      className="block shrink-0"
+      content={
+        <ToolTipBody
+          says={t("The control room beside your AI tool. At the top you see the open project, your AI tool and the settings. Below: the sessions that wait for you, all sessions of the project with what they are doing, and a summary of what goes with your next prompt.")}
+          hint={t("The buttons at the top switch the project, connect your AI tool and change settings.")}
+        />
+      }
+    >
     <header className="relative flex h-[44px] shrink-0 items-center gap-1 border-b border-line pr-1.5 pl-1.5">
       <ProjectMenu project={props.project} onOpen={props.onOpenProject} />
       <span className="flex-1" />
@@ -61,6 +72,7 @@ export function HeaderBar(props: Props) {
         {props.compact ? <Maximize2 className="size-4" /> : <PanelRight className="size-4" />}
       </button>
     </header>
+    </Tooltip>
   );
 }
 

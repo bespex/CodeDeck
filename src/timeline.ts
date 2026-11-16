@@ -95,15 +95,37 @@ export function lanesOf(lines: JournalLine[], sessions: Session[], now: number):
   return [...lanes.values()].filter((l) => l.blocks.length > 0).map(({ open: _open, ...l }) => l).sort((a, b) => a.blocks[0].from - b.blocks[0].from);
 }
 
-/** The time the timeline spans: whole hours from before the first block to just after now. */
-export function spanOf(lanes: Lane[], now: number): { from: number; to: number; ticks: number[] } {
-  const first = Math.min(now - 90 * 60_000, ...lanes.map((l) => l.blocks[0].from));
-  const from = Math.floor(first / HOUR) * HOUR;
-  const to = now + 5 * 60_000;
-  const step = to - from <= 6 * HOUR ? HOUR : to - from <= 12 * HOUR ? 2 * HOUR : 3 * HOUR;
+const MIN = 60_000;
+
+/** Whole-minute ticks for what is shown: the smallest step that keeps it to about eight labels. */
+export function ticksIn(from: number, to: number): number[] {
+  const step = ([5, 10, 15, 30, 60, 120, 180, 360].find((m) => (to - from) / (m * MIN) <= 8) ?? 360) * MIN;
   const ticks: number[] = [];
   for (let at = Math.ceil(from / step) * step; at < to; at += step) ticks.push(at);
-  return { from, to, ticks };
+  return ticks;
+}
+
+/** The time the timeline spans: whole hours from before the first block to just after now. */
+export function spanOf(lanes: Lane[], now: number): { from: number; to: number; ticks: number[] } {
+  const first = Math.min(now - 90 * MIN, ...lanes.map((l) => l.blocks[0].from));
+  const from = Math.floor(first / HOUR) * HOUR;
+  const to = now + 5 * MIN;
+  return { from, to, ticks: ticksIn(from, to) };
+}
+
+/** The shortest stretch one can zoom in to. */
+export const MIN_SPAN = 10 * MIN;
+
+/**
+ * A view of `full` that starts at `from` and is `len` long, moved back inside it; `null` when it
+ * would show everything anyway.
+ */
+export function zoomed(full: { from: number; to: number }, from: number, len: number): { from: number; to: number } | null {
+  const whole = full.to - full.from;
+  len = Math.min(Math.max(len, MIN_SPAN), whole);
+  if (len >= whole - MIN) return null;
+  const start = Math.min(Math.max(from, full.from), full.to - len);
+  return { from: start, to: start + len };
 }
 
 export interface Notice {

@@ -105,13 +105,13 @@ davon committet ist und was nicht.
 ### Szene 2: Einen Auftrag geben
 
 Im Terminal schreibst du: „Bau den Limiter auf Token-Bucket um.“ In CodeDeck pulsiert die Sitzung
-rechts: **working**. Sobald Claude die erste Datei anfasst, erscheint auf dem Trail ein **⚓ Anker**:
+rechts: **working**. Sobald Claude die erste Datei anfasst, erscheint auf dem Trail ein **⚓ Snapshot**:
 CodeDeck hat den Stand unmittelbar *davor* gesichert. Dann bekommt `limit.rs` im Baum seinen Punkt,
 die Sitzung listet die Datei, die Trail-Linie oben wird amber: Hier gibt es Änderungen, die noch
-nirgends gesichert sind außer im Anker.
+nirgends gesichert sind außer im Snapshot.
 
 *Sehen:* Du verfolgst live, welche Dateien Claude anfasst. *Einfach:* Du hast nichts dafür getan,
-der Anker entsteht von selbst.
+der Snapshot entsteht von selbst.
 
 ### Szene 3: Claude wartet auf dich
 
@@ -199,7 +199,7 @@ nur auf deinem Rechner. Nach dem Push wird sie ruhig grau, und am obersten Commi
 - **Nichts an Git vorbei.** Jeder Git-Befehl läuft sichtbar über die Kommandozeile und steht im
   Protokoll; deine Branches und dein Index bleiben unberührt, auch beim Sichern.
 - **Die KI nicht ausbremsen.** Claude schreibt direkt („optimistic flow“), es gibt keine
-  Genehmigungsschleife je Änderung. Abgesichert wird durch die Anker: lieber hinterher einfach
+  Genehmigungsschleife je Änderung. Abgesichert wird durch die Snapshots: lieber hinterher einfach
   zurück, als vorher jedes Mal fragen.
 
 ---
@@ -226,7 +226,7 @@ tmux und die Startregeln (Teil 4).*
             ▼                        ▼       ▼
      ┌──────────────────────────────────┐  ┌──────────────────────┐
      │ Projekt: Dateien + Git-Repos     │  │ Claude-Code-Logs     │
-     │ (+ Anker unter refs/codedeck/)   │  │ (~/.claude/projects) │
+     │ (+ Snapshots unter refs/codedeck/)   │  │ (~/.claude/projects) │
      └──────────────────────────────────┘  └──────────────────────┘
 ```
 
@@ -239,7 +239,7 @@ CodeDeck hat vier Wege, um zu wissen, was geschieht, und einen, um etwas zurück
    CodeDeck Titel, Modell und geschriebene Dateien, auch für Sitzungen, die schon liefen, bevor
    CodeDeck offen war.
 3. **Git: die Wahrheit über die Dateien.** Was wirklich geändert, committet und gepusht ist, sagt
-   Git. Darauf beruhen Trail, Changes und Anker.
+   Git. Darauf beruhen Trail, Changes und Snapshots.
 4. **Anhänge: CodeDeck gibt Claude etwas mit.** Den Prompt schreibst du in Claude; CodeDeck hängt
    angepinnte Dateien, Zeilenkommentare und Hinweise an deinen nächsten Prompt an.
 
@@ -262,17 +262,17 @@ Fenster nimmt nur, was sein Projekt betrifft.
 |---|---|---|
 | Sitzung beginnt | Sitzung anlegen, Log lesen | Neue Zeile rechts |
 | Prompt abgeschickt | Status *working*; wartende Übergabe ausliefern | Punkt pulsiert; Übergabe verschwindet aus „wartet“ |
-| Gleich wird geschrieben (Edit, Write, Bash) | Beim ersten Mal in der Runde: Anker setzen | ⚓ auf dem Trail |
+| Gleich wird geschrieben (Edit, Write, Bash) | Beim ersten Mal in der Runde: Snapshot setzen | ⚓ auf dem Trail |
 | Wurde geschrieben | Datei der Sitzung zuordnen, neu nachsehen | Punkt im Baum, Datei unter der Sitzung |
 | Claude braucht dich | Status *waiting*, mit Grund | Orange, „waiting for you“ |
-| Runde fertig | Status *turn done*, Log nachlesen (Titel); hat die Runde etwas geändert: Anker für ihr Ende, mit Claudes Abschlussnachricht | Grau, Titel aktualisiert, ⚑ auf dem Trail, „Turn n“ in Changes |
+| Runde fertig | Status *turn done*, Log nachlesen (Titel); hat die Runde etwas geändert: Snapshot für ihr Ende, mit Claudes Abschlussnachricht | Grau, Titel aktualisiert, ⚑ auf dem Trail, „Turn n“ in Changes |
 | Sitzung endet | Status *ended* | Zeile wird blass |
 
 Zwei Dinge sind dabei wichtig:
 
 - **Ohne CodeDeck passiert nichts.** Ist kein Fenster offen, beendet sich `codeck hook` sofort.
   Claude Code arbeitet dann wie immer.
-- **CodeDeck bremst Claude nicht.** Der Hook antwortet sofort; nur beim Anker wartet Claude die
+- **CodeDeck bremst Claude nicht.** Der Hook antwortet sofort; nur beim Snapshot wartet Claude die
   Sekundenbruchteile, bis der Stand gesichert ist, denn darum geht es ja: *vor* dem Schreiben.
 
 ## 2.3 Eine Runde Schritt für Schritt
@@ -286,7 +286,7 @@ So läuft Szene 2 und 5 technisch ab:
  │                │◀─ (Übergabe, falls da) │◀─────────────────────│                   │
  │                │ denkt nach …           │                      │                   │
  │                │── gleich: Edit ───────▶│─────────────────────▶│ erste Änderung    │
- │                │                        │                      │ dieser Runde? ───▶│ Anker sichern
+ │                │                        │                      │ dieser Runde? ───▶│ Snapshot sichern
  │                │◀─────────────────────── OK ───────────────────│◀──────────────────│ (refs/codedeck/…)
  │                │ schreibt limit.rs      │                      │                   │
  │                │── geschrieben ────────▶│─────────────────────▶│ ● limit.rs        │
@@ -295,7 +295,7 @@ So läuft Szene 2 und 5 technisch ab:
  │                │── fertig ─────────────▶│─────────────────────▶│ turn done,        │
  │                │                        │                      │ Log nachlesen     │
  │ prüft in CodeDeck, klickt ⚓, „Go back“ ─────────────────────────▶│ Stand sichern (↶) │
- │                │                        │                      │ Dateien zurück ──▶│ wie im Anker
+ │                │                        │                      │ Dateien zurück ──▶│ wie im Snapshot
 ```
 
 ## 2.4 Der Rückweg: warum „mit dem nächsten Prompt“
@@ -344,9 +344,9 @@ For my next request, focus on these parts of the project; read them as far as yo
   mitgezählt, und Beispiele in Markdown-Codeblöcken auch nicht.
 - „Erledigt“ erkennt CodeDeck daran, dass ein übergebener Kommentar aus der Datei verschwunden ist.
 
-## 2.5 Anker: sichern, ohne Git durcheinanderzubringen
+## 2.5 Snapshots: sichern, ohne Git durcheinanderzubringen
 
-Ein Anker ist ein vollständiger Schnappschuss des Arbeitsverzeichnisses eines Repos, auch mit
+Ein Snapshot ist eine vollständige Kopie des Arbeitsverzeichnisses eines Repos, auch mit
 neuen, noch nicht hinzugefügten Dateien. Damit dein echter Stand unberührt bleibt, geht CodeDeck so
 vor:
 
@@ -356,13 +356,16 @@ vor:
       └── bleibt unverändert; Branch, Staging, Push: alles wie vorher                 └── nur CodeDeck schaut hier hin
 ```
 
-- Die Anker hängen an keinem Branch, werden nie gepusht und tauchen nur in `git log --all` auf.
-- Es gibt sie nur, wo es etwas zu sichern gibt: je Runde und Repo ein Anker vor der ersten
+- Die Snapshots hängen an keinem Branch, werden nie gepusht und tauchen nur in `git log --all` auf.
+- Es gibt nur ein Wort dafür, drei Arten, an ihrem Zeichen und ihrer Rolle zu erkennen: ⚓ vor der Runde (in
+  der Zeitleiste ▲), ⚑ am Ende der Runde, ↶ vor dem Zurückgehen. (Früher hieß der ⚓ „Anker“; das Wort ist
+  weggefallen, weil es neben „Snapshot“ dasselbe Ding zweimal benannte.)
+- Es gibt sie nur, wo es etwas zu sichern gibt: je Runde und Repo ein Snapshot vor der ersten
   Änderung (⚓) und, wenn die Runde etwas geändert hat, einer an ihrem Ende (⚑). Die beiden grenzen
-  die Runde ab: Was dazwischen liegt, hat sie geändert. Der Anker am Ende trägt Claudes
+  die Runde ab: Was dazwischen liegt, hat sie geändert. Der Snapshot am Ende trägt Claudes
   Abschlussnachricht. Gleiche Stände werden zusammengelegt (die nächste Runde beginnt dann am Ende
   der vorigen); 50 je Repo bleiben 14 Tage.
-- **Go back** sichert zuerst den aktuellen Stand als eigenen Anker (↶) und stellt dann die Dateien
+- **Go back** sichert zuerst den aktuellen Stand als eigenen Snapshot (↶) und stellt dann die Dateien
   her. Zurückgehen ist also selbst wieder rückgängig zu machen.
 
 ## 2.6 Mehrere Fenster, Sitzungen und Konfigurationen
@@ -370,10 +373,10 @@ vor:
 - **Jedes CodeDeck-Fenster** hat eine eigene Empfangsstelle (einen Socket). `codeck hook` meldet
   an alle, jedes Fenster filtert nach seinem Projekt. Zwei Projekte nebeneinander stören sich nicht.
 - **Mehrere Sitzungen im selben Projekt** erscheinen nebeneinander rechts, jede mit ihren Dateien.
-  Der Filter *only this session* zeigt auf dem Trail nur die Anker einer Sitzung.
+  Der Filter *only this session* zeigt auf dem Trail nur die Snapshots einer Sitzung.
   Jede Sitzung trägt eine eigene Farbe und einen Kurznamen (A, B, C …), überall gleich: als Schild in
-  der Liste, am Anker auf dem Trail, im Kopf eines Sicherungspunkts, am Punkt im Dateibaum. Fährst du
-  über eine Sitzung in der Liste, treten ihre Anker und Dateien hervor, der Rest tritt zurück. Die
+  der Liste, am Snapshot auf dem Trail, im Kopf eines Sicherungspunkts, am Punkt im Dateibaum. Fährst du
+  über eine Sitzung in der Liste, treten ihre Snapshots und Dateien hervor, der Rest tritt zurück. Die
   Liste steht in der Reihenfolge, in der die Sitzungen kamen (neueste oben), und springt nicht. Über
   den Stift gibst du einer Sitzung einen eigenen Titel und Kurznamen; beides bleibt je Projekt erhalten.
 - **Mehrere Claude-Konfigurationen** (z. B. `~/.claude` und ein privates `~/.claude-private`):
@@ -382,13 +385,13 @@ vor:
 
 ## 2.7 Und andere KI-Werkzeuge?
 
-Der Kern von CodeDeck hängt nicht an Claude: Trail, Changes, Anker beim Zurückgehen, Docs-Hinweise
+Der Kern von CodeDeck hängt nicht an Claude: Trail, Changes, Snapshots beim Zurückgehen, Docs-Hinweise
 zum Kopieren funktionieren mit jedem Werkzeug, das Dateien schreibt. Was sich ändert, ist nur der
 Live-Kanal. Damit ein anderes Werkzeug genauso eingebunden ist, braucht es:
 
 | Was CodeDeck braucht | Wofür | Ohne das |
 |---|---|---|
-| Ereignis „gleich wird geschrieben“, auf das das Werkzeug wartet | Anker *vor* der Änderung | Anker nur von Hand oder beim nächsten Ereignis, also zu spät |
+| Ereignis „gleich wird geschrieben“, auf das das Werkzeug wartet | Snapshot *vor* der Änderung | Snapshot nur von Hand oder beim nächsten Ereignis, also zu spät |
 | Ereignisse „arbeitet / wartet / fertig“ | Status je Sitzung | Kein Live-Status, nur Änderungen über den Dateiwächter |
 | Text an den nächsten Prompt anhängen | Übergabe | „Copy task“ und selbst einfügen |
 | Logs mit Titel und Dateien | Sitzungen von vorher | Nur Sitzungen ab dem Verbinden |
@@ -410,7 +413,7 @@ unter den Tabellen.
 |---|---|
 | Status je Sitzung, live, mit Grund beim Warten | Sitzungen, die nur aus den Logs bekannt sind (ohne Hook), zeigen immer *turn done*, auch wenn sie gerade arbeiten |
 | Geänderte Dateien im Baum und je Sitzung | Nicht zu sehen, *was Claude gerade vorhat* (welcher Befehl als Nächstes läuft); das steht nur im Terminal |
-| Trail mit drei Zonen, Anker vor und nach jeder Runde | Innerhalb einer Runde gibt es keine Zwischenstände. Arbeiten zwei Sitzungen gleichzeitig oder änderst du während einer Runde selbst etwas, steht das im selben Diff |
+| Trail mit drei Zonen, Snapshots vor und nach jeder Runde | Innerhalb einer Runde gibt es keine Zwischenstände. Arbeiten zwei Sitzungen gleichzeitig oder änderst du während einer Runde selbst etwas, steht das im selben Diff |
 | Wartende Übergabe ist sichtbar | Keine Bestätigung, dass sie angekommen ist; sie verschwindet nur aus „wartet“ |
 | Jeder Git-Befehl im Protokoll | Verbrauch und Limits von Claude unbekannt (Schritt 2.4 im Plan, Datenquelle offen) |
 
@@ -463,7 +466,7 @@ Daraus folgt:
   Beantworten einer Erlaubnisfrage dazugehört (D13 im Plan); der Click-Dummy zeigt es als Idee.
 - **Unterwegs schaut niemand auf CodeDeck.** Wer Claude von außen bedient, sieht CodeDeck nicht;
   dafür muss CodeDeck nichts leisten.
-- **Was per ssh auf einem Server geschieht, decken die Anker nicht ab.** CodeDeck sagt das an der
+- **Was per ssh auf einem Server geschieht, decken die Snapshots nicht ab.** CodeDeck sagt das an der
   Sitzung, statt Sicherheit vorzutäuschen.
 
 ## 4.2 Startseite: alle Projekte auf einmal
@@ -501,7 +504,7 @@ gibt es seit Schritt 1.3; Activity zeigt seit 2.3 die Zeitleiste der Sitzungen (
 uncommitted“ mit den Runden seit dem letzten Commit. Eine Runde zeigt, was du gefragt hast, Claudes
 Abschlussnachricht (die ersten drei Zeilen im Wortlaut, das Ganze formatiert über „Read in Marq“;
 CodeDeck fasst nichts selbst zusammen) und den Diff zwischen ihren
-beiden Ankern; das ist dasselbe wie Strg+Klick auf zwei Punkte im Trail. In „All uncommitted“ trägt
+beiden Snapshots; das ist dasselbe wie Strg+Klick auf zwei Punkte im Trail. In „All uncommitted“ trägt
 jede Datei das Schild der Sitzung, deren Runde sie zuletzt geändert hat, sonst „You“. Jede Datei
 lässt sich abhaken („looked at“); der Haken verschwindet, sobald sich die Datei wieder ändert. An
 jeder Zeile eines Diffs lässt sich ein Kommentar schreiben, der mit Datei, Zeile und Zeilentext
@@ -618,7 +621,7 @@ Bereich hervor und sagt einen Satz dazu. Es erklärt nicht die Technik, sondern 
 1. **Was CodeDeck ist und was nicht:** der Leitstand neben der Werkstatt. Kein Chat, kein Editor;
    mit Claude sprichst du, wo du es gewohnt bist.
 2. **Sehen:** rechts die Sitzungen und was auf dich wartet.
-3. **Prüfen:** der Trail mit den Ankern, Changes je Runde, und der Weg zurück.
+3. **Prüfen:** der Trail mit den Snapshots, Changes je Runde, und der Weg zurück.
 4. **Mitgeben:** eine Zeile kommentieren, eine Datei anheften; es geht mit deinem nächsten Prompt
    raus, und nur das.
 5. **Aufräumen und sichern:** die Workbench und die drei Farben der Trail-Linie.

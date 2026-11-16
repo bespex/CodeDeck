@@ -429,7 +429,7 @@ function SnapshotSymbol({ snapshot }: { snapshot: Snapshot }) {
   ) : snapshot.turnFrom ? (
     <PointTip name={t("End of a turn (flag)")} meaning={t("Snapshot when a session finished its turn, in the session's colour. It shows what the turn changed.")} />
   ) : (
-    <PointTip name={t("Before writing (anchor)")} meaning={t("Snapshot just before a session first wrote in a turn, in the session's colour. To go back to.")} />
+    <PointTip name={t("Before writing")} meaning={t("Snapshot just before a session first wrote in a turn, in the session's colour. To go back to.")} />
   );
 }
 
@@ -455,7 +455,7 @@ function trailItems(commits: TrailCommit[], snapshots: Snapshot[]): TrailItem[] 
 }
 
 /**
- * An anchor where the assistant was about to write and a flag where its turn was over, in its
+ * An anchor icon where the assistant was about to write and a flag where its turn was over, in its
  * session's colour; a turning arrow where one went back.
  */
 function SnapshotDot({ snapshot, selected, color }: { snapshot: Snapshot; selected: boolean; color?: string }) {

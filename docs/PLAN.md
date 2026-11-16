@@ -911,11 +911,12 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   Spuren: ein Block beginnt mit dem Prompt (oder dem ersten Schreiben ohne gesehenen Prompt), wird „wartet auf dich“,
   wenn die Sitzung fragt, und endet mit dem Ende der Runde; offen läuft er bis jetzt, solange die Sitzung arbeitet oder
   wartet, sonst bis zu ihrem letzten Ereignis. Anker sind die Snapshots der Sitzung (ohne Rücksprung-Snapshots).
-  `ActivityView`: „Heute“ (Zeitleiste im einzigen umrahmten Element, Legende im Kopf, Zeitachse von der vollen Stunde vor
+  `ActivityView`: „Heute“ (Zeitleiste ohne Rahmen: dünne Linie je Sitzung, eckige Balken: Arbeit gefüllt, Warten als gelber Rahmen (kein Zusatzzeichen, das Fähnchen des Trails heißt „Runde zu Ende“), Snapshots vor dem ersten Schreiben einer Runde (keine Runden-Enden) als graue Dreiecke; **Begriff:** nur „Snapshot“, kein zweites Wort „Anker“ mehr (⚓ vor der Runde, ⚑ Ende, ↶ vor dem Zurückgehen sind Arten und Zeichen, 2026-11-17; `KONZEPT.md` 2.5 und die Oberfläche angeglichen); Hilfe „So liest du die Zeitleiste“ per „?“ im Kopf (`TimelineHelp`: Begriffe Runde, Snapshot, Anker, Fahne, Zeichen) (5-Minuten-Striche und Zahl bei nahen Ankern probiert, vom Nutzer verworfen), Legende im Kopf, Zeitachse von der vollen Stunde vor
   dem ersten Block bis jetzt), „Wie sicher ist deine Arbeit“ (nicht committet = `git.changed`, committet nur hier =
-  Summe `ahead` der Repos, „–“ ohne Remote; Anker = Snapshots), „Geschriebene Dokumente“. Glocke in der Reiterleiste öffnet
+  Summe `ahead` der Repos, „–“ ohne Remote; Anker = Snapshots), „Geschriebene Dokumente“ (aus den Sitzungen der Liste und dem Journal, also auch von Sitzungen, die nicht mehr in der Liste stehen; unabhängig vom Commit-Stand). Glocke in der Reiterleiste öffnet
   `NoticesPanel` über dem Deck: „Was geschah“ (letzte Ereignisse in Worten, Schreibvorgänge einer Sitzung in Folge als
-  eine Zeile), zwei Tipps je Reiter, Fähigkeiten je KI-Werkzeug aus `capabilities`. Abweichung vom Dummy: Der Dummy
+  eine Zeile), zwei Tipps je Reiter, Fähigkeiten je KI-Werkzeug als Liste mit Haken und Kreuzen aus `capabilities` (einklappbar). Zoom der Zeitleiste (`zoomed`, `ticksIn` in `timeline.ts`): Knöpfe Vergrößern/Verkleinern/Ganzer Tag im Kopf, `Strg`+Mausrad
+  zoomt am Zeiger, Ziehen verschiebt, Doppelklick setzt zurück; kürzester Ausschnitt 10 Minuten. Abweichung vom Dummy: Der Dummy
   zeigt „Claude usage“ in Activity, das kommt mit 2.4. Nur in Tests (Rust) und Vorschau geprüft; die Spuren aus echten
   Journalen sind ungesehen.
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
