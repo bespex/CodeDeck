@@ -543,7 +543,8 @@ Der Reiter **Werkbank** sammelt das in Kacheln (D23):
 - **Hinweise in deinen Dateien:** die `@ai`-Kommentare. Auch sie gehören nicht für immer zum Projekt; sie
   verschwinden, wenn Claude erledigt hat, worum sie bitten. Die Büroklammer an einem Hinweis hängt ihn an
   den nächsten Prompt, wie im Dateibaum (beim Überfahren sichtbar, angehängt bleibt sie hell).
-- **Veröffentlichte Seiten** (claude.ai, Gists, Pastes) bleiben, wo sie sind. CodeDeck merkt sich Titel, Link
+- **Außerhalb des Projekts** ist eine Kachel mit zwei Gruppen, oben in der Werkbank, solange es etwas gibt.
+  **Online** (claude.ai, Gists, Pastes): Seiten bleiben, wo sie sind. CodeDeck merkt sich Titel, Link
   und Sitzung, so wie die Sitzung den Link am Ende ihrer Runde nennt (das verlangt die Startregel). Kopiert wird
   nicht, weil solche Seiten oft nur dort laufen. Das Konto kommt mit den Konten (3.2).
 - **Woanders abgelegt:** Was eine Sitzung trotzdem außerhalb ablegt (nicht in einem anderen Repo, nicht in den

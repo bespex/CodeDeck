@@ -87,8 +87,22 @@ function About() {
           <X className="size-4" />
         </button>
         <img src="/codedeck.svg" alt="" className="mb-1 size-16" />
-        <Wordmark className="text-[34px] leading-none" />
-        <p className="text-slate-400">{t("AI session radar for Linux · say “Codeck”")}</p>
+        {/* Like a dictionary entry: the wordmark with how it is said, then the full name it is made
+            of (the "de" Code and Deck share, in the brand orange) and what it is */}
+        {/* The pronunciation hangs beside it, so the wordmark stays in the middle */}
+        <div className="relative">
+          <Wordmark className="text-[34px] leading-none" />
+          <span className="absolute bottom-0.5 left-full ml-2 font-mono text-[12px] whitespace-nowrap text-slate-500" title={t("How codeck is said")}>
+            /ˈkoʊdɛk/
+          </span>
+        </div>
+        <p className="text-slate-400">
+          <span className="font-medium text-slate-200">
+            Co<span className="text-brand-soft">de</span>
+            <span className="text-brand-soft">De</span>ck
+          </span>{" "}
+          – {t("AI session radar for Linux")}
+        </p>
         <p className="text-[12px] text-slate-500">{t("Version {version}", { version })}</p>
         <div className="mt-1 flex gap-3">
           {link(t("Website"), HOME_URL)}

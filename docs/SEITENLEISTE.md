@@ -26,7 +26,7 @@ Von oben nach unten, in beiden Formen gleich. Nur die Übersicht gibt es allein 
 | Bereich | Inhalt |
 |---|---|
 | **Kopf** (neu) | Logo, Projektname mit Menü (siehe unten), rechts Knopf „Leiste / Aufklappen“ |
-| **Übersicht** (neu, nur in der Leiste) | Komponente `SidebarSummary`, siehe unten |
+| **Übersicht** (in beiden Formen, seit 2026-11-16) | Komponente `SidebarSummary`, siehe unten |
 | Wartet auf dich | unverändert |
 | Sitzungen | unverändert |
 | Nächster Prompt | Dashboard unverändert |
@@ -159,3 +159,6 @@ Aufteilung in drei Schritte, jeder für sich nützlich:
 - **`Ctrl+Alt+L`** holt das zuletzt benutzte Fenster nach vorn **und** schaltet um (ein Druck statt zwei).
 - **Kürzel ändern:** noch nicht; Einstellungen und `F1` zeigen sie und sagen, wenn ein anderes Programm sie hält.
 - **Dialoge** passen in die Leiste: Einstellungen mit den Bereichen als Reihe oben, jede Einstellung untereinander.
+- **Platz:** immer am rechten Rand des Bildschirms, auf dem CodeDeck ist, über die volle Höhe des Arbeitsbereichs,
+  400 px breit (Nutzer, nach dem ersten Test). `Strg+Alt+C`: sichtbar → ausblenden, ausgeblendet → zurückholen
+  (statt „vorn“), Fokus über `_NET_ACTIVE_WINDOW`. Messungen und Gründe: Notizen in `PLAN.md`.

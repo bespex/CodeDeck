@@ -37,8 +37,9 @@ function useNewScratch(): number {
 }
 
 /**
- * Only in the sidebar: in two or three short lines what the full window shows in the file list,
- * on the trail and in the views. Each line opens the full window where it says more.
+ * In two or three short lines what the file list, the trail and the views show, at the top of the
+ * right column in both forms. Each line opens the view that says more (as the sidebar: in the full
+ * window).
  */
 export function SidebarSummary({ git, assistant }: { git: GitView; assistant: AssistantState }) {
   const root = git.rootRepo;
@@ -107,10 +108,11 @@ function Line({ view, icon, children }: { view: ViewId; icon: ReactNode; childre
       type="button"
       title={t("Open in the full window")}
       onClick={() => openView(view)}
-      className="flex w-full min-w-0 items-center gap-1.5 px-3 py-0.5 text-left whitespace-nowrap text-slate-400 hover:bg-raised/60"
+      className="flex w-full min-w-0 items-start gap-1.5 px-3 py-0.5 text-left text-slate-400 hover:bg-raised/60"
     >
-      <span className="shrink-0 text-slate-500">{icon}</span>
-      {children}
+      <span className="mt-px shrink-0 text-slate-500">{icon}</span>
+      {/* A narrow column wraps the parts instead of cutting off the last, often the one that counts */}
+      <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 [&>*]:whitespace-nowrap">{children}</span>
     </button>
   );
 }

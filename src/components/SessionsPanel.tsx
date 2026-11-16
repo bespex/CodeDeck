@@ -50,18 +50,20 @@ interface Props {
 
 /**
  * The right column, in three areas: what waits for you (coloured only while something does),
- * the sessions working in the project, and what goes out with your next prompt. As the sidebar a
- * short overview comes below the header, for what file list, trail and views would show.
+ * the sessions working in the project, and what goes out with your next prompt. Below the header a
+ * short overview of what file list, trail and views show; the same in the full window and as the
+ * sidebar.
  */
 export function SessionsPanel(props: Props) {
   return (
     <aside
-      className={`grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] bg-panel ${
-        props.compact ? "grid-rows-[auto_auto_auto_minmax(0,3fr)_minmax(0,2fr)]" : "grid-rows-[auto_auto_minmax(0,3fr)_minmax(0,2fr)] border-l border-line"
+      className={`grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_auto_minmax(0,3fr)_minmax(0,2fr)] bg-panel ${
+        props.compact ? "" : "border-l border-line"
       }`}
     >
       <HeaderBar project={props.project} onOpenProject={props.onOpenProject} assistant={props.assistant} onToggleLog={props.onToggleLog} compact={props.compact} />
-      {props.compact && <SidebarSummary git={props.git} assistant={props.assistant} />}
+      {/* In both forms (user, 2026-11-16): the column is the same as full window and as sidebar */}
+      <SidebarSummary git={props.git} assistant={props.assistant} />
       <NeedsYou state={props.assistant} />
       <Sessions state={props.assistant} onShowFile={props.onShowFile} />
       <NextPrompt {...props} />
@@ -105,7 +107,10 @@ function NeedsYou({ state }: { state: AssistantState }) {
       {waiting.length === 0 ? (
         <p className="px-3 pb-2.5 text-[12px] text-slate-500">{t("Nothing. No session waits for you.")}</p>
       ) : (
-        <ul className="flex min-h-0 flex-col gap-1.5 overflow-y-auto px-2 pb-2">
+        // Rows like the sessions below, not cards: calmer, and the same reading. What stands out is
+        // what counts: the area's tint and count, a question's edge and words in amber, and a new
+        // entry pulsing a few times
+        <ul className="min-h-0 divide-y divide-line/70 overflow-y-auto border-y border-line/70">
           {waiting.map((s) => {
             const asks = needsYou(s) === "asks";
             return (
@@ -114,15 +119,15 @@ function NeedsYou({ state }: { state: AssistantState }) {
                 key={waitKey(s)}
                 onMouseEnter={() => marks.hover(s.id)}
                 onMouseLeave={() => marks.hover(null)}
-                className={`rounded-lg border border-overlay-line bg-overlay px-2.5 py-2 shadow-lg shadow-black/25 ${
-                  waitsSince(s) > OPENED_AT ? "attention-new" : ""
-                }`}
+                className={`group/wait relative py-1.5 pr-1.5 pl-3 ${waitsSince(s) > OPENED_AT ? "attention-new" : ""}`}
               >
+                {asks && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-changed" />}
                 <div className="flex items-center gap-2">
-                  <span className={`size-2 shrink-0 rounded-full ${asks ? "bg-changed" : "bg-slate-400"}`} />
                   <SessionBadge mark={markOf(s, marks.of(s.id))} />
-                  <span className="min-w-0 flex-1 truncate font-medium text-slate-100">
-                    {titleOf(s)} <span className="font-normal text-slate-400">{asks ? t("asks") : t("finished its turn")}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium text-slate-100">{titleOf(s)}</span>
+                  <span className={`flex shrink-0 items-center gap-1.5 text-[11px] ${asks ? "text-changed" : "text-slate-500"}`}>
+                    <span className={`size-2 shrink-0 translate-y-px rounded-full ${asks ? "bg-changed" : "bg-slate-500"}`} />
+                    {asks ? t("asks") : `${t("turn done")} · ${time(s.turnDone ?? s.last)}`}
                   </span>
                   {!asks && (
                     <button
@@ -130,14 +135,14 @@ function NeedsYou({ state }: { state: AssistantState }) {
                       title={t("Put aside until its next turn")}
                       aria-label={t("Put {name} aside", { name: titleOf(s) })}
                       onClick={() => putAside(s)}
-                      className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-overlay-hover hover:text-slate-100"
+                      className="shrink-0 rounded p-0.5 text-slate-500 opacity-0 group-hover/wait:opacity-100 hover:bg-overlay-hover hover:text-slate-100 focus-visible:opacity-100"
                     >
                       <X className="size-3.5" />
                     </button>
                   )}
                 </div>
-                <p className={`mt-1 line-clamp-3 text-[12px] ${asks ? "text-changed" : "text-slate-300"}`}>
-                  {asks ? (s.message ?? t("Waits for your answer")) : t("Waits for your next prompt since {time}", { time: time(s.turnDone ?? s.last) })}
+                <p className={`mt-0.5 line-clamp-2 pl-[26px] text-[12px] ${asks ? "text-changed" : "text-slate-400"}`}>
+                  {asks ? (s.message ?? t("Waits for your answer")) : t("Waits for your next prompt")}
                 </p>
               </li>
             );

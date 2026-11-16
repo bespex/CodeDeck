@@ -30,7 +30,8 @@ Befund:
 ## 1. Seitenleiste im Fenster
 
 - [ ] Knopf ganz rechts in der Kopfleiste (Tooltip „Seitenleiste · Strg+Umschalt+L“): das Fenster wird zur schmalen
-      Leiste **am rechten Rand** des bisherigen Fensters, gleiche Höhe
+      Leiste (400 px) **am rechten Rand seines Bildschirms**, über die volle Höhe, ohne Flackern auf einem anderen
+      Bildschirm; auch aus dem maximierten Fenster
 - [ ] Oben die Übersicht: Branch mit offenen Dateien, Runden mit letztem Snapshot, Hinweise/Scratch/„woanders
       abgelegt“ (nur wenn es welche gibt); darunter Wartet auf dich, Sitzungen, Nächster Prompt, Statusleiste
 - [ ] Knopf (jetzt „Volles Fenster“) oder `Strg+Umschalt+L`: volles Fenster **an derselben Stelle und Größe** wie vorher
@@ -49,11 +50,9 @@ Befund:
 
 ## 2. Globale Kürzel
 
-- [ ] In einem anderen Programm (Terminal, Editor) `Strg+Alt+C`: CodeDeck kommt **nach vorn** (nicht nur in der
-      Taskleiste markiert)
-- [ ] Gleich noch einmal `Strg+Alt+C`: CodeDeck verschwindet
-- [ ] Noch einmal: CodeDeck ist wieder da, in derselben Form (Leiste oder voll)
-- [ ] CodeDeck liegt sichtbar, aber hinter einem anderen Fenster: `Strg+Alt+C` holt es nach vorn (blendet nicht aus)
+- [ ] CodeDeck ist zu sehen, ein anderes Programm hat den Fokus: `Strg+Alt+C` blendet CodeDeck aus
+- [ ] Noch einmal `Strg+Alt+C`: CodeDeck ist wieder da, in derselben Form (Leiste oder voll), **mit Fokus**
+- [ ] Ausgeblendet, dann über die Taskleiste geholt: der nächste Druck blendet wieder aus
 - [ ] Aus einem anderen Programm `Strg+Alt+L`: CodeDeck kommt nach vorn und wechselt die Form; noch einmal: zurück
 - [ ] Einstellungen → Allgemein → „Globale Tastenkürzel“ zeigt beide ohne Warnung
 

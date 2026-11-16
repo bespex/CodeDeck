@@ -13,7 +13,7 @@ import { SessionMarksContext, sessionMarks, touchedFiles, useAssistant } from ".
 import { RepoActions, type Anchor } from "./components/RepoActions";
 import { useAttention } from "./attention";
 import { Dialogs } from "./components/Dialogs";
-import { setCompact, toggleCompact, useCompact } from "./compact";
+import { setCompact, toggleCompact, useCompact, useSwitching } from "./compact";
 
 // The preview starts with something attached, to show what that looks like
 if (!live) files.add(initialPins);
@@ -35,6 +35,7 @@ export default function App() {
   const [actions, setActions] = useState<{ repo: string; anchor: Anchor } | null>(null);
   const [logOpen, setLogOpen] = useState(false);
   const compact = useCompact();
+  const switching = useSwitching();
   // Ctrl+Shift+G shows and hides the git commands from anywhere, Ctrl+Shift+L switches between
   // sidebar and full window (the global shortcut for it comes from the backend)
   useEffect(() => {
@@ -87,7 +88,8 @@ export default function App() {
 
   return (
     <SessionMarksContext.Provider value={marks}>
-    <div className="flex h-full flex-col">
+    {/* Between the forms the content waits faded out and fades in when the window has its new size */}
+    <div className={`flex h-full flex-col transition-opacity ${switching ? "opacity-0 duration-0" : "opacity-100 duration-150"}`}>
       <div className={`grid min-h-0 flex-1 ${compact ? "grid-cols-[minmax(0,1fr)]" : "grid-cols-[minmax(220px,20%)_minmax(0,1fr)_minmax(300px,25%)]"}`}>
         {/* In the sidebar file list and deck are only hidden: what is open in them stays */}
         <div className={compact ? "hidden" : "contents"}>

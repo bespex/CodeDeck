@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { CircleHelp, ClipboardCopy, ExternalLink, Paperclip } from "lucide-react";
+import { ClipboardCopy, ExternalLink, Paperclip } from "lucide-react";
 import { openFile, type HarnessInfo, type Marker } from "../../backend";
 import { useConnections } from "../../assistant";
-import { Section } from "../blocks";
+import { Section, useFold, useShowAll } from "../blocks";
 import { markerKey, markers as hints, markerTask, type Markers } from "../../markers";
 import { useAttachEnabled } from "../../attachments";
 import { T, t } from "../../i18n";
@@ -32,6 +32,8 @@ export function HintsTile({ marks, harness }: { marks: Markers; harness: Harness
     return [...files];
   }, [all]);
 
+  const fold = useFold("hints", true);
+  const shown = useShowAll(byFile);
   const note = [
     all.length > 0 && t("{n} open", { n: all.length }),
     sent.length > 0 && t("{done} of {all} sent done", { done: done.size, all: sent.length }),
@@ -41,31 +43,26 @@ export function HintsTile({ marks, harness }: { marks: Markers; harness: Harness
 
   return (
     <Section
+      fold={fold}
       title={t("Hints in your files")}
+      help={
+        <>
+          <span>
+            <T
+              text="Write {ai} and what you want at the start of a line, in your own editor, or right after the comment sign that begins the line: {html}, {slash}, {hash}. Save, and it shows up here. {tool} removes the comment when it is done; that is how CodeDeck knows. Examples in Markdown code blocks do not count."
+              ai={<Code>@ai</Code>}
+              html={<Code>{"<!-- @ai …"}</Code>}
+              slash={<Code>// @ai …</Code>}
+              hash={<Code># @ai …</Code>}
+              tool={harness.shortName}
+            />
+          </span>
+          <TooltipHint>{t("The paperclip attaches a hint to your next prompt.")}</TooltipHint>
+        </>
+      }
       note={note || undefined}
       aside={
         <>
-          <Tooltip
-            content={
-              <>
-                <span>
-                  <T
-                    text="Write {ai} and what you want at the start of a line, in your own editor, or right after the comment sign that begins the line: {html}, {slash}, {hash}. Save, and it shows up here. {tool} removes the comment when it is done; that is how CodeDeck knows. Examples in Markdown code blocks do not count."
-                    ai={<Code>@ai</Code>}
-                    html={<Code>{"<!-- @ai …"}</Code>}
-                    slash={<Code>// @ai …</Code>}
-                    hash={<Code># @ai …</Code>}
-                    tool={harness.shortName}
-                  />
-                </span>
-                <TooltipHint>{t("The paperclip attaches a hint to your next prompt.")}</TooltipHint>
-              </>
-            }
-          >
-            <span className="rounded p-1 text-slate-500 hover:text-slate-200" aria-label={t("How hints work")}>
-              <CircleHelp className="size-3.5" />
-            </span>
-          </Tooltip>
           {all.length > 0 && (
             <Tooltip content={<span>{copied ? t("Copied") : t("Copy as a task to paste into {tool}", { tool: harness.shortName })}</span>}>
               <button
@@ -112,7 +109,7 @@ export function HintsTile({ marks, harness }: { marks: Markers; harness: Harness
       )}
       {byFile.length > 0 && (
         <ul className="divide-y divide-line/60 border-y border-line/60">
-          {byFile.map(([path, list]) => (
+          {shown.items.map(([path, list]) => (
             <li key={path} className="group/file py-1.5">
               <div className="flex items-center gap-1.5">
                 <span className="min-w-0 truncate font-mono text-[12px] text-slate-300">{path}</span>
@@ -157,6 +154,7 @@ export function HintsTile({ marks, harness }: { marks: Markers; harness: Harness
           ))}
         </ul>
       )}
+      {shown.more}
     </Section>
   );
 }

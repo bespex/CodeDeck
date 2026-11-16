@@ -143,7 +143,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 | 2.1 Workbench-Ordner ✅ 2026-11-15 (Praxistest bestanden 2026-11-16) | Ordner anlegen und lokal ignorieren (`.git/info/exclude`, nicht `.gitignore`), Inhalt mit Größe und Alter, Öffnen, ins Projekt übernehmen, löschen, „älter als … löschen“. Startregel zu `.workbench/` (D16). Externe Dateien anhängen: verschoben nach „Später“ | Workbench | neu `workbench.rs`, `views/WorkbenchView.tsx`, `watch.rs` | Eine Datei im Ordner erscheint sofort, Aufräumen löscht nur Altes |
 | 2.1a Aufmerksamkeit ✅ 2026-11-16 | Wer über Statusänderungen informiert werden will, sieht sie deutlich: Zahl im Fenstertitel, Taskleiste verlangt Aufmerksamkeit, Desktop-Meldung, neuer Eintrag unter „Wartet auf dich“ leuchtet kurz; wobei und wie wählt man im Projektmenü (Entscheidung des Nutzers 2026-11-16, `docs/SEITENLEISTE.md`) | nicht im Dummy | `lib.rs`, `bridge.rs`, neu `attention.rs`, `SessionsPanel.tsx`, `ProjectHeader.tsx` | Eine Erlaubnisfrage bei verdecktem Fenster ist in der Taskleiste und als Meldung zu sehen |
 | 2.1b Kopfleiste ✅ 2026-11-16 | Rechte Spalte oben: Projektmenü, Schnelleinstellungen mit „Nicht stören“, App-Menü `⋯`, About, Tastenkürzel, Einstellungsdialog (Allgemein, Meldungen, KI-Werkzeuge); links nur noch der Pfad. Ersetzt Seitenleiste A | – (`docs/KOPFLEISTE.md`) | neu `HeaderBar.tsx`, `Dialogs.tsx`, `AttentionChoice.tsx`, `dialogs.ts`; `ProjectHeader.tsx` (jetzt `ProjectMenu` und `PathBar`), `attention.rs` (`quiet_until`), `lib.rs` (`app_info`, `open_url`), `build.rs` (Commit) | Sprache und Meldungen sind nicht mehr im Projektmenü |
-| 2.1c Seitenleiste ✅ 2026-11-16 (in der echten App zu prüfen) | Seitenleiste B aus `docs/SEITENLEISTE.md`: nur die rechte Spalte, Fenster schmal am rechten Rand des vollen; zurück an Ort und Größe. Übersicht (Git, Runden, Werkbank), Knopf in der Kopfleiste, `Ctrl+Shift+L`; globale Kürzel `Ctrl+Alt+C` (zeigen/ausblenden) und `Ctrl+Alt+L` (Leiste/voll) für alle Fenster | – (`docs/SEITENLEISTE.md`) | neu `window.rs`, `compact.ts`, `SidebarSummary.tsx`; `App.tsx`, `SessionsPanel.tsx`, `HeaderBar.tsx`, `Dialogs.tsx`, `view.ts`, `bridge.rs` (Fensterbotschaften) | Ein Druck auf `Ctrl+Alt+L` macht aus dem vollen Fenster die Leiste und zurück, an derselben Stelle |
+| 2.1c Seitenleiste ✅ 2026-11-16 (in der echten App zu prüfen) | Seitenleiste B aus `docs/SEITENLEISTE.md`: nur die rechte Spalte, Fenster schmal am rechten Rand seines Bildschirms (volle Höhe des Arbeitsbereichs); zurück an Ort und Größe. Übersicht (Git, Runden, Werkbank), Knopf in der Kopfleiste, `Ctrl+Shift+L`; globale Kürzel `Ctrl+Alt+C` (zeigen/ausblenden) und `Ctrl+Alt+L` (Leiste/voll) für alle Fenster | – (`docs/SEITENLEISTE.md`) | neu `window.rs`, `compact.ts`, `SidebarSummary.tsx`; `App.tsx`, `SessionsPanel.tsx`, `HeaderBar.tsx`, `Dialogs.tsx`, `view.ts`, `bridge.rs` (Fensterbotschaften) | Ein Druck auf `Ctrl+Alt+L` macht aus dem vollen Fenster die Leiste und zurück, an derselben Stelle |
 | 2.2 Fundstücke und Links ✅ 2026-11-16 (in der echten App zu prüfen) | Schreibvorgänge außerhalb des Projekts der Sitzung zuordnen und melden; veröffentlichte Seiten als Link merken (über die Startregel: Links im Schlussbericht der Runde) | Workbench: „Still somewhere else“, „Pages on claude.ai“ | neu `findings.rs`, `FoundTiles.tsx`; `bridge.rs`, Adapter (`is_own_file`, `page_hosts`, `Event.writes`), `lib.rs` | Eine in `/tmp` geschriebene Datei wird gemeldet und lässt sich holen |
 | 2.3 Activity und Hinweise ☐ | Zeitleiste der Sitzungen aus den Ereignissen, „How safe is your work“, geschriebene Dokumente; Panel „Notices and tips“ | Activity, Glocke | neu `views/ActivityView.tsx`, `bridge.rs` (Ereignisse merken) | Ein Vormittag ist als Zeitleiste nachvollziehbar |
 | 2.4 Verbrauch ☐ | P4: erst den Spike. Ohne verlässliche Quelle entfällt die Anzeige, nicht schätzen | Activity, Statusleiste | siehe P4 | D2 ist entschieden und umgesetzt oder gestrichen |
@@ -798,7 +798,7 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   `openView` und das Zeigen einer Datei schalten vorher aufs volle Fenster. In der Leiste sind Dateibaum und Deck nur
   verborgen (`hidden` statt `contents`), ihr Zustand bleibt. Backend `window.rs`: `set_compact` merkt Ort, Größe und
   Maximiert des vollen Fensters, setzt die Mindestgröße (1040×600 ↔ 280×400) und schrumpft zum rechten Rand hin; die
-  Breite der Leiste liegt in `localStorage` (`codedeck.sidebarWidth`, Vorgabe 340). Die Form selbst wird **nicht**
+  Breite der Leiste liegt in `localStorage` (`codedeck.sidebarWidth`, Vorgabe 400, vorher 340). Die Form selbst wird **nicht**
   gemerkt: ein neues Fenster („Neues Fenster“) käme sonst unerwartet als Leiste. Globale Kürzel über
   `tauri-plugin-global-shortcut`: unter X11 hält nur ein Programm eine Tastenkombination, darum hält das erste Fenster
   beide und handelt für alle über deren Sockets (`{"window": "show"|"hide"|"front"|"toggleCompact"}`, in
@@ -851,6 +851,60 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   einmal übernommen). Nach jeder Änderung (auch `set_attention_settings`) schickt das Fenster `SettingsChanged` über
   die Sockets an die anderen (`window::settings_changed`), diese lesen neu (Ereignis `settings_changed`). Bei D25 = B
   wird daraus ein Ereignis im Prozess.
+- Erster Test 2.1c/2.2 (2026-11-16, Nutzer): (1) Die Leiste sprang an den linken Rand des Bildschirms rechts
+  daneben. Wunsch: **immer auf demselben Bildschirm, immer am rechten Rand.** Jetzt: `set_compact` rechnet in
+  physischen Pixeln (Bildschirme mit verschiedener Skalierung), nimmt den Arbeitsbereich des aktuellen Bildschirms
+  (`Monitor::work_area`, ohne Panels), setzt die Leiste an dessen rechten Rand über die volle Höhe (Rahmen des Desktops
+  abgezogen), wartet bei maximiertem Fenster, bis der Desktop es wiederhergestellt hat (Command ist dafür `async`), und
+  schreibt, was es getan hat, in die Diagnose („Last switch of the form“). Zweiter Befund: aus dem Vollbild weiter
+  auf dem Nachbarbildschirm. Vermutete Ursache: Den Rahmen hatte ich am maximierten Fenster gemessen (dort 0), die
+  Leiste ragte also um die Rahmenbreite über den Rand. Jetzt: Rahmen nach dem Wiederherstellen messen, auch echtes
+  Vollbild verlassen (`set_fullscreen(false)`), nach dem Setzen nachmessen und bis zu sechsmal neu setzen; die
+  Diagnose nennt Ziel und Landeplätze. Dritter Befund: richtig platziert, aber Flackern auf dem anderen Bildschirm
+  (der Desktop stellt das Fenster erst am alten Platz wieder her). Jetzt: Ziel vor dem Aufheben der Maximierung
+  setzen, GTK nimmt es als Platz für das Wiederherstellen. Breite der Leiste: Vorgabe 400 (Nutzer). Vierter Befund:
+  danach füllte die Leiste den halben Bildschirm (Cinnamon kachelt ein maximiertes Fenster, dem man Größe und Platz
+  gibt). Zurückgenommen; stattdessen wird das Fenster versteckt, solange der Desktop die Maximierung aufhebt, und erst
+  am Ziel wieder gezeigt; das Nachmessen prüft jetzt auch die Breite. „?“ steht in jeder Kachel ganz rechts (Nutzer).
+- Seitenleiste **gemessen statt geraten** (2026-11-16, mit `xdotool`/`xwininfo` an einer eigenen Test-Instanz auf dem
+  Desktop des Nutzers; drei Bildschirme 0–1920, 1920–3840 primär, Laptop 3840–5760 mit y+180; Cinnamon meldet
+  `_NET_WORKAREA` als **ein** Rechteck über alle, `Monitor::work_area` liefert aber den richtigen je Bildschirm):
+  (a) „halber Bildschirm“ war die **Mindestbreite 1040** des vollen Fensters: Die kleinere wurde gesetzt, als der
+  Desktop noch die alte hielt; beim Zurückschalten merkte sich das Frontend dann 1040 als Leistenbreite. Jetzt ist
+  die Mindestgröße immer 280×400 (`tauri.conf.json`), gemerkte Breiten über 800 gelten nicht. (b) Flackern auf dem
+  Nachbarbildschirm: Platz und Größe nacheinander (in jeder Reihenfolge) oder zusammen (ein GTK-`move`+`resize`)
+  ließen das Fenster mit neuem Platz und alter Größe über den Rand ragen, Cinnamon schob es auf den Nachbarn. Jetzt
+  `place`: erst schrumpfen, was schrumpft, dann verschieben, dann wachsen, je mit kurzem Warten auf den Desktop;
+  gemessen drei Schritte zu etwa 20 ms, alle auf demselben Bildschirm. (c) Aus dem maximierten Fenster: Cinnamon
+  stellt erst am alten Platz wieder her (vorher gesetzte Größe nimmt es nicht, Verstecken zeigte es leer und am
+  alten Platz); jetzt wird ohne Warten gleich weiter platziert, gemessen etwa 35 ms am alten Platz, dazu Cinnamons
+  Animation (abschaltbar unter Effekte). (d) `Strg+Alt+C`: Regel jetzt „sichtbar → ausblenden, ausgeblendet →
+  zurückholen“ (Datei `hidden` im Socket-Ordner, gelöscht bei Start und bei Fokus) statt „vorn“, denn bei mehreren
+  Bildschirmen ist CodeDeck oft sichtbar ohne Fokus. Beim Zurückholen verweigerte Cinnamon den Fokus
+  (`_NET_WM_STATE_DEMANDS_ATTENTION`); jetzt bittet das Fenster als Pager (`_NET_ACTIVE_WINDOW`, Quelle 2, über
+  `x11rb`), gemessen: Fokus kommt. `Strg+Alt+L` aus einem anderen Fenster: Form wechselt, Fokus kommt.
+- Seitenleiste ruhiger und als Leiste erkennbar (2026-11-16, Nutzer): Die Übersicht ist immer da (im vollen Fenster
+  mit Höhe 0) und lädt ihre Zahlen im Hintergrund, so springt beim Umschalten nichts nach; der Inhalt wartet während
+  des Wechsels ausgeblendet (`useSwitching` in `compact.ts`) und blendet in 150 ms ein. Danach (Nutzer): Die
+  Übersicht steht **auch im vollen Fenster**, die rechte Spalte ist in beiden Formen gleich. Ein Rand zur
+  Bildschirmmitte (orange Linie mit Schatten) gefiel nicht und ist wieder entfernt. Möglicher späterer Schritt:
+  Leiste ohne Titelleiste des Desktops (eigenes Verschieben nötig).
+- „Wartet auf dich“ als Zeilen wie die Sitzungen statt Kacheln (Nutzer, 2026-11-16): Schild, Titel, rechts Zustand mit
+  Punkt („fragt“ orange, „Runde fertig · Uhrzeit“ grau), darunter Meldung bzw. „Wartet auf deinen nächsten Prompt“;
+  Weglegen (×) beim Überfahren. Deutlich bleiben getönte Fläche, Zahl im Kopf, orange Kante links und oranger Text
+  bei einer Frage; ein neuer Eintrag pulsiert jetzt als Hintergrund der Zeile (`attention-new`).
+- Werkbank übersichtlich (2026-11-16, Vorschlag umgesetzt): Reihenfolge nach Entscheidungsbedarf (Außerhalb des
+  Projekts, Hinweise, Scratch); „Woanders abgelegt“ und „Veröffentlichte Seiten“ sind eine Kachel **„Außerhalb des
+  Projekts“** mit den Gruppen „Dateien“ und „Online“ (nur, solange es etwas gibt). `Section` kann einklappen (`fold`,
+  Zustand je Kachel in `localStorage` über `useFold`) und hat eine „?“-Hilfe (`help`); die Einleitung ist eine Zeile.
+  Lange Listen zeigen 8 Einträge, dann „Alle n zeigen“ (`useShowAll`). Scratch als Baum (`treeOf`): lose Dateien
+  zuerst (neueste oben), dann Ordner nach jüngster Datei, Ordner eingeklappt mit Zahl, Größe, Alter, im
+  Dateimanager zeigen, ganz in den Papierkorb (`scratch_trash` nimmt Ordner, `gio` kann das); die Kachel startet
+  eingeklappt ab 20 Dateien, bis man sie einmal öffnet. Ordner lassen sich noch nicht ins Projekt ziehen. (2) Werkbank: Auge statt Link-Symbol,
+  Doppelklick ansehen, Mittelklick bearbeiten (wie im Dateibaum), Einleitungstexte über die volle Breite. Offen:
+  Übersichtlichkeit der Werkbank (Scratch als Baum, lange Listen, Begriff „Veröffentlichte Seiten“), Vorschlag an den
+  Nutzer. (3) About: Schriftzug mit Lautschrift `/ˈkoʊdɛk/` wie ein Wörterbucheintrag, darunter „CodeDeck – KI-
+  Sitzungsradar für Linux“ mit „de“/„De“ in Orange, damit der Name den Schriftzug erklärt statt ihn zu wiederholen.
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

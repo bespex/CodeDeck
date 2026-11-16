@@ -17,8 +17,8 @@
         "title": "CodeDeck",
         "width": 1440,
         "height": 900,
-        "minWidth": 1040,
-        "minHeight": 600,
+        "minWidth": 280,
+        "minHeight": 400,
         "decorations": true,
         "resizable": true,
         "backgroundColor": "#020617"

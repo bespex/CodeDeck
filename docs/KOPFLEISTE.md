@@ -39,7 +39,7 @@ volles Fenster (rechte Spalte, 44 px hoch wie die Köpfe daneben)
   │                                 └ Seitenleiste ↔ volles Fenster (Ctrl+Shift+L)
   └ Logo und Projekt: Projektmenü
 
-Seitenleiste (≈ 340 px): dieselbe Leiste; ein langer Projektname wird gekürzt, die Icons bleiben.
+Seitenleiste (≈ 400 px): dieselbe Leiste; ein langer Projektname wird gekürzt, die Icons bleiben.
 Startseite (3.5): links steht „Alle Projekte“ statt des Projekts; im Projekt ein Rückweg „‹ Alle Projekte“.
 ```
 

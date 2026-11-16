@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from "react";
-import { ArrowDownToLine, Check, Copy, ExternalLink, FileText, FolderOpen, Globe, X } from "lucide-react";
+import { ArrowDownToLine, Check, Copy, ExternalLink, Eye, FileText, FolderOpen, Globe, X } from "lucide-react";
 import { fetchOutside, forgetFound, openOutside, openUrl, type OutsideFile, type PublishedPage } from "../../backend";
 import { shortId, useSessionMarks } from "../../assistant";
-import { Rows, Section } from "../blocks";
+import { Rows, Section, useFold, useShowAll } from "../blocks";
 import { SessionBadge } from "../SessionBadge";
 import { Tooltip } from "../Tooltip";
 import { age, size } from "./units";
@@ -36,13 +36,44 @@ function IconButton(props: { tip: string; label: string; onClick: () => void; ch
 }
 
 /**
- * Files sessions of this project wrote outside of it, away from every repository: in `/tmp`, the
- * home folder, the tool's plans. Shown only while there are some and only while they are there.
- * "Into scratch" copies one into the scratch folder, from where it can be dragged into the
- * project; the original stays where it is.
+ * What sessions of this project put outside of it, in one tile, shown only while there is some:
+ * files on this computer, away from every repository (in `/tmp`, the home folder, the tool's
+ * plans; only while they are there), and pages online (a claude.ai artifact, a gist, a paste),
+ * of which there is no file, only an address. "Into scratch" copies a file into the scratch folder,
+ * the original stays; a page stays where it is, because such pages often only work there.
  */
-export function OutsideTile({ files }: { files: OutsideFile[] }) {
+export function OutsideTile({ files, pages }: { files: OutsideFile[]; pages: PublishedPage[] }) {
+  const fold = useFold("outside", true);
+  const open = files.filter((f) => !f.fetched).length;
+  const note = [open > 0 && t("{n} not fetched", { n: open }), pages.length > 0 && t("{n} online", { n: pages.length })].filter(Boolean).join(" · ");
+  return (
+    <div className="min-w-0">
+      <Section
+        fold={fold}
+        title={t("Outside the project")}
+        note={note || plural(files.length, "file")}
+        help={
+          <>
+            <span>{t("Files: written by a session of this project outside of it and outside every repository. Into scratch copies one into the scratch folder, from where you drag it into the project; the original stays where it is.")}</span>
+            <span className="mt-1.5">{t("Online: pages a session put on the web, such as a claude.ai artifact, a gist or a paste. There is no file of them, only the address, which the session names at the end of its turn; CodeDeck keeps it so it does not get lost in the chat.")}</span>
+          </>
+        }
+      >
+        <p className="mb-2 text-[12px]">{t("What sessions of this project put elsewhere: files on this computer, pages online.")}</p>
+        {files.length > 0 && <OutsideFiles files={files} />}
+        {pages.length > 0 && <OnlinePages pages={pages} />}
+      </Section>
+    </div>
+  );
+}
+
+const Group = ({ children }: { children: ReactNode }) => (
+  <div className="mt-2 mb-0.5 text-[11px] font-semibold tracking-wider text-slate-500 uppercase first:mt-0">{children}</div>
+);
+
+function OutsideFiles({ files }: { files: OutsideFile[] }) {
   const [error, setError] = useState<string | null>(null);
+  const { items, more } = useShowAll(files);
   const now = Date.now();
   const fetch = async (path: string) => {
     try {
@@ -52,126 +83,117 @@ export function OutsideTile({ files }: { files: OutsideFile[] }) {
       setError(String(e));
     }
   };
-  const open = files.filter((f) => !f.fetched).length;
   return (
-    <div className="min-w-0">
-      <Section title={t("Left elsewhere")} note={open > 0 ? t("{n} not fetched", { n: open }) : plural(files.length, "file")}>
-        <p className="mb-2 max-w-prose text-[12px]">
-          {t("Files sessions of this project wrote outside of it, away from every repository. Into scratch copies one into the scratch folder; the original stays where it is.")}
-        </p>
-        {error && <p className="selectable mb-2 text-problem">{error}</p>}
-        <Rows>
-          {files.map((f) => {
-            const slash = f.path.lastIndexOf("/");
-            const [dir, name] = [f.path.slice(0, slash + 1), f.path.slice(slash + 1)];
-            return (
-              <li key={f.path} className="group flex min-h-9 items-center gap-2 px-1 py-1">
-                <FileText className="size-3.5 shrink-0 text-slate-400" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-baseline font-mono text-[12px]" title={f.path}>
-                    {/* A long folder is cut at its start; the name stays */}
-                    <span className="min-w-0 truncate text-slate-500 [direction:rtl]">{dir}</span>
-                    <span className="shrink-0 text-slate-200">{name}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                    {f.fetched ? (
-                      <span className="flex min-w-0 items-center gap-1 text-added">
-                        <Check className="size-3 shrink-0" />
-                        <T text="Copied to {path}" path={<code className="truncate font-mono">{f.fetched}</code>} />
-                      </span>
-                    ) : (
-                      <span>{age(f.at, now)}</span>
-                    )}
-                    <span>·</span>
-                    <Who session={f.session} />
-                  </div>
+    <>
+      <Group>{t("Files")}</Group>
+      {error && <p className="selectable mb-2 text-problem">{error}</p>}
+      <Rows>
+        {items.map((f) => {
+          const slash = f.path.lastIndexOf("/");
+          const [dir, name] = [f.path.slice(0, slash + 1), f.path.slice(slash + 1)];
+          return (
+            <li
+              key={f.path}
+              // As in the file list: double click views, middle click edits
+              onDoubleClick={() => void openOutside(f.path, "view")}
+              onAuxClick={(e) => e.button === 1 && void openOutside(f.path, "edit")}
+              className="group flex min-h-9 items-center gap-2 px-1 py-1"
+            >
+              <FileText className="size-3.5 shrink-0 text-slate-400" />
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-baseline font-mono text-[12px]" title={f.path}>
+                  {/* A long folder is cut at its start; the name stays */}
+                  <span className="min-w-0 truncate text-slate-500 [direction:rtl]">{dir}</span>
+                  <span className="shrink-0 text-slate-200">{name}</span>
                 </div>
-                <span className="shrink-0 font-mono text-[11px] text-slate-500 tabular-nums">{size(f.size)}</span>
-                <div className="flex shrink-0 items-center gap-0.5">
-                  {!f.fetched && (
-                    <Tooltip content={<span>{t("Copy it into the scratch folder; the original stays")}</span>}>
-                      <button
-                        type="button"
-                        onClick={() => fetch(f.path)}
-                        className="mr-1 flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-[12px] text-slate-300 hover:bg-raised hover:text-slate-100"
-                      >
-                        <ArrowDownToLine className="size-3.5" />
-                        {t("Into scratch")}
-                      </button>
-                    </Tooltip>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                  {f.fetched ? (
+                    <span className="flex min-w-0 items-center gap-1 text-added">
+                      <Check className="size-3 shrink-0" />
+                      <T text="Copied to {path}" path={<code className="truncate font-mono">{f.fetched}</code>} />
+                    </span>
+                  ) : (
+                    <span>{age(f.at, now)}</span>
                   )}
-                  <IconButton tip={t("Open it in its viewer")} label={t("Open {name}", { name })} onClick={() => void openOutside(f.path, "view")}>
-                    <ExternalLink className="size-3.5" />
-                  </IconButton>
-                  <IconButton tip={t("Show it in the file manager")} label={t("Show {name} in the file manager", { name })} onClick={() => void openOutside(f.path, null)}>
-                    <FolderOpen className="size-3.5" />
-                  </IconButton>
-                  <IconButton tip={t("Take it off this list; the file stays")} label={t("Forget {name}", { name })} onClick={() => void forgetFound(f.path)} danger>
-                    <X className="size-3.5" />
-                  </IconButton>
+                  <span>·</span>
+                  <Who session={f.session} />
                 </div>
-              </li>
-            );
-          })}
-        </Rows>
-      </Section>
-    </div>
+              </div>
+              <span className="shrink-0 font-mono text-[11px] text-slate-500 tabular-nums">{size(f.size)}</span>
+              <div className="flex shrink-0 items-center gap-0.5">
+                {!f.fetched && (
+                  <Tooltip content={<span>{t("Copy it into the scratch folder; the original stays")}</span>}>
+                    <button
+                      type="button"
+                      onClick={() => fetch(f.path)}
+                      className="mr-1 flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-[12px] text-slate-300 hover:bg-raised hover:text-slate-100"
+                    >
+                      <ArrowDownToLine className="size-3.5" />
+                      {t("Into scratch")}
+                    </button>
+                  </Tooltip>
+                )}
+                <IconButton tip={t("Open it in its viewer")} label={t("Open {name}", { name })} onClick={() => void openOutside(f.path, "view")}>
+                  <Eye className="size-3.5" />
+                </IconButton>
+                <IconButton tip={t("Show it in the file manager")} label={t("Show {name} in the file manager", { name })} onClick={() => void openOutside(f.path, null)}>
+                  <FolderOpen className="size-3.5" />
+                </IconButton>
+                <IconButton tip={t("Take it off this list; the file stays")} label={t("Forget {name}", { name })} onClick={() => void forgetFound(f.path)} danger>
+                  <X className="size-3.5" />
+                </IconButton>
+              </div>
+            </li>
+          );
+        })}
+      </Rows>
+      {more}
+    </>
   );
 }
 
-/**
- * Pages the project's sessions published elsewhere: mock-ups, reports, gists. They stay where they
- * are, because such pages often only work there; CodeDeck keeps the link, as the session named it
- * at the end of its turn (the start rules ask for that).
- */
-export function PagesTile({ pages }: { pages: PublishedPage[] }) {
+function OnlinePages({ pages }: { pages: PublishedPage[] }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const { items, more } = useShowAll(pages);
   const now = Date.now();
   return (
-    <div className="min-w-0">
-      <Section title={t("Published pages")} note={pages.length > 0 ? plural(pages.length, "page") : undefined}>
-        <p className="mb-2 max-w-prose text-[12px]">
-          {t("Mock-ups and reports a session published elsewhere. They stay there; CodeDeck keeps the link the session named.")}
-        </p>
-        {pages.length === 0 ? (
-          <p>{t("No session of this project has published a page.")}</p>
-        ) : (
-          <Rows>
-            {pages.map((p) => (
-              <li key={p.url} className="group flex min-h-9 items-center gap-2 px-1 py-1">
-                <Globe className="size-3.5 shrink-0 text-slate-400" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] text-slate-200">{p.title}</div>
-                  <div className="truncate font-mono text-[11px] text-slate-500">{p.url}</div>
-                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                    <span>{age(p.at, now)}</span>
-                    <span>·</span>
-                    <Who session={p.session} />
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-0.5">
-                  <IconButton tip={t("Open the page in the browser")} label={t("Open {name}", { name: p.title })} onClick={() => void openUrl(p.url)}>
-                    <ExternalLink className="size-3.5" />
-                  </IconButton>
-                  <IconButton
-                    tip={copied === p.url ? t("Copied") : t("Copy the link")}
-                    label={t("Copy the link")}
-                    onClick={() => {
-                      void navigator.clipboard.writeText(p.url);
-                      setCopied(p.url);
-                    }}
-                  >
-                    {copied === p.url ? <Check className="size-3.5 text-added" /> : <Copy className="size-3.5" />}
-                  </IconButton>
-                  <IconButton tip={t("Take it off this list; the page stays")} label={t("Forget {name}", { name: p.title })} onClick={() => void forgetFound(p.url)} danger>
-                    <X className="size-3.5" />
-                  </IconButton>
-                </div>
-              </li>
-            ))}
-          </Rows>
-        )}
-      </Section>
-    </div>
+    <>
+      <Group>{t("Online")}</Group>
+      <Rows>
+        {items.map((p) => (
+          <li key={p.url} className="group flex min-h-9 items-center gap-2 px-1 py-1">
+            <Globe className="size-3.5 shrink-0 text-slate-400" />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] text-slate-200">{p.title}</div>
+              <div className="truncate font-mono text-[11px] text-slate-500">{p.url}</div>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                <span>{age(p.at, now)}</span>
+                <span>·</span>
+                <Who session={p.session} />
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <IconButton tip={t("Open the page in the browser")} label={t("Open {name}", { name: p.title })} onClick={() => void openUrl(p.url)}>
+                <ExternalLink className="size-3.5" />
+              </IconButton>
+              <IconButton
+                tip={copied === p.url ? t("Copied") : t("Copy the link")}
+                label={t("Copy the link")}
+                onClick={() => {
+                  void navigator.clipboard.writeText(p.url);
+                  setCopied(p.url);
+                }}
+              >
+                {copied === p.url ? <Check className="size-3.5 text-added" /> : <Copy className="size-3.5" />}
+              </IconButton>
+              <IconButton tip={t("Take it off this list; the page stays")} label={t("Forget {name}", { name: p.title })} onClick={() => void forgetFound(p.url)} danger>
+                <X className="size-3.5" />
+              </IconButton>
+            </div>
+          </li>
+        ))}
+      </Rows>
+      {more}
+    </>
   );
 }

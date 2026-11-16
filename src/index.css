@@ -178,14 +178,14 @@ body {
   }
 }
 
-/* Something new under "Needs you": it lights up a few times, then stays as it is (step 2.1a) */
+/* Something new under "Needs you": the row pulses in amber a few times, then stays as it is */
 @keyframes attention-new {
   0%,
   100% {
-    box-shadow: 0 0 0 0 transparent;
+    background-color: transparent;
   }
   50% {
-    box-shadow: 0 0 0 2px var(--color-changed), 0 0 16px color-mix(in srgb, var(--color-changed) 45%, transparent);
+    background-color: color-mix(in srgb, var(--color-changed) 22%, transparent);
   }
 }
 .attention-new {

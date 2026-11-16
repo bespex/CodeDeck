@@ -250,6 +250,13 @@ let mockScratch: WorkFile[] = [
   { path: ".scratch/bench-results.csv", size: 14_300, modified: Date.now() - 24 * 60_000 },
   { path: ".scratch/load-test.log", size: 1_400_000, modified: Date.now() - 9 * DAY },
   { path: ".scratch/sketches/limiter-sketch.html", size: 210_000, modified: Date.now() - 12 * DAY },
+  // A folder of a longer piece of work, so the preview shows the tree
+  ...Array.from({ length: 14 }, (_, i) => ({
+    path: `.scratch/shots/hb-${["bar", "menu", "about", "settings", "keys", "quick", "notif"][i % 7]}-${Math.floor(i / 7) + 1}.png`,
+    size: 80_000 + i * 3000,
+    modified: Date.now() - (90 + i) * 60_000,
+  })),
+  { path: ".scratch/shots/old/first.png", size: 51_000, modified: Date.now() - 2 * DAY },
 ];
 
 /** The files in the scratch folder, newest first; from now on a new one there is reported at once. */
@@ -258,10 +265,11 @@ export function scratchList(): Promise<WorkFile[]> {
   return Promise.resolve([...mockScratch]);
 }
 
-/** Moves files of the scratch folder to the trash. */
+/** Moves files or folders of the scratch folder to the trash. */
 export function scratchTrash(paths: string[]): Promise<void> {
   if (live) return invoke("scratch_trash", { paths });
-  mockScratch = mockScratch.filter((f) => !paths.includes(f.path));
+  // A folder takes everything in it along
+  mockScratch = mockScratch.filter((f) => !paths.some((p) => f.path === p || f.path.startsWith(`${p}/`)));
   return Promise.resolve();
 }
 
@@ -938,7 +946,7 @@ export function fetchOutside(path: string): Promise<string> {
 }
 
 /** Opens a file left outside in its program for viewing, or (`role` null) shows it in the file manager. */
-export function openOutside(path: string, role: "view" | null): Promise<void> {
+export function openOutside(path: string, role: "view" | "edit" | null): Promise<void> {
   if (live) return invoke("open_outside", { path, role });
   console.info(role ? "would open" : "would show in the file manager", path);
   return Promise.resolve();

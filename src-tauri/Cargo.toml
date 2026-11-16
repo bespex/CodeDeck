@@ -34,6 +34,9 @@ tauri-plugin-opener = "2"
 gio = "0.18"
 # Desktop notifications over D-Bus, with the click on one reported back (zbus is in the tree already)
 notify-rust = { version = "4", default-features = false, features = ["z"] }
+# Bringing the window to the front as a pager does (X11): the desktop refuses the focus to a
+# window that just asks for it. Already in the tree through the global shortcuts
+x11rb = "0.13"
 # Show/hide and sidebar from anywhere (X11; Wayland has no global shortcuts for apps)
 tauri-plugin-global-shortcut = "2"
 

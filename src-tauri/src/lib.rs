@@ -116,7 +116,7 @@ fn app_info() -> AppInfo {
 /// program, the desktop, the connections, the global shortcuts, the last hook messages. The
 /// frontend adds what it knows (sessions, form, language). Home is written as `~`.
 #[tauri::command]
-fn diagnostics(current: State<Arc<Current>>, shortcuts: State<window::Shortcuts>) -> String {
+fn diagnostics(current: State<Arc<Current>>, shortcuts: State<window::Shortcuts>, place: State<window::FullPlace>) -> String {
     use std::fmt::Write as _;
     let info = app_info();
     let env = |key: &str| std::env::var(key).unwrap_or_else(|_| "?".into());
@@ -145,6 +145,7 @@ fn diagnostics(current: State<Arc<Current>>, shortcuts: State<window::Shortcuts>
     }
     let keys: Vec<String> = shortcuts.get().keys.iter().map(|k| format!("{} {}", k.keys, k.state)).collect();
     let _ = writeln!(out, "Global shortcuts: {}", if keys.is_empty() { "not registered yet".into() } else { keys.join(", ") });
+    let _ = writeln!(out, "Last switch of the form: {}", { let l = place.last(); if l.is_empty() { "none".to_string() } else { l } });
     let _ = writeln!(out, "Attention: {}", serde_json::to_string(&attention::load()).unwrap_or_default());
     if let Some(file) = journal::file_for(&root) {
         let _ = writeln!(out, "Journal: {}", file.display());
@@ -199,8 +200,9 @@ fn forget_found(key: String, app: AppHandle, bridge: State<Arc<Bridge>>) {
 }
 
 /// Sidebar or full window; the width the window had before.
+/// Async, so it runs off the main thread: it waits for the desktop to restore a maximized window.
 #[tauri::command]
-fn set_compact(on: bool, width: f64, window: tauri::WebviewWindow, kept: State<window::FullPlace>) -> Result<f64, String> {
+async fn set_compact(on: bool, width: f64, window: tauri::WebviewWindow, kept: State<'_, window::FullPlace>) -> Result<f64, String> {
     window::set_compact(&window, &kept, on, width).map_err(|e| e.to_string())
 }
 
@@ -591,6 +593,7 @@ pub fn run() {
                 Err(e) => eprintln!("codeck: no socket for assistants: {e}"),
             }
             exclude_scratch(app.handle());
+            window::shown();
             window::claim_shortcuts(app.handle().clone());
             // Hooks of this installation that still run the old `codedeck` (or a program that is
             // gone) now run this one; in the background, it reads every configuration
