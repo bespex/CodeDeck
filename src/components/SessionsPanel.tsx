@@ -1,4 +1,4 @@
-import { useEffect, useState, type DragEvent, type ReactNode } from "react";
+import { useState, type DragEvent, type ReactNode } from "react";
 import {
   ArrowUpRight,
   AtSign,
@@ -19,6 +19,7 @@ import { Tooltip } from "./Tooltip";
 import { forgetSession, renameSession, type AssistantState, type Entry, type Session } from "../backend";
 import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
 import { SessionBadge } from "./SessionBadge";
+import { needsYou, OPENED_AT, putAside, useNow, useWaiting, waitKey, waitsSince } from "../attention";
 import { files, filesText, type Pin } from "../files";
 import { formatTokens, useAttachedKinds } from "./AttachmentList";
 import { openView } from "../view";
@@ -69,43 +70,17 @@ function AreaHeader({ title, count, children }: { title: string; count?: number;
 
 /* ── Needs you ─────────────────────────────────────────────────────────────── */
 
-/**
- * A session needs you when it asks something, or when its turn is over and it waits for the next
- * prompt. The second kind can be put aside and leaves by itself after a while, so that not every
- * session ends up here; it comes back with the session's next turn. Only sessions that report
- * count: of one known from its log nothing is known but that it was there.
- */
-function needsYou(s: Session): "asks" | "done" | null {
-  if (!s.capabilities.liveStatus) return null;
-  if (s.status === "waiting") return "asks";
-  return s.status === "idle" && s.turnDone != null ? "done" : null;
-}
-
-/** How long a finished turn stays under "Needs you". To become a setting. */
-const DONE_SHOWN_MS = 30 * 60_000;
 /** A session that reports but has been idle this long is no longer one you are busy with. To become a setting. */
 const EARLIER_AFTER_MS = 6 * 3600_000;
 
-/** Renders again every half minute: what is shown depends on how long ago something was. */
-function useNow(): number {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(timer);
-  }, []);
-  return now;
-}
-
+/**
+ * The sessions that ask something or finished their turn (see `attention.ts`). A finished turn can be
+ * put aside and leaves by itself after a while; it comes back with the session's next turn. What
+ * came while the window was open lights up for a moment.
+ */
 function NeedsYou({ state }: { state: AssistantState }) {
   const marks = useSessionMarks();
-  // Put aside, per turn: `<session>:<end of turn>`
-  const [aside, setAside] = useState<Set<string>>(new Set());
-  const key = (s: Session) => `${s.id}:${s.turnDone}`;
-  const now = useNow();
-  const fresh = (s: Session) => now - (s.turnDone ?? s.last) < DONE_SHOWN_MS;
-  const waiting = state.sessions.filter((s) => needsYou(s) === "asks" || (needsYou(s) === "done" && fresh(s) && !aside.has(key(s))));
-  // Questions first: they block a session, a finished turn does not
-  waiting.sort((a, b) => Number(needsYou(b) === "asks") - Number(needsYou(a) === "asks"));
+  const waiting = useWaiting(state);
 
   return (
     <section className={`flex max-h-[40vh] min-h-0 flex-col border-b border-line ${waiting.length > 0 ? "bg-[var(--color-area-wait)]" : ""}`}>
@@ -118,10 +93,13 @@ function NeedsYou({ state }: { state: AssistantState }) {
             const asks = needsYou(s) === "asks";
             return (
               <li
-                key={s.id}
+                // A new reason is a new item: it lights up once when it comes
+                key={waitKey(s)}
                 onMouseEnter={() => marks.hover(s.id)}
                 onMouseLeave={() => marks.hover(null)}
-                className="rounded-lg border border-overlay-line bg-overlay px-2.5 py-2 shadow-lg shadow-black/25"
+                className={`rounded-lg border border-overlay-line bg-overlay px-2.5 py-2 shadow-lg shadow-black/25 ${
+                  waitsSince(s) > OPENED_AT ? "attention-new" : ""
+                }`}
               >
                 <div className="flex items-center gap-2">
                   <span className={`size-2 shrink-0 rounded-full ${asks ? "bg-changed" : "bg-slate-400"}`} />
@@ -134,7 +112,7 @@ function NeedsYou({ state }: { state: AssistantState }) {
                       type="button"
                       title={t("Put aside until its next turn")}
                       aria-label={t("Put {name} aside", { name: titleOf(s) })}
-                      onClick={() => setAside((current) => new Set(current).add(key(s)))}
+                      onClick={() => putAside(s)}
                       className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-overlay-hover hover:text-slate-100"
                     >
                       <X className="size-3.5" />

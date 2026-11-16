@@ -177,3 +177,17 @@ body {
     animation: none;
   }
 }
+
+/* Something new under "Needs you": it lights up a few times, then stays as it is (step 2.1a) */
+@keyframes attention-new {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 2px var(--color-changed), 0 0 16px color-mix(in srgb, var(--color-changed) 45%, transparent);
+  }
+}
+.attention-new {
+  animation: attention-new 1.1s ease-in-out 3;
+}

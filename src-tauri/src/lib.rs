@@ -5,6 +5,7 @@
 //! through which coding tools report what they do (see [`harness`]).
 
 mod apps;
+mod attention;
 mod bridge;
 mod config;
 mod git;
@@ -47,12 +48,37 @@ impl Current {
     }
 }
 
-/// Window title, so that several CodeDeck windows can be told apart in the task bar.
+/// Window title, so that several CodeDeck windows can be told apart in the task bar; in front
+/// what waits for the user, as the window last said.
 fn set_title(app: &AppHandle, project: &Project) {
     if let Some(window) = app.get_webview_window("main") {
         let name = project.root.file_name().map_or_else(|| "/".into(), |n| n.to_string_lossy());
-        let _ = window.set_title(&format!("{name} – CodeDeck"));
+        let prefix = app.try_state::<attention::TitlePrefix>().map(|p| p.0.lock().unwrap().clone()).unwrap_or_default();
+        let _ = window.set_title(&attention::title(&prefix, &name));
     }
+}
+
+/// What goes in front of the window title, e.g. "● 2 waiting · " (in the interface's language).
+#[tauri::command]
+fn set_title_prefix(prefix: String, app: AppHandle, current: State<Arc<Current>>, kept: State<attention::TitlePrefix>) {
+    *kept.0.lock().unwrap() = prefix;
+    set_title(&app, &current.get());
+}
+
+#[tauri::command]
+fn attention_settings() -> attention::Settings {
+    attention::load()
+}
+
+#[tauri::command]
+fn set_attention_settings(settings: attention::Settings) -> Result<(), String> {
+    attention::save(&settings)
+}
+
+/// Tells the user something happened, in the ways they chose (taskbar, desktop notification).
+#[tauri::command]
+fn notify_attention(summary: String, body: String, app: AppHandle, window: tauri::WebviewWindow) {
+    attention::notify(&app, &window, &summary, &body);
 }
 
 #[tauri::command]
@@ -404,6 +430,7 @@ pub fn run() {
     recent::remember(&project.root);
 
     tauri::Builder::default()
+        .manage(attention::TitlePrefix::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
@@ -469,7 +496,11 @@ pub fn run() {
             forget_session,
             harness_connections,
             set_harness_connection,
-            git_log
+            git_log,
+            set_title_prefix,
+            attention_settings,
+            set_attention_settings,
+            notify_attention
         ])
         .build(tauri::generate_context!())
         .expect("error while building CodeDeck")

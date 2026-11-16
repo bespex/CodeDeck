@@ -32,6 +32,8 @@ tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 # Already part of Tauri on Linux: which programs open which file type
 gio = "0.18"
+# Desktop notifications over D-Bus, with the click on one reported back (zbus is in the tree already)
+notify-rust = { version = "4", default-features = false, features = ["z"] }
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

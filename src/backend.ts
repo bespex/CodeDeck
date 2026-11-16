@@ -823,6 +823,15 @@ export function mockSendPrompt(hold = false) {
 }
 if (!live) (window as unknown as { mockSendPrompt: (hold?: boolean) => void }).mockSendPrompt = mockSendPrompt;
 
+/** Preview only: the working session asks for a permission, as if its tool said so. */
+function mockAsk() {
+  mockAssistant.sessions = mockAssistant.sessions.map((x) =>
+    x.status === "working" ? { ...x, status: "waiting", message: "Claude needs your permission to use Bash", last: Date.now() } : x,
+  );
+  mockChanged();
+}
+if (!live) (window as unknown as { mockAsk: () => void }).mockAsk = mockAsk;
+
 /** The session the attachments are meant for; `null`: whichever session in the project prompts first. */
 export function attachFor(session: string | null): Promise<void> {
   if (live) return invoke("attach_for", { session });
@@ -1125,3 +1134,43 @@ index 1111111..2222222 100644
  
  ## Orders
 `;
+
+/* ── Attention ───────────────────────────────────────────────────────────── */
+
+/** What the user wants to be told about, and how (kept for the machine, shared by all windows). */
+export interface AttentionSettings {
+  asks: boolean;
+  done: boolean;
+  gitFailed: boolean;
+  taskbar: boolean;
+  desktop: boolean;
+}
+
+let mockAttention: AttentionSettings = { asks: true, done: true, gitFailed: false, taskbar: true, desktop: true };
+
+export function attentionSettings(): Promise<AttentionSettings> {
+  if (live) return invoke("attention_settings");
+  return Promise.resolve({ ...mockAttention });
+}
+
+export function setAttentionSettings(settings: AttentionSettings): Promise<void> {
+  if (live) return invoke("set_attention_settings", { settings });
+  mockAttention = { ...settings };
+  return Promise.resolve();
+}
+
+/** Tells the user, in the ways they chose; the preview only keeps what it would have said. */
+export function notifyAttention(summary: string, body: string): Promise<void> {
+  if (live) return invoke("notify_attention", { summary, body });
+  mockNotifications.push({ summary, body });
+  return Promise.resolve();
+}
+const mockNotifications: { summary: string; body: string }[] = [];
+if (!live) (window as unknown as { mockNotifications: typeof mockNotifications }).mockNotifications = mockNotifications;
+
+/** What goes in front of the window title, e.g. "● 2 waiting · ". */
+export function setTitlePrefix(prefix: string): Promise<void> {
+  if (live) return invoke("set_title_prefix", { prefix });
+  document.title = `${prefix}orbit-api – CodeDeck`;
+  return Promise.resolve();
+}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { AppWindow, ChevronDown, FolderOpen, Languages } from "lucide-react";
-import { pickFolder, recentProjects, type ProjectInfo, type RecentProject } from "../backend";
+import { AppWindow, Bell, ChevronDown, FolderOpen, Languages } from "lucide-react";
+import { pickFolder, recentProjects, type AttentionSettings, type ProjectInfo, type RecentProject } from "../backend";
+import { useAttentionSettings } from "../attention";
 import { lang, setLang, t } from "../i18n";
 
 /** Opens a directory: here, or in a new window of its own. */
@@ -162,6 +163,7 @@ export function ProjectHeader({ project, onOpen }: { project: ProjectInfo | null
           <p className="border-t border-overlay-line px-3 py-1.5 text-[11px] text-slate-500">
             {t("Ctrl+click opens in a new window")}
           </p>
+          <AttentionChoice />
           {/* The language of the interface, kept for this machine; each name in its own language */}
           <div className="flex items-center gap-2 border-t border-overlay-line px-3 py-1.5 text-[12px]">
             <Languages className="size-4 text-slate-400" />
@@ -228,6 +230,45 @@ function MenuRow(props: {
           <AppWindow className="size-3.5" />
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * What to be told about while looking elsewhere, and how; kept for this machine, for every window.
+ * The window title always says how many sessions need you.
+ */
+function AttentionChoice() {
+  const [settings, update] = useAttentionSettings();
+  if (!settings) return null;
+  const box = (key: keyof AttentionSettings, label: string) => (
+    <label className="flex cursor-pointer items-center gap-2 py-0.5 whitespace-nowrap text-slate-300">
+      <input
+        type="checkbox"
+        checked={settings[key]}
+        onChange={(e) => update({ ...settings, [key]: e.target.checked })}
+        className="size-3.5 accent-[var(--color-brand)]"
+      />
+      {label}
+    </label>
+  );
+  const quiet = !settings.taskbar && !settings.desktop;
+  return (
+    <div className="border-t border-overlay-line px-3 py-2 text-[12px]">
+      <div className="mb-1 flex items-center gap-2 text-slate-400">
+        <Bell className="size-4" />
+        {t("Tell me when I look elsewhere")}
+      </div>
+      <div className="flex flex-col pl-6">
+        {box("asks", t("a session asks"))}
+        {box("done", t("a turn is finished"))}
+        {box("gitFailed", t("a git command fails"))}
+      </div>
+      <div className="mt-1 flex flex-wrap gap-x-3 pl-6">
+        {box("taskbar", t("in the taskbar"))}
+        {box("desktop", t("as a notification"))}
+      </div>
+      {quiet && <p className="mt-1 pl-6 text-[11px] text-slate-500">{t("Only the window title says it then.")}</p>}
     </div>
   );
 }

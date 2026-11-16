@@ -62,7 +62,9 @@ the settings changes, the file as it was is kept as `settings.json.before-codede
 
 - **Needs you:** on top of the right column, the sessions that ask something (a permission, a
   question) and those that finished their turn; the latter can be put aside and leave by themselves
-  after half an hour.
+  after half an hour. The window title counts them. While you look elsewhere, CodeDeck tells you about a new one in
+  the taskbar and with a desktop notification (a click brings the window back); what counts and how is
+  chosen in the project menu, *Tell me when I look elsewhere*.
 - **Sessions:** below, the sessions working in the project in two lines each: title and state, then
   what counts right now (the step it is at, its question, what it wrote). Prompt, model and the files it
   wrote fold out; those files carry the dot in the file list. Sessions that ended, never reported or have

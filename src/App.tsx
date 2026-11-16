@@ -11,6 +11,7 @@ import { clearAttachments, useAttachments } from "./attachments";
 import { useGit } from "./git";
 import { SessionMarksContext, sessionMarks, touchedFiles, useAssistant } from "./assistant";
 import { RepoActions, type Anchor } from "./components/RepoActions";
+import { useAttention } from "./attention";
 
 // The preview starts with something attached, to show what that looks like
 if (!live) files.add(initialPins);
@@ -21,6 +22,8 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const git = useGit(project?.path);
   const assistant = useAssistant();
+  // Window title, taskbar and desktop notification for what needs the user while they look elsewhere
+  useAttention(assistant, git.runs, project?.name);
   // The session the mouse is on in the list: its snapshots and files stand out everywhere
   const [hoveredSession, setHoveredSession] = useState<string | null>(null);
   const marks = useMemo(() => sessionMarks(assistant, hoveredSession, setHoveredSession), [assistant, hoveredSession]);
