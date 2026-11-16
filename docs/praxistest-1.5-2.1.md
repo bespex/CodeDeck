@@ -1,5 +1,8 @@
 # Praxistest Schritte 1.5 bis 2.1 und Übersetzung
 
+> **Abgeschlossen 2026-11-16:** laut Nutzer bestanden. Die Punkte unten wurden nicht einzeln abgehakt; Befunde aus
+> der Durchsicht davor sind behoben (siehe `PLAN.md`, „Stand“).
+
 Stand: nach Commit `42b9313` plus Übersetzung (2026-11-15). Geprüft wird in der echten App mit echten
 Claude-Code-Sitzungen im Terminal (die Desktop-App feuert keine Hooks, siehe Notiz zu 1.1 im Plan). Die
 Bezeichnungen unten sind die deutschen der Oberfläche, in Klammern die englischen.

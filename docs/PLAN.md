@@ -18,24 +18,27 @@ braucht man nur noch bei Grundsatzfragen.
 3. Im Abschnitt „Zielbild: MVP-Phasen“ den nächsten offenen Schritt nehmen und nach „So läuft jeder
    Schritt“ vorgehen. Die älteren Pakete P0–P10 weiter unten sind nur noch Nachschlagewerk für Details.
 
-## Stand (2026-11-15, Commit `1c35bdc`)
+## Stand (2026-11-16, Commit `fdffba4`)
 
-Das Zielbild ist abgestimmt (Click-Dummy, `KONZEPT.md` Teil 4). Von MVP 1 sind die Schritte 1.1 bis 1.6
-gebaut, dazu 1.6a (einheitliche Begriffe), 1.6b (Änderungen anhängen) und 1.7 (Anhänge aus einem Guss); alles erst
-in Tests, Vorschau und mit nachgestellten Hook-Meldungen geprüft.
+Das Zielbild ist abgestimmt (Click-Dummy, `KONZEPT.md` Teil 4). MVP 1 ist gebaut (1.1 bis 1.7 mit 1.6a/1.6b), von
+MVP 2 der Schritt 2.1. Der Praxistest von 1.5 bis 2.1 gilt laut Nutzer als bestanden (2026-11-16); die Checkliste
+`docs/praxistest-1.5-2.1.md` wurde dabei nicht Punkt für Punkt abgehakt.
 
-**Nächste Session:** Praxistest von 1.5 bis 1.7 und 2.1 in der echten App mit dem Nutzer, nach der Checkliste
-`docs/praxistest-1.5-2.1.md` (der Nutzer hakt dort ab und schreibt Befunde hinein). Befunde beheben, dann Schritt 2.2. (1.7 kam auf Wunsch des Nutzers vor den
-Test: es baut genau den Code um, den der Test prüft.)
+Seit dem Test dazugekommen, alles auf `main` und gepusht:
+- **Durchsicht des Nutzers:** Dashboard Nächster Prompt („Für …“ über den Zahlen, Zahlen mit Icon und Tooltip,
+  „Zeilen“ statt „Kommentare“), Statusleiste einzeilig (links Branch und „git“, rechts das KI-Werkzeug), leerer
+  Nächster Prompt als Hinweis, Startregeln als Liste, Trail mit durchgehender Linie und Tooltip je Symbol.
+- **Name und Auftritt (D24):** Befehl und Programm-Paket `codeck`, Metapaket `codedeck` in `bespex/packages`,
+  führende Domain `codedeck.bespex.run`; Regeln für alle be-spex-Programme in `bespex.github.io/brand/README.md`.
+  Hooks ziehen beim Start vom alten `codedeck` auf das laufende Programm um. Website-Seite `/codedeck/` als
+  „work in progress, private“.
+- **Viele Runden:** Laufende Runden überleben einen Neustart des Fensters (`turns.json`), Changes zeigt die letzten
+  zwei Runden plus „Frühere“, der Trail faltet Snapshots ab drei in Folge, Tooltips per Portal (WebKitGTK).
+- **Konzept Seitenleiste:** `docs/SEITENLEISTE.md` mit den Schritten A (Kopf rechts), B (Leiste), C (Aufmerksamkeit).
 
-**Erledigt vor dem Praxistest, aus der Durchsicht des Nutzers (2026-11-16):** Dashboard Nächster Prompt mit
-„Für …“ über den Zahlen, Zahlen mit Icon ihrer Stelle und Tooltip („Kommentare“ heißt jetzt „Zeilen“) ·
-Statusleiste einzeilig, 12 px, anklickbar = hell mit Icon + Wort (Branch, „git“ mit Befehl im Tooltip, KI-Werkzeug;
-Zahlen nur bei Platz), Graues weicht zuerst · leerer Nächster Prompt als gestrichelter Hinweis · Startregeln
-zum Lesen als Liste gesetzt (Wortlaut gleich) · Activity: Bearbeiten mit `SquarePen` · Trail: Datei-Anzahl bricht
-nicht mehr um, Linie durchgehend und überall gleich breit (keine Striche mehr für nicht Gepushtes), Tooltip
-je Symbol (Anker, Flagge, Pfeil, Ring, Funke …) · Ordner-Anhang zählt Dateien in der aktuellen Sprache,
-„1 arbeitet“ statt „1 arbeiten“.
+**Nächste Session:** Schritt **2.1a Aufmerksamkeit** (Seitenleiste C, siehe `docs/SEITENLEISTE.md` „Aufmerksamkeit“):
+Fenstertitel mit Zahl, Taskleiste, Desktop-Meldung (vorher kurzer Test, ob Klicks unter Linux ankommen), Auswahl im
+Projektmenü. Danach 2.2.
 
 Fertig in der App (P1, P2, P3, P5, siehe „Ältere Pakete“): Trail mit drei Zonen (nicht committet / nicht
 gepusht / gepusht) und Remote-Chip, Vergleich zweier Punkte · Hook-Brücke `codedeck hook` → Socket je
@@ -124,7 +127,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 | 1.3 Grundgerüst ✅ 2026-11-15 | Projekt öffnet in Changes (D14). Vier Reiter mit ihrer Frage, Bereichsfarben, die fünf Erscheinungsformen als wiederverwendbare Bausteine (Werkzeugleiste, Abschnitt, Zeile, Dokument, Entscheidung). Bestehende Ansichten einsortieren: Docs → Handover, Workspace/Map/Tests entfallen als Reiter | Projektansicht, alle Reiter | `Deck.tsx`, `views/*`, `index.css`, `App.tsx` | Alle heutigen Funktionen sind im neuen Gerüst erreichbar; Vorschau zeigt vier Reiter |
 | 1.4 Rechte Spalte ✅ 2026-11-15 | „Needs you“, Sitzungen als zwei Zeilen mit aufklappbaren Details, „Next prompt“ mit Vorschau des Textes und Empfangsbestätigung | rechte Spalte, Szenen 2–7 | `SessionsPanel.tsx`, `assistant.ts`, `bridge.rs` (Übergabe abgeholt melden) | Wartende Sitzung erscheint oben mit Grund; nach dem nächsten Prompt steht „Delivered“ |
 | 1.5 Changes je Runde ✅ 2026-11-15 | Auswahl „Turn n / All uncommitted“ (macht den Strg+Klick-Vergleich entdeckbar, ersetzt ihn nicht), Kurzbericht aus dem Log, Datei abhaken, „Claude“ oder „You“ je Datei, Zeile kommentieren | Changes, Szenen 4–7 | `ChangesView.tsx`, `DiffParts.tsx`, `history.rs`, `sessions.rs`, `focus.ts` | Ein Zeilenkommentar landet in „Next prompt“ und kommt bei Claude an |
-| 1.6 Handover ✅ 2026-11-15 (Praxistest offen) | Reiter mit Warteschlange, genauem Text, Quellen, `@ai`-Hinweisen; Startregeln (abhängig von 1.1) sichtbar; Marker-Regel D18, Zielsitzung D19. Auftrag: Notiz „Vorbereitung 1.6“ | Handover | `DocsView.tsx` → Handover, `markers.ts`, `hook.rs` | Regeln stehen wörtlich im Reiter und kommen in einer neuen Sitzung an |
+| 1.6 Handover ✅ 2026-11-15 (Praxistest bestanden 2026-11-16) | Reiter mit Warteschlange, genauem Text, Quellen, `@ai`-Hinweisen; Startregeln (abhängig von 1.1) sichtbar; Marker-Regel D18, Zielsitzung D19. Auftrag: Notiz „Vorbereitung 1.6“ | Handover | `DocsView.tsx` → Handover, `markers.ts`, `hook.rs` | Regeln stehen wörtlich im Reiter und kommen in einer neuen Sitzung an |
 | 1.6b Änderungen anhängen ✅ 2026-11-15 | Runde, Commit, Snapshot, Vergleich, nicht Committetes oder eine Datei davon als Verweis anhängen (Git-Befehl, nicht der Diff); Angehängtes am Ursprung markiert; je Sitzung „Got from CodeDeck“ | Changes, rechte Spalte | `changes.ts`, `ChangesView.tsx`, `DiffParts.tsx`, `StructureTree.tsx`, `bridge.rs` | Eine angehängte Runde kommt als `git diff …` bei Claude an, und die Sitzung zeigt danach, was sie bekommen hat |
 | 1.7 Anhänge aus einem Guss ✅ 2026-11-15 | Aus dem Review vom 2026-11-15 (Notiz „Review 1.6–1.6b“): (A) ein Modul `attachments.ts` mit einem gemeinsamen Baustein je Anhangsteil (Speicher, Abgleich, Zählen) für Dateien, Änderungen, Zeilenkommentare und Hinweise; behebt den Wettlauf beim Absenden und zu viel „attached“ an Hinweisen. (B) Das Backend liefert den fertigen Text der Anhänge (`AssistantState.preview`), das Frontend setzt ihn nicht mehr selbst zusammen. (C) Mit umbenennen: `hand_over` → `attach`, `handovers` → `attachments`, `focus.ts` → `files.ts`, `HandoverTarget` → `AttachTarget` (rein mechanisch, Oberfläche unverändert). Kein neues Verhalten | – | `notes.ts`, `changes.ts`, `focus.ts`, `markers.ts`, `App.tsx`, `bridge.rs`, `lib.rs`, `backend.ts` | Ein Anhang, der während des Absendens dazukommt, bleibt stehen und geht mit dem nächsten Prompt raus; die Vorschau zeigt den Text aus dem Backend |
 | 1.6a Einheitliche Begriffe ✅ 2026-11-15 | D20, D21: „Attach“ und „Next prompt“ überall; Reiter „Handover“ → „Next prompt“; Fokus weg, Anpinnen hängt direkt an | Handover, rechte Spalte (Dummy nennt es noch anders) | `NextPromptView.tsx`, `SessionsPanel.tsx`, `focus.ts`, `FilesPanel.tsx`, `DiffParts.tsx` | Kein „Handover“, „Focus“, „Hand to“, „Queue“ mehr in der Oberfläche; Anhänge an drei Stellen gleich gezählt |
@@ -135,7 +138,8 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 
 | Schritt | Ziel | Dummy | Dateien | Fertig wenn |
 |---|---|---|---|---|
-| 2.1 Workbench-Ordner ✅ 2026-11-15 (Praxistest offen) | Ordner anlegen und lokal ignorieren (`.git/info/exclude`, nicht `.gitignore`), Inhalt mit Größe und Alter, Öffnen, ins Projekt übernehmen, löschen, „älter als … löschen“. Startregel zu `.workbench/` (D16). Externe Dateien anhängen: verschoben nach „Später“ | Workbench | neu `workbench.rs`, `views/WorkbenchView.tsx`, `watch.rs` | Eine Datei im Ordner erscheint sofort, Aufräumen löscht nur Altes |
+| 2.1 Workbench-Ordner ✅ 2026-11-15 (Praxistest bestanden 2026-11-16) | Ordner anlegen und lokal ignorieren (`.git/info/exclude`, nicht `.gitignore`), Inhalt mit Größe und Alter, Öffnen, ins Projekt übernehmen, löschen, „älter als … löschen“. Startregel zu `.workbench/` (D16). Externe Dateien anhängen: verschoben nach „Später“ | Workbench | neu `workbench.rs`, `views/WorkbenchView.tsx`, `watch.rs` | Eine Datei im Ordner erscheint sofort, Aufräumen löscht nur Altes |
+| 2.1a Aufmerksamkeit ☐ | Wer über Statusänderungen informiert werden will, sieht sie deutlich: Zahl im Fenstertitel, Taskleiste verlangt Aufmerksamkeit, Desktop-Meldung, neuer Eintrag unter „Wartet auf dich“ leuchtet kurz; wobei und wie wählt man im Projektmenü (Entscheidung des Nutzers 2026-11-16, `docs/SEITENLEISTE.md`) | nicht im Dummy | `lib.rs`, `bridge.rs`, neu `attention.rs`, `SessionsPanel.tsx`, `ProjectHeader.tsx` | Eine Erlaubnisfrage bei verdecktem Fenster ist in der Taskleiste und als Meldung zu sehen |
 | 2.2 Fundstücke und Links ☐ | Schreibvorgänge außerhalb des Projekts der Sitzung zuordnen und melden; claude.ai-Seiten als Link merken (je nach Ergebnis von 1.1 über Hook oder über die Startregel) | Workbench: „Still somewhere else“, „Pages on claude.ai“ | `bridge.rs`, `sessions.rs`, Adapter | Eine in `/tmp` geschriebene Datei wird gemeldet und lässt sich holen |
 | 2.3 Activity und Hinweise ☐ | Zeitleiste der Sitzungen aus den Ereignissen, „How safe is your work“, geschriebene Dokumente; Panel „Notices and tips“ | Activity, Glocke | neu `views/ActivityView.tsx`, `bridge.rs` (Ereignisse merken) | Ein Vormittag ist als Zeitleiste nachvollziehbar |
 | 2.4 Verbrauch ☐ | P4: erst den Spike. Ohne verlässliche Quelle entfällt die Anzeige, nicht schätzen | Activity, Statusleiste | siehe P4 | D2 ist entschieden und umgesetzt oder gestrichen |
