@@ -36,8 +36,9 @@ export function Section(props: {
   const open = props.fold?.open ?? true;
   const Chevron = open ? ChevronDown : ChevronRight;
   return (
-    <section className="px-4 pt-5 first:pt-4 last:pb-4">
-      <header className="mb-1.5 flex min-h-6 items-center gap-2">
+    // No extra lines (a view has enough): sections are told apart by room above and a faint band behind the heading
+    <section className="pb-1 first:pt-0 last:pb-4 [&:not(:first-child)]:pt-5">
+      <header className={`${open ? "mb-2" : ""} flex min-h-9 items-center gap-2 border-y border-line/40 bg-raised/40 px-4`}>
         {props.fold ? (
           <button type="button" aria-expanded={open} onClick={props.fold.toggle} className="-ml-1 flex min-w-0 items-center gap-1 rounded px-1 hover:bg-raised">
             <Chevron className="size-3.5 shrink-0 text-slate-500" />
@@ -59,7 +60,7 @@ export function Section(props: {
           )}
         </div>
       </header>
-      {open && <div className="text-slate-400">{props.children}</div>}
+      {open && <div className="px-4 text-slate-400">{props.children}</div>}
     </section>
   );
 }

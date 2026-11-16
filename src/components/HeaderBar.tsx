@@ -3,7 +3,6 @@ import {
   AppWindow,
   Bug,
   ChevronDown,
-  ChevronRight,
   CircleHelp,
   Ellipsis,
   Info,
@@ -12,6 +11,7 @@ import {
   PanelRight,
   Settings,
   SlidersHorizontal,
+  Plug,
   Sparkles,
   SquareTerminal,
   Stethoscope,
@@ -23,6 +23,7 @@ import { openDialog } from "../dialogs";
 import { isCompact, toggleCompact } from "../compact";
 import { lang, setLang, t } from "../i18n";
 import { AttentionChoice, isQuiet, QuietChoice } from "./AttentionChoice";
+import { HookPanel } from "./AssistantStatus";
 import { SOURCE_URL } from "./Dialogs";
 import { ProjectMenu, usePopover, type OpenProject } from "./ProjectHeader";
 
@@ -46,7 +47,8 @@ export function HeaderBar(props: Props) {
     <header className="relative flex h-[44px] shrink-0 items-center gap-1 border-b border-line pr-1.5 pl-1.5">
       <ProjectMenu project={props.project} onOpen={props.onOpenProject} />
       <span className="flex-1" />
-      <QuickSettings assistant={props.assistant} />
+      <AssistantMenu assistant={props.assistant} />
+      <QuickSettings />
       <AppMenu project={props.project} onToggleLog={props.onToggleLog} assistant={props.assistant} />
       <button
         type="button"
@@ -93,17 +95,12 @@ const Key = ({ children }: { children: string }) => <kbd className="text-[11px] 
 
 /**
  * What one switches in the course of a day, without a dialog; all takes effect at once and is kept
- * for this machine. A dot on the button tells what is unusual: "do not disturb" on, or the AI tool
- * not connected.
+ * for this machine. A dot on the button tells that "do not disturb" is on.
  */
-function QuickSettings({ assistant }: { assistant: AssistantState }) {
+function QuickSettings() {
   const menu = usePopover<HTMLDivElement>();
   const [settings] = useAttentionSettings();
-  const { connected, setups } = useConnections();
-  const harness = mainHarness(assistant);
-  const quiet = isQuiet(settings);
-  const unusual = quiet || (setups !== null && !connected);
-  const linked = setups?.filter((s) => s.installed).length ?? 0;
+  const unusual = isQuiet(settings);
   return (
     <div ref={menu.ref}>
       <button
@@ -147,24 +144,6 @@ function QuickSettings({ assistant }: { assistant: AssistantState }) {
               ))}
             </div>
           </div>
-          <Heading>{t("AI tool")}</Heading>
-          <div className="px-1">
-            <Item
-              icon={<Sparkles className="size-4" />}
-              label={harness.shortName}
-              aside={
-                <>
-                  <span className={`text-[12px] ${connected ? "text-added" : "text-changed"}`}>{connected ? t("connected") : t("not connected")}</span>
-                  {linked > 1 && <span className="text-[11px] text-slate-500">{t("{n} configurations", { n: linked })}</span>}
-                  <ChevronRight className="size-3.5 text-slate-500" />
-                </>
-              }
-              onClick={() => {
-                menu.setOpen(false);
-                openDialog({ kind: "settings", section: "tools" });
-              }}
-            />
-          </div>
           <div className="mt-1 border-t border-overlay-line p-1">
             <Item
               strong
@@ -176,6 +155,39 @@ function QuickSettings({ assistant }: { assistant: AssistantState }) {
                 openDialog({ kind: "settings", section: "general" });
               }}
             />
+          </div>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Connecting the AI tool has a button of its own: nothing reaches CodeDeck until it is done, so
+ * it is not a setting among others. A dot tells that it is not connected yet.
+ */
+function AssistantMenu({ assistant }: { assistant: AssistantState }) {
+  const menu = usePopover<HTMLDivElement>();
+  const hooks = useConnections();
+  const harness = mainHarness(assistant);
+  const unlinked = hooks.setups !== null && !hooks.connected;
+  return (
+    <div ref={menu.ref}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={menu.open}
+        title={`${harness.name}: ${hooks.connected ? t("connected") : t("not connected")}`}
+        onClick={() => menu.setOpen(!menu.open)}
+        className={`${iconButton(menu.open)} ${hooks.connected ? "" : "text-changed"}`}
+      >
+        {hooks.connected ? <Sparkles className="size-4" /> : <Plug className="size-4" />}
+        {unlinked && <span className="absolute top-1 right-1 size-1.5 rounded-full bg-changed" />}
+      </button>
+      {menu.open && (
+        <Panel width="w-[380px]">
+          <div className="max-h-[60vh] overflow-y-auto p-3 pt-0 text-[12px] text-slate-300">
+            <HookPanel hooks={hooks} harness={harness} heard={assistant.heard} />
           </div>
         </Panel>
       )}

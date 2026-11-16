@@ -47,23 +47,21 @@ export function OutsideTile({ files, pages }: { files: OutsideFile[]; pages: Pub
   const open = files.filter((f) => !f.fetched).length;
   const note = [open > 0 && t("{n} not fetched", { n: open }), pages.length > 0 && t("{n} online", { n: pages.length })].filter(Boolean).join(" · ");
   return (
-    <div className="min-w-0">
-      <Section
-        fold={fold}
-        title={t("Outside the project")}
-        note={note || plural(files.length, "file")}
-        help={
-          <>
-            <span>{t("Files: written by a session of this project outside of it and outside every repository. Into scratch copies one into the scratch folder, from where you drag it into the project; the original stays where it is.")}</span>
-            <span className="mt-1.5">{t("Online: pages a session put on the web, such as a claude.ai artifact, a gist or a paste. There is no file of them, only the address, which the session names at the end of its turn; CodeDeck keeps it so it does not get lost in the chat.")}</span>
-          </>
-        }
-      >
-        <p className="mb-2 text-[12px]">{t("What sessions of this project put elsewhere: files on this computer, pages online.")}</p>
-        {files.length > 0 && <OutsideFiles files={files} />}
-        {pages.length > 0 && <OnlinePages pages={pages} />}
-      </Section>
-    </div>
+    <Section
+      fold={fold}
+      title={t("Outside the project")}
+      note={note || plural(files.length, "file")}
+      help={
+        <>
+          <span>{t("Files: written by a session of this project outside of it and outside every repository. Into scratch copies one into the scratch folder, from where you drag it into the project; the original stays where it is.")}</span>
+          <span className="mt-1.5">{t("Online: pages a session put on the web, such as a claude.ai artifact, a gist or a paste. There is no file of them, only the address, which the session names at the end of its turn; CodeDeck keeps it so it does not get lost in the chat.")}</span>
+        </>
+      }
+    >
+      <p className="mb-2 text-[12px]">{t("What sessions of this project put elsewhere: files on this computer, pages online.")}</p>
+      {files.length > 0 && <OutsideFiles files={files} />}
+      {pages.length > 0 && <OnlinePages pages={pages} />}
+    </Section>
   );
 }
 

@@ -22,7 +22,7 @@ import {
 import { onFsChanged, openPath, readDir, showInFileManager, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
 import type { GitState } from "../backend";
 import { aheadBehind, stateMeaning, stateSymbol, type GitView } from "../git";
-import { Tooltip, TooltipHint } from "./Tooltip";
+import { Tooltip, ToolTipBody } from "./Tooltip";
 import { pathItems, useContextMenu } from "./ContextMenu";
 import { AppName, openAs } from "../apps";
 import { useSessionMarks } from "../assistant";
@@ -418,13 +418,7 @@ function Tool(props: {
   return (
     <Tooltip
       className="flex"
-      content={
-        <>
-          <span className="font-semibold text-slate-100">{props.label}</span>
-          <span>{props.says}</span>
-          {props.hint && <TooltipHint>{props.hint}</TooltipHint>}
-        </>
-      }
+      content={<ToolTipBody label={props.label} says={props.says} hint={props.hint} />}
     >
       <button
         type="button"

@@ -89,3 +89,14 @@ export function Tooltip(props: {
 export function TooltipHint({ children }: { children: ReactNode }) {
   return <span className="mt-1.5 border-t border-overlay-line pt-1.5 text-[11px] text-slate-500">{children}</span>;
 }
+
+/** What a tool's tooltip says everywhere: its name, what it does, and in a quiet line how else to reach it. */
+export function ToolTipBody({ label, says, hint }: { label: string; says: ReactNode; hint?: string }) {
+  return (
+    <>
+      <span className="font-semibold text-slate-100">{label}</span>
+      <span>{says}</span>
+      {hint && <TooltipHint>{hint}</TooltipHint>}
+    </>
+  );
+}

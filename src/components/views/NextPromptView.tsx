@@ -59,7 +59,7 @@ export function NextPromptView({ assistant }: { assistant: AssistantState }) {
         )}
       </Toolbar>
 
-      <div className="max-w-4xl">
+      <div>
         {count > 0 ? (
           <AttachmentSections />
         ) : (
@@ -118,7 +118,7 @@ function StartRules({ assistant }: { assistant: AssistantState }) {
         ) : undefined
       }
     >
-      <p className="mb-2 max-w-prose text-[12px]">
+      <p className="mb-2 text-[12px]">
         {t("Not an attachment: every new session gets them once when it starts while this project is open in CodeDeck, and again after its context was cleared or compacted. Short, fixed and always on.")}
       </p>
       {!harness.capabilities.startRules && (
@@ -144,7 +144,7 @@ function RulesText({ text }: { text: string | null }) {
     else intro.push(line);
   }
   return (
-    <div className="selectable max-w-prose border-l-2 border-line pl-3 text-[13px] leading-relaxed text-slate-300">
+    <div className="selectable border-l-2 border-line pl-3 text-[13px] leading-relaxed text-slate-300">
       {intro.length > 0 && <p className="text-slate-400">{intro.join(" ")}</p>}
       <ul className="mt-1.5 flex flex-col gap-1.5">
         {rules.map((rule) => (

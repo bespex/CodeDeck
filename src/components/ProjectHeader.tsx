@@ -62,28 +62,29 @@ export function PathBar({ project, onOpen }: { project: ProjectInfo | null; onOp
   return (
     <header className="relative shrink-0 border-b border-line">
       {/* 43 px plus the border: the same 44 px as the headers beside it, so their lines meet */}
-      <div className="flex h-[43px] items-center px-3">
-        {/* A long path is cut off on the left, the project end stays visible */}
+      <div className="flex h-[43px] items-center gap-3 px-3">
+        {/* The project itself, large: the project picker lives in the right column, so this is where you see what is open */}
+        {project && (
+          <span className="max-w-[55%] shrink-0 truncate text-[15px] leading-none font-semibold text-slate-100" title={project.root}>
+            {crumbs[crumbs.length - 1]?.label ?? project.root}
+          </span>
+        )}
+        {/* The way there is quiet; a long path is cut off on the left, the nearest folders stay visible */}
         <nav aria-label={t("Path")} className="flex min-w-0 flex-1 justify-end overflow-hidden font-mono text-[11px] whitespace-nowrap text-slate-500" title={project?.root}>
-          {crumbs.map((crumb, i) => {
-            const last = i === crumbs.length - 1;
+          {crumbs.slice(0, -1).map((crumb, i) => {
             const separator = i > 0 && crumbs[i - 1].label !== "/";
             return (
               <span key={crumb.path} className="flex shrink-0 items-center">
                 {separator && <span className="text-slate-600">/</span>}
-                {last ? (
-                  <span className="px-px font-semibold text-slate-300">{crumb.label}</span>
-                ) : (
-                  <button
-                    type="button"
-                    title={t("Open {path} here · Ctrl+click: new window", { path: crumb.path })}
-                    onClick={(e) => open(crumb.path, wantsNewWindow(e))}
-                    onAuxClick={(e) => e.button === 1 && open(crumb.path, true)}
-                    className="rounded px-px hover:bg-raised hover:text-slate-200"
-                  >
-                    {crumb.label}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  title={t("Open {path} here · Ctrl+click: new window", { path: crumb.path })}
+                  onClick={(e) => open(crumb.path, wantsNewWindow(e))}
+                  onAuxClick={(e) => e.button === 1 && open(crumb.path, true)}
+                  className="rounded px-px hover:bg-raised hover:text-slate-200"
+                >
+                  {crumb.label}
+                </button>
               </span>
             );
           })}

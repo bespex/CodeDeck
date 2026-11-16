@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Eye, FileText, Folder, FolderOpen, GripVertical, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type HTMLAttributes, type ReactNode } from "react";
+import { Check, ChevronDown, ChevronRight, Eye, FileText, Folder, FolderOpen, FolderSearch, GripVertical, SquarePen, Trash2 } from "lucide-react";
 import { onFsChanged, openFile, showInFileManager, scratchList, scratchTrash, type AssistantState, type WorkFile } from "../../backend";
 import { mainHarness, shortId, useSessionMarks } from "../../assistant";
 import type { Markers } from "../../markers";
 import { HintsTile } from "./HintsTile";
 import { Section, useFold, useShowAll } from "../blocks";
-import { SessionBadge } from "../SessionBadge";
-import { Tooltip } from "../Tooltip";
+import { Tooltip, ToolTipBody } from "../Tooltip";
+import { AppName } from "../../apps";
 import { plural } from "../../git";
 import { inScratch, useLastMove, SCRATCH_DIR, SCRATCH_DRAG } from "../../scratch";
 import { age, size } from "./units";
@@ -23,20 +23,16 @@ const SCRATCH_OPEN_UP_TO = 20;
  * What else came up that is not part of the project yet? (D23) The Workbench gathers it in tiles,
  * what wants a decision first: what sessions put outside the project (only while there is some),
  * the `@ai` hints left in files, then the scratch folder, the store. Each tile can be closed and
- * keeps its count in the heading; long lists show their first entries. With room (a wide deck) the
- * first two stand side by side and the scratch folder takes the whole width below.
+ * keeps its count in the heading; long lists show their first entries. They stand one below the other,
+ * a hairline between: side by side each would be too narrow for its rows.
  */
 export function WorkbenchView({ marks, assistant }: { marks: Markers; assistant: AssistantState }) {
   const { outside, pages } = assistant.found;
   return (
-    <div className="@container flex min-h-full flex-col">
-      <div className="grid items-start @5xl:grid-cols-2">
-        {(outside.length > 0 || pages.length > 0) && <OutsideTile files={outside} pages={pages} />}
-        <HintsTile marks={marks} harness={mainHarness(assistant)} />
-        <div className="min-w-0 @5xl:col-span-2">
-          <ScratchTile />
-        </div>
-      </div>
+    <div className="flex min-h-full flex-col">
+      {(outside.length > 0 || pages.length > 0) && <OutsideTile files={outside} pages={pages} />}
+      <HintsTile marks={marks} harness={mainHarness(assistant)} />
+      <ScratchTile />
     </div>
   );
 }
@@ -157,14 +153,14 @@ function ScratchTile() {
             </Tooltip>
           )}
           {files && files.length > 0 && (
-            <Tooltip content={<span>{t("Open the folder in the file manager")}</span>}>
+            <Tooltip content={<ToolTipBody label={t("Show in file manager")} says={t("Opens this folder in the file manager")} />}>
               <button
                 type="button"
-                aria-label={t("Open the folder")}
+                aria-label={t("Show in file manager")}
                 onClick={() => showInFileManager(SCRATCH_DIR)}
                 className="rounded-md p-1 text-slate-500 hover:bg-raised hover:text-slate-100"
               >
-                <FolderOpen className="size-3.5" />
+                <FolderSearch className="size-3.5" />
               </button>
             </Tooltip>
           )}
@@ -191,7 +187,7 @@ function ScratchTile() {
       {error && <p className="selectable mb-2 text-problem">{error}</p>}
       {files && files.length === 0 && <p>{t("The scratch folder is empty.")}</p>}
       {files && files.length > 0 && (
-        <ul className="divide-y divide-line/70 border-y border-line/70">
+        <ul>
           <DirContent dir={tree} depth={0} now={now} onTrash={trash} />
         </ul>
       )}
@@ -221,6 +217,37 @@ function DirContent({ dir, depth, now, onTrash }: { dir: Dir; depth: number; now
   );
 }
 
+const ACTION = "rounded p-1 text-slate-500 hover:bg-raised hover:text-slate-100";
+
+/**
+ * One line of the scratch folder, the same columns for folders and files so they line up:
+ * handle or chevron, icon, name, then to the right the time, the size, a gap, the four actions
+ * (view, edit, file manager, trash; a folder leaves the first two empty).
+ */
+function ScratchLine(props: {
+  depth: number;
+  lead: ReactNode;
+  icon: ReactNode;
+  name: ReactNode;
+  when: string;
+  old?: boolean;
+  size: number;
+  actions: ReactNode;
+  rowProps?: HTMLAttributes<HTMLLIElement> & { draggable?: boolean };
+}) {
+  const { className, ...rest } = props.rowProps ?? {};
+  return (
+    <li {...rest} className={`group flex min-h-8 items-center gap-2 rounded py-0.5 pr-1 hover:bg-raised/50 ${className ?? ""}`} style={{ paddingLeft: 4 + props.depth * 18 }}>
+      <span className="flex size-3.5 shrink-0 items-center justify-center">{props.lead}</span>
+      {props.icon}
+      <span className="flex min-w-0 flex-1 items-baseline gap-2">{props.name}</span>
+      <span className={`w-24 shrink-0 text-right text-[11px] whitespace-nowrap ${props.old ? "text-changed" : "text-slate-500"}`}>{props.when}</span>
+      <span className="w-16 shrink-0 text-right font-mono text-[11px] text-slate-500 tabular-nums">{size(props.size)}</span>
+      <div className="ml-4 flex shrink-0 gap-0.5">{props.actions}</div>
+    </li>
+  );
+}
+
 /** A folder: closed, with how many files, their size and the newest change; opens on click. */
 function DirRow({ dir, depth, now, onTrash }: { dir: Dir; depth: number; now: number; onTrash: (paths: string[], what: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -229,39 +256,47 @@ function DirRow({ dir, depth, now, onTrash }: { dir: Dir; depth: number; now: nu
   const name = dir.path.slice(SCRATCH_DIR.length + 1);
   return (
     <>
-      <li className="group flex min-h-8 items-center gap-2 py-1 pr-1" style={{ paddingLeft: 4 + depth * 18 }}>
-        <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
-          <Chevron className="size-3.5 shrink-0 text-slate-500" />
-          <Icon className="size-3.5 shrink-0 text-slate-400" />
-          <span className="truncate font-mono text-[12px] text-slate-200">{dir.name}/</span>
-          <span className="shrink-0 text-[11px] text-slate-500">
-            {plural(dir.count, "file")} · {age(dir.newest, now)}
-          </span>
-        </button>
-        <span className="shrink-0 font-mono text-[11px] text-slate-500 tabular-nums">{size(dir.size)}</span>
-        <div className="flex shrink-0 gap-0.5">
-          <Tooltip content={<span>{t("Show it in the file manager")}</span>}>
-            <button
-              type="button"
-              aria-label={t("Show {name} in the file manager", { name })}
-              onClick={() => showInFileManager(dir.path)}
-              className="rounded p-1 text-slate-500 hover:bg-raised hover:text-slate-100"
-            >
-              <FolderOpen className="size-3.5" />
-            </button>
-          </Tooltip>
-          <Tooltip content={<span>{t("The whole folder into the trash, where it can still be brought back")}</span>}>
-            <button
-              type="button"
-              aria-label={t("Delete {name}", { name })}
-              onClick={() => onTrash([dir.path], `${name}/ (${plural(dir.count, "file")})`)}
-              className="rounded p-1 text-slate-500 hover:bg-raised hover:text-problem"
-            >
-              <Trash2 className="size-3.5" />
-            </button>
-          </Tooltip>
-        </div>
-      </li>
+      <ScratchLine
+        depth={depth}
+        // As in the file list, a folder opens with a click, a double click or a middle click (the second
+        // click of a double click is not counted, or it would close it again); the buttons in the line do their own thing
+        rowProps={{
+          onClick: (e) => e.detail <= 1 && !(e.target as HTMLElement).closest("button") && setOpen(!open),
+          onAuxClick: (e) => e.button === 1 && setOpen(!open),
+          className: "cursor-pointer",
+        }}
+        lead={<Chevron className="size-3.5 text-slate-500" />}
+        icon={<Icon className="size-3.5 shrink-0 text-slate-400" />}
+        name={
+          <button type="button" aria-expanded={open} onClick={(e) => e.detail <= 1 && setOpen(!open)} className="flex min-w-0 flex-1 items-baseline gap-2 text-left">
+            <span className="truncate font-mono text-[12px] text-slate-200">{dir.name}/</span>
+            <span className="shrink-0 text-[11px] text-slate-500">{plural(dir.count, "file")}</span>
+          </button>
+        }
+        when={age(dir.newest, now)}
+        size={dir.size}
+        actions={
+          <>
+            <span className="size-[22px]" />
+            <span className="size-[22px]" />
+            <Tooltip content={<ToolTipBody label={t("Show in file manager")} says={t("Opens this folder in the file manager")} />}>
+              <button type="button" aria-label={t("Show in file manager")} onClick={() => showInFileManager(dir.path)} className={ACTION}>
+                <FolderSearch className="size-3.5" />
+              </button>
+            </Tooltip>
+            <Tooltip content={<ToolTipBody label={t("Move to trash")} says={t("The whole folder into the trash, where it can still be brought back")} />}>
+              <button
+                type="button"
+                aria-label={t("Move to trash")}
+                onClick={() => onTrash([dir.path], `${name}/ (${plural(dir.count, "file")})`)}
+                className="rounded p-1 text-slate-500 hover:bg-raised hover:text-problem"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            </Tooltip>
+          </>
+        }
+      />
       {open && <DirContent dir={dir} depth={depth + 1} now={now} onTrash={onTrash} />}
     </>
   );
@@ -272,51 +307,73 @@ function FileRow({ file: f, depth, now, onTrash }: { file: WorkFile; depth: numb
   const marks = useSessionMarks();
   const writer = marks.writer(f.path);
   const mark = marks.of(writer);
-  const isOld = now - f.modified > OLD_DAYS * DAY;
   const name = f.path.split("/").pop() ?? f.path;
+  // One line only: who wrote it is in the tooltip
+  const by = writer ? t("written by {who}", { who: mark?.title ?? t("session {id}", { id: shortId(writer) }) }) : "";
   return (
-    <li
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData(SCRATCH_DRAG, f.path);
-        e.dataTransfer.effectAllowed = "move";
+    <ScratchLine
+      depth={depth}
+      rowProps={{
+        draggable: true,
+        onDragStart: (e) => {
+          e.dataTransfer.setData(SCRATCH_DRAG, f.path);
+          e.dataTransfer.effectAllowed = "move";
+        },
+        // As in the file list: double click views, middle click edits
+        onDoubleClick: () => openFile(f.path, "view"),
+        onAuxClick: (e) => e.button === 1 && openFile(f.path, "edit"),
+        className: "cursor-grab active:cursor-grabbing",
       }}
-      // As in the file list: double click views, middle click edits
-      onDoubleClick={() => openFile(f.path, "view")}
-      onAuxClick={(e) => e.button === 1 && openFile(f.path, "edit")}
-      className="group flex min-h-9 cursor-grab items-center gap-2 py-1 pr-1 active:cursor-grabbing"
-      style={{ paddingLeft: 4 + depth * 18 }}
-    >
-      <GripVertical className="size-3.5 shrink-0 text-slate-600 group-hover:text-slate-400" />
-      <FileText className="size-3.5 shrink-0 text-slate-400" />
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-mono text-[12px] text-slate-200" title={f.path}>
+      lead={<GripVertical className="size-3.5 text-slate-600 group-hover:text-slate-400" />}
+      icon={<FileText className="size-3.5 shrink-0 text-slate-400" />}
+      name={
+        <span className="truncate font-mono text-[12px] text-slate-200" title={by ? `${f.path}\n${by}` : f.path}>
           {name}
-        </div>
-        <div className={`flex items-center gap-1.5 text-[11px] ${isOld ? "text-changed" : "text-slate-500"}`}>
-          <span>{age(f.modified, now)}</span>
-          {writer && (
-            <>
-              <span>·</span>
-              {mark && <SessionBadge mark={mark} />}
-              <span className="truncate text-slate-400">{mark?.title ?? t("session {id}", { id: shortId(writer) })}</span>
-            </>
-          )}
-        </div>
-      </div>
-      <span className="shrink-0 font-mono text-[11px] text-slate-500 tabular-nums">{size(f.size)}</span>
-      <div className="flex shrink-0 gap-0.5">
-        <Tooltip content={<span>{t("Open it in its viewer")}</span>}>
-          <button type="button" aria-label={t("Open {name}", { name })} onClick={() => openFile(f.path, "view")} className="rounded p-1 text-slate-500 hover:bg-raised hover:text-slate-100">
-            <Eye className="size-3.5" />
-          </button>
-        </Tooltip>
-        <Tooltip content={<span>{t("Into the trash, where it can still be brought back")}</span>}>
-          <button type="button" aria-label={t("Delete {name}", { name })} onClick={() => onTrash([f.path], name)} className="rounded p-1 text-slate-500 hover:bg-raised hover:text-problem">
-            <Trash2 className="size-3.5" />
-          </button>
-        </Tooltip>
-      </div>
-    </li>
+        </span>
+      }
+      when={age(f.modified, now)}
+      old={now - f.modified > OLD_DAYS * DAY}
+      size={f.size}
+      actions={
+        <>
+          <Tooltip
+            content={
+              <ToolTipBody
+                label={t("View")}
+                says={<T text="Opens it in {app}" app={<AppName path={f.path} role="view" />} />}
+                hint={t("Also: double-click the file")}
+              />
+            }
+          >
+            <button type="button" aria-label={t("View")} onClick={() => openFile(f.path, "view")} className={ACTION}>
+              <Eye className="size-3.5" />
+            </button>
+          </Tooltip>
+          <Tooltip
+            content={
+              <ToolTipBody
+                label={t("Edit")}
+                says={<T text="Opens it in {app}" app={<AppName path={f.path} role="edit" />} />}
+                hint={t("Also: middle-click the file")}
+              />
+            }
+          >
+            <button type="button" aria-label={t("Edit")} onClick={() => openFile(f.path, "edit")} className={ACTION}>
+              <SquarePen className="size-3.5" />
+            </button>
+          </Tooltip>
+          <Tooltip content={<ToolTipBody label={t("Show in file manager")} says={t("Opens its folder in the file manager, with it selected")} />}>
+            <button type="button" aria-label={t("Show in file manager")} onClick={() => showInFileManager(f.path)} className={ACTION}>
+              <FolderSearch className="size-3.5" />
+            </button>
+          </Tooltip>
+          <Tooltip content={<ToolTipBody label={t("Move to trash")} says={t("Into the trash, where it can still be brought back")} />}>
+            <button type="button" aria-label={t("Move to trash")} onClick={() => onTrash([f.path], name)} className="rounded p-1 text-slate-500 hover:bg-raised hover:text-problem">
+              <Trash2 className="size-3.5" />
+            </button>
+          </Tooltip>
+        </>
+      }
+    />
   );
 }
