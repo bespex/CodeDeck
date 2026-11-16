@@ -31,7 +31,8 @@ stehen (Review B2), weil er dieselben Stellen berührt.
 
 ### Was heute schon klemmt
 
-- **Einstellungen gelten nur im Fenster, in dem sie geändert wurden.** Sprache (`localStorage`) und Meldungen
+- ~~**Einstellungen gelten nur im Fenster, in dem sie geändert wurden.**~~ Behoben 2026-11-16 (Socket-Botschaft
+  `SettingsChanged`, Sprache in `settings.json`), siehe „Unabhängig davon“. Sprache (`localStorage`) und Meldungen
   (`attention.json`, beim Start gelesen) erfahren die anderen Fenster erst nach einem Neustart. Ein Beispiel:
   Schaltet man in Fenster A „Runde fertig“ ab, meldet Fenster B sie weiter. Das lässt sich unabhängig von dieser
   Entscheidung schnell beheben (auf die Datei achten bzw. auf das Ereignis `storage`), siehe unten.
@@ -126,7 +127,7 @@ nur Ansichten.
 
 Etwa ein bis zwei Sessions, ohne neues Verhalten. Danach prüft ein Praxistest Mehrfenster, Kürzel und Hooks.
 
-## Unabhängig davon, sofort
+## Unabhängig davon, sofort (erledigt 2026-11-16)
 
 Einstellungen in allen Fenstern gleich halten (siehe „Was heute schon klemmt“): Die Sprache hört auf das
 `storage`-Ereignis, die Meldungen achten auf `attention.json` (Watch oder Abfrage bei Fokus). Das ist klein und

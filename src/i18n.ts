@@ -9,12 +9,17 @@
 
 import { createElement, Fragment, type ReactNode } from "react";
 import { de, nouns } from "./i18n.de";
+import { machineSettings, onSettingsChanged, setMachineSetting } from "./backend";
 
 export type Lang = "en" | "de";
 
 const KEY = "codedeck.lang";
 
-/** The language chosen on this machine, else the system's. */
+/**
+ * The language chosen on this machine, else the system's. It is kept in the machine settings, which
+ * every window shares; `localStorage` holds a copy so the first picture is already in the right
+ * language (each CodeDeck window is its own process with its own copy, docs/PROZESSMODELL.md).
+ */
 function initial(): Lang {
   const saved = typeof localStorage === "undefined" ? null : localStorage.getItem(KEY);
   if (saved === "en" || saved === "de") return saved;
@@ -27,12 +32,30 @@ export let LOCALE = lang === "de" ? "de-DE" : "en-GB";
 
 const listeners = new Set<() => void>();
 
-/** Switches the language and keeps it for this machine; the interface draws itself again. */
-export function setLang(next: Lang) {
+function apply(next: Lang) {
+  if (next === lang) return;
   lang = next;
   LOCALE = next === "de" ? "de-DE" : "en-GB";
   localStorage.setItem(KEY, next);
   listeners.forEach((l) => l());
+}
+
+/** Switches the language and keeps it for this machine, in every window; the interface draws itself again. */
+export function setLang(next: Lang) {
+  apply(next);
+  void setMachineSetting("language", next);
+}
+
+/** The language as the machine settings have it: at start, and when another window changed it. */
+async function follow() {
+  const saved = (await machineSettings().catch(() => ({}) as Record<string, unknown>)).language;
+  if (saved === "en" || saved === "de") apply(saved);
+  // Chosen before the machine settings held it: take it over once
+  else if (localStorage.getItem(KEY)) void setMachineSetting("language", lang);
+}
+if (typeof window !== "undefined") {
+  void follow();
+  onSettingsChanged(() => void follow());
 }
 
 export function onLang(listener: () => void): () => void {

@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   attentionSettings,
+  onSettingsChanged,
   notifyAttention,
   setAttentionSettings,
   setTitlePrefix,
@@ -78,10 +79,14 @@ export function useWaiting(state: AssistantState): Session[] {
 /* The settings, read once and shared by every component */
 let settings: AttentionSettings | null = null;
 const settingsListeners = new Set<() => void>();
-const loaded = attentionSettings().then((s) => {
-  settings = s;
-  settingsListeners.forEach((l) => l());
-});
+const load = () =>
+  attentionSettings().then((s) => {
+    settings = s;
+    settingsListeners.forEach((l) => l());
+  });
+const loaded = load();
+// Changed in another window: what is told, and how, is the same in all of them
+onSettingsChanged(() => void load());
 export function useAttentionSettings(): [AttentionSettings | null, (next: AttentionSettings) => void] {
   const current = useSyncExternalStore(
     (l) => {

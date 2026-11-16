@@ -39,9 +39,7 @@ Seit dem Test dazugekommen, alles auf `main` und gepusht:
 **Nächste Session:** 2.1a und 2.1b sind laut Nutzer in der echten App in Ordnung. 2.1c (Seitenleiste) und 2.2
 (Fundstücke und Links) sind gebaut, aber nur in der Vorschau geprüft; der Nutzer prüft beide später in einer
 längeren Testsession nach `docs/praxistest-2.1c-2.2.md` (mit „Diagnose kopieren“ und Journal). Danach Schritt 2.3;
-das Journal liefert ihm schon Ereignisse. Offen zur Entscheidung: D25 (Prozessmodell, `docs/PROZESSMODELL.md`);
-bekannter Fehler unabhängig davon: Sprache und Meldungs-Einstellungen erreichen andere Fenster erst nach einem
-Neustart.
+das Journal liefert ihm schon Ereignisse. Offen zur Entscheidung: D25 (Prozessmodell, `docs/PROZESSMODELL.md`).
 
 Fertig in der App (P1, P2, P3, P5, siehe „Ältere Pakete“): Trail mit drei Zonen (nicht committet / nicht
 gepusht / gepusht) und Remote-Chip, Vergleich zweier Punkte · Hook-Brücke `codedeck hook` → Socket je
@@ -846,6 +844,13 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   Commit, System, X11/Wayland, Desktop, Programm, Projekt, Fenster, Verbindungen je Konfiguration, globale Kürzel,
   Meldungs-Einstellungen, Pfad des Journals, die letzten 40 Zeilen `hook-trace.log`; das Frontend ergänzt Sitzungen,
   Form, Größe, Sprache, Fokus, Fundstücke. Home steht als `~`. Testprotokoll: `docs/praxistest-2.1c-2.2.md`.
+- Einstellungen in allen Fenstern (2026-11-16): Sprache und Meldungen galten nur im Fenster, in dem sie geändert
+  wurden (jedes Fenster ist ein Prozess mit eigenem `localStorage`). Jetzt: Rechner-Einstellungen in
+  `~/.config/codedeck/settings.json` (`config::machine_settings`, `set_machine_setting`, Anfang des
+  Einstellungsspeichers), die Sprache liegt dort (`localStorage` nur noch als Kopie fürs erste Bild, alter Wert wird
+  einmal übernommen). Nach jeder Änderung (auch `set_attention_settings`) schickt das Fenster `SettingsChanged` über
+  die Sockets an die anderen (`window::settings_changed`), diese lesen neu (Ereignis `settings_changed`). Bei D25 = B
+  wird daraus ein Ereignis im Prozess.
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

@@ -26,9 +26,9 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src-tauri/src/findings.rs` | Woanders Abgelegtes und veröffentlichte Seiten je Projekt (`~/.config/codedeck/findings.json`): was zählt, Holen in `.scratch/`, Links aus dem Schlussbericht |
 | `src-tauri/src/journal.rs` | Was im Projekt geschah, eine Zeile je Ereignis, 7 Tage (`~/.local/state/codedeck/journal/`); Material für 2.3 |
 | `src-tauri/src/rules.rs` | Startregeln: der eine Text für Hook und Reiter Next prompt |
-| `src-tauri/src/{watch,project,apps,recent,config}.rs` | Dateiwächter, Projektpfade, externe Programme, letzte Projekte, Config-Dateien |
+| `src-tauri/src/{watch,project,apps,recent,config}.rs` | Dateiwächter, Projektpfade, externe Programme, letzte Projekte, Config-Dateien und Rechner-Einstellungen (`settings.json`, Änderung an alle Fenster über `window::settings_changed`) |
 | `src/backend.ts` | Alle `invoke`-Wrapper **mit Mock** für die Browser-Vorschau |
-| `src/i18n.ts`, `src/i18n.de.ts` | Sprache der Oberfläche (Englisch/Deutsch): `t`, `T`, `plural`, `snapshotLabel`, Umschalter im Projektmenü; deutsches Wörterbuch |
+| `src/i18n.ts`, `src/i18n.de.ts` | Sprache der Oberfläche (Englisch/Deutsch): `t`, `T`, `plural`, `snapshotLabel`; Sprache in den Rechner-Einstellungen (Umschalter in den Schnelleinstellungen); deutsches Wörterbuch |
 | `src/git.ts`, `src/history.ts`, `src/assistant.ts` | React-Hooks: Git-Status, Trail/Snapshots, Sitzungen |
 | `src/components/Trail.tsx` | Zeitleiste (Zonen, Remote-Chip, Snapshots) |
 | `src/components/views/ChangesView.tsx`, `DiffParts.tsx` | Diffs für jetzt / Runde / Commit / Snapshot / Vergleich; Kurzbericht der Runde; Zeile kommentieren, Datei abhaken |

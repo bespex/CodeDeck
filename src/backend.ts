@@ -1337,3 +1337,28 @@ export function diagnostics(): Promise<string> {
     "CodeDeck 0.1.1 (fdffba4) · Preview · x11 · X-Cinnamon\nProject: ~/projects/orbit-api\nWindows: 1\nConnections:\n  claude ~/.claude: connected\nGlobal shortcuts: Ctrl+Alt+C here, Ctrl+Alt+L here\nLast hook messages (0 of 0):\n",
   );
 }
+
+/** The settings of this machine every window shares (`~/.config/codedeck/settings.json`). */
+export function machineSettings(): Promise<Record<string, unknown>> {
+  if (live) return invoke("machine_settings");
+  return Promise.resolve(JSON.parse(localStorage.getItem("codedeck.mockSettings") ?? "{}"));
+}
+
+/** Sets one machine setting (`null` removes it); the other windows are told. */
+export function setMachineSetting(key: string, value: unknown): Promise<void> {
+  if (live) return invoke("set_machine_setting", { key, value });
+  const all = JSON.parse(localStorage.getItem("codedeck.mockSettings") ?? "{}");
+  if (value === null) delete all[key];
+  else all[key] = value;
+  localStorage.setItem("codedeck.mockSettings", JSON.stringify(all));
+  return Promise.resolve();
+}
+
+/** Calls back when another window changed a setting of this machine (language, notifications). */
+export function onSettingsChanged(callback: () => void): () => void {
+  if (live) {
+    const unlisten = listen("settings_changed", () => callback());
+    return () => void unlisten.then((stop) => stop());
+  }
+  return () => {};
+}

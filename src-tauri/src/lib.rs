@@ -74,8 +74,24 @@ fn attention_settings() -> attention::Settings {
 }
 
 #[tauri::command]
-fn set_attention_settings(settings: attention::Settings) -> Result<(), String> {
-    attention::save(&settings)
+fn set_attention_settings(settings: attention::Settings, app: AppHandle) -> Result<(), String> {
+    attention::save(&settings)?;
+    window::settings_changed(&app);
+    Ok(())
+}
+
+/// The settings of this machine every window shares (language, …).
+#[tauri::command]
+fn machine_settings() -> serde_json::Map<String, serde_json::Value> {
+    config::machine_settings()
+}
+
+/// Sets one of them; the other windows are told.
+#[tauri::command]
+fn set_machine_setting(key: String, value: serde_json::Value, app: AppHandle) -> Result<(), String> {
+    config::set_machine_setting(&key, value)?;
+    window::settings_changed(&app);
+    Ok(())
 }
 
 /// What the About dialog and a bug report say about this program.
@@ -637,7 +653,9 @@ pub fn run() {
             fetch_outside,
             forget_found,
             open_outside,
-            diagnostics
+            diagnostics,
+            machine_settings,
+            set_machine_setting
         ])
         .build(tauri::generate_context!())
         .expect("error while building CodeDeck")

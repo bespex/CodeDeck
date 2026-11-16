@@ -101,6 +101,8 @@ pub enum Request {
     Front,
     /// To the front, then switch between sidebar and full window
     ToggleCompact,
+    /// A setting of this machine changed in another window: read them again
+    SettingsChanged,
 }
 
 /// A message on a window's socket that is not an event of a coding tool.
@@ -220,6 +222,9 @@ fn ask(app: &AppHandle, pid: u32, request: Request) {
 pub fn obey(app: &AppHandle, request: Request) {
     let Some(window) = app.get_webview_window("main") else { return };
     match request {
+        Request::SettingsChanged => {
+            let _ = app.emit("settings_changed", ());
+        }
         Request::Hide => {
             let _ = window.hide();
         }
@@ -236,6 +241,11 @@ pub fn obey(app: &AppHandle, request: Request) {
             }
         }
     }
+}
+
+/// Tells every other CodeDeck window that a setting of this machine changed.
+pub fn settings_changed(app: &AppHandle) {
+    other_windows().into_iter().for_each(|pid| ask(app, pid, Request::SettingsChanged));
 }
 
 /// A shortcut was pressed in the window that holds it.
