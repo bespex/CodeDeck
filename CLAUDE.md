@@ -24,6 +24,7 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src-tauri/src/markers.rs` | `@ai`-Marker (Regel D18): `git grep` als Vorauswahl, `marker_text` entscheidet, Codeblöcke in Markdown zählen nicht |
 | `src-tauri/src/scratch.rs` | Scratch-Ordner `.scratch/`: Eintrag in `info/exclude` (`Git::exclude_scratch`, ersetzt die alte `.workbench/`-Zeile), Liste, Papierkorb, ins Projekt verschieben |
 | `src-tauri/src/findings.rs` | Woanders Abgelegtes und veröffentlichte Seiten je Projekt (`~/.config/codedeck/findings.json`): was zählt, Holen in `.scratch/`, Links aus dem Schlussbericht |
+| `src-tauri/src/journal.rs` | Was im Projekt geschah, eine Zeile je Ereignis, 7 Tage (`~/.local/state/codedeck/journal/`); Material für 2.3 |
 | `src-tauri/src/rules.rs` | Startregeln: der eine Text für Hook und Reiter Next prompt |
 | `src-tauri/src/{watch,project,apps,recent,config}.rs` | Dateiwächter, Projektpfade, externe Programme, letzte Projekte, Config-Dateien |
 | `src/backend.ts` | Alle `invoke`-Wrapper **mit Mock** für die Browser-Vorschau |

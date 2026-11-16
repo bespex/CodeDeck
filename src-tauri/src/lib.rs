@@ -14,6 +14,7 @@ mod harness;
 mod history;
 pub mod hook;
 mod identity;
+mod journal;
 mod markers;
 mod project;
 mod recent;
@@ -93,6 +94,56 @@ fn app_info() -> AppInfo {
         .and_then(|t| t.lines().find_map(|l| l.strip_prefix("PRETTY_NAME=").map(|v| v.trim_matches('"').to_string())))
         .unwrap_or_else(|| std::env::consts::OS.to_string());
     AppInfo { version: env!("CARGO_PKG_VERSION"), commit: env!("CODEDECK_COMMIT"), os }
+}
+
+/// What helps to find out what went wrong, as text to paste into a bug report or a chat: the
+/// program, the desktop, the connections, the global shortcuts, the last hook messages. The
+/// frontend adds what it knows (sessions, form, language). Home is written as `~`.
+#[tauri::command]
+fn diagnostics(current: State<Arc<Current>>, shortcuts: State<window::Shortcuts>) -> String {
+    use std::fmt::Write as _;
+    let info = app_info();
+    let env = |key: &str| std::env::var(key).unwrap_or_else(|_| "?".into());
+    let root = current.get().root.clone();
+    let mut out = String::new();
+    let _ = writeln!(out, "CodeDeck {} ({}) · {} · {} · {}", info.version, info.commit, info.os, env("XDG_SESSION_TYPE"), env("XDG_CURRENT_DESKTOP"));
+    let _ = writeln!(out, "Program: {}", std::env::current_exe().map_or_else(|e| e.to_string(), |p| p.display().to_string()));
+    let _ = writeln!(out, "Project: {}", root.display());
+    let windows = std::fs::read_dir(hook::socket_dir())
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.path().extension().is_some_and(|x| x == "sock"))
+        .count();
+    let _ = writeln!(out, "Windows: {windows} (this one: process {})", std::process::id());
+    let _ = writeln!(out, "Connections:");
+    for harness in harness::all() {
+        for c in harness.connections() {
+            let state = match (&c.other, c.installed) {
+                (Some(other), _) => format!("reports to another CodeDeck: {other}"),
+                (None, true) => "connected".into(),
+                (None, false) => "not connected".into(),
+            };
+            let _ = writeln!(out, "  {} {}: {state}", c.harness, c.dir);
+        }
+    }
+    let keys: Vec<String> = shortcuts.get().keys.iter().map(|k| format!("{} {}", k.keys, k.state)).collect();
+    let _ = writeln!(out, "Global shortcuts: {}", if keys.is_empty() { "not registered yet".into() } else { keys.join(", ") });
+    let _ = writeln!(out, "Attention: {}", serde_json::to_string(&attention::load()).unwrap_or_default());
+    if let Some(file) = journal::file_for(&root) {
+        let _ = writeln!(out, "Journal: {}", file.display());
+    }
+    // The last hook messages: when, which tool, what, which session, which windows heard it
+    let trace = std::fs::read_to_string(hook::socket_dir().join("hook-trace.log")).unwrap_or_default();
+    let lines: Vec<&str> = trace.lines().collect();
+    let _ = writeln!(out, "Last hook messages ({} of {}):", lines.len().min(40), lines.len());
+    for line in &lines[lines.len().saturating_sub(40)..] {
+        let _ = writeln!(out, "  {line}");
+    }
+    match std::env::var("HOME") {
+        Ok(home) if !home.is_empty() => out.replace(&home, "~"),
+        _ => out,
+    }
 }
 
 /// Opens a web address in the browser; only http(s), so nothing local can be started this way.
@@ -585,7 +636,8 @@ pub fn run() {
             global_shortcuts,
             fetch_outside,
             forget_found,
-            open_outside
+            open_outside,
+            diagnostics
         ])
         .build(tauri::generate_context!())
         .expect("error while building CodeDeck")

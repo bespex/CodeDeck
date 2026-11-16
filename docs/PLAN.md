@@ -38,7 +38,8 @@ Seit dem Test dazugekommen, alles auf `main` und gepusht:
 
 **Nächste Session:** 2.1a und 2.1b sind laut Nutzer in der echten App in Ordnung. 2.1c (Seitenleiste) und 2.2
 (Fundstücke und Links) sind gebaut, aber nur in der Vorschau geprüft; der Nutzer prüft beide später in einer
-längeren Testsession (Abläufe in den Notizen unter „2.1c“ und „2.2“). Danach Schritt 2.3.
+längeren Testsession nach `docs/praxistest-2.1c-2.2.md` (mit „Diagnose kopieren“ und Journal). Danach Schritt 2.3;
+das Journal liefert ihm schon Ereignisse.
 
 Fertig in der App (P1, P2, P3, P5, siehe „Ältere Pakete“): Trail mit drei Zonen (nicht committet / nicht
 gepusht / gepusht) und Remote-Chip, Vergleich zweier Punkte · Hook-Brücke `codedeck hook` → Socket je
@@ -833,6 +834,15 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   Scratch-Ordner“: Kopie erscheint im Scratch-Ordner, Zeile zeigt „Kopiert nach …“. (3) Öffnen und „Im Dateimanager
   zeigen“. (4) Eine Sitzung ein Artefakt veröffentlichen lassen: Link unter „Veröffentlichte Seiten“ nach Ende der
   Runde. (5) Datei in einem Nachbar-Repo schreiben lassen: erscheint nicht.
+- Vorbereitung 2.3 und Testsession (2026-11-16, aus dem Review): **Journal** `journal.rs`: jedes Ereignis, das das
+  Projekt betrifft (nach `take_in`), als eine JSON-Zeile in `~/.local/state/codedeck/journal/<Projektpfad>.jsonl`
+  (`XDG_STATE_HOME`), dazu `opened`, wenn ein Fenster das Projekt öffnet; Felder `at`, `kind`, `harness`, `session`,
+  `file` (relativ im Projekt), `tool`, `text` (Prompt oder Meldung, 160 Zeichen). Sieben Tage, aufgeräumt beim ersten
+  Schreiben eines Prozesses. `journal::read(root, since)` ist für die Zeitleiste in 2.3 da. Snapshots stehen nicht
+  darin, sie liegen in Git. **Diagnose** `diagnostics` (`lib.rs`), im Menü `⋯` „Diagnose kopieren“: Version und
+  Commit, System, X11/Wayland, Desktop, Programm, Projekt, Fenster, Verbindungen je Konfiguration, globale Kürzel,
+  Meldungs-Einstellungen, Pfad des Journals, die letzten 40 Zeilen `hook-trace.log`; das Frontend ergänzt Sitzungen,
+  Form, Größe, Sprache, Fokus, Fundstücke. Home steht als `~`. Testprotokoll: `docs/praxistest-2.1c-2.2.md`.
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

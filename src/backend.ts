@@ -1329,3 +1329,11 @@ export function onShortcutsChanged(callback: () => void): () => void {
   }
   return () => {};
 }
+
+/** What helps to find out what went wrong, as text (program, desktop, connections, last hook messages). */
+export function diagnostics(): Promise<string> {
+  if (live) return invoke("diagnostics");
+  return Promise.resolve(
+    "CodeDeck 0.1.1 (fdffba4) · Preview · x11 · X-Cinnamon\nProject: ~/projects/orbit-api\nWindows: 1\nConnections:\n  claude ~/.claude: connected\nGlobal shortcuts: Ctrl+Alt+C here, Ctrl+Alt+L here\nLast hook messages (0 of 0):\n",
+  );
+}

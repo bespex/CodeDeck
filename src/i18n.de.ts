@@ -591,6 +591,7 @@ export const de: Record<string, string> = {
   "sidebar / full": "Leiste / voll",
   "Switch between sidebar and full window": "Zwischen Seitenleiste und vollem Fenster wechseln",
   "Overview": "Übersicht",
+  "Copy diagnostics": "Diagnose kopieren",
   "{n} left elsewhere": "{n} woanders abgelegt",
   "Left elsewhere": "Woanders abgelegt",
   "{n} not fetched": "{n} nicht geholt",

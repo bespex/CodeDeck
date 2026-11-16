@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   AppWindow,
   Bug,
@@ -14,12 +14,13 @@ import {
   SlidersHorizontal,
   Sparkles,
   SquareTerminal,
+  Stethoscope,
 } from "lucide-react";
-import { appInfo, openUrl, openWindow, type AssistantState, type ProjectInfo } from "../backend";
+import { appInfo, diagnostics, openUrl, openWindow, type AssistantState, type ProjectInfo } from "../backend";
 import { mainHarness, useConnections } from "../assistant";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
-import { toggleCompact } from "../compact";
+import { isCompact, toggleCompact } from "../compact";
 import { lang, setLang, t } from "../i18n";
 import { AttentionChoice, isQuiet, QuietChoice } from "./AttentionChoice";
 import { SOURCE_URL } from "./Dialogs";
@@ -46,7 +47,7 @@ export function HeaderBar(props: Props) {
       <ProjectMenu project={props.project} onOpen={props.onOpenProject} />
       <span className="flex-1" />
       <QuickSettings assistant={props.assistant} />
-      <AppMenu project={props.project} onToggleLog={props.onToggleLog} />
+      <AppMenu project={props.project} onToggleLog={props.onToggleLog} assistant={props.assistant} />
       <button
         type="button"
         title={props.compact ? t("Full window · Ctrl+Shift+L") : t("Sidebar · Ctrl+Shift+L")}
@@ -183,8 +184,19 @@ function QuickSettings({ assistant }: { assistant: AssistantState }) {
 }
 
 /** Everything about CodeDeck itself. */
-function AppMenu({ project, onToggleLog }: { project: ProjectInfo | null; onToggleLog: () => void }) {
+function AppMenu({ project, onToggleLog, assistant }: { project: ProjectInfo | null; onToggleLog: () => void; assistant: AssistantState }) {
   const menu = usePopover<HTMLDivElement>();
+  const [copied, setCopied] = useState(false);
+  // What the backend knows, and what only the window knows; for a bug report or a chat
+  const copyDiagnostics = async () => {
+    const count = (status: string) => assistant.sessions.filter((s) => s.status === status).length;
+    const sessions = `Sessions: ${assistant.sessions.length} (working ${count("working")}, waiting ${count("waiting")}, idle ${count("idle")}, ended ${count("ended")}), heard: ${assistant.heard}`;
+    const window = `Window: ${isCompact() ? "sidebar" : "full"}, ${innerWidth}×${innerHeight}, language ${lang}, focused ${document.hasFocus()}`;
+    const found = `Found: ${assistant.found.outside.length} left elsewhere, ${assistant.found.pages.length} pages; attachments: ${assistant.attachments.length}`;
+    await navigator.clipboard.writeText([(await diagnostics()).trimEnd(), sessions, window, found, `Web view: ${navigator.userAgent}`].join("\n"));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
   const run = (action: () => void) => () => {
     menu.setOpen(false);
     action();
@@ -209,6 +221,11 @@ function AppMenu({ project, onToggleLog }: { project: ProjectInfo | null; onTogg
           <div className="border-t border-overlay-line p-1">
             <Item icon={<SquareTerminal className="size-4" />} label={t("Git commands")} aside={<Key>{t("Ctrl+Shift+G")}</Key>} onClick={run(onToggleLog)} />
             <Item icon={<Bug className="size-4" />} label={t("Report a problem…")} onClick={run(() => void report())} />
+            <Item
+              icon={<Stethoscope className="size-4" />}
+              label={copied ? t("Copied") : t("Copy diagnostics")}
+              onClick={() => void copyDiagnostics()}
+            />
           </div>
           {project && (
             <div className="border-t border-overlay-line p-1">

@@ -21,6 +21,7 @@ use crate::git::{Git, GitRun};
 use crate::harness::{self, Capabilities, Event, EventKind, Harness, HarnessInfo, SessionInfo};
 use crate::findings::{self, Found, FoundView};
 use crate::identity::{self, Identities, Listed};
+use crate::journal::{self, Journal};
 use crate::rules;
 use crate::snapshot::Origin;
 use crate::{Current, GIT_RAN};
@@ -243,6 +244,8 @@ pub struct Bridge {
     /// One snapshot at a time: two sessions writing at once must not race on one repository
     snapshotting: Mutex<()>,
     socket: PathBuf,
+    /// What happened in the project, kept for a week
+    journal: Journal,
 }
 
 impl Drop for Bridge {
@@ -260,7 +263,8 @@ impl Bridge {
         let _ = std::fs::remove_file(&socket);
         let listener = UnixListener::bind(&socket)?;
         std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o600))?;
-        let bridge = Arc::new(Self { inner: Mutex::new(Inner::default()), snapshotting: Mutex::new(()), socket });
+        let bridge = Arc::new(Self { inner: Mutex::new(Inner::default()), snapshotting: Mutex::new(()), socket, journal: Journal::default() });
+        bridge.journal.write(&app.state::<Arc<Current>>().get().root, &journal::Line::opened(now_ms()), now_ms());
 
         bridge.load_recent(&app);
         let me = bridge.clone();
@@ -307,6 +311,7 @@ impl Bridge {
             (inner.target, inner.target_lost, inner.ruled) = (None, None, None);
             inner.looked_up.clear();
         }
+        self.journal.write(&app.state::<Arc<Current>>().get().root, &journal::Line::opened(now_ms()), now_ms());
         let _ = app.emit(ASSISTANT_CHANGED, self.state());
         self.load_recent(app);
     }
@@ -450,6 +455,8 @@ impl Bridge {
             inner.save_open_turns();
             todo?
         };
+        // Only what concerns this project: `take_in` said so
+        self.journal.write(root, &journal::Line::of(e, root, now_ms()), now_ms());
 
         // The turn's last words: as reported, else from the log (a turn cut short reports none)
         let mut said = e.report.clone();
