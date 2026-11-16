@@ -147,7 +147,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 | 2.1b Kopfleiste ✅ 2026-11-16 | Rechte Spalte oben: Projektmenü, Schnelleinstellungen mit „Nicht stören“, App-Menü `⋯`, About, Tastenkürzel, Einstellungsdialog (Allgemein, Meldungen, KI-Werkzeuge); links nur noch der Pfad. Ersetzt Seitenleiste A | – (`docs/KOPFLEISTE.md`) | neu `HeaderBar.tsx`, `Dialogs.tsx`, `AttentionChoice.tsx`, `dialogs.ts`; `ProjectHeader.tsx` (jetzt `ProjectMenu` und `PathBar`), `attention.rs` (`quiet_until`), `lib.rs` (`app_info`, `open_url`), `build.rs` (Commit) | Sprache und Meldungen sind nicht mehr im Projektmenü |
 | 2.1c Seitenleiste ✅ 2026-11-16 (Praxistest bestanden 2026-11-16) | Seitenleiste B aus `docs/SEITENLEISTE.md`: nur die rechte Spalte, Fenster schmal am rechten Rand seines Bildschirms (volle Höhe des Arbeitsbereichs); zurück an Ort und Größe. Übersicht (Git, Runden, Werkbank), Knopf in der Kopfleiste, `Ctrl+Shift+L`; globale Kürzel `Ctrl+Alt+C` (zeigen/ausblenden) und `Ctrl+Alt+L` (Leiste/voll) für alle Fenster | – (`docs/SEITENLEISTE.md`) | neu `window.rs`, `compact.ts`, `SidebarSummary.tsx`; `App.tsx`, `SessionsPanel.tsx`, `HeaderBar.tsx`, `Dialogs.tsx`, `view.ts`, `bridge.rs` (Fensterbotschaften) | Ein Druck auf `Ctrl+Alt+L` macht aus dem vollen Fenster die Leiste und zurück, an derselben Stelle |
 | 2.2 Fundstücke und Links ✅ 2026-11-16 (Praxistest bestanden 2026-11-16) | Schreibvorgänge außerhalb des Projekts der Sitzung zuordnen und melden; veröffentlichte Seiten als Link merken (über die Startregel: Links im Schlussbericht der Runde) | Workbench: „Still somewhere else“, „Pages on claude.ai“ | neu `findings.rs`, `FoundTiles.tsx`; `bridge.rs`, Adapter (`is_own_file`, `page_hosts`, `Event.writes`), `lib.rs` | Eine in `/tmp` geschriebene Datei wird gemeldet und lässt sich holen |
-| 2.3 Activity und Hinweise ☐ | Zeitleiste der Sitzungen aus den Ereignissen, „How safe is your work“, geschriebene Dokumente; Panel „Notices and tips“ | Activity, Glocke | neu `views/ActivityView.tsx`, `bridge.rs` (Ereignisse merken) | Ein Vormittag ist als Zeitleiste nachvollziehbar |
+| 2.3 Activity und Hinweise ✅ 2026-11-16 (Praxistest steht aus: `docs/praxistest-2.3.md`) | Zeitleiste der Sitzungen aus den Ereignissen, „How safe is your work“, geschriebene Dokumente; Panel „Notices and tips“ | Activity, Glocke | neu `views/ActivityView.tsx`, `bridge.rs` (Ereignisse merken) | Ein Vormittag ist als Zeitleiste nachvollziehbar |
 | 2.4 Verbrauch ☐ | P4: erst den Spike. Ohne verlässliche Quelle entfällt die Anzeige, nicht schätzen | Activity, Statusleiste | siehe P4 | D2 ist entschieden und umgesetzt oder gestrichen |
 | 2.5 Größen ☐ | Bereiche ziehen und zuklappen, wichtigste per Tastenkürzel, Aufteilung je Projekt merken; Trennlinien haarfein | Trennlinien (im Dummy nur angedeutet) | `App.tsx`, `Deck.tsx`, `config.rs` | Aufteilung überlebt einen Neustart |
 
@@ -907,6 +907,17 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   Übersichtlichkeit der Werkbank (Scratch als Baum, lange Listen, Begriff „Veröffentlichte Seiten“), Vorschlag an den
   Nutzer. (3) About: Schriftzug mit Lautschrift `/ˈkoʊdɛk/` wie ein Wörterbucheintrag, darunter „CodeDeck – KI-
   Sitzungsradar für Linux“ mit „de“/„De“ in Orange, damit der Name den Schriftzug erklärt statt ihn zu wiederholen.
+- 2.3 Activity und Hinweise (2026-11-16): `journal_lines(since)` (`lib.rs`) liest das Journal, `src/timeline.ts` macht daraus
+  Spuren: ein Block beginnt mit dem Prompt (oder dem ersten Schreiben ohne gesehenen Prompt), wird „wartet auf dich“,
+  wenn die Sitzung fragt, und endet mit dem Ende der Runde; offen läuft er bis jetzt, solange die Sitzung arbeitet oder
+  wartet, sonst bis zu ihrem letzten Ereignis. Anker sind die Snapshots der Sitzung (ohne Rücksprung-Snapshots).
+  `ActivityView`: „Heute“ (Zeitleiste im einzigen umrahmten Element, Legende im Kopf, Zeitachse von der vollen Stunde vor
+  dem ersten Block bis jetzt), „Wie sicher ist deine Arbeit“ (nicht committet = `git.changed`, committet nur hier =
+  Summe `ahead` der Repos, „–“ ohne Remote; Anker = Snapshots), „Geschriebene Dokumente“. Glocke in der Reiterleiste öffnet
+  `NoticesPanel` über dem Deck: „Was geschah“ (letzte Ereignisse in Worten, Schreibvorgänge einer Sitzung in Folge als
+  eine Zeile), zwei Tipps je Reiter, Fähigkeiten je KI-Werkzeug aus `capabilities`. Abweichung vom Dummy: Der Dummy
+  zeigt „Claude usage“ in Activity, das kommt mit 2.4. Nur in Tests (Rust) und Vorschau geprüft; die Spuren aus echten
+  Journalen sind ungesehen.
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

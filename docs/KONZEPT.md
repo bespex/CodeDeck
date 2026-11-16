@@ -495,7 +495,7 @@ KI stellt, und die Frage steht in der Reiterleiste.
 | **Next prompt** | Was hänge ich an meinen nächsten Prompt? | Anhänge, der genaue Text, was man anhängen kann, `@ai`-Hinweise; getrennt davon die Startregeln |
 
 Ein Projekt öffnet in Changes (D14 im Plan; wird geprüft, sobald Activity mehr zeigt). Die vier Reiter
-gibt es seit Schritt 1.3; Activity zeigt bisher nur die geschriebenen Dokumente, Workbench ist noch leer.
+gibt es seit Schritt 1.3; Activity zeigt seit 2.3 die Zeitleiste der Sitzungen (aus dem Journal), die Sicherheit der Arbeit und die geschriebenen Dokumente; der Verbrauch folgt mit 2.4. Die Glocke in der Reiterleiste öffnet „Notices and tips“.
 
 **Changes je Runde** (seit Schritt 1.5): Über den Diffs steht die Auswahl „Turn 1 · Turn 2 · All
 uncommitted“ mit den Runden seit dem letzten Commit. Eine Runde zeigt, was du gefragt hast, Claudes

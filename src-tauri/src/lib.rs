@@ -112,6 +112,13 @@ fn app_info() -> AppInfo {
     AppInfo { version: env!("CARGO_PKG_VERSION"), commit: env!("CODEDECK_COMMIT"), os }
 }
 
+/// What happened in this project since `since` (Unix milliseconds), oldest first: the material of
+/// the timeline in Activity and of the notices.
+#[tauri::command]
+fn journal_lines(current: State<Arc<Current>>, since: u64) -> Vec<journal::Line> {
+    journal::read(&current.get().root, since)
+}
+
 /// What helps to find out what went wrong, as text to paste into a bug report or a chat: the
 /// program, the desktop, the connections, the global shortcuts, the last hook messages. The
 /// frontend adds what it knows (sessions, form, language). Home is written as `~`.
@@ -608,6 +615,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             project_info,
+            journal_lines,
             read_dir,
             open_path,
             open_file,

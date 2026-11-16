@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { Bell } from "lucide-react";
 import { Trail, type Point } from "./Trail";
 import { ActivityView } from "./views/ActivityView";
 import { ChangesView } from "./views/ChangesView";
 import { NextPromptView } from "./views/NextPromptView";
+import { NoticesPanel } from "./NoticesPanel";
 import { WorkbenchView } from "./views/WorkbenchView";
 import type { AssistantState } from "../backend";
 import { mainHarness } from "../assistant";
@@ -32,6 +34,7 @@ interface Props {
 export function Deck({ git, selected, assistant }: Props) {
   const [view, setView] = useView();
   const [point, setPoint] = useState<Point>({ kind: "now" });
+  const [notices, setNotices] = useState(false);
   const commits = useHistory(git.repos);
   const { snapshots, reload: reloadSnapshots } = useSnapshots(git.repos);
   const marks = useMarkers();
@@ -73,7 +76,7 @@ export function Deck({ git, selected, assistant }: Props) {
 
 
   return (
-    <main className="flex min-h-0 min-w-0 flex-col bg-base">
+    <main className="relative flex min-h-0 min-w-0 flex-col bg-base">
       <nav
         className="flex h-11 shrink-0 items-center gap-1 border-b border-line bg-panel px-2"
         role="tablist"
@@ -119,12 +122,22 @@ export function Deck({ git, selected, assistant }: Props) {
         <span className="mr-2 ml-auto min-w-0 truncate text-[12px] text-slate-400">
           {views.find((v) => v.id === view)?.question(mainHarness(assistant).shortName)}
         </span>
+        <button
+          type="button"
+          aria-label={t("Notices and tips")}
+          aria-expanded={notices}
+          title={t("Notices and tips")}
+          onClick={() => setNotices(!notices)}
+          className={`rounded-md p-1.5 text-slate-400 hover:bg-raised hover:text-slate-100 ${notices ? "bg-raised text-slate-100" : ""}`}
+        >
+          <Bell className="size-4" />
+        </button>
       </nav>
 
       <div className="flex min-h-0 flex-1">
         <Trail commits={commits} snapshots={shownSnapshots} onCompare={compare} repos={git.repos} point={point} onSelect={select} focusRepo={focusRepo} />
         <section className="min-w-0 flex-1 overflow-y-auto" role="tabpanel">
-          {view === "activity" && <ActivityView assistant={assistant} />}
+          {view === "activity" && <ActivityView assistant={assistant} git={git} snapshots={snapshots} />}
           {view === "changes" && (
             <ChangesView
               git={git}
@@ -147,6 +160,7 @@ export function Deck({ git, selected, assistant }: Props) {
           {view === "next" && <NextPromptView assistant={assistant} />}
         </section>
       </div>
+      {notices && <NoticesPanel assistant={assistant} view={view} onClose={() => setNotices(false)} />}
     </main>
   );
 }

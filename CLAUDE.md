@@ -37,7 +37,8 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src/components/views/NextPromptView.tsx` | Reiter Nächster Prompt: alle Anhänge je Art mit Herkunft, genauer Text, Startregeln immer sichtbar |
 | `src/components/AttachmentList.tsx` | `AttachmentSections` (die Liste im Reiter), `useAttachedCount`/`useAttachedKinds` (Zahlen für Reiter und Dashboard rechts) |
 | `src/components/AttachTarget.tsx` | Für wen die Anhänge sind („any session“ oder eine bestimmte) |
-| `src/components/views/ActivityView.tsx` | Zuletzt geschriebene Dokumente (Zeitleiste folgt in 2.3) |
+| `src/components/views/ActivityView.tsx`, `src/timeline.ts` | Zeitleiste der Sitzungen („Heute“) aus dem Journal (`lanesOf`, `spanOf`), „Wie sicher ist deine Arbeit“, zuletzt geschriebene Dokumente |
+| `src/components/NoticesPanel.tsx` | Glocke in der Reiterleiste: letzte Ereignisse (`noticesOf`), Tipps je Reiter, Fähigkeiten je KI-Werkzeug |
 | `src/components/views/WorkbenchView.tsx`, `HintsTile.tsx`, `FoundTiles.tsx`, `src/scratch.ts` | Reiter Werkbank in Kacheln: woanders Abgelegtes und veröffentlichte Seiten (`FoundTiles`), Scratch-Ordner (Ziehen in den Dateibaum, `SCRATCH_DRAG`, `moveIntoProject`) und `@ai`-Hinweise mit Büroklammer |
 | `src/view.ts` | Welcher Reiter offen ist (`useView`, `openView`), damit die rechte Spalte in einen Reiter springen kann |
 | `src/components/SessionsPanel.tsx` | Rechte Spalte: „Needs you“, Sitzungen (zwei Zeilen, „Earlier“, Umbenennen, Entfernen, Hover), „Next prompt“ als Dashboard (Zahlen je Art, Tokens, für wen, Quittung, öffnet den Reiter) |

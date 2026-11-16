@@ -1338,6 +1338,47 @@ export function onShortcutsChanged(callback: () => void): () => void {
   return () => {};
 }
 
+/** One line of the project's journal (`journal.rs`): an event of a session, or a window opening the project. */
+export interface JournalLine {
+  /** Unix milliseconds */
+  at: number;
+  /** `prompt_submitted`, `before_write`, `after_write`, `waiting`, `turn_done`, `session_started`, `session_ended`, or `opened` */
+  kind: string;
+  session?: string;
+  /** Project-relative where it lies in the project */
+  file?: string;
+  tool?: string;
+  /** The prompt or the message, shortened */
+  text?: string;
+}
+
+/** What happened in the project since `since` (Unix milliseconds), oldest first. */
+export function journalLines(since: number): Promise<JournalLine[]> {
+  if (live) return invoke("journal_lines", { since });
+  const now = Date.now();
+  const min = (m: number) => now - m * 60_000;
+  const [a, b, c] = ["b07e11d4-6c3a-4f2e-8d90-1a2b3c4d5e6f", "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a", "c41d7e02-5b9f-4a3c-8e21-9d0f1a2b3c4d"];
+  const lines: JournalLine[] = [
+    { at: min(190), kind: "opened" },
+    { at: min(180), kind: "session_started", session: c },
+    { at: min(178), kind: "prompt_submitted", session: c, text: "Add defaults to the config loader" },
+    { at: min(176), kind: "after_write", session: c, file: "src/config.rs", tool: "Edit" },
+    { at: min(172), kind: "turn_done", session: c },
+    { at: min(95), kind: "prompt_submitted", session: a, text: "Refresh the API docs for the limiter" },
+    { at: min(92), kind: "after_write", session: a, file: "docs/api.md", tool: "Write" },
+    { at: min(88), kind: "waiting", session: a, text: "Claude needs your permission to use Bash" },
+    { at: min(80), kind: "after_write", session: a, file: "docs/limits.md", tool: "Write" },
+    { at: min(74), kind: "turn_done", session: a },
+    { at: min(40), kind: "prompt_submitted", session: b, text: "Per-client rate limit for orders" },
+    { at: min(36), kind: "after_write", session: b, file: "src/middleware/rate_limit.rs", tool: "Edit" },
+    { at: min(35), kind: "after_write", session: b, file: "src/routes/orders.rs", tool: "Edit" },
+    { at: min(22), kind: "turn_done", session: b },
+    { at: min(20), kind: "prompt_submitted", session: b, text: "Held orders in the fixture should not count against the limit." },
+    { at: min(6), kind: "after_write", session: b, file: "tests/rate_limit.rs", tool: "Edit" },
+  ];
+  return Promise.resolve(lines.filter((l) => l.at >= since));
+}
+
 /** What helps to find out what went wrong, as text (program, desktop, connections, last hook messages). */
 export function diagnostics(): Promise<string> {
   if (live) return invoke("diagnostics");

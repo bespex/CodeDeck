@@ -1,5 +1,5 @@
 //! What happened in a project, one line per event, kept for a week: the material for the
-//! timeline in Activity (step 2.3) and for finding out afterwards what went wrong.
+//! timeline in Activity and the notices (step 2.3) and for finding out afterwards what went wrong.
 //!
 //! One file per project, `~/.local/state/codedeck/journal/<project path>.jsonl` (honouring
 //! `XDG_STATE_HOME`). A window writes what concerns its project: the neutral events of the
@@ -103,7 +103,6 @@ fn prune(file: &Path, now: u64) {
 }
 
 /// The journal's lines since `since` (Unix milliseconds), oldest first.
-#[allow(dead_code)] // read by the Activity timeline (2.3)
 pub fn read(root: &Path, since: u64) -> Vec<Line> {
     let Some(text) = file_for(root).and_then(|f| std::fs::read_to_string(f).ok()) else { return Vec::new() };
     text.lines().filter_map(|l| serde_json::from_str::<Line>(l).ok()).filter(|l| l.at >= since).collect()
