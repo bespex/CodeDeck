@@ -52,6 +52,7 @@ export function SidebarSummary({ git, assistant }: { git: GitView; assistant: As
   const { markers } = useMarkers();
   const hints = markers?.length ?? 0;
   const scratch = useNewScratch();
+  const elsewhere = assistant.found.outside.filter((f) => !f.fetched).length;
 
   return (
     <section aria-label={t("Overview")} className="flex flex-col border-b border-line py-1 text-[12px]">
@@ -84,11 +85,15 @@ export function SidebarSummary({ git, assistant }: { git: GitView; assistant: As
           )}
         </Line>
       )}
-      {(hints > 0 || scratch > 0) && (
+      {(hints > 0 || scratch > 0 || elsewhere > 0) && (
         <Line view="workbench" icon={<AtSign className="size-3.5" />}>
-          {hints > 0 && <span className="text-slate-300">{plural(hints, "hint")}</span>}
-          {hints > 0 && scratch > 0 && <span className="text-slate-600">·</span>}
-          {scratch > 0 && <span className="truncate text-slate-300">{plural(scratch, "new scratch file")}</span>}
+          {[
+            hints > 0 && <span key="h" className="text-slate-300">{plural(hints, "hint")}</span>,
+            scratch > 0 && <span key="s" className="truncate text-slate-300">{plural(scratch, "new scratch file")}</span>,
+            elsewhere > 0 && <span key="e" className="truncate text-changed">{t("{n} left elsewhere", { n: elsewhere })}</span>,
+          ]
+            .filter(Boolean)
+            .flatMap((part, i) => (i ? [<span key={`d${i}`} className="text-slate-600">·</span>, part] : [part]))}
         </Line>
       )}
     </section>

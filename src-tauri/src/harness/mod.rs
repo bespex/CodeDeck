@@ -39,6 +39,16 @@ pub trait Harness: Send + Sync {
     fn past_sessions(&self, project: &Path) -> Vec<SessionInfo>;
     /// What one log says about its session.
     fn read_log(&self, log: &Path) -> Option<SessionInfo>;
+    /// The tool's own files (memory, settings, its logs): written outside the project, they are
+    /// no finding.
+    fn is_own_file(&self, _path: &Path) -> bool {
+        false
+    }
+    /// Hosts of the tool's maker where sessions publish pages; a link there at the end of a turn
+    /// is kept as a published page.
+    fn page_hosts(&self) -> &'static [&'static str] {
+        &[]
+    }
 }
 
 /// What a tool, or one of its sessions, lets CodeDeck do. The interface offers only what is here.
@@ -113,6 +123,10 @@ pub struct Event {
     pub report: Option<String>,
     /// The tool's log of the session
     pub log: Option<String>,
+    /// Before a shell command: files it names as its output, absolute; a guess from its text,
+    /// for files left outside the project
+    #[serde(default)]
+    pub writes: Vec<String>,
     /// With the start of a session: it goes on from before and still knows what it was told,
     /// so it needs no start rules again
     #[serde(default)]

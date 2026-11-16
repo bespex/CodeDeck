@@ -36,9 +36,9 @@ Seit dem Test dazugekommen, alles auf `main` und gepusht:
   zwei Runden plus „Frühere“, der Trail faltet Snapshots ab drei in Folge, Tooltips per Portal (WebKitGTK).
 - **Konzept Seitenleiste:** `docs/SEITENLEISTE.md` mit den Schritten A (Kopf rechts), B (Leiste), C (Aufmerksamkeit).
 
-**Nächste Session:** 2.1a und 2.1b sind laut Nutzer in der echten App in Ordnung. 2.1c (Seitenleiste) ist gebaut,
-aber nur in der Vorschau geprüft: zuerst in der echten App prüfen (Ablauf in den Notizen unter „2.1c“), dann
-Schritt 2.2.
+**Nächste Session:** 2.1a und 2.1b sind laut Nutzer in der echten App in Ordnung. 2.1c (Seitenleiste) und 2.2
+(Fundstücke und Links) sind gebaut, aber nur in der Vorschau geprüft; der Nutzer prüft beide später in einer
+längeren Testsession (Abläufe in den Notizen unter „2.1c“ und „2.2“). Danach Schritt 2.3.
 
 Fertig in der App (P1, P2, P3, P5, siehe „Ältere Pakete“): Trail mit drei Zonen (nicht committet / nicht
 gepusht / gepusht) und Remote-Chip, Vergleich zweier Punkte · Hook-Brücke `codedeck hook` → Socket je
@@ -142,7 +142,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 | 2.1a Aufmerksamkeit ✅ 2026-11-16 | Wer über Statusänderungen informiert werden will, sieht sie deutlich: Zahl im Fenstertitel, Taskleiste verlangt Aufmerksamkeit, Desktop-Meldung, neuer Eintrag unter „Wartet auf dich“ leuchtet kurz; wobei und wie wählt man im Projektmenü (Entscheidung des Nutzers 2026-11-16, `docs/SEITENLEISTE.md`) | nicht im Dummy | `lib.rs`, `bridge.rs`, neu `attention.rs`, `SessionsPanel.tsx`, `ProjectHeader.tsx` | Eine Erlaubnisfrage bei verdecktem Fenster ist in der Taskleiste und als Meldung zu sehen |
 | 2.1b Kopfleiste ✅ 2026-11-16 | Rechte Spalte oben: Projektmenü, Schnelleinstellungen mit „Nicht stören“, App-Menü `⋯`, About, Tastenkürzel, Einstellungsdialog (Allgemein, Meldungen, KI-Werkzeuge); links nur noch der Pfad. Ersetzt Seitenleiste A | – (`docs/KOPFLEISTE.md`) | neu `HeaderBar.tsx`, `Dialogs.tsx`, `AttentionChoice.tsx`, `dialogs.ts`; `ProjectHeader.tsx` (jetzt `ProjectMenu` und `PathBar`), `attention.rs` (`quiet_until`), `lib.rs` (`app_info`, `open_url`), `build.rs` (Commit) | Sprache und Meldungen sind nicht mehr im Projektmenü |
 | 2.1c Seitenleiste ✅ 2026-11-16 (in der echten App zu prüfen) | Seitenleiste B aus `docs/SEITENLEISTE.md`: nur die rechte Spalte, Fenster schmal am rechten Rand des vollen; zurück an Ort und Größe. Übersicht (Git, Runden, Werkbank), Knopf in der Kopfleiste, `Ctrl+Shift+L`; globale Kürzel `Ctrl+Alt+C` (zeigen/ausblenden) und `Ctrl+Alt+L` (Leiste/voll) für alle Fenster | – (`docs/SEITENLEISTE.md`) | neu `window.rs`, `compact.ts`, `SidebarSummary.tsx`; `App.tsx`, `SessionsPanel.tsx`, `HeaderBar.tsx`, `Dialogs.tsx`, `view.ts`, `bridge.rs` (Fensterbotschaften) | Ein Druck auf `Ctrl+Alt+L` macht aus dem vollen Fenster die Leiste und zurück, an derselben Stelle |
-| 2.2 Fundstücke und Links ☐ | Schreibvorgänge außerhalb des Projekts der Sitzung zuordnen und melden; claude.ai-Seiten als Link merken (je nach Ergebnis von 1.1 über Hook oder über die Startregel) | Workbench: „Still somewhere else“, „Pages on claude.ai“ | `bridge.rs`, `sessions.rs`, Adapter | Eine in `/tmp` geschriebene Datei wird gemeldet und lässt sich holen |
+| 2.2 Fundstücke und Links ✅ 2026-11-16 (in der echten App zu prüfen) | Schreibvorgänge außerhalb des Projekts der Sitzung zuordnen und melden; veröffentlichte Seiten als Link merken (über die Startregel: Links im Schlussbericht der Runde) | Workbench: „Still somewhere else“, „Pages on claude.ai“ | neu `findings.rs`, `FoundTiles.tsx`; `bridge.rs`, Adapter (`is_own_file`, `page_hosts`, `Event.writes`), `lib.rs` | Eine in `/tmp` geschriebene Datei wird gemeldet und lässt sich holen |
 | 2.3 Activity und Hinweise ☐ | Zeitleiste der Sitzungen aus den Ereignissen, „How safe is your work“, geschriebene Dokumente; Panel „Notices and tips“ | Activity, Glocke | neu `views/ActivityView.tsx`, `bridge.rs` (Ereignisse merken) | Ein Vormittag ist als Zeitleiste nachvollziehbar |
 | 2.4 Verbrauch ☐ | P4: erst den Spike. Ohne verlässliche Quelle entfällt die Anzeige, nicht schätzen | Activity, Statusleiste | siehe P4 | D2 ist entschieden und umgesetzt oder gestrichen |
 | 2.5 Größen ☐ | Bereiche ziehen und zuklappen, wichtigste per Tastenkürzel, Aufteilung je Projekt merken; Trennlinien haarfein | Trennlinien (im Dummy nur angedeutet) | `App.tsx`, `Deck.tsx`, `config.rs` | Aufteilung überlebt einen Neustart |
@@ -812,6 +812,27 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   noch einmal: kommt wieder. (4) `Ctrl+Alt+L` von überall. (5) Zwei Fenster: beide verschwinden und kommen zusammen,
   nach vorn kommt das zuletzt benutzte; das erste schließen, nach höchstens 15 s wirkt das Kürzel weiter. (6) Bei
   Fokusklau-Schutz des Desktops kommt das Fenster evtl. nur markiert statt vorn: dann melden.
+- 2.2 Fundstücke und Links (2026-11-16): `findings.rs` hält je Projekt in `~/.config/codedeck/findings.json`
+  (30 Tage, je 100) Dateien, die eine Sitzung **des Projekts** außerhalb geschrieben hat, und Links veröffentlichter
+  Seiten. Datei zählt (`left_outside`), wenn absolut, außerhalb der Wurzel, nicht unter `/dev`, `/proc`, `/sys`,
+  **nicht in einem anderen Git-Arbeitsbaum** (dort ist sie versioniert und Sache jenes Projekts) und nicht eigene
+  Datei des Werkzeugs (`Harness::is_own_file`; Claude: alles in einer Konfiguration außer `plans/`). Quellen:
+  `AfterWrite` mit Datei außerhalb, Schreibvorgänge aus dem Log (`apply`), und bei Shell-Befehlen ein Ratespiel aus
+  dem Text (`Event.writes`, Claude `shell_outputs`: Ziele von `>`, `>>`, `tee`, absolut oder `~/`). Gezeigt wird nur,
+  was auf der Platte liegt (`Found::view` prüft beim Abruf), darum stört ein falsch geratenes Ziel nicht und
+  aufgeräumtes `/tmp` verschwindet von selbst. „In den Scratch-Ordner“ **kopiert** (`fetch`, freier Name `-2`, `-3`),
+  das Original bleibt; wird die Datei danach neu geschrieben, gilt sie wieder als nicht geholt. Öffnen und Zeigen
+  außerhalb des Projekts nur über `open_outside`, das ausschließlich bekannte Fundstücke annimmt. Seiten: aus dem
+  Schlussbericht der Runde (`Stop`/Log, wie für den Kurzbericht), Adressen mit Pfad auf Hosts, die Seiten
+  veröffentlichen (Kern: Gists, Pastebins, CodePen, JSFiddle; Adapter: `page_hosts`, Claude `claude.ai`); Titel ist
+  der Linktext in Markdown, sonst die Wörter davor. Nicht über einen MCP-Hook: der Weg über die Startregel gilt für
+  jedes Werkzeug und braucht keine Hook-Erweiterung. Gemeldet wird über die Zahl am Reiter Werkbank (Hinweise +
+  nicht geholte Dateien) und eine Zeile in der Übersicht der Seitenleiste, nicht als Desktop-Meldung. Konto je Seite
+  folgt mit 3.2. **Prüfen in der echten App:** (1) Eine Sitzung bitten, eine Datei nach `/tmp` zu schreiben (Write)
+  und eine per `cat > /tmp/x.txt`: beide erscheinen unter „Woanders abgelegt“, der Reiter zählt. (2) „In den
+  Scratch-Ordner“: Kopie erscheint im Scratch-Ordner, Zeile zeigt „Kopiert nach …“. (3) Öffnen und „Im Dateimanager
+  zeigen“. (4) Eine Sitzung ein Artefakt veröffentlichen lassen: Link unter „Veröffentlichte Seiten“ nach Ende der
+  Runde. (5) Datei in einem Nachbar-Repo schreiben lassen: erscheint nicht.
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

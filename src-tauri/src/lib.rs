@@ -8,6 +8,7 @@ mod apps;
 mod attention;
 mod bridge;
 mod config;
+mod findings;
 mod git;
 mod harness;
 mod history;
@@ -101,6 +102,33 @@ fn open_url(url: String, app: AppHandle) -> Result<(), String> {
         return Err(format!("{url}: not a web address"));
     }
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
+}
+
+/// Copies a file a session left outside the project into the scratch folder.
+#[tauri::command]
+fn fetch_outside(path: String, app: AppHandle, bridge: State<Arc<Bridge>>) -> Result<String, String> {
+    bridge.fetch_outside(&app, &path)
+}
+
+/// Opens a file left outside the project in its program, or shows it in the file manager. Only
+/// files CodeDeck noted as left outside: nothing else outside the project is reached this way.
+#[tauri::command]
+fn open_outside(path: String, role: Option<Role>, app: AppHandle, bridge: State<Arc<Bridge>>) -> Result<(), String> {
+    if !bridge.is_found(&path) {
+        return Err(format!("{path}: not a file left outside"));
+    }
+    let full = PathBuf::from(&path);
+    match role {
+        None => app.opener().reveal_item_in_dir(&full).map_err(|e| e.to_string()),
+        Some(role) if apps::open(&full, role)? => Ok(()),
+        Some(_) => app.opener().open_path(path, None::<&str>).map_err(|e| e.to_string()),
+    }
+}
+
+/// Forgets a file left outside or a published page.
+#[tauri::command]
+fn forget_found(key: String, app: AppHandle, bridge: State<Arc<Bridge>>) {
+    bridge.forget_found(&app, &key);
 }
 
 /// Sidebar or full window; the width the window had before.
@@ -554,7 +582,10 @@ pub fn run() {
             app_info,
             open_url,
             set_compact,
-            global_shortcuts
+            global_shortcuts,
+            fetch_outside,
+            forget_found,
+            open_outside
         ])
         .build(tauri::generate_context!())
         .expect("error while building CodeDeck")

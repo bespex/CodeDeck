@@ -13,7 +13,7 @@ Part of [be spex](https://bespex.github.io) – small, focused apps for Linux. W
 
 > Early development. Real: the file list, Git (status, changes, history and the everyday actions)
 > for every repository in the project, and the bridge to Claude Code (sessions, snapshots, comments
-> for the assistant, focus). Not built yet: the Workbench view and the timeline in Activity.
+> for the assistant, focus), the Workbench, the sidebar. Not built yet: the timeline in Activity.
 
 ## Layout
 
@@ -96,6 +96,10 @@ the settings changes, the file as it was is kept as `settings.json.before-codede
   `.git/info/exclude` (never `.gitignore`), so git leaves it alone. Its tile lists the files with size, age
   and the session that wrote them; drag one onto a folder in the file list to move it into the project, or
   send it to the trash (also everything older than 7 days). The second tile holds the `@ai` hints.
+  **Left elsewhere** lists files a session of the project wrote outside of it and outside every repository
+  (in `/tmp`, the home folder, the assistant's plans; also what a shell command sends there with `>` or
+  `tee`); *Into scratch* copies one into the scratch folder, the original stays. **Published pages** keeps
+  the links of pages a session published (claude.ai, gists, pastes), as it named them at the end of its turn.
 - **Start rules:** a few short, fixed rules every new session gets when it starts (today: put temporary
   things into `.scratch/`, and name a page published elsewhere with its link). Always on, shown word for word in the **Next prompt** view, apart from the attachments.
 - **Attaching files:** click the paperclip of a file or folder (or drag it onto Next prompt) and it is

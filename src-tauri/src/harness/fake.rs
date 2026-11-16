@@ -58,6 +58,7 @@ impl Harness for Fake {
             message: text("text").filter(|_| !asked),
             report: text("said"),
             log: None,
+            writes: raw["out"].as_array().into_iter().flatten().filter_map(|v| v.as_str().map(String::from)).collect(),
             resumed: raw["again"] == true,
         })
     }

@@ -110,6 +110,7 @@ impl Harness for Claude {
             message: cut(&raw["message"], 300),
             report: cut(&raw["last_assistant_message"], REPORT_MAX).filter(|_| kind == EventKind::TurnDone),
             log: cut(&raw["transcript_path"], usize::MAX),
+            writes: if raw["tool_name"] == "Bash" { input["command"].as_str().map(shell_outputs).unwrap_or_default() } else { Vec::new() },
             // `startup`, `resume`, `clear`, `compact`: after clearing or compacting what it was
             // told is gone, so only a resumed session still has the rules
             resumed: kind == EventKind::SessionStarted && raw["source"] == "resume",
@@ -125,6 +126,16 @@ impl Harness for Claude {
 
     fn past_sessions(&self, project: &Path) -> Vec<SessionInfo> {
         recent(project)
+    }
+
+    /// Everything in a configuration (memory, settings, logs, to-dos) except its plans: a plan is
+    /// written for the user to read and may be worth keeping in the project.
+    fn is_own_file(&self, path: &Path) -> bool {
+        config_dirs().iter().any(|dir| path.starts_with(dir) && !path.starts_with(dir.join("plans")))
+    }
+
+    fn page_hosts(&self) -> &'static [&'static str] {
+        &["claude.ai"]
     }
 
     fn read_log(&self, log: &Path) -> Option<SessionInfo> {
@@ -152,6 +163,36 @@ fn plain_prompt(prompt: &str) -> String {
 /// points to, and other `~/.claude-*` folders that are one (with `projects/` or `settings.json`).
 /// Several are common: one per account, each started with its own `CLAUDE_CONFIG_DIR`. A
 /// CodeDeck started from the desktop menu does not see that variable, so all are looked for.
+/// The files a shell command names as its output: after `>`, `>>` and `tee`, absolute or from
+/// the home folder. Only a guess from the text; what does not appear on disk is never shown.
+fn shell_outputs(command: &str) -> Vec<String> {
+    let home = std::env::home_dir().unwrap_or_default();
+    let words: Vec<&str> = command.split_whitespace().collect();
+    let mut found = Vec::new();
+    for (i, word) in words.iter().enumerate() {
+        // `>file` and `> file`; `2>`, `&>` and `>&2` alike
+        let target = if let Some(at) = word.find('>') {
+            let after = word[at..].trim_start_matches('>');
+            if after.is_empty() { words.get(i + 1).copied() } else { Some(after) }
+        } else if *word == "tee" {
+            words[i + 1..].iter().find(|w| !w.starts_with('-')).copied()
+        } else {
+            None
+        };
+        let Some(target) = target.map(|t| t.trim_matches(|c| c == '"' || c == '\'' || c == ';')) else { continue };
+        let path = match target.strip_prefix("~/") {
+            Some(rest) => home.join(rest),
+            None if target.starts_with('/') => PathBuf::from(target),
+            None => continue,
+        };
+        let path = path.to_string_lossy().into_owned();
+        if !found.contains(&path) {
+            found.push(path);
+        }
+    }
+    found
+}
+
 fn config_dirs() -> Vec<PathBuf> {
     let home = std::env::home_dir().unwrap_or_default();
     let is_config = |d: &Path| d.join("projects").is_dir() || d.join("settings.json").is_file();
@@ -469,6 +510,13 @@ mod tests {
         r#"{"session_id":"3f9c2a71","cwd":"/p","hook_event_name":"PreCompact","trigger":"auto"}"#,
         r#"{"session_id":"3f9c2a71","transcript_path":"/c/projects/-p/3f9c2a71.jsonl","cwd":"/p","permission_mode":"default","hook_event_name":"Notification","notification_type":"idle_prompt","message":"Claude is waiting for your input"}"#,
     ];
+
+    #[test]
+    fn guesses_the_files_a_shell_command_writes() {
+        let home = std::env::home_dir().unwrap_or_default().to_string_lossy().into_owned();
+        let out = shell_outputs("cat > /tmp/plan.md <<'EOF' && echo ok 2>/dev/null >&2 | tee -a ~/notes.txt; echo x >>rel.txt");
+        assert_eq!(out, ["/tmp/plan.md".to_string(), "/dev/null".to_string(), format!("{home}/notes.txt")]);
+    }
 
     #[test]
     fn translates_recorded_hook_messages() {

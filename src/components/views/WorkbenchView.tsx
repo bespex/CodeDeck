@@ -9,7 +9,8 @@ import { SessionBadge } from "../SessionBadge";
 import { Tooltip } from "../Tooltip";
 import { plural } from "../../git";
 import { inScratch, useLastMove, SCRATCH_DIR, SCRATCH_DRAG } from "../../scratch";
-import { LOCALE } from "../Trail";
+import { age, size } from "./units";
+import { OutsideTile, PagesTile } from "./FoundTiles";
 import { T, t } from "../../i18n";
 
 /** Older than this, a file is offered for clearing away. Fixed for now, a setting later. */
@@ -18,16 +19,18 @@ const DAY = 24 * 3600_000;
 
 /**
  * What else came up that is not part of the project yet? (D23) The Workbench gathers it in tiles:
- * the scratch folder sessions put drafts into, and the `@ai` hints left in files. Files left
- * outside the project and pages published elsewhere follow as tiles of their own (2.2). With room
- * (a wide deck) the tiles stand side by side.
+ * files sessions left outside the project (only while there are some), the scratch folder they
+ * put drafts into, the `@ai` hints left in files, and pages they published elsewhere (2.2). With
+ * room (a wide deck) the tiles stand side by side.
  */
 export function WorkbenchView({ marks, assistant }: { marks: Markers; assistant: AssistantState }) {
   return (
     <div className="@container flex min-h-full flex-col">
       <div className="grid items-start @5xl:grid-cols-2">
+        {assistant.found.outside.length > 0 && <OutsideTile files={assistant.found.outside} />}
         <ScratchTile />
         <HintsTile marks={marks} harness={mainHarness(assistant)} />
+        <PagesTile pages={assistant.found.pages} />
       </div>
     </div>
   );
@@ -204,19 +207,4 @@ function ScratchTile() {
       </Section>
     </div>
   );
-}
-
-/** A size as people read it. */
-function size(bytes: number): string {
-  if (bytes < 1000) return `${bytes} B`;
-  if (bytes < 1_000_000) return `${Math.round(bytes / 1000)} KB`;
-  return `${(bytes / 1_000_000).toFixed(1)} MB`;
-}
-
-/** How long ago, in the words of the dummy: today with the time, else days. */
-function age(at: number, now: number): string {
-  const midnight = new Date(now).setHours(0, 0, 0, 0);
-  if (at >= midnight) return t("today {time}", { time: new Date(at).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" }) });
-  const days = Math.ceil((midnight - at) / DAY);
-  return days === 1 ? t("yesterday") : t("{n} days ago", { n: days });
 }

@@ -19,6 +19,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::git::{Git, GitRun};
 use crate::harness::{self, Capabilities, Event, EventKind, Harness, HarnessInfo, SessionInfo};
+use crate::findings::{self, Found, FoundView};
 use crate::identity::{self, Identities, Listed};
 use crate::rules;
 use crate::snapshot::Origin;
@@ -174,6 +175,8 @@ pub struct AssistantState {
     target_lost: Option<String>,
     /// The session that got the start rules last
     ruled: Option<Ruled>,
+    /// Files the project's sessions left outside it, pages they published (2.2)
+    found: FoundView,
 }
 
 /// A session got the start rules.
@@ -231,6 +234,8 @@ struct Inner {
     resumable: HashMap<String, Vec<TurnStart>>,
     /// What was last written of the running turns, to write only changes
     open_saved: Option<HashMap<String, Vec<OpenTurn>>>,
+    /// Files the project's sessions left outside it, pages they published
+    found: Found,
 }
 
 pub struct Bridge {
@@ -287,6 +292,7 @@ impl Bridge {
             target: inner.target.clone(),
             target_lost: inner.target_lost.clone(),
             ruled: inner.ruled.clone(),
+            found: inner.found.view(),
         }
     }
 
@@ -374,6 +380,36 @@ impl Bridge {
         let _ = app.emit(ASSISTANT_CHANGED, self.state());
     }
 
+    /// Copies a file a session left outside into the scratch folder; its project-relative path.
+    pub fn fetch_outside(&self, app: &AppHandle, path: &str) -> Result<String, String> {
+        let copy = {
+            let project = app.state::<Arc<Current>>().get();
+            let mut inner = self.inner.lock().unwrap();
+            inner.use_project(&project.root);
+            let copy = inner.found.fetch(&project, path);
+            inner.save_found();
+            copy
+        };
+        let _ = app.emit(ASSISTANT_CHANGED, self.state());
+        copy
+    }
+
+    /// Whether `path` is a file the project's sessions left outside it.
+    pub fn is_found(&self, path: &str) -> bool {
+        self.inner.lock().unwrap().found.has_file(path)
+    }
+
+    /// Forgets a file left outside or a published page (by its path or address).
+    pub fn forget_found(&self, app: &AppHandle, key: &str) {
+        {
+            let mut inner = self.inner.lock().unwrap();
+            inner.use_project(&app.state::<Arc<Current>>().get().root);
+            inner.found.forget(key);
+            inner.save_found();
+        }
+        let _ = app.emit(ASSISTANT_CHANGED, self.state());
+    }
+
     /// Takes a session off the list until it reports again.
     pub fn forget(&self, app: &AppHandle, id: &str) {
         {
@@ -420,9 +456,15 @@ impl Bridge {
         if let Some(mut info) = todo.log.and_then(|p| harness.read_log(&p)) {
             said = said.or(info.report.take());
             let mut inner = self.inner.lock().unwrap();
-            inner.apply(&e.session, info, root);
+            inner.apply(&e.session, info, harness, root);
             inner.save_identities();
         }
+        // The start rules ask for the link of a page published elsewhere at the end of the turn
+        if let (EventKind::TurnDone, Some(text)) = (e.kind, &said) {
+            let mut inner = self.inner.lock().unwrap();
+            inner.found.said(text, &e.session, now_ms(), harness.page_hosts());
+        }
+        self.inner.lock().unwrap().save_found();
 
         let git = app.state::<Git>();
         let report = |run: &GitRun| {
@@ -489,6 +531,7 @@ impl Inner {
     fn use_project(&mut self, root: &Path) {
         if self.project.as_deref() != Some(root) {
             self.identities = identity::load(root);
+            self.found = findings::load(root);
             self.project = Some(root.to_path_buf());
             let open = open_turns_file().map(|f| load_open(&f, root, now_ms())).unwrap_or_default();
             self.resume(open);
@@ -549,6 +592,19 @@ impl Inner {
         self.open_saved = Some(open);
     }
 
+    fn save_found(&mut self) {
+        if let Some(root) = &self.project {
+            findings::save(root, &mut self.found, now_ms());
+        }
+    }
+
+    /// A file a session wrote outside the project, unless it is somewhere that is no finding.
+    fn wrote_outside(&mut self, harness: &dyn Harness, root: &Path, file: &Path, session: &str, at: u64) {
+        if findings::left_outside(root, file) && !harness.is_own_file(file) {
+            self.found.wrote(file, session, at);
+        }
+    }
+
     fn save_identities(&mut self) {
         if let Some(root) = &self.project {
             identity::save(root, &mut self.identities, now_ms());
@@ -598,7 +654,12 @@ impl Inner {
     }
 
     /// Takes in what a session's log says: title, model, and writes that were not reported.
-    fn apply(&mut self, id: &str, seen: SessionInfo, root: &Path) {
+    fn apply(&mut self, id: &str, seen: SessionInfo, harness: &dyn Harness, root: &Path) {
+        for (file, at) in &seen.writes {
+            if self.sessions.contains_key(id) {
+                self.wrote_outside(harness, root, file, id, *at);
+            }
+        }
         let Some(session) = self.sessions.get_mut(id) else { return };
         session.log_title = seen.title.or(session.log_title.take());
         self.identities.set_title(id, session.log_title.as_deref());
@@ -721,6 +782,15 @@ impl Inner {
         if e.kind == EventKind::SessionEnded {
             self.lose_target(&e.session);
         }
+        // Files left outside the project: written ones, and what a shell command names as its output
+        let outside: Vec<PathBuf> = match e.kind {
+            EventKind::AfterWrite => file.iter().cloned().collect(),
+            EventKind::BeforeWrite => e.writes.iter().map(PathBuf::from).collect(),
+            _ => Vec::new(),
+        };
+        for f in &outside {
+            self.wrote_outside(harness, root, f, &e.session, now);
+        }
         let session = self.sessions.get_mut(&e.session).expect("just looked up");
         if e.kind == EventKind::AfterWrite {
             if let Some(path) = file.as_deref().and_then(|f| relative(root, f)) {
@@ -802,7 +872,7 @@ impl Inner {
             }
         }
         session.last = session.last.max(info.last);
-        self.apply(&id, info, root);
+        self.apply(&id, info, harness, root);
     }
 }
 
@@ -933,6 +1003,32 @@ mod tests {
 
     /// The core without any real tool: sessions come from the test adapter's logs and from its
     /// raw messages, and what the window is told to do follows its capabilities.
+    #[test]
+    fn notes_files_a_session_of_the_project_leaves_outside_it() {
+        let tmp = std::env::temp_dir().join(format!("codedeck-outside-{}", std::process::id()));
+        let root = tmp.join("p");
+        std::fs::create_dir_all(&root).unwrap();
+        let (draft, shell) = (tmp.join("draft.md"), tmp.join("out.txt"));
+        std::fs::write(&draft, "draft").unwrap();
+        let mut inner = Inner::default();
+        let mut step = |raw: String, now: u64| {
+            let event = Fake.translate(&serde_json::from_str(&raw).unwrap()).unwrap();
+            inner.take_in(&event, &Fake, &root, Vec::new, now);
+        };
+        let (r, d, o) = (root.display(), draft.display(), shell.display());
+        step(format!(r#"{{"who":"a1","did":"asked","in":"{r}","text":"Plan it"}}"#), 10);
+        step(format!(r#"{{"who":"a1","did":"wrote","in":"{r}","path":"{d}","with":"Write"}}"#), 20);
+        // A shell command's output counts once it is there
+        step(format!(r#"{{"who":"a1","did":"will-write","in":"{r}","with":"Bash","out":["{o}"]}}"#), 30);
+        // Another project's session: none of ours
+        step(format!(r#"{{"who":"x9","did":"wrote","in":"/elsewhere","path":"{d}","with":"Write"}}"#), 40);
+        let listed = |inner: &Inner| inner.found.view().outside.iter().map(|f| (f.found.path.clone(), f.found.session.clone())).collect::<Vec<_>>();
+        assert_eq!(listed(&inner), [(d.to_string(), "a1".to_string())]);
+        std::fs::write(&shell, "x").unwrap();
+        assert_eq!(listed(&inner).len(), 2);
+        std::fs::remove_dir_all(&tmp).unwrap();
+    }
+
     #[test]
     fn knows_sessions_of_a_tool_that_is_not_claude() {
         let root = Path::new("/p");

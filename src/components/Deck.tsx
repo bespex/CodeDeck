@@ -82,14 +82,16 @@ export function Deck({ git, selected, assistant }: Props) {
         {views.map(({ id, label }) => {
           const active = id === view;
           // Next prompt: how much is attached (every item counts); Workbench: the hints still open
+          // and the files left elsewhere not fetched yet
           const attached = attachedCount;
+          const workbench = openMarkers + assistant.found.outside.filter((f) => !f.fetched).length;
           const badge =
             id === "changes" && changed > 0
               ? changed
               : id === "next" && attached > 0
                 ? attached
-                : id === "workbench" && openMarkers > 0
-                  ? openMarkers
+                : id === "workbench" && workbench > 0
+                  ? workbench
                   : undefined;
           return (
             <button

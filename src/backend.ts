@@ -625,6 +625,35 @@ export interface AssistantState {
   targetLost: string | null;
   /** The session that got the start rules last, and when */
   ruled: { session: string; at: number } | null;
+  /** What the project's sessions left outside it (2.2) */
+  found: Found;
+}
+
+/** Files left outside the project and pages published elsewhere, by the project's sessions. */
+export interface Found {
+  /** Only files that are still there, newest first */
+  outside: OutsideFile[];
+  pages: PublishedPage[];
+}
+
+export interface OutsideFile {
+  /** Absolute */
+  path: string;
+  session: string;
+  /** Unix milliseconds of the write */
+  at: number;
+  /** Project-relative path of the copy in the scratch folder, once fetched */
+  fetched: string | null;
+  size: number;
+  modified: number;
+}
+
+export interface PublishedPage {
+  url: string;
+  title: string;
+  session: string;
+  /** Unix milliseconds: when the session last named it */
+  at: number;
 }
 
 /** One part of what is attached to the next prompt. */
@@ -754,6 +783,34 @@ const mockAssistant: AssistantState = {
   target: null,
   targetLost: null,
   ruled: { session: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a", at: Date.now() - 20 * 60_000 },
+  found: {
+    outside: [
+      {
+        path: "/home/me/.claude/plans/api-docs-outline.md",
+        session: "b07e11d4-6c3a-4f2e-8d90-1a2b3c4d5e6f",
+        at: Date.now() - 42 * 60_000,
+        fetched: null,
+        size: 3100,
+        modified: Date.now() - 42 * 60_000,
+      },
+      {
+        path: "/tmp/limiter-bench.csv",
+        session: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a",
+        at: Date.now() - 3 * 3600_000,
+        fetched: ".scratch/limiter-bench.csv",
+        size: 14_200,
+        modified: Date.now() - 3 * 3600_000,
+      },
+    ],
+    pages: [
+      {
+        url: "https://claude.ai/artifact/7d1f3c2a-rate-limit-dashboard",
+        title: "Rate limit dashboard mock-up",
+        session: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a",
+        at: Date.now() - 95 * 60_000,
+      },
+    ],
+  },
 };
 /** The titles the tool gave the mock sessions, to go back to */
 const mockToolTitles = new Map(mockAssistant.sessions.map((s) => [s.id, s.title]));
@@ -866,6 +923,34 @@ export function renameSession(id: string, title: string | null, short: string | 
 export function forgetSession(id: string): Promise<void> {
   if (live) return invoke("forget_session", { id });
   mockAssistant.sessions = mockAssistant.sessions.filter((s) => s.id !== id);
+  mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+  return Promise.resolve();
+}
+
+/** Copies a file a session left outside into the scratch folder; the copy's project-relative path. */
+export function fetchOutside(path: string): Promise<string> {
+  if (live) return invoke("fetch_outside", { path });
+  const name = path.split("/").pop() ?? "file";
+  const copy = `.scratch/${name}`;
+  mockAssistant.found = { ...mockAssistant.found, outside: mockAssistant.found.outside.map((f) => (f.path === path ? { ...f, fetched: copy } : f)) };
+  mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+  return Promise.resolve(copy);
+}
+
+/** Opens a file left outside in its program for viewing, or (`role` null) shows it in the file manager. */
+export function openOutside(path: string, role: "view" | null): Promise<void> {
+  if (live) return invoke("open_outside", { path, role });
+  console.info(role ? "would open" : "would show in the file manager", path);
+  return Promise.resolve();
+}
+
+/** Forgets a file left outside (by its path) or a published page (by its address). */
+export function forgetFound(key: string): Promise<void> {
+  if (live) return invoke("forget_found", { key });
+  mockAssistant.found = {
+    outside: mockAssistant.found.outside.filter((f) => f.path !== key),
+    pages: mockAssistant.found.pages.filter((p) => p.url !== key),
+  };
   mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
   return Promise.resolve();
 }
