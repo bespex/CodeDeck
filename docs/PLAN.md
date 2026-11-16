@@ -381,6 +381,11 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
 
 ## Fallen
 
+- Tauri nimmt als Fensterbild (Taskleiste) das **erste PNG** der Liste `bundle.icon` in `tauri.conf.json`. Vorn
+  steht `icons/128x128.png`: 16 px wurde in einer hohen Taskleiste verschwommen hochskaliert, mit 512 px zeigte
+  Cinnamon/X11 gar kein Icon (vermutlich zu groß für die Fenster-Eigenschaft, die GDK sonst weglässt). Für das `.deb`
+  ist die Reihenfolge egal, es sortiert nach Größe.
+
 - `ScratchIndex` muss die Änderungszeit des echten Index behalten (racy git). Daran nichts ändern, der Test
   `snapshot_and_go_back` sichert das ab.
 - `codedeck hook` gibt nichts aus außer dem Übergabe-Text bei `UserPromptSubmit`, denn Claude Code fügt
