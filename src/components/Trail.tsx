@@ -4,6 +4,7 @@ import type { RepoStatus, Snapshot } from "../backend";
 import { useSessionMarks } from "../assistant";
 import type { TrailCommit } from "../history";
 import { aheadBehind, plural } from "../git";
+import { Tooltip, TooltipHint } from "./Tooltip";
 
 /** What the deck shows: the uncommitted state, one commit, or what changed since a snapshot. */
 export type Point =
@@ -111,6 +112,7 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
                 </span>
               }
               time={t("now")}
+              symbol={<PointTip name={t("Now")} meaning={t("The working tree as it is: what is not committed yet. Amber while there is something.")} />}
               detail={plural(uncommitted, "file")}
               title={
                 uncommitted
@@ -146,15 +148,16 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
                 <Segment zone={zone ?? "uncommitted"} to={i === items.length - 1 ? "middle" : undefined} />
                 {showDay && (
                   open ? (
-                    // A line across the whole trail with the day in its middle
-                    <div className="relative z-10 flex h-6 items-center gap-2.5 bg-overlay px-3">
+                    // A line across the trail with the day in its middle; it stops short of the
+                    // points' column so the trail's line runs on through it
+                    <div className="flex h-6 items-center gap-2.5 pr-11 pl-3">
                       <span className="h-px flex-1 bg-slate-600" />
                       <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{day}</span>
                       <span className="h-px flex-1 bg-slate-600" />
                     </div>
                   ) : (
                     <div className="flex h-6 flex-row-reverse items-center">
-                      <span className="relative z-10 mr-[18px] h-px w-[9px] bg-slate-500" />
+                      <span title={day} className="relative z-10 mr-[18px] h-px w-[9px] bg-slate-500" />
                     </div>
                   )
                 )}
@@ -164,6 +167,7 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
                     selected={selected}
                     onClick={(e) => (e.ctrlKey ? onCompare(repo, hash) : onSelect({ kind: "commit", repo, hash }))}
                     dot={<CommitDot commit={item.commit} zone={zone} selected={selected} />}
+                    symbol={<CommitSymbol commit={item.commit} zone={zone} />}
                     time={clock(at)}
                     detail={plural(item.commit.files, "file")}
                     title={item.commit.subject}
@@ -178,6 +182,7 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
                     selected={selected}
                     onClick={(e) => (e.ctrlKey ? onCompare(repo, hash) : onSelect({ kind: "snapshot", repo, hash }))}
                     dot={<SnapshotDot snapshot={item.snapshot} selected={selected} color={mark?.color} />}
+                    symbol={<SnapshotSymbol snapshot={item.snapshot} />}
                     time={clock(at)}
                     detail={mark ? t("session {id}", { id: mark.short }) : t("snapshot")}
                     title={snapshotLabel(item.snapshot.label)}
@@ -208,6 +213,8 @@ function TrailRow(props: {
   selected: boolean;
   onClick: (e: React.MouseEvent) => void;
   dot: React.ReactNode;
+  /** What the point's symbol means, in a tooltip after a pause */
+  symbol: React.ReactNode;
   time: string;
   /** Under the time: number of files, or what kind of point it is */
   detail: string;
@@ -235,10 +242,15 @@ function TrailRow(props: {
     >
       {/* What is shown is marked by a bar at the edge, not only by a colour: amber means changed */}
       {props.selected && <span className="absolute inset-y-2 right-0 w-[3px] rounded-l bg-brand" />}
-      <span className="relative z-10 grid w-11 shrink-0 place-items-center">{props.dot}</span>
+      <span className="relative z-10 grid w-11 shrink-0 place-items-center">
+        <Tooltip side="right" className="flex" content={props.symbol}>
+          {props.dot}
+        </Tooltip>
+      </span>
       {props.open && (
         <>
-          <span className="flex w-[60px] shrink-0 flex-col items-end font-mono text-[11px] leading-[15px] tabular-nums">
+          {/* As wide as it needs: "12 Dateien" is longer than "12 files", and neither may wrap */}
+          <span className="flex min-w-[60px] shrink-0 flex-col items-end font-mono text-[11px] leading-[15px] whitespace-nowrap tabular-nums">
             <span className={props.warm ? "text-changed" : "text-slate-300"}>{props.time}</span>
             <span className="text-slate-500">{props.detail}</span>
           </span>
@@ -303,19 +315,15 @@ function remoteMark(repo: RepoStatus | undefined) {
 
 /**
  * The row's piece of the vertical line, so the line shows the three zones: amber while not
- * committed, dashed amber while not pushed, quiet grey once on a remote. The first row starts
- * its piece at the point, the last one ends it there.
+ * committed, faint amber while not pushed, grey once on a remote. One width and no dashes, so the
+ * line reads as one unbroken thread; the hollow points tell what is not pushed. The first row
+ * starts its piece at the point, the last one ends it there.
  */
 function Segment({ zone, from, to }: { zone: LineZone; from?: "middle"; to?: "middle" }) {
-  const look =
-    zone === "uncommitted"
-      ? "right-[21px] border-r-2 border-solid border-changed/70"
-      : zone === "unpushed"
-        ? "right-[21px] border-r-2 border-dashed border-changed/60"
-        : "right-[22px] border-r border-solid border-line";
+  const look = zone === "uncommitted" ? "border-changed/70" : zone === "unpushed" ? "border-changed/35" : "border-slate-600/80";
   // The point sits 21px above the row's bottom; a day heading may come before it
   const span = from === "middle" ? "top-[21px] bottom-0" : to === "middle" ? "top-0 bottom-[21px]" : "inset-y-0";
-  return <span aria-hidden className={`pointer-events-none absolute w-0 ${look} ${span}`} />;
+  return <span aria-hidden className={`pointer-events-none absolute right-[21px] w-0 border-r-2 ${look} ${span}`} />;
 }
 
 /**
@@ -343,6 +351,44 @@ function CommitDot({ commit, zone, selected }: { commit: TrailCommit["commit"]; 
         />
       )}
     </span>
+  );
+}
+
+/** The tooltip of a point: what its symbol stands for, and what clicking does. */
+function PointTip({ name, meaning }: { name: string; meaning: string }) {
+  return (
+    <>
+      <span className="font-semibold text-slate-100">{name}</span>
+      <span>{meaning}</span>
+      <TooltipHint>{t("Click: show what changed. Ctrl+click: compare with the point shown.")}</TooltipHint>
+    </>
+  );
+}
+
+function CommitSymbol({ commit, zone }: { commit: TrailCommit["commit"]; zone: Zone }) {
+  const kind = commit.assistant
+    ? t("Commit by an assistant (the spark)")
+    : commit.merge
+      ? t("Merge commit")
+      : zone === "unpushed"
+        ? t("Commit (hollow ring)")
+        : t("Commit (filled point)");
+  const where =
+    zone === "unpushed"
+      ? t("Only here so far: not pushed yet. The line is amber up to the last pushed commit.")
+      : zone === "local"
+        ? t("The repository has no remote, so there is nothing to push.")
+        : t("On the remote: pushed.");
+  return <PointTip name={kind} meaning={where} />;
+}
+
+function SnapshotSymbol({ snapshot }: { snapshot: Snapshot }) {
+  return snapshot.back ? (
+    <PointTip name={t("Went back (turning arrow)")} meaning={t("Someone went back to an earlier point here; what was there before is kept in this snapshot.")} />
+  ) : snapshot.turnFrom ? (
+    <PointTip name={t("End of a turn (flag)")} meaning={t("Snapshot when a session finished its turn, in the session's colour. It shows what the turn changed.")} />
+  ) : (
+    <PointTip name={t("Before writing (anchor)")} meaning={t("Snapshot just before a session first wrote in a turn, in the session's colour. To go back to.")} />
   );
 }
 

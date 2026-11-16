@@ -28,22 +28,14 @@ in Tests, Vorschau und mit nachgestellten Hook-Meldungen geprüft.
 `docs/praxistest-1.5-2.1.md` (der Nutzer hakt dort ab und schreibt Befunde hinein). Befunde beheben, dann Schritt 2.2. (1.7 kam auf Wunsch des Nutzers vor den
 Test: es baut genau den Code um, den der Test prüft.)
 
-**Zuerst, aus der Durchsicht des Nutzers (2026-11-16), vor dem Praxistest umsetzen:**
-1. Dashboard „Nächster Prompt“ (rechte Spalte): Zielauswahl „Für …“ mit „Wartet auf deinen nächsten Prompt“ etwas
-   höher und prominenter setzen, direkt unter den Zahlen (oder darüber; Vorschlag machen und kurz zeigen).
-2. Die Zahl „Kommentare“ im Dashboard war unklar: gemeint sind Zeilenkommentare an Diff-Zeilen. Beschriftung
-   klarer machen (z. B. „Zeilen“ mit Tooltip „Kommentare an Diff-Zeilen“), ebenso die anderen drei mit Tooltip.
-3. Statusleiste unten läuft über: Schrift etwas größer; die Anzeige des letzten Git-Befehls kürzen (sie braucht zu
-   viel Platz); kein Text der Leiste darf in eine zweite Zeile umbrechen (kürzen statt umbrechen).
-4. In der Statusleiste deutlicher zeigen, was anklickbar ist. Vorschlag des Nutzers: alles Anklickbare in der
-   Akzentschrift wie heute der Branch, jeweils Icon + kurzes Wort: (a) Icon + Branchname (Git-Aktionen),
-   (b) Icon + „git“ (Git-Befehle, ersetzt die lange Anzeige des letzten Befehls; der Befehl selbst steht im
-   Tooltip, ein Fehler färbt das Wort rot; löst damit auch Punkt 3), (c) Icon + Name des KI-Werkzeugs
-   (Verbindungs-Panel; Zahlen wie „1 arbeitet · 1 wartet“ nur, wenn Platz ist, sonst im Tooltip). Nicht
-   Anklickbares („Beobachtet geöffnete Ordner“, Zahl der Repos) bleibt leise grau.
-
-Außerdem vor dem Commit klären: `README.md:13` (Testzeile `@ai Beachte …`) und `README.md:78` („siREADME.mdnce“
-statt „since“) stammen aus Tests des Nutzers, nicht aus dem Code.
+**Erledigt vor dem Praxistest, aus der Durchsicht des Nutzers (2026-11-16):** Dashboard Nächster Prompt mit
+„Für …“ über den Zahlen, Zahlen mit Icon ihrer Stelle und Tooltip („Kommentare“ heißt jetzt „Zeilen“) ·
+Statusleiste einzeilig, 12 px, anklickbar = hell mit Icon + Wort (Branch, „git“ mit Befehl im Tooltip, KI-Werkzeug;
+Zahlen nur bei Platz), Graues weicht zuerst · leerer Nächster Prompt als gestrichelter Hinweis · Startregeln
+zum Lesen als Liste gesetzt (Wortlaut gleich) · Activity: Bearbeiten mit `SquarePen` · Trail: Datei-Anzahl bricht
+nicht mehr um, Linie durchgehend und überall gleich breit (keine Striche mehr für nicht Gepushtes), Tooltip
+je Symbol (Anker, Flagge, Pfeil, Ring, Funke …) · Ordner-Anhang zählt Dateien in der aktuellen Sprache,
+„1 arbeitet“ statt „1 arbeiten“.
 
 Fertig in der App (P1, P2, P3, P5, siehe „Ältere Pakete“): Trail mit drei Zonen (nicht committet / nicht
 gepusht / gepusht) und Remote-Chip, Vergleich zweier Punkte · Hook-Brücke `codedeck hook` → Socket je
@@ -85,6 +77,7 @@ Optimistic Flow: Die KI schreibt direkt, abgesichert wird über die Sicherungspu
 | D21 | Fokus als Sammelliste vor der Übergabe? | entschieden 2026-11-15: nein. Anpinnen hängt direkt an (Büroklammer); nach dem Absenden ist die Liste leer. Ändert D1 („Sessions & Focus“) |
 | D22 | Oberfläche übersetzbar, Englisch und Deutsch? | entschieden 2026-11-15: ja, jetzt (vor MVP 2, solange es billig ist). Englischer Text im Code ist der Schlüssel, Deutsch im Wörterbuch; Sprache folgt dem System, Umschalter im Projektmenü, je Rechner gemerkt. Übersetzt wird, was man versteht („Änderungen“, „Aktivität“, „Werkbank“, „Nächster Prompt“, „Anhängen“); Fachwörter bleiben (Commit, Push, Pull, Branch, Snapshot, Prompt, Diff, Repo). Was Claude bekommt und was in Git steht, bleibt englisch |
 | D23 | Wohin gehören die `@ai`-Hinweise, wie heißt der Ordner, was zeigt die rechte Spalte? | entschieden 2026-11-16 (Nutzer): Hinweise sind eine Kachel der **Werkbank** (vorläufige Einträge, die vor dem Commit verschwinden sollen, wie Entwürfe), angehängt per Büroklammer wie im Dateibaum, nicht per Häkchen (ein Häkchen läse sich als „erledigt“). Werkbank bleibt der Oberbegriff, der Ordner heißt **`.scratch/`** (auch im Deutschen „Scratch“). Reiter Nächster Prompt: nur, was rausgeht, raumgreifend ohne Rahmen und Füllung, Startregeln immer sichtbar. Rechte Spalte: Zusammenfassung wie ein Dashboard (Zahlen je Art, Tokens, Ziel), springt in den Reiter. Weicht vom Dummy ab |
+| D24 | Name, Befehl, Schriftzug, Logo | entschieden 2026-11-16 (Nutzer): offizieller Name bleibt **CodeDeck**, ebenso in Dateien und Verzeichnissen (`~/.config/codedeck`, `refs/codedeck/`, `.codedeck.toml`). Befehl **`codeck`**. Schriftzug in Programm und About: `co`**`de`**`ck` mit orangem „de“ (Entwurf `.scratch/name-identity/`). Icon bleibt der Stapel, auch vor dem Schriftzug. Domains `codeck.bespex.run` (offiziell) und `codedeck.bespex.run`. Namensprüfung siehe Notizen 2026-11-16. Regeln für alle be-spex-Programme (Schriftzüge, Icons, Domains, wo was erscheint): `bespex.github.io/brand/README.md` |
 | D15 | Sitzungs-Identität (Farbe + Kurzname, feste Reihenfolge, Umbenennen) als eigener Teilschritt vor 1.3 oder in 1.4? | entschieden 2026-11-15: eigener Teilschritt 1.2a vor 1.3 |
 
 ## Reihenfolge
@@ -184,6 +177,10 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
   Projekts als Kopie nach `.workbench/attached/` holen (Stand des Moments) und ihren Pfad anhängen, per Ziehen aus dem
   Dateimanager auf Next prompt (Tauri `drag-drop`-Ereignis) oder Knopf „Attach a file from elsewhere…“ (Dialog-Plugin
   ist da). Nur der Pfad ginge auch, dann fragt Claude meist um Erlaubnis.
+- **Seitenleiste** (Idee des Nutzers, 2026-11-16, Rückfragen beantwortet): per globalem Kürzel auf die rechte
+  Spalte verkleinern (kein eigenes Design), zweites Kürzel blendet CodeDeck ein und aus; Projektmenü wandert nach
+  rechts oben; Benachrichtigungen bei Statusänderungen. Kurzkonzept mit drei Schritten (A Kopf rechts, B Leiste,
+  C Aufmerksamkeit) in `docs/SEITENLEISTE.md`. C gehört zu MVP 2, A und B zu 2.5 oder direkt danach.
 - **Einstellungsseite** (Wunsch des Nutzers, 2026-11-15): z. B. wie lange eine fertige Runde unter „Needs you“
   steht, ab wann Sitzungen unter „Earlier“ einklappen.
 
@@ -739,6 +736,21 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   Zielauswahl ist eine eigene Liste (`AttachTarget`, fest am Fenster positioniert, öffnet unten im Fenster nach
   oben), weil WebKitGTK das native `select` im hellen System-Theme zeichnet; zusätzlich `color-scheme: dark` in
   `index.css` für übrige native Elemente. Reiter-Knöpfe brechen nicht mehr um (`shrink-0 whitespace-nowrap`).
+- Namensprüfung „Codeck“ (2026-11-16, Websuche, keine Markenregister): **Codeck** (Peerlist, maxburleigh) ist eine
+  Mac-App für 5 $, die Codex- und Claude-Code-Aufgaben in einem „keyboard deck“ sammelt: gleiche Nische, gleicher
+  Name. Außerdem `lkuczborski/codeck` (Swift, Markdown-Präsentationen für Codex-Workflows), npm-Paket `codeck`
+  (verwaist) und Scope `@codeck/*` (Milkdown), Domain `codeck.ai` (Inhalt unklar). Auch **CodeDeck** ist belegt:
+  Desktop-App auf Product Hunt („power of Claude Code with a better interface“), iPad-Lernkarten-App. Ähnlich, andere
+  Branche: Codecks (Berlin, Projektmanagement für Spieleentwickler). Vor einer öffentlichen Vorstellung Markenregister
+  prüfen (DPMA, EUIPO/TMview, USPTO).
+- Name und Auftritt (2026-11-16, D24): Binary `codeck` (`[[bin]]` in `Cargo.toml`, `mainBinaryName`), Paket, Dateien,
+  Ordner, Refs, `CODEDECK_*` bleiben „codedeck“. `codeck --version` / `--help`. Hooks: `is_ours` kennt beide Namen;
+  beim Start zieht `Harness::follow_program` eigene Hooks auf das laufende Programm um, wenn ihr Programm fehlt oder
+  das alte `codedeck` im selben Ordner ist (Build-Ordner, Update); eine andere vorhandene Installation bleibt („Use
+  this one“). Das alte `/shared/cargo-target/debug/codedeck` bleibt liegen, bis man es löscht. `.desktop`, Cargo-
+  und Bundle-Texte nach der CI (`brand/README.md`), README-Kopf mit Aussprache. Icons: `codeck-small.svg` (16/24 px,
+  ohne Schein und Konturen) und `codeck-symbolic.svg` (einfarbig, für Seitenleiste/Tray, noch ohne Nutzer).
+  Statusleiste: „git“ steht jetzt links neben dem Branch. About-Dialog kommt mit Seitenleisten-Schritt A.
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

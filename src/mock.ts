@@ -87,5 +87,5 @@ export const initialPins: Pin[] = [
     tokens: 340,
     via: "jayq",
   },
-  { id: "docs", kind: "folder", label: "docs/", detail: "2 files", tokens: 4230 }, // sample data, as the backend would count
+  { id: "docs", kind: "folder", label: "docs/", detail: "", count: { files: 2, truncated: false }, tokens: 4230 }, // sample data, as the backend would count
 ];

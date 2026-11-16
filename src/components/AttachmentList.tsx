@@ -1,6 +1,18 @@
 import type { ReactNode } from "react";
-import { ArrowUpRight, File, FileText, Folder, GitCompareArrows, MessageSquare, TextSelect, X } from "lucide-react";
-import { files, type Pin } from "../files";
+import {
+  ArrowUpRight,
+  AtSign,
+  File,
+  FileText,
+  Folder,
+  GitCompareArrows,
+  MessageSquare,
+  Paperclip,
+  TextSelect,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+import { files, pinDetail, type Pin } from "../files";
 import { changes } from "../changes";
 import { notes, removeNote } from "../notes";
 import { markerKey, markers } from "../markers";
@@ -31,7 +43,7 @@ export function AttachmentSections() {
               detail={
                 <>
                   {pin.via && <span className="mr-1.5 rounded bg-ai/15 px-1 text-ai">{t("from {app}", { app: pin.via })}</span>}
-                  {pin.detail}
+                  {pinDetail(pin)}
                 </>
               }
               aside={t("≈ {tokens} tokens", { tokens: formatTokens(pin.tokens) })}
@@ -174,14 +186,34 @@ export function formatTokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n);
 }
 
-/** For nothing attached: the four ways to attach something, one line each. */
-export function WaysToAttach() {
+/**
+ * For nothing attached: a hint, not content. Set apart by a dashed outline and quiet type so it is
+ * not read as something that goes out; one line per way to attach, with the icon of its place.
+ */
+export function NothingAttached({ tool }: { tool: string }) {
+  const ways: [LucideIcon, string, string][] = [
+    [Paperclip, t("Files"), t("the paperclip in the file list, or drag them onto Next prompt in the right column")],
+    [GitCompareArrows, t("Changes"), t("the paperclip at a turn, commit or file in Changes")],
+    [MessageSquare, t("Line comments"), t("the speech bubble at a line of a diff")],
+    [AtSign, t("Hints"), t("write @ai into a file, then attach it in the Workbench")],
+  ];
   return (
-    <ul className="flex flex-col gap-1.5 text-slate-400">
-      <li>{t("Files: the paperclip in the file list, or drag them onto Next prompt in the right column")}</li>
-      <li>{t("Changes: the paperclip at a turn, commit or file in Changes")}</li>
-      <li>{t("Line comments: the speech bubble at a line of a diff")}</li>
-      <li>{t("Hints: write @ai into a file, then attach it in the Workbench")}</li>
-    </ul>
+    <div className="mx-4 mt-5 rounded-lg border border-dashed border-slate-600/70 px-5 py-4 text-[13px]">
+      <p className="flex items-center gap-2 font-medium text-slate-300">
+        <Paperclip className="size-4 text-slate-500" />
+        {t("Nothing attached yet")}
+      </p>
+      <p className="mt-1 text-slate-500">{t("{tool} only gets what you write. To give it more along with your next prompt:", { tool })}</p>
+      <ul className="mt-3 flex flex-col gap-2">
+        {ways.map(([Icon, kind, how]) => (
+          <li key={kind} className="flex items-baseline gap-2.5 text-slate-500">
+            <Icon className="size-3.5 shrink-0 translate-y-[2px] text-slate-500" />
+            <span>
+              <span className="text-slate-400">{kind}:</span> {how}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

@@ -250,12 +250,12 @@ egal ob Claude, du oder ein anderes Programm sie geändert hat.
 
 Claude Code kann in seiner Konfiguration (`settings.json`) für bestimmte Ereignisse einen Befehl
 eintragen, einen „Hook“. **Connect** in CodeDeck (Statusleiste → *Claude*) trägt dort den Befehl
-`codedeck hook` ein; vorher wird die Datei als `settings.json.before-codedeck` gesichert,
+`codeck hook` ein; vorher wird die Datei als `settings.json.before-codedeck` gesichert,
 **Disconnect** trägt ihn wieder aus.
 
-Bei jedem Ereignis startet Claude Code `codedeck hook` kurz und gibt ihm eine Beschreibung des
+Bei jedem Ereignis startet Claude Code `codeck hook` kurz und gibt ihm eine Beschreibung des
 Ereignisses mit (welche Sitzung, welches Verzeichnis, welches Werkzeug, welche Datei, ohne
-Dateiinhalte). `codedeck hook` reicht das an jedes offene CodeDeck-Fenster weiter, und jedes
+Dateiinhalte). `codeck hook` reicht das an jedes offene CodeDeck-Fenster weiter, und jedes
 Fenster nimmt nur, was sein Projekt betrifft.
 
 | Ereignis bei Claude Code | Was CodeDeck daraus macht | Was du siehst |
@@ -270,7 +270,7 @@ Fenster nimmt nur, was sein Projekt betrifft.
 
 Zwei Dinge sind dabei wichtig:
 
-- **Ohne CodeDeck passiert nichts.** Ist kein Fenster offen, beendet sich `codedeck hook` sofort.
+- **Ohne CodeDeck passiert nichts.** Ist kein Fenster offen, beendet sich `codeck hook` sofort.
   Claude Code arbeitet dann wie immer.
 - **CodeDeck bremst Claude nicht.** Der Hook antwortet sofort; nur beim Anker wartet Claude die
   Sekundenbruchteile, bis der Stand gesichert ist, denn darum geht es ja: *vor* dem Schreiben.
@@ -280,7 +280,7 @@ Zwei Dinge sind dabei wichtig:
 So läuft Szene 2 und 5 technisch ab:
 
 ```
- du             Claude Code           codedeck hook        CodeDeck-Fenster        Git
+ du             Claude Code           codeck hook          CodeDeck-Fenster        Git
  │ Prompt ───────▶│                        │                      │                   │
  │                │── Prompt abgeschickt ─▶│── weiterreichen ────▶│ working           │
  │                │◀─ (Übergabe, falls da) │◀─────────────────────│                   │
@@ -305,7 +305,7 @@ was Claude gesagt bekommt. Claude Code erlaubt aber eines: Beim Ereignis „Prom
 der Hook Text anhängen, den Claude zusammen mit deinem Prompt liest. Genau das nutzt CodeDeck.
 
 Hängst du etwas an (**Attach**, Büroklammer, Zeilenkommentar), legt CodeDeck den Text bereit. Schickst du den nächsten Prompt ab,
-holt `codedeck hook` ihn ab und gibt ihn mit. Zu deinem Prompt „Mach weiter.“ bekommt Claude dann
+holt `codeck hook` ihn ab und gibt ihn mit. Zu deinem Prompt „Mach weiter.“ bekommt Claude dann
 diesen Text (so baut CodeDeck ihn heute):
 
 ```
@@ -367,7 +367,7 @@ vor:
 
 ## 2.6 Mehrere Fenster, Sitzungen und Konfigurationen
 
-- **Jedes CodeDeck-Fenster** hat eine eigene Empfangsstelle (einen Socket). `codedeck hook` meldet
+- **Jedes CodeDeck-Fenster** hat eine eigene Empfangsstelle (einen Socket). `codeck hook` meldet
   an alle, jedes Fenster filtert nach seinem Projekt. Zwei Projekte nebeneinander stören sich nicht.
 - **Mehrere Sitzungen im selben Projekt** erscheinen nebeneinander rechts, jede mit ihren Dateien.
   Der Filter *only this session* zeigt auf dem Trail nur die Anker einer Sitzung.

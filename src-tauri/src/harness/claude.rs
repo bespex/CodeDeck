@@ -74,6 +74,15 @@ impl Harness for Claude {
         config_dirs().iter().map(|d| status_of(d)).collect()
     }
 
+    fn follow_program(&self) -> Vec<String> {
+        let Ok(current) = std::env::current_exe() else { return Vec::new() };
+        config_dirs()
+            .into_iter()
+            .filter(|d| follow_program(d, &current).unwrap_or(false))
+            .map(|d| d.display().to_string())
+            .collect()
+    }
+
     fn connect(&self, account: &str, on: bool) -> Result<(), String> {
         let dir = config_dirs()
             .into_iter()
@@ -150,9 +159,49 @@ fn config_dirs() -> Vec<PathBuf> {
     dirs
 }
 
-/// A hook command CodeDeck put there, from this or another installation.
+/// A hook command CodeDeck put there, from this or another installation. The command was
+/// `codedeck` until it became `codeck` (D24); hooks with either name are ours.
 fn is_ours(command: &str) -> bool {
-    command.trim_end().ends_with(" hook") && command.to_lowercase().contains("codedeck")
+    let lower = command.to_lowercase();
+    command.trim_end().ends_with(" hook") && (lower.contains("codedeck") || lower.contains("codeck"))
+}
+
+/// The program a hook command runs, without ` hook` and the quotes `hook::command` may add.
+fn program_of(command: &str) -> PathBuf {
+    let program = command.trim_end().strip_suffix(" hook").unwrap_or(command).trim();
+    let unquoted = program
+        .strip_prefix('\'')
+        .and_then(|p| p.strip_suffix('\''))
+        .map(|p| p.replace(r"'\''", "'"))
+        .unwrap_or_else(|| program.to_string());
+    PathBuf::from(unquoted)
+}
+
+/// Whether a hook of ours is left over from this installation, so it may follow along without
+/// asking: its program is gone, or it is the old `codedeck` next to the running `codeck` (a
+/// build folder or an install that kept the old file). Another installation that still exists
+/// is not touched; the connection panel offers "Use this one" for that.
+fn left_over(command: &str, current: &Path) -> bool {
+    let old = program_of(command);
+    if old == current {
+        return false;
+    }
+    if !old.is_file() {
+        return true;
+    }
+    old.parent() == current.parent() && old.file_name().is_some_and(|n| n == "codedeck")
+}
+
+/// Points this configuration's hooks at the running program if they are left over (see
+/// [`left_over`]). Returns whether something changed.
+fn follow_program(dir: &Path, current: &Path) -> Result<bool, String> {
+    let settings = read_settings(&dir.join("settings.json"))?;
+    let ours: Vec<String> = EVENTS.iter().flat_map(|(event, ..)| commands(&settings, event)).filter(|c| is_ours(c)).collect();
+    if ours.is_empty() || !ours.iter().any(|c| program_of(c) != current) || !ours.iter().all(|c| program_of(c) == current || left_over(c, current)) {
+        return Ok(false);
+    }
+    set_hooks(dir, true)?;
+    Ok(true)
 }
 
 /// Whether CodeDeck's hooks are in the settings of one configuration.
@@ -491,6 +540,58 @@ mod tests {
         assert!(!status_of(&dir).installed);
         assert_eq!(std::fs::read_to_string(&settings).unwrap(), "{\n  \"model\": \"opus\"\n}\n");
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn knows_both_command_names_and_what_is_left_over() {
+        assert!(is_ours("/usr/bin/codedeck hook") && is_ours("/usr/bin/codeck hook") && is_ours("'/a b/codeck' hook"));
+        assert!(!is_ours("/usr/bin/codeck") && !is_ours("notify-send hook"));
+        assert_eq!(program_of("'/a b/it'\\''s/codeck' hook"), PathBuf::from("/a b/it's/codeck"));
+
+        let tmp = std::env::temp_dir().join(format!("codedeck-left-over-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        for dir in ["bin", "other"] {
+            std::fs::create_dir_all(tmp.join(dir)).unwrap();
+        }
+        let current = tmp.join("bin/codeck");
+        for file in ["bin/codeck", "bin/codedeck", "other/codeck"] {
+            std::fs::write(tmp.join(file), "").unwrap();
+        }
+        let hook = |p: &str| format!("{} hook", tmp.join(p).display());
+        assert!(!left_over(&hook("bin/codeck"), &current), "the running program");
+        assert!(left_over(&hook("bin/codedeck"), &current), "the old name next to it");
+        assert!(left_over(&hook("gone/codedeck"), &current), "a program that is gone");
+        assert!(!left_over(&hook("other/codeck"), &current), "another installation");
+        std::fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    /// In a configuration of its own: never the real `~/.claude/settings.json`.
+    #[test]
+    fn hooks_follow_the_program_only_when_left_over() {
+        let tmp = std::env::temp_dir().join(format!("codedeck-follow-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(tmp.join("other")).unwrap();
+        let current = std::env::current_exe().unwrap();
+        let with = |command: &str| {
+            let mut s = json!({ "model": "opus" });
+            change_hooks(&mut s, Some(command));
+            std::fs::write(tmp.join("settings.json"), serde_json::to_string_pretty(&s).unwrap()).unwrap();
+        };
+        let now = || commands(&read_settings(&tmp.join("settings.json")).unwrap(), "Stop");
+
+        // The old command, its program gone: moved to the running one
+        with("/nowhere/codedeck hook");
+        assert!(follow_program(&tmp, &current).unwrap());
+        assert_eq!(now(), [crate::hook::command()]);
+        // Already there: nothing to do
+        assert!(!follow_program(&tmp, &current).unwrap());
+        // Another installation that exists: left to the user
+        let other = tmp.join("other/codeck");
+        std::fs::write(&other, "").unwrap();
+        with(&format!("{} hook", other.display()));
+        assert!(!follow_program(&tmp, &current).unwrap());
+        assert_eq!(now(), [format!("{} hook", other.display())]);
+        std::fs::remove_dir_all(&tmp).unwrap();
     }
 
     #[test]

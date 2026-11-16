@@ -6,7 +6,7 @@ import { Section, Toolbar } from "../blocks";
 import { known, T, t } from "../../i18n";
 import { SessionBadge } from "../SessionBadge";
 import { AttachTarget, TargetLost } from "../AttachTarget";
-import { AttachmentSections, useAttachedCount, WaysToAttach } from "../AttachmentList";
+import { AttachmentSections, NothingAttached, useAttachedCount } from "../AttachmentList";
 import { LOCALE } from "../Trail";
 
 const time = (ms: number) => new Date(ms).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
@@ -63,10 +63,7 @@ export function NextPromptView({ assistant }: { assistant: AssistantState }) {
         {count > 0 ? (
           <AttachmentSections />
         ) : (
-          <Section title={t("Nothing attached")}>
-            <p className="mb-3">{t("{tool} only gets what you write. To give it more along with your next prompt:", { tool: harness.shortName })}</p>
-            <WaysToAttach />
-          </Section>
+          <NothingAttached tool={harness.shortName} />
         )}
 
         {assistant.preview && (
@@ -127,7 +124,36 @@ function StartRules({ assistant }: { assistant: AssistantState }) {
       {!harness.capabilities.startRules && (
         <p className="mb-2 text-[12px] text-changed">{t("{tool} cannot take text when a session starts, so these rules do not reach it.", { tool: harness.name })}</p>
       )}
-      <pre className="selectable border-l-2 border-line pl-3 font-mono text-[12px] whitespace-pre-wrap text-slate-400">{rules ?? "…"}</pre>
+      <RulesText text={rules} />
     </Section>
+  );
+}
+
+/**
+ * The rules laid out for reading: the opening line as a sentence, each rule as a point with a hanging
+ * indent. Only the layout differs from what the session gets; the words are the same (D17).
+ */
+function RulesText({ text }: { text: string | null }) {
+  if (text === null) return <p className="border-l-2 border-line pl-3 text-slate-500">…</p>;
+  const intro: string[] = [];
+  const rules: string[] = [];
+  for (const line of text.split("\n").map((l) => l.trim()).filter(Boolean)) {
+    if (line.startsWith("- ")) rules.push(line.slice(2));
+    // A line that continues a rule (or the opening) belongs to what came before it
+    else if (rules.length > 0) rules[rules.length - 1] += ` ${line}`;
+    else intro.push(line);
+  }
+  return (
+    <div className="selectable max-w-prose border-l-2 border-line pl-3 text-[13px] leading-relaxed text-slate-300">
+      {intro.length > 0 && <p className="text-slate-400">{intro.join(" ")}</p>}
+      <ul className="mt-1.5 flex flex-col gap-1.5">
+        {rules.map((rule) => (
+          <li key={rule} className="flex gap-2">
+            <span className="mt-[9px] size-1 shrink-0 rounded-full bg-slate-500" />
+            <span>{rule}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

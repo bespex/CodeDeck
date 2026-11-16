@@ -87,9 +87,9 @@ jobs:
             ## Install (Ubuntu 24.04+, Linux Mint 22+, Debian 13+)
 
             ```bash
-            sudo apt install ./codedeck_*_amd64.deb
+            sudo apt install ./CodeDeck_*_amd64.deb
             ```
 
             Or run the AppImage directly (`chmod +x CodeDeck_*_amd64.AppImage`).
-            Then start **CodeDeck** from the application menu or with `codedeck <directory>`.
+            Then start **CodeDeck** from the application menu or with `codeck <directory>`.
             Verify the downloads with `sha256sum -c SHA256SUMS`.

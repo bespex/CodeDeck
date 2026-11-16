@@ -6,7 +6,7 @@
 import { pathStats, tokensFor, type Entry } from "./backend";
 import { plural } from "./git";
 import { createPart } from "./attachments";
-import { t } from "./i18n";
+import { known, t } from "./i18n";
 
 export interface Pin {
   /** The project-relative path, or an id of its own for a passage */
@@ -20,6 +20,17 @@ export interface Pin {
   via?: string;
   /** For a passage: its text, handed over as it is */
   content?: string;
+  /** For a folder: how many files it holds, worded when shown so it follows the language */
+  count?: { files: number; truncated: boolean };
+}
+
+/** Where a pin is, or for a folder how many files it holds, in the language of the interface. */
+export function pinDetail(pin: Pin): string {
+  if (pin.count) {
+    const files = plural(pin.count.files, "file");
+    return pin.count.truncated ? t("over {files}", { files }) : files;
+  }
+  return known(pin.detail);
 }
 
 export async function pinFromEntry(entry: Entry): Promise<Pin> {
@@ -34,8 +45,8 @@ export async function pinFromEntry(entry: Entry): Promise<Pin> {
     };
   }
   const stats = await pathStats(entry.path);
-  const count = stats.truncated ? t("over {files}", { files: plural(stats.files, "file") }) : plural(stats.files, "file");
-  return { id: entry.path, kind: "folder", label: `${entry.name}/`, detail: count, tokens: tokensFor(stats.bytes) };
+  const count = { files: stats.files, truncated: stats.truncated };
+  return { id: entry.path, kind: "folder", label: `${entry.name}/`, detail: "", count, tokens: tokensFor(stats.bytes) };
 }
 
 /** The part of the attachments that pinned files, folders and passages make. */

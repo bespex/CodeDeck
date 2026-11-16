@@ -1,5 +1,18 @@
 import { useEffect, useState, type DragEvent, type ReactNode } from "react";
-import { ArrowUpRight, Check, ChevronDown, ChevronRight, ClipboardCopy, Paperclip, Pencil, X } from "lucide-react";
+import {
+  ArrowUpRight,
+  AtSign,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ClipboardCopy,
+  GitCompareArrows,
+  MessageSquare,
+  Paperclip,
+  Pencil,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { DRAG_TYPE } from "./FilesPanel";
 import { HookPanel } from "./AssistantStatus";
 import { Tooltip } from "./Tooltip";
@@ -428,11 +441,13 @@ function NextPrompt({ assistant, onPin }: Props) {
   const attaches = capabilities.attach === "withNextPrompt";
   const pins = files.use();
   const { delivered } = assistant;
-  const tiles: [number, string][] = [
-    [kinds.files, t("Files")],
-    [kinds.changes, t("Changes")],
-    [kinds.comments, t("Comments")],
-    [kinds.hints, t("Hints")],
+  // Each number carries the icon of the place where such things are attached, so it says where
+  // they come from; the tooltip says it in words
+  const tiles: [number, string, LucideIcon, string][] = [
+    [kinds.files, t("Files"), Paperclip, t("Files, folders and passages: the paperclip in the file list")],
+    [kinds.changes, t("Changes"), GitCompareArrows, t("Changes of a turn, commit or file: the paperclip in Changes")],
+    [kinds.comments, t("Lines"), MessageSquare, t("Comments on diff lines: the speech bubble at a line in Changes")],
+    [kinds.hints, t("Hints"), AtSign, t("@ai hints from your files: the paperclip in the Workbench")],
   ];
 
   const onDrop = (e: DragEvent) => {
@@ -466,17 +481,37 @@ function NextPrompt({ assistant, onPin }: Props) {
       </AreaHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3 pb-3">
+        {/* Who it is for comes first: the numbers below read as what goes to them */}
+        {count > 0 && attaches && (
+          <div className="flex flex-col gap-1 rounded-md bg-base/60 px-2 py-1.5 text-[12px] text-slate-400">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="shrink-0">{t("For")}</span>
+              <AttachTarget state={assistant} className="min-w-0 flex-1" />
+            </div>
+            <span className="flex min-w-0 items-center gap-1.5 text-slate-300">
+              <span className="size-1.5 shrink-0 rounded-full bg-changed" />
+              <span className="truncate">{t("Waiting for your next prompt")}</span>
+            </span>
+            <TargetLost state={assistant} />
+            {!connected && <span className="text-changed">{t("Not connected: nothing reaches {tool} (status bar).", { tool: name })}</span>}
+          </div>
+        )}
+
         <div className="grid grid-cols-4 gap-1">
-          {tiles.map(([n, label]) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => openView("next")}
-              className={`flex min-w-0 flex-col items-center rounded-md py-1.5 hover:bg-raised/70 ${n ? "" : "opacity-40"}`}
-            >
-              <span className="text-[22px] leading-none font-semibold text-slate-100 tabular-nums">{n}</span>
-              <span className="mt-1 max-w-full truncate px-0.5 text-[10px] tracking-wider text-slate-400 uppercase">{label}</span>
-            </button>
+          {tiles.map(([n, label, Icon, hint]) => (
+            <Tooltip key={label} className="flex min-w-0" content={<span>{hint}</span>}>
+              <button
+                type="button"
+                onClick={() => openView("next")}
+                className={`flex w-full min-w-0 flex-col items-center rounded-md py-1.5 hover:bg-raised/70 ${n ? "" : "opacity-40"}`}
+              >
+                <span className="flex items-center gap-1 text-[22px] leading-none font-semibold text-slate-100 tabular-nums">
+                  <Icon className="size-3.5 text-slate-500" />
+                  {n}
+                </span>
+                <span className="mt-1 max-w-full truncate px-0.5 text-[10px] tracking-wider text-slate-400 uppercase">{label}</span>
+              </button>
+            </Tooltip>
           ))}
         </div>
 
@@ -498,19 +533,6 @@ function NextPrompt({ assistant, onPin }: Props) {
           </div>
         )}
 
-        {count > 0 && attaches && (
-          <div className="flex flex-col gap-1 text-[12px] text-slate-400">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <span>{t("For")}</span>
-              <AttachTarget state={assistant} className="min-w-0 flex-1" />
-            </div>
-            <span className="flex items-center gap-1.5">
-              <span className="size-1.5 shrink-0 rounded-full bg-changed" /> {t("Waiting for your next prompt")}
-            </span>
-            <TargetLost state={assistant} />
-            {!connected && <span className="text-changed">{t("Not connected: nothing reaches {tool} (status bar).", { tool: name })}</span>}
-          </div>
-        )}
         {count === 0 && delivered && (
           <p className="flex items-start gap-1.5 text-[12px] text-slate-300">
             <Check className="mt-0.5 size-3.5 shrink-0 text-added" />

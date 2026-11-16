@@ -14,7 +14,7 @@ use serde_json::Value;
 
 /// One coding tool, as far as CodeDeck needs it.
 pub trait Harness: Send + Sync {
-    /// Stable name for the wire and for `codedeck hook --harness <id>`.
+    /// Stable name for the wire and for `codeck hook --harness <id>`.
     fn id(&self) -> &'static str;
     /// The tool's name in texts, e.g. "Connecting adds hooks to …".
     fn name(&self) -> &'static str;
@@ -25,9 +25,14 @@ pub trait Harness: Send + Sync {
     fn connections(&self) -> Vec<Connection>;
     /// Makes the tool of one account report to CodeDeck, or stops that.
     fn connect(&self, account: &str, on: bool) -> Result<(), String>;
+    /// At start: connections this installation made earlier but that point to a program that is
+    /// gone or was renamed are moved to the running one. Returns the accounts that changed.
+    fn follow_program(&self) -> Vec<String> {
+        Vec::new()
+    }
     /// A raw message of the tool as a neutral event; `None` for what CodeDeck does not use.
     fn translate(&self, raw: &Value) -> Option<Event>;
-    /// What `codedeck hook` prints for the tool after the windows answered: how text handed
+    /// What `codeck hook` prints for the tool after the windows answered: how text handed
     /// over (with a prompt) or the start rules (with the start of a session) reach the session.
     fn reply(&self, event: &Event, handed: &[String]) -> Option<String>;
     /// Sessions of the last day in or around the project, from the tool's logs.
@@ -88,7 +93,7 @@ pub enum EventKind {
     SessionEnded,
 }
 
-/// One event as `codedeck hook` sends it to the windows: only what CodeDeck uses, no file
+/// One event as `codeck hook` sends it to the windows: only what CodeDeck uses, no file
 /// contents, no tool output.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Event {

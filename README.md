@@ -1,10 +1,15 @@
+<img src="public/codedeck.svg" width="72" alt="CodeDeck icon">
+
 # CodeDeck
 
-**A lightweight AI coding deck for Linux.** Not an IDE: CodeDeck puts a project directory, its
-changes and an AI assistant side by side, and leaves viewing files to small external tools.
+**AI session radar for Linux.** Say “Codeck” – that is also the command: `codeck`.
 
-Part of [be spex](https://bespex.github.io) – small, focused apps for Linux. Works together with
-[Jayq, Xaq and Marq](https://github.com/bespex/Qiew).
+CodeDeck runs beside your AI coding sessions: it shows what each session is doing and what it changed,
+keeps a snapshot before every turn to go back to, and attaches exactly what you choose to your next
+prompt. Not an editor: files open in small external viewers.
+
+Part of [be spex](https://bespex.github.io) – small, focused apps for Linux. Works together with the
+[Qiew viewers](https://github.com/bespex/Qiew) (Marq, Jayq, Dirq …).
 
 > Early development. Real: the file list, Git (status, changes, history and the everyday actions)
 > for every repository in the project, and the bridge to Claude Code (sessions, snapshots, comments
@@ -47,7 +52,7 @@ commits behind a merge are left alone.
 
 CodeDeck does not run the assistant; Claude Code does, in its terminal or desktop app. CodeDeck
 watches alongside. **Connect** (click *Claude* in the status bar) adds hooks to a Claude Code
-configuration's `settings.json` that run `codedeck hook`. Every configuration is listed and
+configuration's `settings.json` that run `codeck hook`. Every configuration is listed and
 connected on its own: `~/.claude`, the one `$CLAUDE_CONFIG_DIR` names, and other `~/.claude-*`
 folders that are one, since a session only reports through the configuration it runs with. That passes each
 event, without file contents, to the socket every CodeDeck window keeps in
@@ -101,7 +106,7 @@ the settings changes, the file as it was is kept as `settings.json.before-codede
 **Language:** the interface is in English or German, following the system; switch it in the project menu
 (click the project name, top left). What the assistant gets stays in English.
 
-**Git commands** (click the last command in the status bar, or Ctrl+Shift+G) lists every git
+**Git commands** (click *git* next to the branch in the status bar, or Ctrl+Shift+G) lists every git
 command CodeDeck ran with what git printed and its exit code. Commands that changed something stand
 out and can be shown alone; the status check every few seconds only appears when it fails; failed commands
 open by themselves.
@@ -120,7 +125,7 @@ Tauri 2 (Rust) with React, TypeScript, Vite and Tailwind CSS.
 ```sh
 ./dev                  # start from source, opens the directory you are in
 ./dev ~/projects/foo   # open another project
-./dev --link           # once: makes `codedeck-dev` available in every directory
+./dev --link           # once: makes `codeck-dev` available in every directory
 ```
 
 `./dev` installs dependencies when needed and starts with hot reload: frontend changes appear

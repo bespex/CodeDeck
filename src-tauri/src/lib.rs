@@ -397,7 +397,7 @@ pub fn run() {
     let project = match Project::from_args() {
         Ok(project) => Arc::new(project),
         Err(message) => {
-            eprintln!("codedeck: {message}");
+            eprintln!("codeck: {message}");
             std::process::exit(2);
         }
     };
@@ -417,9 +417,18 @@ pub fn run() {
                 Ok(bridge) => {
                     app.manage(bridge);
                 }
-                Err(e) => eprintln!("codedeck: no socket for assistants: {e}"),
+                Err(e) => eprintln!("codeck: no socket for assistants: {e}"),
             }
             exclude_scratch(app.handle());
+            // Hooks of this installation that still run the old `codedeck` (or a program that is
+            // gone) now run this one; in the background, it reads every configuration
+            std::thread::spawn(|| {
+                for harness in harness::all() {
+                    for account in harness.follow_program() {
+                        eprintln!("codeck: hooks in {account} now run this program");
+                    }
+                }
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

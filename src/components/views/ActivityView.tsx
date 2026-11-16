@@ -1,4 +1,4 @@
-import { Eye, ExternalLink, FileText } from "lucide-react";
+import { Eye, FileText, SquarePen } from "lucide-react";
 import { openFile, type AssistantState } from "../../backend";
 import { touchedFiles, useSessionMarks } from "../../assistant";
 import { Row, Rows, Section } from "../blocks";
@@ -39,7 +39,7 @@ export function ActivityView({ assistant }: { assistant: AssistantState }) {
                   </Tooltip>
                   <Tooltip content={<span>{t("Edit, e.g. to add comments for the assistant")}</span>}>
                     <button type="button" aria-label={t("Edit {path}", { path })} onClick={() => openFile(path, "edit")} className={button}>
-                      <ExternalLink className="size-3.5" />
+                      <SquarePen className="size-3.5" />
                     </button>
                   </Tooltip>
                 </Row>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- For 16 and 24 px: the stack of the big icon, without glow and outlines; gaps of background
+       keep the three layers apart, and the layers are thicker so they stay layers -->
+  <rect width="64" height="64" rx="14" fill="#2a2e34"/>
+  <path d="M32 36 54 46 32 56 10 46Z" fill="#4f46e5"/>
+  <path d="M32 24 54 34 32 44 10 34Z" fill="#818cf8"/>
+  <path d="M32 8 54 19 32 30 10 19Z" fill="#f26500"/>
+</svg>

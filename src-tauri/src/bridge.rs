@@ -1,5 +1,5 @@
 //! The window's side of the bridge to coding assistants. Each window listens on a socket of its
-//! own; `codedeck hook` (see [`crate::hook`]) sends it the tools' events, already translated by
+//! own; `codeck hook` (see [`crate::hook`]) sends it the tools' events, already translated by
 //! their adapters (see [`crate::harness`]). From them the window knows the sessions working in
 //! its project, what they are doing and which files they touched, takes a snapshot before a
 //! session's first write in a turn, and can hand a task to the next prompt. No tool is named

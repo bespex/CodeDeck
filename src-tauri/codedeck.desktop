@@ -1,12 +1,12 @@
 [Desktop Entry]
 Type=Application
 Name={{name}}
-GenericName=AI Coding Deck
-GenericName[de]=KI-Coding-Deck
-Comment={{comment}}
-Comment[de]=KI-Coding-Deck: Projekt, Änderungen und Assistent nebeneinander – by be-spex
-Keywords=ai;coding;git;claude;assistant;be-spex;bespex;spex;
-Keywords[de]=ki;coding;git;claude;assistent;be-spex;bespex;spex;
+GenericName=AI Session Radar
+GenericName[de]=KI-Sitzungsradar
+Comment=See what your AI coding sessions do and changed, go back, attach what they need – be spex
+Comment[de]=Sehen, was deine KI-Sitzungen tun und ändern, zurückgehen, gezielt mitgeben – be spex
+Keywords=ai;coding;git;claude;assistant;session;codeck;bespex;
+Keywords[de]=ki;coding;git;claude;assistent;sitzung;codeck;bespex;
 Exec={{exec}}
 Icon={{icon}}
 Terminal=false

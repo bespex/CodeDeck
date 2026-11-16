@@ -871,8 +871,8 @@ export interface Connection {
 }
 
 let mockConnections: Connection[] = [
-  { harness: "claude", dir: "~/.claude", settings: "~/.claude/settings.json", installed: true, other: null, command: "/usr/bin/codedeck hook" },
-  { harness: "claude", dir: "~/.claude-work", settings: "~/.claude-work/settings.json", installed: false, other: null, command: "/usr/bin/codedeck hook" },
+  { harness: "claude", dir: "~/.claude", settings: "~/.claude/settings.json", installed: true, other: null, command: "/usr/bin/codeck hook" },
+  { harness: "claude", dir: "~/.claude-work", settings: "~/.claude-work/settings.json", installed: false, other: null, command: "/usr/bin/codeck hook" },
 ];
 
 /** The connection of every tool and account found. */

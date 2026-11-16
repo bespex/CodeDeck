@@ -14,31 +14,37 @@ interface Props {
   assistant: AssistantState;
 }
 
+/**
+ * One line, never two: what can be clicked is bright, with an icon and a short word (on the left
+ * branch and git, on the right the coding tool); what only informs stays quiet grey and gives way first when the window is
+ * narrow. Details are in the tooltips.
+ */
 export function StatusBar({ git, onRepoActions, logOpen, onToggleLog, assistant }: Props) {
   const root = git.rootRepo;
   const inFolders = git.repos.filter((r) => r.path);
   const withChanges = inFolders.filter((r) => r.files.length > 0).length;
 
   return (
-    <footer className="flex h-6 shrink-0 items-center gap-4 border-t border-line bg-panel px-3 text-[11px] text-slate-500">
+    <footer className="@container flex h-7 shrink-0 items-center gap-4 overflow-hidden border-t border-line bg-panel px-3 text-[12px] whitespace-nowrap text-slate-500">
       {root && (
-        <Tooltip content={<RepoTooltip repo={root} runs={git.runs} />}>
+        <Tooltip className="flex shrink-0" content={<RepoTooltip repo={root} runs={git.runs} />}>
           <button
             type="button"
             aria-label={t("Git actions, branch {branch}", { branch: root.branch ?? t("detached") })}
             onClick={(e) => onRepoActions(root.path, e.currentTarget, true)}
-            className={`-mx-1 flex items-center gap-1 rounded px-1 hover:bg-raised ${
-              root.error ? "text-problem" : root.files.length > 0 ? "text-changed" : "text-slate-400"
-            }`}
+            className={`${CLICKABLE} ${root.error ? "text-problem" : root.files.length > 0 ? "text-changed" : "text-slate-200"}`}
           >
-            {root.worktreeOf ? <GitFork className="size-3" /> : <GitBranch className="size-3" />}
-            {root.branch ?? t("detached")}
+            {root.worktreeOf ? <GitFork className="size-3.5" /> : <GitBranch className="size-3.5" />}
+            <span className="max-w-56 truncate">{root.branch ?? t("detached")}</span>
             {aheadBehind(root) && <span className="text-slate-500">{aheadBehind(root)}</span>}
           </button>
         </Tooltip>
       )}
+      {/* Git on the left, next to the branch: what is clicked there is all git */}
+      <GitCommands runs={git.runs} open={logOpen} onToggle={onToggleLog} />
       {inFolders.length > 0 && (
         <span
+          className="min-w-0 truncate"
           title={inFolders
             .map((r) => `${r.path} · ${r.branch ?? t("detached")} · ${changeSummary(r)}`)
             .join("\n")}
@@ -49,32 +55,42 @@ export function StatusBar({ git, onRepoActions, logOpen, onToggleLog, assistant 
           {withChanges > 0 && <span className="text-changed"> · {t("{n} with changes", { n: withChanges })}</span>}
         </span>
       )}
-      <LastCommand runs={git.runs} open={logOpen} onToggle={onToggleLog} />
-      <span className="flex items-center gap-1">
-        <Eye className="size-3" />
-        {t("Watching open folders")}
+      <span className="ml-auto" />
+      <span className="flex shrink-0 items-center gap-1" title={t("Watching open folders")}>
+        <Eye className="size-3.5" />
+        <span className="@max-5xl:hidden">{t("Watching open folders")}</span>
       </span>
       <AssistantStatus state={assistant} />
     </footer>
   );
 }
 
+/** How everything clickable in the status bar looks, apart from its colour. */
+export const CLICKABLE = "-mx-1 flex shrink-0 items-center gap-1.5 rounded px-1 font-medium hover:bg-raised";
+
 /**
- * The git command that ran last, as one would type it. The same command in several repos within
- * a moment (one status round) is shown once, with the number of repos.
+ * The git commands CodeDeck ran: one short word in the bar, red when the last one failed; the
+ * command itself is in the tooltip, as one would type it. The same command in several repos within
+ * a moment (one status round) counts once, with the number of repos.
  */
-function LastCommand({ runs, open, onToggle }: { runs: GitRun[]; open: boolean; onToggle: () => void }) {
+function GitCommands({ runs, open, onToggle }: { runs: GitRun[]; open: boolean; onToggle: () => void }) {
   const last = runs.at(-1);
   const round = last ? runs.filter((r) => r.command === last.command && last.at - r.at < 1000) : [];
   const where = round.length > 1 ? plural(round.length, "repository") : last?.repo;
   const failed = runs.filter((r) => !r.ok).length;
   return (
     <Tooltip
-      className="ml-auto flex min-w-0"
+      className="flex shrink-0"
       content={
         <>
           <span>{open ? t("Hide the git commands") : t("Every git command CodeDeck ran, with what git printed")}</span>
-          {failed > 0 && <span className="text-problem">{failed} failed</span>}
+          {last && (
+            <span className={`font-mono text-[11px] ${last.ok ? "text-slate-300" : "text-problem"}`}>
+              {t("Last:")} {last.command}
+              {where && <span className="font-sans text-slate-500"> · {where}</span>}
+            </span>
+          )}
+          {failed > 0 && <span className="text-problem">{plural(failed, "failed command")}</span>}
           <TooltipHint>{t("Click or Ctrl+Shift+G")}</TooltipHint>
         </>
       }
@@ -82,14 +98,12 @@ function LastCommand({ runs, open, onToggle }: { runs: GitRun[]; open: boolean; 
       <button
         type="button"
         aria-expanded={open}
+        aria-label={t("Git commands")}
         onClick={onToggle}
-        className={`-mx-1 flex min-w-0 items-center gap-1 rounded px-1 font-mono hover:bg-raised ${
-          open ? "bg-raised text-slate-200" : last && !last.ok ? "text-problem" : "text-slate-500"
-        }`}
+        className={`${CLICKABLE} ${open ? "bg-raised text-slate-50" : last && !last.ok ? "text-problem" : "text-slate-200"}`}
       >
-        <SquareTerminal className="size-3 shrink-0" />
-        <span className="truncate">{last ? last.command : t("Git commands")}</span>
-        {where && <span className="shrink-0 font-sans text-slate-500">· {where}</span>}
+        <SquareTerminal className="size-3.5" />
+        git
       </button>
     </Tooltip>
   );

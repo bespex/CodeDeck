@@ -4,6 +4,7 @@ import { live, setHarnessConnection, type AssistantState, type Connection, type 
 import { mainHarness, useConnections, type Connections } from "../assistant";
 import { plural } from "../git";
 import { T, t } from "../i18n";
+import { CLICKABLE } from "./StatusBar";
 
 /**
  * The coding tool in the status bar: how many sessions work in the project and whether one waits
@@ -30,11 +31,18 @@ export function AssistantStatus({ state }: { state: AssistantState }) {
   const active = state.sessions.filter((s) => s.status !== "ended");
   const working = active.filter((s) => s.status === "working").length;
   const waiting = active.filter((s) => s.status === "waiting").length;
-  const label = !hooks.connected
-    ? `${harness.shortName}: ${t("not connected")}`
+  // The counts after the name: shown when the bar has room, always in the tooltip
+  const counts = !hooks.connected
+    ? t("not connected")
     : active.length === 0
-      ? `${harness.shortName}: ${t("no session")}`
-      : `${harness.shortName}: ${plural(active.length, "session")}${working ? ` · ${t("{n} working", { n: working })}` : ""}${waiting ? ` · ${t("{n} waiting", { n: waiting })}` : ""}`;
+      ? t("no session")
+      : [
+          plural(active.length, "session"),
+          working > 0 && t(working === 1 ? "1 working" : "{n} working", { n: working }),
+          waiting > 0 && t(waiting === 1 ? "1 waiting" : "{n} waiting", { n: waiting }),
+        ]
+          .filter(Boolean)
+          .join(" · ");
 
   return (
     <div ref={box} className="relative">
@@ -42,12 +50,15 @@ export function AssistantStatus({ state }: { state: AssistantState }) {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className={`-mx-1 flex items-center gap-1 rounded px-1 hover:bg-raised ${
-          open ? "bg-raised text-slate-200" : waiting ? "text-changed" : working ? "text-ai" : "text-slate-500"
+        title={`${harness.name}: ${counts}`}
+        className={`${CLICKABLE} ${
+          open ? "bg-raised text-slate-50" : !hooks.connected ? "text-changed" : waiting ? "text-changed" : working ? "text-ai" : "text-slate-200"
         }`}
       >
-        {hooks.connected ? <Sparkles className="size-3" /> : <Plug className="size-3" />}
-        {label}
+        {hooks.connected ? <Sparkles className="size-3.5" /> : <Plug className="size-3.5" />}
+        {harness.shortName}
+        {/* Not connected is said always: nothing reaches the tool until it is */}
+        <span className={`font-normal ${hooks.connected ? "text-slate-500 @max-4xl:hidden" : ""}`}>{counts}</span>
       </button>
       {open && (
         <div className="surface-overlay absolute right-0 bottom-6 z-30 flex max-h-[60vh] w-[420px] flex-col overflow-y-auto rounded-lg p-3 pt-0 text-[12px] text-slate-300">

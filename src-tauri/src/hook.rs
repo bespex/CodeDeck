@@ -1,4 +1,4 @@
-//! The tools' side of the bridge. `codedeck hook [--harness <id>]` is what a coding tool runs to
+//! The tools' side of the bridge. `codeck hook [--harness <id>]` is what a coding tool runs to
 //! report a step: it reads the tool's raw message from stdin, has the tool's adapter (see
 //! [`crate::harness`]) translate it into a neutral event, passes that to every running CodeDeck
 //! window and waits for their answers (a window takes a snapshot before the assistant writes, so
@@ -42,7 +42,7 @@ fn unsafe_uid() -> String {
     std::fs::metadata("/proc/self").map(|m| m.uid().to_string()).unwrap_or_else(|_| "user".into())
 }
 
-/// `codedeck hook`: forwards the tool's message on stdin. `args` are the ones after `hook`:
+/// `codeck hook`: forwards the tool's message on stdin. `args` are the ones after `hook`:
 /// `--harness <id>` names the tool, without it the default one reports. Always exits successfully.
 pub fn forward(args: &[String]) -> i32 {
     let id = args.iter().position(|a| a == "--harness").map(|i| args.get(i + 1).map_or("", String::as_str));
@@ -131,7 +131,7 @@ fn ask(mut stream: UnixStream, line: &str) -> Option<String> {
 
 /// What a tool runs to report to this CodeDeck: the default tool's adapter translates.
 pub fn command() -> String {
-    let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "codedeck".into());
+    let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "codeck".into());
     let quoted = if exe.chars().all(|c| c.is_ascii_alphanumeric() || "/._-+".contains(c)) {
         exe
     } else {
