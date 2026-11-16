@@ -1,7 +1,7 @@
 # Kurzkonzept: CodeDeck als Seitenleiste
 
-Stand 2026-11-16, Idee des Nutzers, Entscheidungen vom selben Tag eingearbeitet. Noch kein Schritt im Plan;
-die Einordnung steht am Ende.
+Stand 2026-11-16, Idee des Nutzers, Entscheidungen vom selben Tag eingearbeitet. Alle drei Schritte sind gebaut:
+C als 2.1a, A als Kopfleiste 2.1b (`docs/KOPFLEISTE.md`), B als 2.1c. Was davon abweicht, steht unter „Gebaut“ am Ende.
 
 ## Idee
 
@@ -147,3 +147,15 @@ Aufteilung in drei Schritte, jeder für sich nützlich:
 - **A und B** berühren dieselbe Stelle in `App.tsx` wie 2.5 („Größen“: Bereiche zuklappen, per Tastenkürzel).
   Am besten baut man sie zusammen mit 2.5 oder direkt danach. Die Leiste ist dann der Sonderfall „alles außer der
   rechten Spalte zu, Fenster schmal“.
+
+## Gebaut (2.1c) und Abweichungen
+
+- **Fuß:** keine eigene Fußzeile, die Statusleiste bleibt auch in der Leiste. Sie ist einzeilig und gibt in der
+  schmalen Breite von selbst nach (Branch, git, KI-Werkzeug bleiben).
+- **Übersicht:** Git (Branch, ↑↓, offene Dateien, Fehler), Runden seit dem Commit mit den laufenden und letztem
+  Snapshot, Werkbank (`@ai`-Hinweise, Scratch-Dateien der letzten 24 Stunden). Statt „Dateien der laufenden Runden“
+  steht die Zahl der Runden da; die Dateien bräuchte einen Vergleich je Runde.
+- **Form merken:** nur die Breite der Leiste, nicht die Form; ein neues Fenster startet voll.
+- **`Ctrl+Alt+L`** holt das zuletzt benutzte Fenster nach vorn **und** schaltet um (ein Druck statt zwei).
+- **Kürzel ändern:** noch nicht; Einstellungen und `F1` zeigen sie und sagen, wenn ein anderes Programm sie hält.
+- **Dialoge** passen in die Leiste: Einstellungen mit den Bereichen als Reihe oben, jede Einstellung untereinander.

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Copy, X } from "lucide-react";
-import { appInfo, openUrl, type AppInfo, type AssistantState } from "../backend";
+import { appInfo, globalShortcuts, onShortcutsChanged, openUrl, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
 import { mainHarness, useConnections } from "../assistant";
 import { closeDialog, openDialog, useDialog, type SettingsSection } from "../dialogs";
 import { lang, setLang, t } from "../i18n";
@@ -42,8 +42,8 @@ function Modal(props: { title: string; width: string; children: ReactNode; bare?
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-6" onMouseDown={(e) => e.target === e.currentTarget && closeDialog()}>
-      <div role="dialog" aria-modal="true" aria-label={props.title} className={`surface-overlay flex max-h-full flex-col overflow-hidden rounded-xl text-[13px] text-slate-300 ${props.width}`}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 sm:p-6" onMouseDown={(e) => e.target === e.currentTarget && closeDialog()}>
+      <div role="dialog" aria-modal="true" aria-label={props.title} className={`surface-overlay flex max-h-full max-w-full flex-col overflow-hidden rounded-xl text-[13px] text-slate-300 ${props.width}`}>
         {!props.bare && (
           <header className="flex shrink-0 items-center border-b border-overlay-line px-4 py-3">
             <h2 className="text-[14px] font-semibold text-slate-100">{props.title}</h2>
@@ -117,14 +117,46 @@ function About() {
   );
 }
 
+/** The global shortcuts and who holds them; read again when that changes. */
+function useGlobalShortcuts(): GlobalShortcut[] {
+  const [keys, setKeys] = useState<GlobalShortcut[]>([]);
+  useEffect(() => {
+    const load = () => void globalShortcuts().then(setKeys);
+    load();
+    return onShortcutsChanged(load);
+  }, []);
+  return keys;
+}
+
+const shortcutAction = (s: GlobalShortcut) =>
+  s.action === "showHide" ? t("Show CodeDeck, or hide it when it is in front") : t("Sidebar or full window, from anywhere");
+
+/** Says when a global shortcut does not work from this window; held by another CodeDeck window, it does. */
+function ShortcutState({ shortcut }: { shortcut: GlobalShortcut }) {
+  if (shortcut.state === "taken") return <span className="text-changed">{t("Taken by another program: it does nothing.")}</span>;
+  if (shortcut.state === "unsupported") return <span className="text-slate-500">{t("This desktop has no global shortcuts (Wayland).")}</span>;
+  return null;
+}
+
 /** The keyboard shortcuts and mouse gestures CodeDeck knows. */
 function Shortcuts() {
-  const rows: [string, string][] = [
+  const global = useGlobalShortcuts();
+  const rows: [string, ReactNode][] = [
+    ...global.map((s): [string, ReactNode] => [
+      s.keys.replace("Ctrl", t("Ctrl")),
+      <>
+        {shortcutAction(s)} <span className="text-slate-500">· {t("also when CodeDeck has no focus")}</span>
+        <div className="text-[12px]">
+          <ShortcutState shortcut={s} />
+        </div>
+      </>,
+    ]),
     [t("Ctrl+O"), t("Open a folder as project")],
     [t("Ctrl+Shift+O"), t("Open a folder in a new window")],
-    ["Ctrl+,", t("Settings")],
+    [`${t("Ctrl")}+,`, t("Settings")],
     ["F1", t("This overview")],
     [t("Ctrl+Shift+G"), t("Git commands CodeDeck ran")],
+    [t("Ctrl+Shift+L"), t("Switch between sidebar and full window")],
     [t("Ctrl+click"), t("On a project or folder: open it in a new window. On the trail: compare with the point shown")],
     [t("Middle click"), t("On a file: edit it. On a project: open it in a new window")],
     [t("Ctrl+Enter"), t("Commit, or save a line comment")],
@@ -162,20 +194,21 @@ const SECTIONS: [SettingsSection, string][] = [
 function Settings({ section, assistant }: { section: SettingsSection; assistant: AssistantState }) {
   return (
     <Modal title={t("Settings")} width="w-[760px] h-[520px]">
-      <div className="flex min-h-0 flex-1">
-        <nav className="w-44 shrink-0 border-r border-overlay-line p-2">
+      {/* In the sidebar the areas come as a row above the settings */}
+      <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+        <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-overlay-line p-2 sm:block sm:w-44 sm:border-r sm:border-b-0">
           {SECTIONS.map(([id, label]) => (
             <button
               key={id}
               type="button"
               onClick={() => openDialog({ kind: "settings", section: id })}
-              className={`block w-full rounded-md px-2.5 py-1.5 text-left ${section === id ? "bg-overlay-hover text-slate-50" : "text-slate-300 hover:bg-overlay-hover/60"}`}
+              className={`block shrink-0 rounded-md px-2.5 py-1.5 text-left whitespace-nowrap sm:w-full ${section === id ? "bg-overlay-hover text-slate-50" : "text-slate-300 hover:bg-overlay-hover/60"}`}
             >
               {t(label)}
             </button>
           ))}
         </nav>
-        <div className="min-w-0 flex-1 overflow-y-auto px-5 py-3">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
           {section === "general" && <General />}
           {section === "notifications" && <Notifications />}
           {section === "tools" && <Tools assistant={assistant} />}
@@ -188,13 +221,14 @@ function Settings({ section, assistant }: { section: SettingsSection; assistant:
 /** One setting: what it is, a sentence why, the control, and what it applies to. */
 function Setting(props: { label: string; note?: string; scope: "machine" | "project"; children: ReactNode }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-overlay-line/60 py-2.5">
+    // Narrow (the sidebar): one below the other
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 border-b border-overlay-line/60 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
       <div>
         <div className="text-slate-100">{props.label}</div>
         {props.note && <div className="text-[12px] text-slate-500">{props.note}</div>}
       </div>
-      <div>{props.children}</div>
-      <span className="rounded-full border border-overlay-line px-2 text-center text-[11px] whitespace-nowrap text-slate-400">
+      <div className="col-span-2 row-start-2 sm:col-span-1 sm:row-start-auto">{props.children}</div>
+      <span className="col-start-2 row-start-1 self-start rounded-full sm:col-start-auto sm:row-start-auto sm:self-center border border-overlay-line px-2 text-center text-[11px] whitespace-nowrap text-slate-400">
         {props.scope === "machine" ? t("this computer") : t("this project")}
       </span>
     </div>
@@ -202,6 +236,7 @@ function Setting(props: { label: string; note?: string; scope: "machine" | "proj
 }
 
 function General() {
+  const global = useGlobalShortcuts();
   return (
     <>
       <h3 className="mb-1 font-semibold text-slate-100">{t("General")}</h3>
@@ -218,6 +253,23 @@ function General() {
             >
               {l === "en" ? "English" : "Deutsch"}
             </button>
+          ))}
+        </div>
+      </Setting>
+      <Setting
+        label={t("Global shortcuts")}
+        note={t("Work also when CodeDeck has no focus or is hidden. With several windows one of them holds them and acts for all.")}
+        scope="machine"
+      >
+        <div className="flex flex-col gap-1 text-[12px]">
+          {global.map((s) => (
+            <div key={s.keys} className="flex flex-col">
+              <span className="flex items-center gap-2 whitespace-nowrap">
+                <kbd className="rounded border border-overlay-line bg-base px-1.5 py-0.5 font-mono text-[11px] text-slate-200">{s.keys.replace("Ctrl", t("Ctrl"))}</kbd>
+                <span className="text-slate-300">{s.action === "showHide" ? t("show / hide") : t("sidebar / full")}</span>
+              </span>
+              <ShortcutState shortcut={s} />
+            </div>
           ))}
         </div>
       </Setting>

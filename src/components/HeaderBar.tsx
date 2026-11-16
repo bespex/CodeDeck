@@ -1,9 +1,25 @@
 import type { ReactNode } from "react";
-import { AppWindow, Bug, ChevronDown, ChevronRight, CircleHelp, Ellipsis, Info, Keyboard, Settings, SlidersHorizontal, Sparkles, SquareTerminal } from "lucide-react";
+import {
+  AppWindow,
+  Bug,
+  ChevronDown,
+  ChevronRight,
+  CircleHelp,
+  Ellipsis,
+  Info,
+  Keyboard,
+  Maximize2,
+  PanelRight,
+  Settings,
+  SlidersHorizontal,
+  Sparkles,
+  SquareTerminal,
+} from "lucide-react";
 import { appInfo, openUrl, openWindow, type AssistantState, type ProjectInfo } from "../backend";
 import { mainHarness, useConnections } from "../assistant";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
+import { toggleCompact } from "../compact";
 import { lang, setLang, t } from "../i18n";
 import { AttentionChoice, isQuiet, QuietChoice } from "./AttentionChoice";
 import { SOURCE_URL } from "./Dialogs";
@@ -14,13 +30,14 @@ interface Props {
   onOpenProject: OpenProject;
   assistant: AssistantState;
   onToggleLog: () => void;
+  compact: boolean;
 }
 
 /**
  * The header of the right column, which stays in every form of CodeDeck (docs/KOPFLEISTE.md):
  * where am I (the project), how does CodeDeck behave right now (quick settings), what is CodeDeck
- * (the app menu). Later the sidebar switch joins them, and on the start page "All projects"
- * takes the project's place.
+ * (the app menu), and the switch between sidebar and full window. On the start page "All projects"
+ * will take the project's place.
  */
 export function HeaderBar(props: Props) {
   return (
@@ -30,6 +47,16 @@ export function HeaderBar(props: Props) {
       <span className="flex-1" />
       <QuickSettings assistant={props.assistant} />
       <AppMenu project={props.project} onToggleLog={props.onToggleLog} />
+      <button
+        type="button"
+        title={props.compact ? t("Full window · Ctrl+Shift+L") : t("Sidebar · Ctrl+Shift+L")}
+        aria-label={props.compact ? t("Full window") : t("Sidebar")}
+        aria-keyshortcuts="Control+Shift+L"
+        onClick={() => void toggleCompact()}
+        className={iconButton(false)}
+      >
+        {props.compact ? <Maximize2 className="size-4" /> : <PanelRight className="size-4" />}
+      </button>
     </header>
   );
 }
@@ -142,7 +169,7 @@ function QuickSettings({ assistant }: { assistant: AssistantState }) {
               strong
               icon={<Settings className="size-4" />}
               label={t("All settings…")}
-              aside={<Key>Ctrl+,</Key>}
+              aside={<Key>{`${t("Ctrl")}+,`}</Key>}
               onClick={() => {
                 menu.setOpen(false);
                 openDialog({ kind: "settings", section: "general" });

@@ -2,6 +2,7 @@
 // (e.g. its summary of the next prompt opens the Next prompt view), the deck shows it.
 
 import { useEffect, useState } from "react";
+import { isCompact, setCompact } from "./compact";
 
 export type ViewId = "activity" | "changes" | "workbench" | "next";
 
@@ -9,7 +10,9 @@ export type ViewId = "activity" | "changes" | "workbench" | "next";
 let current: ViewId = "changes";
 const listeners = new Set<() => void>();
 
+/** Opens a view of the deck; from the sidebar the full window comes back first. */
 export function openView(view: ViewId) {
+  if (isCompact()) void setCompact(false);
   current = view;
   listeners.forEach((l) => l());
 }

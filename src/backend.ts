@@ -1198,3 +1198,49 @@ export function openUrl(url: string): Promise<void> {
   console.info("would open", url);
   return Promise.resolve();
 }
+
+/**
+ * Makes the window a sidebar of the given width, or the full window again (`on` false); the width
+ * the window had before. The preview has no window to resize: it only lays out the other form.
+ */
+export function setWindowCompact(on: boolean, width: number): Promise<number> {
+  if (live) return invoke("set_compact", { on, width });
+  return Promise.resolve(window.innerWidth);
+}
+
+/** What a global shortcut asks of this window (docs/SEITENLEISTE.md, "Tastenkürzel"). */
+export type WindowRequest = "toggleCompact";
+
+/** Calls back when a global shortcut asks something of this window. */
+export function onWindowRequest(callback: (request: WindowRequest) => void): () => void {
+  if (live) {
+    const unlisten = listen<WindowRequest>("window_request", (e) => callback(e.payload));
+    return () => void unlisten.then((stop) => stop());
+  }
+  return () => {};
+}
+
+/** A global shortcut and who holds it (docs/SEITENLEISTE.md, "Tastenkürzel"). */
+export interface GlobalShortcut {
+  keys: string;
+  action: "showHide" | "sidebar";
+  /** here: this window · otherWindow: another CodeDeck window · taken: another program · unsupported: Wayland */
+  state: "here" | "otherWindow" | "taken" | "unsupported";
+}
+
+export function globalShortcuts(): Promise<GlobalShortcut[]> {
+  if (live) return invoke<{ keys: GlobalShortcut[] }>("global_shortcuts").then((s) => s.keys);
+  return Promise.resolve([
+    { keys: "Ctrl+Alt+C", action: "showHide", state: "here" },
+    { keys: "Ctrl+Alt+L", action: "sidebar", state: "here" },
+  ]);
+}
+
+/** Calls back when a global shortcut was taken or lost. */
+export function onShortcutsChanged(callback: () => void): () => void {
+  if (live) {
+    const unlisten = listen("shortcuts_changed", () => callback());
+    return () => void unlisten.then((stop) => stop());
+  }
+  return () => {};
+}

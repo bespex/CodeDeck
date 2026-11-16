@@ -36,9 +36,9 @@ Seit dem Test dazugekommen, alles auf `main` und gepusht:
   zwei Runden plus „Frühere“, der Trail faltet Snapshots ab drei in Folge, Tooltips per Portal (WebKitGTK).
 - **Konzept Seitenleiste:** `docs/SEITENLEISTE.md` mit den Schritten A (Kopf rechts), B (Leiste), C (Aufmerksamkeit).
 
-**Nächste Session:** 2.1a (Aufmerksamkeit) und 2.1b (Kopfleiste) sind gebaut, aber nur in der Vorschau geprüft:
-zuerst in der echten App prüfen (Ablauf in den Notizen unter „2.1a“; für 2.1b: Menüs, About, `Ctrl+,`, `F1`, „Nicht
-stören“ unterdrückt Taskleiste und Meldung), dann Schritt 2.2.
+**Nächste Session:** 2.1a und 2.1b sind laut Nutzer in der echten App in Ordnung. 2.1c (Seitenleiste) ist gebaut,
+aber nur in der Vorschau geprüft: zuerst in der echten App prüfen (Ablauf in den Notizen unter „2.1c“), dann
+Schritt 2.2.
 
 Fertig in der App (P1, P2, P3, P5, siehe „Ältere Pakete“): Trail mit drei Zonen (nicht committet / nicht
 gepusht / gepusht) und Remote-Chip, Vergleich zweier Punkte · Hook-Brücke `codedeck hook` → Socket je
@@ -139,8 +139,9 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 | Schritt | Ziel | Dummy | Dateien | Fertig wenn |
 |---|---|---|---|---|
 | 2.1 Workbench-Ordner ✅ 2026-11-15 (Praxistest bestanden 2026-11-16) | Ordner anlegen und lokal ignorieren (`.git/info/exclude`, nicht `.gitignore`), Inhalt mit Größe und Alter, Öffnen, ins Projekt übernehmen, löschen, „älter als … löschen“. Startregel zu `.workbench/` (D16). Externe Dateien anhängen: verschoben nach „Später“ | Workbench | neu `workbench.rs`, `views/WorkbenchView.tsx`, `watch.rs` | Eine Datei im Ordner erscheint sofort, Aufräumen löscht nur Altes |
-| 2.1a Aufmerksamkeit ✅ 2026-11-16 (in der echten App zu prüfen) | Wer über Statusänderungen informiert werden will, sieht sie deutlich: Zahl im Fenstertitel, Taskleiste verlangt Aufmerksamkeit, Desktop-Meldung, neuer Eintrag unter „Wartet auf dich“ leuchtet kurz; wobei und wie wählt man im Projektmenü (Entscheidung des Nutzers 2026-11-16, `docs/SEITENLEISTE.md`) | nicht im Dummy | `lib.rs`, `bridge.rs`, neu `attention.rs`, `SessionsPanel.tsx`, `ProjectHeader.tsx` | Eine Erlaubnisfrage bei verdecktem Fenster ist in der Taskleiste und als Meldung zu sehen |
-| 2.1b Kopfleiste ✅ 2026-11-16 (in der echten App zu prüfen) | Rechte Spalte oben: Projektmenü, Schnelleinstellungen mit „Nicht stören“, App-Menü `⋯`, About, Tastenkürzel, Einstellungsdialog (Allgemein, Meldungen, KI-Werkzeuge); links nur noch der Pfad. Ersetzt Seitenleiste A | – (`docs/KOPFLEISTE.md`) | neu `HeaderBar.tsx`, `Dialogs.tsx`, `AttentionChoice.tsx`, `dialogs.ts`; `ProjectHeader.tsx` (jetzt `ProjectMenu` und `PathBar`), `attention.rs` (`quiet_until`), `lib.rs` (`app_info`, `open_url`), `build.rs` (Commit) | Sprache und Meldungen sind nicht mehr im Projektmenü |
+| 2.1a Aufmerksamkeit ✅ 2026-11-16 | Wer über Statusänderungen informiert werden will, sieht sie deutlich: Zahl im Fenstertitel, Taskleiste verlangt Aufmerksamkeit, Desktop-Meldung, neuer Eintrag unter „Wartet auf dich“ leuchtet kurz; wobei und wie wählt man im Projektmenü (Entscheidung des Nutzers 2026-11-16, `docs/SEITENLEISTE.md`) | nicht im Dummy | `lib.rs`, `bridge.rs`, neu `attention.rs`, `SessionsPanel.tsx`, `ProjectHeader.tsx` | Eine Erlaubnisfrage bei verdecktem Fenster ist in der Taskleiste und als Meldung zu sehen |
+| 2.1b Kopfleiste ✅ 2026-11-16 | Rechte Spalte oben: Projektmenü, Schnelleinstellungen mit „Nicht stören“, App-Menü `⋯`, About, Tastenkürzel, Einstellungsdialog (Allgemein, Meldungen, KI-Werkzeuge); links nur noch der Pfad. Ersetzt Seitenleiste A | – (`docs/KOPFLEISTE.md`) | neu `HeaderBar.tsx`, `Dialogs.tsx`, `AttentionChoice.tsx`, `dialogs.ts`; `ProjectHeader.tsx` (jetzt `ProjectMenu` und `PathBar`), `attention.rs` (`quiet_until`), `lib.rs` (`app_info`, `open_url`), `build.rs` (Commit) | Sprache und Meldungen sind nicht mehr im Projektmenü |
+| 2.1c Seitenleiste ✅ 2026-11-16 (in der echten App zu prüfen) | Seitenleiste B aus `docs/SEITENLEISTE.md`: nur die rechte Spalte, Fenster schmal am rechten Rand des vollen; zurück an Ort und Größe. Übersicht (Git, Runden, Werkbank), Knopf in der Kopfleiste, `Ctrl+Shift+L`; globale Kürzel `Ctrl+Alt+C` (zeigen/ausblenden) und `Ctrl+Alt+L` (Leiste/voll) für alle Fenster | – (`docs/SEITENLEISTE.md`) | neu `window.rs`, `compact.ts`, `SidebarSummary.tsx`; `App.tsx`, `SessionsPanel.tsx`, `HeaderBar.tsx`, `Dialogs.tsx`, `view.ts`, `bridge.rs` (Fensterbotschaften) | Ein Druck auf `Ctrl+Alt+L` macht aus dem vollen Fenster die Leiste und zurück, an derselben Stelle |
 | 2.2 Fundstücke und Links ☐ | Schreibvorgänge außerhalb des Projekts der Sitzung zuordnen und melden; claude.ai-Seiten als Link merken (je nach Ergebnis von 1.1 über Hook oder über die Startregel) | Workbench: „Still somewhere else“, „Pages on claude.ai“ | `bridge.rs`, `sessions.rs`, Adapter | Eine in `/tmp` geschriebene Datei wird gemeldet und lässt sich holen |
 | 2.3 Activity und Hinweise ☐ | Zeitleiste der Sitzungen aus den Ereignissen, „How safe is your work“, geschriebene Dokumente; Panel „Notices and tips“ | Activity, Glocke | neu `views/ActivityView.tsx`, `bridge.rs` (Ereignisse merken) | Ein Vormittag ist als Zeitleiste nachvollziehbar |
 | 2.4 Verbrauch ☐ | P4: erst den Spike. Ohne verlässliche Quelle entfällt die Anzeige, nicht schätzen | Activity, Statusleiste | siehe P4 | D2 ist entschieden und umgesetzt oder gestrichen |
@@ -185,7 +186,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 - **Seitenleiste** (Idee des Nutzers, 2026-11-16, Rückfragen beantwortet): per globalem Kürzel auf die rechte
   Spalte verkleinern (kein eigenes Design), zweites Kürzel blendet CodeDeck ein und aus; Projektmenü wandert nach
   rechts oben; Benachrichtigungen bei Statusänderungen. Kurzkonzept mit drei Schritten (A Kopf rechts, B Leiste,
-  C Aufmerksamkeit) in `docs/SEITENLEISTE.md`. C gehört zu MVP 2, A und B zu 2.5 oder direkt danach. Schritt A ist als **Kopfleiste** ausgearbeitet (Projekt, Schnelleinstellungen, App-Menü, About, Einstellungsdialog; auch für die Startseite): `docs/KOPFLEISTE.md`, Entwurf zur Abstimmung (2026-11-16).
+  C Aufmerksamkeit) in `docs/SEITENLEISTE.md`. Alle drei gebaut: C als 2.1a, A als Kopfleiste 2.1b, B als 2.1c. Schritt A ist als **Kopfleiste** ausgearbeitet (Projekt, Schnelleinstellungen, App-Menü, About, Einstellungsdialog; auch für die Startseite): `docs/KOPFLEISTE.md`, Entwurf zur Abstimmung (2026-11-16).
 - **Einstellungsseite** (Wunsch des Nutzers, 2026-11-15): z. B. wie lange eine fertige Runde unter „Needs you“
   steht, ab wann Sitzungen unter „Earlier“ einklappen.
 
@@ -791,6 +792,26 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   lassen: Taskleiste markiert, Meldung erscheint, Klick holt CodeDeck nach vorn. (2) Runde beenden lassen: dasselbe.
   (3) Bei offenem Fenster mit Fokus: keine Meldung, nur Titel und Aufleuchten. (4) Im Menü „als Meldung“ aus: nur
   Taskleiste.
+- 2.1c Seitenleiste (2026-11-16): Zustand `compact` in `src/compact.ts` (gemeinsam, `setCompact`/`toggleCompact`);
+  `openView` und das Zeigen einer Datei schalten vorher aufs volle Fenster. In der Leiste sind Dateibaum und Deck nur
+  verborgen (`hidden` statt `contents`), ihr Zustand bleibt. Backend `window.rs`: `set_compact` merkt Ort, Größe und
+  Maximiert des vollen Fensters, setzt die Mindestgröße (1040×600 ↔ 280×400) und schrumpft zum rechten Rand hin; die
+  Breite der Leiste liegt in `localStorage` (`codedeck.sidebarWidth`, Vorgabe 340). Die Form selbst wird **nicht**
+  gemerkt: ein neues Fenster („Neues Fenster“) käme sonst unerwartet als Leiste. Globale Kürzel über
+  `tauri-plugin-global-shortcut`: unter X11 hält nur ein Programm eine Tastenkombination, darum hält das erste Fenster
+  beide und handelt für alle über deren Sockets (`{"window": "show"|"hide"|"front"|"toggleCompact"}`, in
+  `Bridge::serve` vor den Ereignissen erkannt); die anderen versuchen es alle 15 s, damit nach dem Schließen eines
+  übernimmt. Wer vorn ist und wer zuletzt benutzt wurde, schreibt jedes Fenster bei Fokuswechsel in `front` und
+  `last-used` im Socket-Ordner; wer erst vor < 0,7 s den Fokus verlor, gilt noch als vorn (der Tastendruck selbst kann
+  ihn kurz nehmen). Registrieren wartet auf den Hauptthread, darum in eigenem Thread. „Belegt“ zeigen Einstellungen
+  (Allgemein) und `F1`, wenn das Registrieren scheitert und kein anderes CodeDeck-Fenster läuft. Die Kürzel sind
+  noch fest (Ändern: Einstellungsbereich „Tastenkürzel“, offen). `tools/shot.mjs` kennt `size:340x900`.
+  **Prüfen in der echten App:** (1) Knopf rechts in der Kopfleiste und `Ctrl+Shift+L`: Leiste am rechten Rand, zurück
+  an Ort und Größe, auch aus maximiertem Fenster. (2) Klick auf eine Zeile der Übersicht oder „Öffnen“: volles Fenster
+  im passenden Reiter. (3) `Ctrl+Alt+C` aus einem anderen Programm: CodeDeck kommt nach vorn, noch einmal: verschwindet,
+  noch einmal: kommt wieder. (4) `Ctrl+Alt+L` von überall. (5) Zwei Fenster: beide verschwinden und kommen zusammen,
+  nach vorn kommt das zuletzt benutzte; das erste schließen, nach höchstens 15 s wirkt das Kürzel weiter. (6) Bei
+  Fokusklau-Schutz des Desktops kommt das Fenster evtl. nur markiert statt vorn: dann melden.
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

@@ -185,7 +185,9 @@ stören“ oder fehlender Verbindung), App-Menü (Über, Tastenkürzel, Hilfe, G
 About-Dialog (Version mit Commit aus `build.rs`, Version kopieren), Tastenkürzel-Übersicht, Einstellungsdialog mit
 Allgemein, Meldungen, KI-Werkzeuge. Links oben nur noch der Pfad.
 
-Offen: Seitenleisten-Knopf (mit Schritt B), Bereiche Sitzungen, Snapshots, Werkbank, Programme, Tastenkürzel im
+Mit 2.1c dazu: der Knopf Seitenleiste ↔ volles Fenster ganz rechts, globale Kürzel unter Allgemein.
+
+Offen: Bereiche Sitzungen, Snapshots, Werkbank, Programme, Tastenkürzel im
 Dialog (sobald ihre Werte einstellbar sind; dann auch `settings.json` und `.codedeck.toml`), „Neu in …“ (braucht ein
 Änderungsprotokoll), Startseite, Profile, Konten, Befehlspalette. Die Hilfe öffnet vorerst die README auf GitHub, der
 About-Dialog die Website-Seite `bespex.github.io/codedeck/` (bis `codedeck.bespex.run` eingerichtet ist).

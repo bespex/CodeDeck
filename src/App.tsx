@@ -4,7 +4,7 @@ import { GitLog } from "./components/GitLog";
 import { Deck } from "./components/Deck";
 import { SessionsPanel } from "./components/SessionsPanel";
 import { StatusBar } from "./components/StatusBar";
-import { live, openProject, openWindow, projectInfo, type Entry, type ProjectInfo } from "./backend";
+import { live, onWindowRequest, openProject, openWindow, projectInfo, type Entry, type ProjectInfo } from "./backend";
 import { initialPins } from "./mock";
 import { files, pinFromEntry } from "./files";
 import { clearAttachments, useAttachments } from "./attachments";
@@ -13,6 +13,7 @@ import { SessionMarksContext, sessionMarks, touchedFiles, useAssistant } from ".
 import { RepoActions, type Anchor } from "./components/RepoActions";
 import { useAttention } from "./attention";
 import { Dialogs } from "./components/Dialogs";
+import { setCompact, toggleCompact, useCompact } from "./compact";
 
 // The preview starts with something attached, to show what that looks like
 if (!live) files.add(initialPins);
@@ -33,16 +34,25 @@ export default function App() {
   // Git actions of one repository, hanging at the element that opened them
   const [actions, setActions] = useState<{ repo: string; anchor: Anchor } | null>(null);
   const [logOpen, setLogOpen] = useState(false);
-  // Ctrl+Shift+G shows and hides the git commands from anywhere
+  const compact = useCompact();
+  // Ctrl+Shift+G shows and hides the git commands from anywhere, Ctrl+Shift+L switches between
+  // sidebar and full window (the global shortcut for it comes from the backend)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "g") {
         e.preventDefault();
         setLogOpen((o) => !o);
+      } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "l") {
+        e.preventDefault();
+        void toggleCompact();
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const stop = onWindowRequest((request) => request === "toggleCompact" && void toggleCompact());
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      stop();
+    };
   }, []);
   const actionsRepo = actions && git.repos.find((r) => r.path === actions.repo);
   const openActions = (repo: string, element: HTMLElement, above: boolean) =>
@@ -69,11 +79,18 @@ export default function App() {
   };
 
   const unpin = (id: string) => files.remove([id]);
+  // A file is shown in the file list and the deck: from the sidebar the full window comes back
+  const showFile = (path: string) => {
+    void setCompact(false);
+    setSelected(path);
+  };
 
   return (
     <SessionMarksContext.Provider value={marks}>
     <div className="flex h-full flex-col">
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(220px,20%)_minmax(0,1fr)_minmax(300px,25%)]">
+      <div className={`grid min-h-0 flex-1 ${compact ? "grid-cols-[minmax(0,1fr)]" : "grid-cols-[minmax(220px,20%)_minmax(0,1fr)_minmax(300px,25%)]"}`}>
+        {/* In the sidebar file list and deck are only hidden: what is open in them stays */}
+        <div className={compact ? "hidden" : "contents"}>
         <FilesPanel
           key={`files:${project?.path}`}
           project={project}
@@ -88,13 +105,16 @@ export default function App() {
           touched={touchedFiles(assistant)}
         />
         <Deck key={`deck:${project?.path}`} git={git} selected={selected} assistant={assistant} />
+        </div>
         <SessionsPanel
           assistant={assistant}
           pins={pins}
           onPin={pin}
           onUnpin={unpin}
           onClear={files.clear}
-          onShowFile={setSelected}
+          onShowFile={showFile}
+          git={git}
+          compact={compact}
           project={project}
           onOpenProject={open}
           onToggleLog={() => setLogOpen((o) => !o)}

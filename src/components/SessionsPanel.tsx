@@ -20,6 +20,8 @@ import { forgetSession, renameSession, type AssistantState, type Entry, type Pro
 import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
 import { SessionBadge } from "./SessionBadge";
 import { HeaderBar } from "./HeaderBar";
+import { SidebarSummary } from "./SidebarSummary";
+import type { GitView } from "../git";
 import type { OpenProject } from "./ProjectHeader";
 import { needsYou, OPENED_AT, putAside, useNow, useWaiting, waitKey, waitsSince } from "../attention";
 import { files, filesText, type Pin } from "../files";
@@ -41,16 +43,25 @@ interface Props {
   project: ProjectInfo | null;
   onOpenProject: OpenProject;
   onToggleLog: () => void;
+  git: GitView;
+  /** Shown as the sidebar, the right column alone (docs/SEITENLEISTE.md) */
+  compact: boolean;
 }
 
 /**
  * The right column, in three areas: what waits for you (coloured only while something does),
- * the sessions working in the project, and what goes out with your next prompt.
+ * the sessions working in the project, and what goes out with your next prompt. As the sidebar a
+ * short overview comes below the header, for what file list, trail and views would show.
  */
 export function SessionsPanel(props: Props) {
   return (
-    <aside className="grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_minmax(0,3fr)_minmax(0,2fr)] border-l border-line bg-panel">
-      <HeaderBar project={props.project} onOpenProject={props.onOpenProject} assistant={props.assistant} onToggleLog={props.onToggleLog} />
+    <aside
+      className={`grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] bg-panel ${
+        props.compact ? "grid-rows-[auto_auto_auto_minmax(0,3fr)_minmax(0,2fr)]" : "grid-rows-[auto_auto_minmax(0,3fr)_minmax(0,2fr)] border-l border-line"
+      }`}
+    >
+      <HeaderBar project={props.project} onOpenProject={props.onOpenProject} assistant={props.assistant} onToggleLog={props.onToggleLog} compact={props.compact} />
+      {props.compact && <SidebarSummary git={props.git} assistant={props.assistant} />}
       <NeedsYou state={props.assistant} />
       <Sessions state={props.assistant} onShowFile={props.onShowFile} />
       <NextPrompt {...props} />

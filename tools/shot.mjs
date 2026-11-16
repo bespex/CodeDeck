@@ -14,6 +14,7 @@
 //                        no mouse, so what CSS shows on hover only stays hidden: click it with
 //                        eval:document.querySelector("…").click()
 //   wait:<ms>
+//   size:<width>x<height>   the window's size from now on, e.g. size:340x900 for the sidebar
 // Without steps: one screenshot, <out-prefix>-page.png. Needs /usr/bin/chromium; Node 22.
 
 import { spawn } from "node:child_process";
@@ -92,6 +93,11 @@ for (const step of steps.length ? steps : ["snap:page"]) {
   else if (kind === "type") await cmd("Input.insertText", { text: arg });
   else if (kind === "eval") console.log((await cmd("Runtime.evaluate", { expression: arg, returnByValue: true })).result?.value);
   else if (kind === "wait") await sleep(Number(arg));
+  else if (kind === "size") {
+    const [width, height] = arg.split("x").map(Number);
+    await cmd("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+    await sleep(500);
+  }
   else console.error("unknown step:", step);
 }
 

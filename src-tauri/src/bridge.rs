@@ -391,6 +391,10 @@ impl Bridge {
         if (&mut stream).take(256 * 1024).read_to_string(&mut text).is_err() {
             return;
         }
+        // Another CodeDeck window, for a global shortcut it holds
+        if let Ok(message) = serde_json::from_str::<crate::window::Message>(&text) {
+            return crate::window::obey(app, message.window);
+        }
         let Ok(event) = serde_json::from_str::<Event>(&text) else { return };
         let context = self.handle(app, &event);
         let _ = stream.write_all(json!({ "context": context }).to_string().as_bytes());

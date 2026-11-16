@@ -20,6 +20,7 @@ mod rules;
 mod snapshot;
 mod watch;
 mod scratch;
+mod window;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
@@ -100,6 +101,18 @@ fn open_url(url: String, app: AppHandle) -> Result<(), String> {
         return Err(format!("{url}: not a web address"));
     }
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
+}
+
+/// Sidebar or full window; the width the window had before.
+#[tauri::command]
+fn set_compact(on: bool, width: f64, window: tauri::WebviewWindow, kept: State<window::FullPlace>) -> Result<f64, String> {
+    window::set_compact(&window, &kept, on, width).map_err(|e| e.to_string())
+}
+
+/// Where the global shortcuts stand: held here, by another CodeDeck window, or by another program.
+#[tauri::command]
+fn global_shortcuts(shortcuts: State<window::Shortcuts>) -> window::ShortcutStatus {
+    shortcuts.get()
 }
 
 /// Tells the user something happened, in the ways they chose (taskbar, desktop notification).
@@ -458,7 +471,16 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(attention::TitlePrefix::default())
+        .manage(window::FullPlace::default())
+        .manage(window::Shortcuts::default())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(window::plugin())
+        // Every window notes whether it is in front: the global shortcuts act on that
+        .on_window_event(|_, event| {
+            if let tauri::WindowEvent::Focused(focused) = event {
+                window::focus_changed(*focused);
+            }
+        })
         .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
             set_title(app.handle(), &project);
@@ -474,6 +496,7 @@ pub fn run() {
                 Err(e) => eprintln!("codeck: no socket for assistants: {e}"),
             }
             exclude_scratch(app.handle());
+            window::claim_shortcuts(app.handle().clone());
             // Hooks of this installation that still run the old `codedeck` (or a program that is
             // gone) now run this one; in the background, it reads every configuration
             std::thread::spawn(|| {
@@ -529,7 +552,9 @@ pub fn run() {
             set_attention_settings,
             notify_attention,
             app_info,
-            open_url
+            open_url,
+            set_compact,
+            global_shortcuts
         ])
         .build(tauri::generate_context!())
         .expect("error while building CodeDeck")
