@@ -62,11 +62,18 @@ jobs:
           conf=src-tauri/tauri.conf.json
           version=$(jq -r .version $conf)
           name=$(jq -r .productName $conf)
-          pkg=${name,,}
+          # The package is named after the command (be spex brand rules, D24); Tauri names it
+          # after productName ("code-deck"), so it is repacked with the right name. Earlier
+          # packages were called code-deck: installing codeck replaces them.
+          pkg=$(jq -r .mainBinaryName $conf)
           bundle=src-tauri/target/release/bundle
           mkdir -p dist-release
-          # Debian naming convention: lowercase package name
-          cp $bundle/deb/*.deb "dist-release/${pkg}_${version}_amd64.deb"
+          work=$(mktemp -d)
+          dpkg-deb -R $bundle/deb/*.deb "$work"
+          sed -i "s/^Package: .*/Package: ${pkg}/" "$work/DEBIAN/control"
+          printf 'Replaces: code-deck\nConflicts: code-deck\nProvides: code-deck\n' >> "$work/DEBIAN/control"
+          dpkg-deb --root-owner-group -b "$work" "dist-release/${pkg}_${version}_amd64.deb"
+          dpkg-deb -f "dist-release/${pkg}_${version}_amd64.deb" Package Version
           cp $bundle/appimage/*.AppImage "dist-release/${name}_${version}_amd64.AppImage"
           cd dist-release
           sha256sum *.deb *.AppImage > SHA256SUMS
@@ -87,7 +94,7 @@ jobs:
             ## Install (Ubuntu 24.04+, Linux Mint 22+, Debian 13+)
 
             ```bash
-            sudo apt install ./CodeDeck_*_amd64.deb
+            sudo apt install ./codeck_*_amd64.deb
             ```
 
             Or run the AppImage directly (`chmod +x CodeDeck_*_amd64.AppImage`).

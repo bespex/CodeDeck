@@ -77,7 +77,7 @@ Optimistic Flow: Die KI schreibt direkt, abgesichert wird über die Sicherungspu
 | D21 | Fokus als Sammelliste vor der Übergabe? | entschieden 2026-11-15: nein. Anpinnen hängt direkt an (Büroklammer); nach dem Absenden ist die Liste leer. Ändert D1 („Sessions & Focus“) |
 | D22 | Oberfläche übersetzbar, Englisch und Deutsch? | entschieden 2026-11-15: ja, jetzt (vor MVP 2, solange es billig ist). Englischer Text im Code ist der Schlüssel, Deutsch im Wörterbuch; Sprache folgt dem System, Umschalter im Projektmenü, je Rechner gemerkt. Übersetzt wird, was man versteht („Änderungen“, „Aktivität“, „Werkbank“, „Nächster Prompt“, „Anhängen“); Fachwörter bleiben (Commit, Push, Pull, Branch, Snapshot, Prompt, Diff, Repo). Was Claude bekommt und was in Git steht, bleibt englisch |
 | D23 | Wohin gehören die `@ai`-Hinweise, wie heißt der Ordner, was zeigt die rechte Spalte? | entschieden 2026-11-16 (Nutzer): Hinweise sind eine Kachel der **Werkbank** (vorläufige Einträge, die vor dem Commit verschwinden sollen, wie Entwürfe), angehängt per Büroklammer wie im Dateibaum, nicht per Häkchen (ein Häkchen läse sich als „erledigt“). Werkbank bleibt der Oberbegriff, der Ordner heißt **`.scratch/`** (auch im Deutschen „Scratch“). Reiter Nächster Prompt: nur, was rausgeht, raumgreifend ohne Rahmen und Füllung, Startregeln immer sichtbar. Rechte Spalte: Zusammenfassung wie ein Dashboard (Zahlen je Art, Tokens, Ziel), springt in den Reiter. Weicht vom Dummy ab |
-| D24 | Name, Befehl, Schriftzug, Logo | entschieden 2026-11-16 (Nutzer): offizieller Name bleibt **CodeDeck**, ebenso in Dateien und Verzeichnissen (`~/.config/codedeck`, `refs/codedeck/`, `.codedeck.toml`). Befehl **`codeck`**. Schriftzug in Programm und About: `co`**`de`**`ck` mit orangem „de“ (Entwurf `.scratch/name-identity/`). Icon bleibt der Stapel, auch vor dem Schriftzug. Domains `codeck.bespex.run` (offiziell) und `codedeck.bespex.run`. Namensprüfung siehe Notizen 2026-11-16. Regeln für alle be-spex-Programme (Schriftzüge, Icons, Domains, wo was erscheint): `bespex.github.io/brand/README.md` |
+| D24 | Name, Befehl, Schriftzug, Logo | entschieden 2026-11-16 (Nutzer): offizieller Name bleibt **CodeDeck**, ebenso in Dateien und Verzeichnissen (`~/.config/codedeck`, `refs/codedeck/`, `.codedeck.toml`). Befehl **`codeck`**. Schriftzug in Programm und About: `co`**`de`**`ck` mit orangem „de“ (Entwurf `.scratch/name-identity/`). Icon bleibt der Stapel, auch vor dem Schriftzug. Domains: `codedeck.bespex.run` führt, `codeck.bespex.run` leitet auf dieselbe Seite (geändert 2026-11-16). Pakete: `codeck` = das Programm (Release dieses Repos), `codedeck` = Metapaket in `bespex/packages` (`Depends: codeck`, `Recommends: marq, dirq, jayq`), entsteht dort, sobald `codeck` veröffentlicht ist. Namensprüfung siehe Notizen 2026-11-16. Regeln für alle be-spex-Programme (Schriftzüge, Icons, Domains, wo was erscheint): `bespex.github.io/brand/README.md` |
 | D15 | Sitzungs-Identität (Farbe + Kurzname, feste Reihenfolge, Umbenennen) als eigener Teilschritt vor 1.3 oder in 1.4? | entschieden 2026-11-15: eigener Teilschritt 1.2a vor 1.3 |
 
 ## Reihenfolge
@@ -751,6 +751,21 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   und Bundle-Texte nach der CI (`brand/README.md`), README-Kopf mit Aussprache. Icons: `codeck-small.svg` (16/24 px,
   ohne Schein und Konturen) und `codeck-symbolic.svg` (einfarbig, für Seitenleiste/Tray, noch ohne Nutzer).
   Statusleiste: „git“ steht jetzt links neben dem Branch. About-Dialog kommt mit Seitenleisten-Schritt A.
+  Paket: Tauri nennt das `.deb` nach `productName` („code-deck“); der Release-Workflow packt es um zu `codeck`
+  (`Package` aus `mainBinaryName`, dazu `Replaces/Conflicts/Provides: code-deck`), Datei `codeck_<version>_amd64.deb`.
+  Lokal am gebauten Paket ausprobiert, in GitHub Actions noch nicht gelaufen.
+- Viele Runden (2026-11-16, nach Commit `6f7c9c5`): **Neustart mitten in einer Runde** ließ je Neustart einen neuen
+  „Before“-Snapshot ohne Ende entstehen (laufende Runde nur im Speicher; beim Bauen mit `./dev` startet das Fenster
+  bei jeder Rust-Änderung neu). Jetzt hält `bridge.rs` laufende Runden zusätzlich in
+  `$XDG_RUNTIME_DIR/codedeck/turns.json` (je Projekt, je Sitzung; nach 12 h ohne Nachricht verworfen); ein neues
+  Fenster übernimmt sie, sobald die Sitzung auftaucht (`Inner::resume`/`take_back`, Test
+  `a_restarted_window_goes_on_with_the_running_turn`). Prompts, die Claude Code selbst einspeist
+  (`<task-notification>`), heißen „Background task finished“ statt Rohtext (`plain_prompt`, auch beim Log-Lesen).
+  Darstellung: Changes zeigt die letzten zwei Runden als Knöpfe, davor „Frühere (n) ▾“ mit Liste (Uhrzeit, Sitzung,
+  Prompt), der Tooltip zählt die Runden seit dem Commit; im Trail falten ab drei Snapshots in Folge zu einem
+  Stapel-Punkt mit Zahl (Klick öffnet, „Diese Snapshots falten“ schließt; ein gewählter Snapshot hält seinen Lauf
+  offen). Tooltips hängen jetzt per Portal an `document.body`: WebKitGTK schnitt sie am Rand der scrollenden
+  Trail-Spalte ab (Chromium nicht, darum in der Vorschau unsichtbar).
 - (Hier je Paket eine Zeile mit Erkenntnissen, die die nächste Session braucht.)
 - P2/P3: Übergabe besteht aus benannten Teilen (`hand_over(key, text|null, label)`, Keys `markers`, `focus`),
   alle gehen zusammen mit dem nächsten Prompt raus. Pin-Typ und `focusText` in `src/focus.ts`,

@@ -68,5 +68,5 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 - Builds landen in `/shared/cargo-target` (Dev-Binary: `/shared/cargo-target/debug/codeck`).
 - Nie das echte `~/.claude/settings.json` in Tests anfassen; `CLAUDE_CONFIG_DIR` auf ein Temp-Verzeichnis setzen.
 - Name (D24, Regeln in `bespex.github.io/brand/README.md`): im Text, in Dateien und Verzeichnissen „CodeDeck“
-  (`~/.config/codedeck`, `refs/codedeck/`, `CODEDECK_*`), der Befehl ist `codeck`, im Text „be spex“, nie „be-spex“.
+  (`~/.config/codedeck`, `refs/codedeck/`, `CODEDECK_*`), der Befehl und sein Paket heißen `codeck`; `codedeck` ist das Metapaket (Programm + Viewer, in `bespex/packages`) und die führende Domain `codedeck.bespex.run`. Im Text „be spex“, nie „be-spex“.
 - Commits nur auf Wunsch, auf `main`, Englisch, Autor aus der Repo-Config, mit KI-Zeilen.
