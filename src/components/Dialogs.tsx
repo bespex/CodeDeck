@@ -59,12 +59,12 @@ function Modal(props: { title: string; width: string; children: ReactNode; bare?
   );
 }
 
-/** The wordmark: the name in small letters, which is also the command (D26); the "co" in the
- *  brand orange, for you and the AI at one deck. */
+/** The wordmark: the name in small letters, which is also the command (D26); "code" in the
+ *  brand orange: what the deck is about. */
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
     <span className={`font-extrabold tracking-[-0.03em] text-slate-100 ${className}`}>
-      <span className="text-brand">co</span>dedeck
+      <span className="text-brand">code</span>deck
     </span>
   );
 }
