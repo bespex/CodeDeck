@@ -19,7 +19,7 @@ import { appInfo, diagnostics, openUrl, setProject, stopSession, toggleOverview,
 import { useAccounts } from "../accounts";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
-import { lang, setLang, t } from "../i18n";
+import { lang, t } from "../i18n";
 import { AttentionChoice, isQuiet, QuietChoice } from "./AttentionChoice";
 import { SOURCE_URL } from "./Dialogs";
 import { usePopover, type OpenProject } from "./ProjectHeader";
@@ -35,9 +35,8 @@ interface Props {
 
 /**
  * The header of the right column, which stays in every form of CodeDeck (docs/KOPFLEISTE.md):
- * where am I (the project), how does CodeDeck behave right now (quick settings), what is CodeDeck
- * (the app menu), and the switch between sidebar and full window. On the start page "All projects"
- * will take the project's place.
+ * which AI account the project runs with, and the switch to the overview. The project, quick settings
+ * and the app menu are at the top of the file column (`PathBar`).
  */
 export function HeaderBar(props: Props) {
   return (
@@ -47,16 +46,14 @@ export function HeaderBar(props: Props) {
       className="block shrink-0"
       content={
         <ToolTipBody
-          says={t("The control room beside your AI tool. At the top you see the AI account of this project and the settings. Below: the sessions that wait for you, all sessions of the project with what they are doing, and a summary of what goes with your next prompt.")}
-          hint={t("The buttons at the top change settings and switch to the overview.")}
+          says={t("The control room beside your AI tool. At the top you see the AI account of this project. Below: the sessions that wait for you, all sessions of the project with what they are doing, and a summary of what goes with your next prompt.")}
+          hint={t("The account at the top can be switched; the button at the right opens the overview.")}
         />
       }
     >
     <header className="zone-tabs relative flex h-[44px] shrink-0 items-center gap-1 border-b border-line bg-panel pr-1.5 pl-1.5">
       <AccountBlock project={props.project} assistant={props.assistant} />
       <span className="flex-1" />
-      <QuickSettings />
-      <AppMenu onToggleLog={props.onToggleLog} assistant={props.assistant} />
       <button
         type="button"
         title={t("Overview of all projects · Ctrl+Shift+L, from anywhere Ctrl+Alt+L")}
@@ -72,7 +69,7 @@ export function HeaderBar(props: Props) {
   );
 }
 
-const iconButton = (on: boolean) =>
+export const iconButton = (on: boolean) =>
   `relative flex items-center gap-0.5 rounded-md p-1.5 text-slate-400 hover:bg-raised hover:text-slate-100 ${on ? "bg-raised text-slate-100" : ""}`;
 
 /** A menu hanging at the right end of the bar. */
@@ -105,7 +102,7 @@ const Key = ({ children }: { children: string }) => <kbd className="text-[11px] 
  * What one switches in the course of a day, without a dialog; all takes effect at once and is kept
  * for this machine. A dot on the button tells that "do not disturb" is on.
  */
-function QuickSettings() {
+export function QuickSettings() {
   const menu = usePopover<HTMLDivElement>();
   const [settings] = useAttentionSettings();
   const unusual = isQuiet(settings);
@@ -133,24 +130,6 @@ function QuickSettings() {
           <Heading>{t("Tell me when I look elsewhere")}</Heading>
           <div className="px-3 pb-1">
             <AttentionChoice />
-          </div>
-          <Heading>{t("Display")}</Heading>
-          <div className="flex items-center gap-2 px-3 py-1 text-slate-200">
-            <span className="flex-1">{t("Language")}</span>
-            <div className="flex rounded-md border border-overlay-line p-0.5" role="radiogroup" aria-label={t("Language")}>
-              {(["en", "de"] as const).map((l) => (
-                <button
-                  key={l}
-                  type="button"
-                  role="radio"
-                  aria-checked={lang === l}
-                  onClick={() => setLang(l)}
-                  className={`rounded px-2 py-0.5 text-[12px] ${lang === l ? "bg-overlay-hover text-slate-100" : "text-slate-500 hover:text-slate-200"}`}
-                >
-                  {l === "en" ? "English" : "Deutsch"}
-                </button>
-              ))}
-            </div>
           </div>
           <div className="mt-1 border-t border-overlay-line p-1">
             <Item
@@ -279,7 +258,7 @@ function AccountBlock({ project, assistant }: { project: ProjectInfo | null; ass
 }
 
 /** Everything about CodeDeck itself. */
-function AppMenu({ onToggleLog, assistant }: { onToggleLog: () => void; assistant: AssistantState }) {
+export function AppMenu({ onToggleLog, assistant }: { onToggleLog: () => void; assistant: AssistantState }) {
   const menu = usePopover<HTMLDivElement>();
   const [copied, setCopied] = useState(false);
   // What the backend knows, and what only the window knows; for a bug report or a chat

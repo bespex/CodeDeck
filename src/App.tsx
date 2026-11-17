@@ -110,6 +110,8 @@ export default function App() {
           onPin={pin}
           onUnpin={unpin}
           onOpenProject={open}
+          onToggleLog={() => setLogOpen((o) => !o)}
+          assistant={assistant}
           onRepoActions={openActions}
           touched={touchedFiles(assistant)}
         />

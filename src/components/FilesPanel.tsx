@@ -20,7 +20,7 @@ import {
   Settings2,
 } from "lucide-react";
 import { onFsChanged, openPath, readDir, showInFileManager, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
-import type { GitState } from "../backend";
+import type { AssistantState, GitState } from "../backend";
 import { aheadBehind, stateMeaning, stateSymbol, type GitView } from "../git";
 import { Tooltip, ToolTipBody } from "./Tooltip";
 import { pathItems, useContextMenu } from "./ContextMenu";
@@ -65,6 +65,8 @@ interface Props {
   /** Takes a file or folder out of the assistant's context again */
   onUnpin: (path: string) => void;
   onOpenProject: OpenProject;
+  onToggleLog: () => void;
+  assistant: AssistantState;
   /** Open the Git actions of a repository at the given element */
   onRepoActions: (repo: string, at: HTMLElement, above: boolean) => void;
   /** Files an assistant wrote, with the time (ms) of its latest write */
@@ -144,7 +146,7 @@ export function FilesPanel(props: Props) {
 
   return (
     <aside className="zone-files flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
-      <PathBar project={props.project} onOpen={props.onOpenProject} />
+      <PathBar project={props.project} onToggleLog={props.onToggleLog} assistant={props.assistant} />
 
       <div className="px-2 pt-2">
         <label className="flex items-center gap-2 rounded-md border border-line bg-base px-2 py-1.5 focus-within:border-ai">

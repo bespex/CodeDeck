@@ -1,15 +1,13 @@
 import { Tooltip, ToolTipBody } from "./Tooltip";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
-import type { ProjectInfo } from "../backend";
+import { useEffect, useRef, useState } from "react";
+import type { AssistantState, ProjectInfo } from "../backend";
+import { AppMenu, QuickSettings } from "./HeaderBar";
 import { useProjectLook } from "../projectLook";
 import { ProjectMark } from "./ProjectMark";
 import { t } from "../i18n";
 
 /** Opens a directory: here, or in a new window of its own. */
 export type OpenProject = (path: string, newWindow: boolean) => Promise<void>;
-
-/** Ctrl+click and middle click open in a new window, as with links in a browser. */
-const wantsNewWindow = (e: MouseEvent) => e.ctrlKey || e.metaKey || e.button === 1;
 
 /**
  * A menu that hangs at its button and closes on a click elsewhere or Escape. `ref` goes on the
@@ -33,36 +31,17 @@ export function usePopover<T extends HTMLElement>() {
   return { open, setOpen, ref };
 }
 
-/** Opening a project, with the error it may give shown for a while. */
-function useOpen(onOpen: OpenProject, done: () => void) {
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    if (!error) return;
-    const timer = setTimeout(() => setError(null), 6000);
-    return () => clearTimeout(timer);
-  }, [error]);
-  const open = async (path: string, newWindow: boolean) => {
-    done();
-    try {
-      await onOpen(path, newWindow);
-      setError(null);
-    } catch (e) {
-      setError(String(e));
-    }
-  };
-  return { open, error };
-}
-
 /**
- * Head of the file list: the path of the project. Every folder above it can be clicked to make it
- * the project (Ctrl+click: in a new window). The project itself is named in the header bar on the
- * right, which stays in every form of CodeDeck.
+ * Head of the file list, the counterpart of the account block on the right: the project's mark, its
+ * name and below it, quiet, where it lives; at the right the menus about CodeDeck itself (quick
+ * settings, the app menu). Projects are opened in the overview.
  */
-export function PathBar({ project, onOpen }: { project: ProjectInfo | null; onOpen: OpenProject }) {
-  const { open, error } = useOpen(onOpen, () => {});
+export function PathBar({ project, onToggleLog, assistant }: { project: ProjectInfo | null; onToggleLog: () => void; assistant: AssistantState }) {
   const crumbs = project?.crumbs ?? [];
   const look = useProjectLook(project?.path);
   const name = crumbs[crumbs.length - 1]?.label ?? project?.root ?? "";
+  // Where it lives: the folders above it, the home folder as ~
+  const where = (project?.root ?? "").replace(/\/[^/]*\/?$/, "").replace(/^\/home\/[^/]+/, "~") || "/";
   return (
     <Tooltip
       area
@@ -77,36 +56,20 @@ export function PathBar({ project, onOpen }: { project: ProjectInfo | null; onOp
     {/* `zone-tabs`: the row of headers across the window is one region, the controls (docs/STYLING.md, `zones`) */}
     <header className="zone-tabs relative shrink-0 border-b border-line bg-panel">
       {/* 43 px plus the border: the same 44 px as the headers beside it, so their lines meet */}
-      <div className="flex h-[43px] items-center gap-3 px-3">
-        {/* The project itself, large: the project picker lives in the right column, so this is where you see what is open */}
+      <div className="flex h-[43px] items-center gap-1 pr-1.5 pl-3">
         {project && (
-          <span className="flex max-w-[55%] shrink-0 items-center gap-2.5" title={project.root}>
+          <span className="flex min-w-0 items-center gap-2.5" title={project.root}>
             {look && <ProjectMark mark={look.mark} color={look.color} name={look.name} size={28} />}
-            <span className="truncate text-[15px] leading-none font-semibold text-slate-100">{name}</span>
+            <span className="flex min-w-0 flex-col leading-tight">
+              <span className="truncate text-[14px] font-semibold text-slate-100">{name}</span>
+              <span className="truncate font-mono text-[11px] text-slate-500">{where}</span>
+            </span>
           </span>
         )}
-        {/* The way there is quiet; a long path is cut off on the left, the nearest folders stay visible */}
-        <nav aria-label={t("Path")} className="flex min-w-0 flex-1 justify-end overflow-hidden font-mono text-[11px] whitespace-nowrap text-slate-500">
-          {crumbs.slice(0, -1).map((crumb, i) => {
-            const separator = i > 0 && crumbs[i - 1].label !== "/";
-            return (
-              <span key={crumb.path} className="flex shrink-0 items-center">
-                {separator && <span className="text-slate-600">/</span>}
-                <button
-                  type="button"
-                  title={t("Open {path} here · Ctrl+click: new window", { path: crumb.path })}
-                  onClick={(e) => open(crumb.path, wantsNewWindow(e))}
-                  onAuxClick={(e) => e.button === 1 && open(crumb.path, true)}
-                  className="rounded px-px hover:bg-raised hover:text-slate-200"
-                >
-                  {crumb.label}
-                </button>
-              </span>
-            );
-          })}
-        </nav>
+        <span className="flex-1" />
+        <QuickSettings />
+        <AppMenu onToggleLog={onToggleLog} assistant={assistant} />
       </div>
-      {error && <p className="selectable px-3 pb-2 text-[11px] text-problem">{error}</p>}
     </header>
     </Tooltip>
   );
