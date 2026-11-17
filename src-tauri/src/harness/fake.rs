@@ -84,6 +84,7 @@ impl Harness for Fake {
             prompt: Some("Write notes".to_string()),
             writes: vec![(project.join("docs/notes.md"), 1)],
             report: None,
+            remote: None,
         }]
     }
 
