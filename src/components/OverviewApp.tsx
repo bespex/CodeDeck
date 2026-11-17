@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Plus, Settings, SquareTerminal, Star, TriangleAlert } from "lucide-react";
-import { addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, setProject, showProject, toggleProjectWindow, type OverviewProject, type Session } from "../backend";
+import { Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, RotateCcw, Settings, Square, SquareTerminal, Star, TriangleAlert } from "lucide-react";
+import { addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, setProject, showProject, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type Session } from "../backend";
 import { useConnections } from "../assistant";
 import { MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
 import { DONE_SHOWN_MS, needsYou, useNow } from "../attention";
@@ -122,6 +122,33 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
     <div onClick={(e) => e.stopPropagation()} className="surface-overlay absolute top-8 right-2 z-30 flex w-64 flex-col rounded-lg p-1">
       <button type="button" className={item} onClick={() => (onClose(), label ? void toggleProjectWindow(label) : void showProject(project.path))}>
         {label ? (project.visible ? t("Hide its window") : t("Show its window")) : t("Load its window")}
+      </button>
+      <div className="my-1 h-px bg-overlay-line" />
+      <button
+        type="button"
+        className={item}
+        onClick={() => {
+          onClose();
+          void startSession(project.path, false)
+            .then((name) => tell(name ? t("Started in tmux {name}", { name }) : t("A session runs there already")))
+            .catch((e) => tell(String(e)));
+        }}
+      >
+        <Play className="size-3.5 text-slate-400" />
+        {t("Start session (continues the last one)")}
+      </button>
+      <button
+        type="button"
+        className={item}
+        onClick={() => {
+          onClose();
+          void startSession(project.path, true)
+            .then((name) => name && tell(t("Started in tmux {name}", { name })))
+            .catch((e) => tell(String(e)));
+        }}
+      >
+        <Plus className="size-3.5 text-slate-400" />
+        {t("New session")}
       </button>
       {project.listed && (
         <button type="button" className={item} onClick={() => (onClose(), void setProject(project.path, "daily", !project.daily))}>
@@ -279,6 +306,17 @@ function ProjectRow({ project }: { project: OverviewProject }) {
                 )}
                 <span className={`shrink-0 text-[11px] ${status.className}`}>{status.word}</span>
                 <span className="hidden items-center group-hover/s:flex">
+                  {/* Sessions in tmux can be stopped and restarted from here; not while they work */}
+                  {s.place?.tmux?.session && s.status !== "working" && (
+                    <>
+                      <RowIcon title={t("Restart: same conversation, fresh process")} onClick={() => void stopSession(project.path, s.id, true).catch((e) => tell(String(e)))}>
+                        <RotateCcw className="size-3.5" />
+                      </RowIcon>
+                      <RowIcon title={t("Stop (the conversation is kept and can be continued)")} onClick={() => void stopSession(project.path, s.id, false).catch((e) => tell(String(e)))}>
+                        <Square className="size-3.5" />
+                      </RowIcon>
+                    </>
+                  )}
                   {s.place?.remote && (
                     <RowIcon title={t("Open in the desktop app")} onClick={() => void go(s, "desktop")}>
                       <Monitor className="size-3.5" />
@@ -428,11 +466,33 @@ export default function OverviewApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   const host = (projects.find((p) => p.front) ?? projects.find((p) => p.label))?.label ?? null;
+  // Today's list: projects with the star and no live session
+  const now = useNow();
+  const toStart = projects.filter((p) => p.daily && !(p.state?.sessions ?? []).some((s) => relevant(s, now) && s.alive !== false && (s.alive === true || s.status === "working" || s.status === "waiting"))).length;
+  const startAll = () =>
+    void startToday()
+      .then(([started, skipped]) =>
+        tell(
+          [started.length ? t("Started: {names}", { names: started.join(", ") }) : t("Nothing to start"), skipped.length ? t("running already: {names}", { names: skipped.join(", ") }) : ""]
+            .filter(Boolean)
+            .join(" · "),
+        ),
+      )
+      .catch((e) => tell(String(e)));
   return (
     <div className="flex h-screen flex-col bg-panel text-[13px]">
       <header className="flex h-10 shrink-0 items-center gap-1 border-b border-line pr-2 pl-3">
         <img src="/codedeck.svg" alt="" className="size-[18px]" />
         <span className="flex-1" />
+        <button
+          type="button"
+          title={toStart ? t("Start today's list: {n} without a running session", { n: toStart }) : t("Start today's list (★ in a project's menu)")}
+          onClick={startAll}
+          className={`${toolButton} relative`}
+        >
+          <Play className="size-4" />
+          {toStart > 0 && <span className="absolute top-0.5 right-0.5 min-w-3.5 rounded-full bg-ai px-0.5 text-center text-[9px] leading-[14px] font-semibold text-white">{toStart}</span>}
+        </button>
         <button type="button" title={t("Add a project to my list (Ctrl+O)")} onClick={() => void open()} className={toolButton}>
           <Plus className="size-4" />
         </button>

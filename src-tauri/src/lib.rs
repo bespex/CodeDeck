@@ -25,6 +25,7 @@ mod projects;
 mod recent;
 mod rules;
 mod snapshot;
+mod tmux;
 mod updates;
 mod usage;
 mod watch;
@@ -711,6 +712,69 @@ fn toggle_project_window(label: String, app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Starts a session of a project in tmux (docs/SITZUNGEN.md B2), with the project's AI
+/// configuration and Remote Control. `fresh`: a new conversation; else the latest one that did not
+/// end is continued, and nothing starts while one runs already. The tmux session's name.
+fn start_in(app: &AppHandle, root: &Path, fresh: bool) -> Result<Option<String>, String> {
+    let bridge = windows::bridge_for(app, root);
+    let (running, resume) = bridge.start_info();
+    if running && !fresh {
+        return Ok(None);
+    }
+    let account = projects::list().into_iter().find(|p| p.path == root).and_then(|p| p.account);
+    let tool = harness::all().first().copied().ok_or("no tool")?;
+    let (_, name) = tmux::start(root, tool, account.as_deref(), if fresh { None } else { resume.as_deref() })?;
+    Ok(Some(name))
+}
+
+/// Starts a session in one project: `fresh` a new conversation, else the last one continues.
+/// `None` when one runs there already (and `fresh` is false).
+#[tauri::command]
+async fn start_session(project: String, fresh: bool, app: AppHandle) -> Result<Option<String>, String> {
+    let root = Project::open(Path::new(&project))?.root;
+    start_in(&app, &root, fresh)
+}
+
+/// Starts the sessions of every project on today's list that has none running, one after the
+/// other (docs/SITZUNGEN.md A12). The names of the projects started and of those skipped.
+#[tauri::command]
+async fn start_today(app: AppHandle) -> Result<(Vec<String>, Vec<String>), String> {
+    let (mut started, mut skipped) = (Vec::new(), Vec::new());
+    for project in projects::list().into_iter().filter(|p| p.daily) {
+        let name = project.path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+        match start_in(&app, &project.path, false)? {
+            Some(_) => {
+                started.push(name);
+                // A breath between two: every tool start reads its configuration and logs in
+                std::thread::sleep(std::time::Duration::from_millis(400));
+            }
+            None => skipped.push(name),
+        }
+    }
+    Ok((started, skipped))
+}
+
+/// Stops a session CodeDeck can reach in tmux; its conversation is kept. With `restart`, the
+/// same conversation starts again in a fresh process (B6).
+#[tauri::command]
+async fn stop_session(project: String, session: String, restart: bool, app: AppHandle) -> Result<(), String> {
+    let root = Project::open(Path::new(&project))?.root;
+    let bridge = windows::bridge_for(&app, &root);
+    let (harness_id, account, place) = bridge.session_place(&session).ok_or("this session is not known (any more)")?;
+    let name = place
+        .and_then(|p| p.tmux)
+        .and_then(|t| t.session)
+        .ok_or("it does not run in tmux: end it where it runs")?;
+    tmux::stop(&name)?;
+    if restart {
+        std::thread::sleep(std::time::Duration::from_millis(600));
+        let tool = harness::by_id(Some(harness_id)).ok_or("unknown tool")?;
+        let account = projects::list().into_iter().find(|p| p.path == root).and_then(|p| p.account).or(account);
+        tmux::start(&root, tool, account.as_deref(), Some(&session))?;
+    }
+    Ok(())
+}
+
 /// Goes into a session of a project: `door` is "desktop" (the tool's desktop app) or "terminal".
 #[tauri::command]
 fn open_session(project: String, session: String, door: String, app: AppHandle) -> Result<(), String> {
@@ -912,6 +976,9 @@ pub fn run() {
             my_project,
             set_window_icon,
             open_session,
+            start_session,
+            start_today,
+            stop_session,
             remove_project,
             show_project,
             toggle_project_window

@@ -65,6 +65,11 @@ pub trait Harness: Send + Sync {
     fn page_hosts(&self) -> &'static [&'static str] {
         &[]
     }
+    /// How to start a session of this tool (docs/SITZUNGEN.md B2): the command and the environment
+    /// it needs. `None`: CodeDeck cannot start sessions of this tool.
+    fn launch(&self, _launch: &Launch) -> Option<Launched> {
+        None
+    }
     /// The command that shows a session in the tool's desktop app, from its remote link (see
     /// [`Self::remote_link`]); `profile` is the app's data folder for the session's account, if the
     /// user set one. `None`: the tool has no desktop app that can do this.
@@ -174,6 +179,24 @@ pub struct Event {
     /// message brings all of it. The adapter leaves it empty, the transport fills it in
     #[serde(default)]
     pub place: Option<Place>,
+}
+
+/// A session CodeDeck starts.
+pub struct Launch<'a> {
+    /// The session's id, chosen by CodeDeck (a UUID), or the one of the conversation to continue
+    pub id: &'a str,
+    /// Continue the conversation `id` instead of starting a new one under that id
+    pub resume: bool,
+    /// The name it shows under, also in the tool's other surfaces
+    pub name: &'a str,
+    /// The tool's account (for Claude Code its configuration folder); `None`: the default
+    pub account: Option<&'a str>,
+}
+
+/// What starts it: the program and its arguments, and environment variables to set.
+pub struct Launched {
+    pub argv: Vec<String>,
+    pub env: Vec<(String, String)>,
 }
 
 /// Where a session runs: what is needed to find it, to tell whether it is still alive, and to reach

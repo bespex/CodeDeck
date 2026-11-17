@@ -145,6 +145,23 @@ impl Harness for Claude {
     /// Remote Control: while a session is connected, Claude Code (2.1.199 and later) gives its hooks
     /// the remote session's id, the same as in its claude.ai/code address. Gone when the connection
     /// is, so this also tells whether the session is reachable right now.
+    /// `claude --session-id <id>` (or `--resume <id>`) with a name and Remote Control, so that the
+    /// session is reachable from Claude Desktop, the browser and the phone at once (B2, B4). The
+    /// account is the configuration folder (`CLAUDE_CONFIG_DIR`).
+    fn launch(&self, launch: &crate::harness::Launch) -> Option<crate::harness::Launched> {
+        let argv = [
+            "claude",
+            if launch.resume { "--resume" } else { "--session-id" },
+            launch.id,
+            "-n",
+            launch.name,
+            "--remote-control",
+            launch.name,
+        ];
+        let env = launch.account.map(|dir| ("CLAUDE_CONFIG_DIR".to_string(), dir.to_string())).into_iter().collect();
+        Some(crate::harness::Launched { argv: argv.iter().map(|a| a.to_string()).collect(), env })
+    }
+
     /// Claude Desktop opens `claude://claude.ai/<path>` as that claude.ai page in the app: for a
     /// remote session exactly that session (tried 2026-11-17 on Linux, docs/SITZUNGEN.md B4). With
     /// two app profiles `claude://` belongs to one of them, so with a profile known for the

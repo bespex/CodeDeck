@@ -478,6 +478,20 @@ impl Bridge {
         self.tell(app, ASSISTANT_CHANGED, self.state());
     }
 
+    /// Before starting a session in the project: whether one runs there already (its process
+    /// lives, or it worked within minutes where that is not known), and the conversation to
+    /// continue: the latest one that did not end, if any.
+    pub fn start_info(&self) -> (bool, Option<String>) {
+        let inner = self.inner.locked();
+        let now = now_ms();
+        let alive = |s: &Session| s.place.as_ref().and_then(crate::place::alive);
+        let running = inner.sessions.values().any(|s| {
+            s.status != "ended" && alive(s).unwrap_or_else(|| matches!(s.status, "working" | "waiting") && now.saturating_sub(s.last) < 5 * 60_000)
+        });
+        let resume = inner.sessions.values().filter(|s| s.status != "ended" && alive(s) != Some(true)).max_by_key(|s| s.last).map(|s| s.id.clone());
+        (running, resume)
+    }
+
     /// What is needed to go into a session: its tool, its account, where it runs.
     pub fn session_place(&self, id: &str) -> Option<(&'static str, Option<String>, Option<Place>)> {
         let inner = self.inner.locked();

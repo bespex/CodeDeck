@@ -1509,6 +1509,25 @@ export function toggleProjectWindow(label: string): Promise<void> {
   return Promise.resolve();
 }
 
+/** Starts a session in tmux: a new conversation (`fresh`), else the last one continues. The tmux
+ *  session's name, or `null` when one runs there already. */
+export function startSession(project: string, fresh: boolean): Promise<string | null> {
+  if (live) return invoke("start_session", { project, fresh });
+  return Promise.resolve(`codedeck-${project.split("/").pop()}`);
+}
+
+/** Starts the sessions of today's list that have none running: the projects started and skipped. */
+export function startToday(): Promise<[string[], string[]]> {
+  if (live) return invoke("start_today");
+  return Promise.resolve([["billing-ui"], ["orbit-api"]]);
+}
+
+/** Stops a session in tmux (its conversation is kept); with `restart` it starts again at once. */
+export function stopSession(project: string, session: string, restart: boolean): Promise<void> {
+  if (live) return invoke("stop_session", { project, session, restart });
+  return Promise.resolve();
+}
+
 /** Goes into a session: in the tool's desktop app, or in a terminal. */
 export function openSession(project: string, session: string, door: "desktop" | "terminal"): Promise<void> {
   if (live) return invoke("open_session", { project, session, door });
