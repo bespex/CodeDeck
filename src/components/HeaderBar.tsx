@@ -8,14 +8,13 @@ import {
   Ellipsis,
   Info,
   Keyboard,
-  LayoutList,
   Settings,
   SlidersHorizontal,
   Sparkles,
   SquareTerminal,
   Stethoscope,
 } from "lucide-react";
-import { appInfo, diagnostics, openUrl, setProject, stopSession, toggleOverview, type Account, type AssistantState, type ProjectInfo } from "../backend";
+import { appInfo, diagnostics, openUrl, setProject, stopSession, type Account, type AssistantState, type ProjectInfo } from "../backend";
 import { useAccounts } from "../accounts";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
@@ -35,7 +34,7 @@ interface Props {
 
 /**
  * The header of the right column, which stays in every form of CodeDeck (docs/KOPFLEISTE.md):
- * which AI account the project runs with, and the switch to the overview. The project, quick settings
+ * which AI account the project runs with (the overview opens with Ctrl+Shift+L). The project, quick settings
  * and the app menu are at the top of the file column (`PathBar`).
  */
 export function HeaderBar(props: Props) {
@@ -47,23 +46,13 @@ export function HeaderBar(props: Props) {
       content={
         <ToolTipBody
           says={t("The control room beside your AI tool. At the top you see the AI account of this project. Below: the sessions that wait for you, all sessions of the project with what they are doing, and a summary of what goes with your next prompt.")}
-          hint={t("The account at the top can be switched; the button at the right opens the overview.")}
+          hint={t("The account at the top can be switched.")}
         />
       }
     >
     <header className="zone-tabs relative flex h-[44px] shrink-0 items-center gap-1 border-b border-line bg-panel pr-1.5 pl-1.5">
       <AccountBlock project={props.project} assistant={props.assistant} />
       <span className="flex-1" />
-      <button
-        type="button"
-        title={t("Overview of all projects · Ctrl+Shift+L, from anywhere Ctrl+Alt+L")}
-        aria-label={t("Overview of all projects")}
-        aria-keyshortcuts="Control+Alt+L"
-        onClick={() => void toggleOverview()}
-        className={iconButton(false)}
-      >
-        <LayoutList className="size-4" />
-      </button>
     </header>
     </Tooltip>
   );
