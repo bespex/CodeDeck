@@ -113,7 +113,7 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
       {project.listed && (
         <button type="button" className={item} onClick={() => (onClose(), void setProject(project.path, "daily", !project.daily))}>
           <span className="flex size-3.5 items-center justify-center">
-            <span className="size-3 rounded-full border-2" style={{ borderColor: project.daily ? project.color : "var(--color-slate-500)" }} />
+            <span className="size-3 rounded-full border-2" style={{ borderColor: project.daily ? ((project.mark as { color?: string } | null)?.color ?? project.color) : "var(--color-slate-500)" }} />
           </span>
           <span className="flex-1">{t("On today's list")}</span>
           {project.daily && <Check className="size-3.5 text-slate-300" />}
@@ -209,7 +209,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
           }}
           title={(project.daily ? t("On today's list") + " · " : "") + (label ? (hidden ? t("Show its window") : t("Hide its window (close it in the window itself)")) : t("Double-click: load its window"))}
           aria-label={label ? (hidden ? t("Show its window") : t("Hide its window")) : t("Load its window")}
-          style={{ ["--ring" as string]: project.color }}
+          style={{ ["--ring" as string]: (project.mark as { color?: string } | null)?.color ?? project.color }}
           className={`mark-switch ${project.daily ? "mark-daily" : ""} flex shrink-0 rounded-full ${!label ? "opacity-50 hover:opacity-100" : hidden ? "opacity-75" : ""}`}
         >
           <ProjectMark project={project} />
@@ -409,6 +409,7 @@ function MoreMenu({ host }: { host: string | null }) {
             {t("Settings")}
             <span className="ml-auto text-slate-500">Ctrl+,</span>
           </button>
+          <div className="my-1 h-px bg-overlay-line" />
           <button type="button" disabled={!host} className={item} onClick={() => inWindow("shortcuts")}>
             {t("Keyboard shortcuts")}
             <span className="ml-auto text-slate-500">F1</span>
