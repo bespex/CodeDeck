@@ -869,7 +869,7 @@ export const de: Record<string, string> = {
   "Nothing to start": "Nichts zu starten",
   "running already: {names}": "läuft schon: {names}",
   "Start today's list: {n} without a running session": "Tagesliste starten: {n} ohne laufende Sitzung",
-  "Start today's list (★ in a project's menu)": "Tagesliste starten (★ im Menü eines Projekts)",
+  "Start today's list (set in a project's menu)": "Tagesliste starten (im Menü eines Projekts festlegen)",
   "Accounts": "Konten",
   "Name": "Name",
   "in use · connected": "in Gebrauch · verbunden",

@@ -439,10 +439,33 @@ body {
   border-right-color: transparent;
   animation: mark-ring 0.6s ease-out;
 }
+/* On today's list: the same ring, whole and in the project's colour, always there; hovering makes
+   it pulse instead of drawing the open ring */
+.mark-daily::after {
+  border-color: var(--ring, var(--color-ai));
+}
+.mark-daily:hover::after,
+.mark-daily:focus-visible::after {
+  border-color: var(--ring, var(--color-ai));
+  animation: mark-pulse 0.9s ease-in-out infinite;
+}
+@keyframes mark-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.18); opacity: 0.45; }
+}
 @keyframes mark-ring {
   from { transform: rotate(-180deg); opacity: 0; }
   to { transform: rotate(0); opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .mark-switch:hover::after { animation: none; }
+  .mark-switch:hover::after, .mark-daily:hover::after { animation: none; }
+}
+
+/* Rows of the overview take their hover from the theme's indigo: the project's a little stronger,
+   the session's quieter, both visible on every theme */
+.hover-project:hover {
+  background-color: color-mix(in srgb, var(--color-ai) 14%, var(--color-panel));
+}
+.hover-session:hover {
+  background-color: color-mix(in srgb, var(--color-ai) 8%, var(--color-panel));
 }

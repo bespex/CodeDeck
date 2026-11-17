@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, RotateCcw, Settings, Square, SquareTerminal, Star, TriangleAlert } from "lucide-react";
+import { Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, RotateCcw, Square, SquareTerminal, TriangleAlert } from "lucide-react";
 import { addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, setProject, showProject, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type Session } from "../backend";
 import { accountLook, useAccounts } from "../accounts";
 import { AccountMark, MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
@@ -110,36 +110,13 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
         {label ? (project.visible ? t("Hide its window") : t("Show its window")) : t("Load its window")}
       </button>
       <div className="my-1 h-px bg-overlay-line" />
-      <button
-        type="button"
-        className={item}
-        onClick={() => {
-          onClose();
-          void startSession(project.path, false)
-            .then((name) => tell(name ? t("Started in tmux {name}", { name }) : t("A session runs there already")))
-            .catch((e) => tell(String(e)));
-        }}
-      >
-        <Play className="size-3.5 text-slate-400" />
-        {t("Start session (continues the last one)")}
-      </button>
-      <button
-        type="button"
-        className={item}
-        onClick={() => {
-          onClose();
-          void startSession(project.path, true)
-            .then((name) => name && tell(t("Started in tmux {name}", { name })))
-            .catch((e) => tell(String(e)));
-        }}
-      >
-        <Plus className="size-3.5 text-slate-400" />
-        {t("New session")}
-      </button>
       {project.listed && (
         <button type="button" className={item} onClick={() => (onClose(), void setProject(project.path, "daily", !project.daily))}>
-          <Star className={`size-3.5 ${project.daily ? "fill-current text-changed" : "text-slate-500"}`} />
-          {t("On today's list")}
+          <span className="flex size-3.5 items-center justify-center">
+            <span className="size-3 rounded-full border-2" style={{ borderColor: project.daily ? project.color : "var(--color-slate-500)" }} />
+          </span>
+          <span className="flex-1">{t("On today's list")}</span>
+          {project.daily && <Check className="size-3.5 text-slate-300" />}
         </button>
       )}
       {project.listed && accounts.length > 0 && (
@@ -216,7 +193,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
         }}
         onKeyDown={(e) => e.key === "Enter" && (label ? front() : load())}
         title={label ? t("Bring its window to the front") : t("Double-click: load its window")}
-        className={`group/row flex h-8 cursor-pointer items-center gap-2 border-l-2 pr-2 pl-3 hover:bg-overlay-hover ${project.front && project.visible ? "border-ai bg-raised" : "border-transparent"}`}
+        className={`group/row flex h-8 cursor-pointer items-center gap-2 border-l-2 pr-2 pl-3 hover-project ${project.front && project.visible ? "border-ai bg-raised" : "border-transparent"}`}
       >
         {/* The mark: a click hides or shows the loaded window, a double click loads it. A ring runs
             round it on hover, so it reads as a switch */}
@@ -230,18 +207,14 @@ function ProjectRow({ project }: { project: OverviewProject }) {
             e.stopPropagation();
             load();
           }}
-          title={label ? (hidden ? t("Show its window") : t("Hide its window (close it in the window itself)")) : t("Double-click: load its window")}
+          title={(project.daily ? t("On today's list") + " · " : "") + (label ? (hidden ? t("Show its window") : t("Hide its window (close it in the window itself)")) : t("Double-click: load its window"))}
           aria-label={label ? (hidden ? t("Show its window") : t("Hide its window")) : t("Load its window")}
-          className={`mark-switch flex shrink-0 rounded-full ${!label ? "opacity-50 hover:opacity-100" : hidden ? "opacity-75" : ""}`}
+          style={{ ["--ring" as string]: project.color }}
+          className={`mark-switch ${project.daily ? "mark-daily" : ""} flex shrink-0 rounded-full ${!label ? "opacity-50 hover:opacity-100" : hidden ? "opacity-75" : ""}`}
         >
           <ProjectMark project={project} />
         </button>
         <span className={`min-w-0 truncate ${label ? "font-semibold text-slate-100" : "text-slate-400"}`}>{project.name}</span>
-        {project.daily && (
-          <span title={t("On today's list")}>
-            <Star className="size-3 shrink-0 fill-current text-changed" />
-          </span>
-        )}
         {project.account && (
           <span title={`${t("AI configuration")}: ${look(project.account).name}`} className="flex shrink-0">
             <AccountMark account={look(project.account)} size={13} />
@@ -249,6 +222,26 @@ function ProjectRow({ project }: { project: OverviewProject }) {
         )}
         {/* Right after the name, so the status icons on the right never move */}
         <span className={`${menu ? "flex" : "invisible group-hover/row:visible"} flex`}>
+          <RowIcon
+            title={t("Start session (continues the last one)")}
+            onClick={() =>
+              void startSession(project.path, false)
+                .then((name) => tell(name ? t("Started in tmux {name}", { name }) : t("A session runs there already")))
+                .catch((e) => tell(String(e)))
+            }
+          >
+            <Play className="size-3.5" />
+          </RowIcon>
+          <RowIcon
+            title={t("New session")}
+            onClick={() =>
+              void startSession(project.path, true)
+                .then((name) => name && tell(t("Started in tmux {name}", { name })))
+                .catch((e) => tell(String(e)))
+            }
+          >
+            <Plus className="size-3.5" />
+          </RowIcon>
           <RowIcon title={t("More (also right click)")} onClick={() => setMenu((m) => !m)}>
             <Ellipsis className="size-3.5" />
           </RowIcon>
@@ -284,7 +277,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
                 onDoubleClick={() => void go(s, defaultDoor(s))}
                 onAuxClick={(e) => e.button === 1 && void go(s, "terminal")}
                 title={t("Double-click: go to it ({door}) · middle click: terminal", { door: defaultDoor(s) === "desktop" ? t("Desktop") : t("Terminal") })}
-                className="group/s flex h-7 cursor-default items-center gap-2 pr-2 pl-9 text-[12px] hover:bg-overlay-hover"
+                className="group/s flex h-7 cursor-default items-center gap-2 pr-2 pl-9 text-[12px] hover-session"
               >
                 <SessionBadge mark={markOf(s)} />
                 <span className="min-w-0 flex-1 truncate text-slate-200">{titleOf(s)}</span>
@@ -412,6 +405,10 @@ function MoreMenu({ host }: { host: string | null }) {
       </button>
       {open && (
         <div className="surface-overlay absolute top-9 right-0 z-20 flex w-56 flex-col rounded-lg p-1">
+          <button type="button" disabled={!host} title={host ? undefined : t("Settings: open a project first")} className={item} onClick={() => inWindow("settings")}>
+            {t("Settings")}
+            <span className="ml-auto text-slate-500">Ctrl+,</span>
+          </button>
           <button type="button" disabled={!host} className={item} onClick={() => inWindow("shortcuts")}>
             {t("Keyboard shortcuts")}
             <span className="ml-auto text-slate-500">F1</span>
@@ -470,12 +467,12 @@ export default function OverviewApp() {
       .catch((e) => tell(String(e)));
   return (
     <div className="flex h-screen flex-col bg-panel text-[13px]">
-      <header className="flex h-10 shrink-0 items-center gap-1 border-b border-line pr-2 pl-3">
+      <header className="zone-tabs area-ai flex h-10 shrink-0 items-center gap-1 border-b border-line pr-2 pl-3">
         <img src="/codedeck.svg" alt="" className="size-[18px]" />
         <span className="flex-1" />
         <button
           type="button"
-          title={toStart ? t("Start today's list: {n} without a running session", { n: toStart }) : t("Start today's list (★ in a project's menu)")}
+          title={toStart ? t("Start today's list: {n} without a running session", { n: toStart }) : t("Start today's list (set in a project's menu)")}
           onClick={startAll}
           className={`${toolButton} relative`}
         >
@@ -484,15 +481,6 @@ export default function OverviewApp() {
         </button>
         <button type="button" title={t("Add a project to my list (Ctrl+O)")} onClick={() => void open()} className={toolButton}>
           <Plus className="size-4" />
-        </button>
-        <button
-          type="button"
-          title={host ? t("Settings (in the project window)") : t("Settings: open a project first")}
-          disabled={!host}
-          onClick={() => host && void focusProject(host, "settings")}
-          className={toolButton}
-        >
-          <Settings className="size-4" />
         </button>
         <MoreMenu host={host} />
       </header>

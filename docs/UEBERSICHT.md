@@ -115,7 +115,7 @@ Profil des Kontos, B4) und als Warnung, wenn eine Sitzung im Projekt mit einer a
 der Zeile erscheint es nur als kleiner Punkt in der Farbe des Kontos, Name im Tooltip (Grundsatz 4).
 
 **Menü der Projektzeile** (beim Überfahren `⋯`, auch Rechtsklick): Fenster öffnen/schließen · Sitzung starten
-(▶) · Neue Sitzung · ★ Tagesliste · KI-Konfiguration ▸ · Marke ändern… · Aus der Liste nehmen.
+(▶) · Neue Sitzung · Tagesliste (Ring in der Projektfarbe um die Marke) · KI-Konfiguration ▸ · Marke ändern… · Aus der Liste nehmen. ▶ und ＋ stehen beim Überfahren direkt in der Zeile.
 
 **Gespeichert** in `~/.config/codedeck/projects.json` je Projekt: Pfad, Reihenfolge, Stern, Konfiguration, Marke
 (eine Datei für alles, was ein Projekt in der Übersicht ausmacht).
