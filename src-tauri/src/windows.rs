@@ -4,6 +4,7 @@
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::path::Path;
 use std::sync::{Arc, Mutex, RwLock};
 
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
@@ -66,6 +67,8 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
     let windows = app.state::<Windows>();
     let label = format!("w{}", windows.next.fetch_add(1, Ordering::Relaxed) + 1);
     crate::recent::remember(&project.root);
+    // A project with a window is one of mine (docs/UEBERSICHT.md, "Meine Projekte")
+    crate::projects::add(&project.root);
     let current = Arc::new(Current(RwLock::new(Arc::new(project))));
     let git = Arc::new(Git::new());
     let watch = Watch::start(app.clone(), label.clone(), current.clone()).map_err(|e| e.to_string())?;
@@ -107,44 +110,70 @@ pub const OVERVIEW: &str = "overview";
 /// Width of the overview when it opens, in logical pixels.
 const OVERVIEW_WIDTH: f64 = 330.0;
 
-/// One open project, as the overview shows it.
+/// One of my projects, as the overview shows it, with its window or without.
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OverviewProject {
-    /// The label of its window
-    pub label: String,
+    /// The label of its window; `None` while it has none
+    pub label: Option<String>,
     pub name: String,
     pub path: String,
     /// Its colour, `#rrggbb`, until the user picks a mark
     pub color: String,
-    /// Its sessions and what waits
-    pub state: crate::bridge::AssistantState,
+    /// Its sessions and what waits; `None` without a window (until sessions are kept without one)
+    pub state: Option<crate::bridge::AssistantState>,
     /// What its window reported (git, next prompt, workbench); `null` until it did
     pub summary: serde_json::Value,
     /// Its window has the focus or had it last
     pub front: bool,
+    /// On my list of projects (an open window of a project taken off the list is not)
+    pub listed: bool,
 }
 
-/// The overview's view of every open project, in the order the windows were opened.
+/// The overview's view of my projects in their order, then open windows of projects not on the list.
 pub fn overview_state(app: &AppHandle) -> Vec<OverviewProject> {
     let last = crate::window::last_label(app);
-    let mut all = app.state::<Windows>().all();
-    all.sort_by_key(|w| w.label.trim_start_matches('w').parse::<u32>().unwrap_or(0));
-    all.iter()
-        .map(|w| {
-            let project = w.current.get();
-            let [r, g, b] = crate::icon::project_color(&project.root);
-            OverviewProject {
-                label: w.label.clone(),
-                name: project.root.file_name().map_or_else(|| "/".into(), |n| n.to_string_lossy().into_owned()),
-                path: project.root.display().to_string(),
-                color: format!("#{r:02x}{g:02x}{b:02x}"),
-                state: w.bridge.state(),
-                summary: w.summary.locked().clone(),
-                front: last.as_deref() == Some(w.label.as_str()),
-            }
-        })
-        .collect()
+    let mut open = app.state::<Windows>().all();
+    open.sort_by_key(|w| w.label.trim_start_matches('w').parse::<u32>().unwrap_or(0));
+    let listed = crate::projects::list();
+    let entry = |root: &Path, win: Option<&Arc<Win>>, listed: bool| {
+        let [r, g, b] = crate::icon::project_color(root);
+        OverviewProject {
+            label: win.map(|w| w.label.clone()),
+            name: root.file_name().map_or_else(|| "/".into(), |n| n.to_string_lossy().into_owned()),
+            path: root.display().to_string(),
+            color: format!("#{r:02x}{g:02x}{b:02x}"),
+            state: win.map(|w| w.bridge.state()),
+            summary: win.map_or(serde_json::Value::Null, |w| w.summary.locked().clone()),
+            front: win.is_some_and(|w| last.as_deref() == Some(w.label.as_str())),
+            listed,
+        }
+    };
+    let window_of = |root: &Path| open.iter().find(|w| w.current.get().root == root);
+    let mut all: Vec<OverviewProject> = listed.iter().map(|p| entry(&p.path, window_of(&p.path), true)).collect();
+    for w in &open {
+        let root = w.current.get().root.clone();
+        if !listed.iter().any(|p| p.path == root) {
+            all.push(entry(&root, Some(w), false));
+        }
+    }
+    all
+}
+
+/// Opens the window of one of my projects, or brings it to the front if it is open.
+pub fn show_project(app: &AppHandle, path: &Path) -> Result<(), String> {
+    let open = app.state::<Windows>().all().into_iter().find(|w| w.current.get().root == path);
+    match open.and_then(|w| app.get_webview_window(&w.label)) {
+        Some(window) => {
+            crate::window::obey(&window, crate::window::Request::Front);
+            Ok(())
+        }
+        None => open_project(app, path),
+    }
+}
+
+fn open_project(app: &AppHandle, path: &Path) -> Result<(), String> {
+    open(app, Project::open(path)?).map(drop)
 }
 
 /// Tells the overview that something it shows changed; it asks for the state again.

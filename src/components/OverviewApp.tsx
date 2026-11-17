@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { AppWindow, Ellipsis, GitBranch, Inbox, Paperclip, Plus, Settings } from "lucide-react";
-import { focusProject, onOverviewChanged, openWindow, overviewState, pickFolder, quit, type OverviewProject, type Session } from "../backend";
+import { AppWindow, Ellipsis, GitBranch, Inbox, Paperclip, Plus, Settings, X } from "lucide-react";
+import { addProject, closeProjectWindow, focusProject, onOverviewChanged, overviewState, pickFolder, quit, removeProject, showProject, type OverviewProject, type Session } from "../backend";
 import { DONE_SHOWN_MS, needsYou, useNow } from "../attention";
 import { SessionBadge } from "./SessionBadge";
 import { t } from "../i18n";
@@ -77,13 +77,17 @@ function HoverIcon({ title, onClick, warn, children }: { title: string; onClick:
 }
 
 function ProjectRow({ project }: { project: OverviewProject }) {
-  const sessions = project.state.sessions.filter((s) => s.status !== "ended");
+  const sessions = (project.state?.sessions ?? []).filter((s) => s.status !== "ended");
+  const label = project.label;
   const now = useNow();
   const asks = sessions.some((s) => needsYou(s) === "asks");
   const done = sessions.some((s) => needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS);
   const summary = project.summary ?? {};
   const dot = asks ? "bg-changed" : done ? "bg-added" : summary.gitFailed ? "bg-problem" : null;
-  const front = () => void focusProject(project.label);
+  // A click on the row: its window to the front, or opened when it has none
+  const front = () => void (label ? focusProject(label) : showProject(project.path));
+  // The window symbol switches the window: open it, or close it (the project stays on the list)
+  const toggleWindow = () => void (label ? closeProjectWindow(label) : showProject(project.path));
   return (
     <li>
       <div
@@ -91,27 +95,47 @@ function ProjectRow({ project }: { project: OverviewProject }) {
         tabIndex={0}
         onClick={front}
         onKeyDown={(e) => e.key === "Enter" && front()}
-        title={t("Bring its window to the front")}
+        title={label ? t("Bring its window to the front") : t("Open its window")}
         className={`group/row flex cursor-pointer items-center gap-2 border-l-2 py-1.5 pr-2 pl-3 hover:bg-overlay-hover ${project.front ? "border-ai bg-raised" : "border-transparent"}`}
       >
-        <ProjectMark project={project} />
-        <span className="min-w-0 flex-1 truncate font-semibold text-slate-100">{project.name}</span>
-        <AppWindow className="size-3.5 shrink-0 text-slate-500" aria-label={t("Its window is open")} />
+        <span className={label ? "" : "opacity-60"}>
+          <ProjectMark project={project} />
+        </span>
+        <span className={`min-w-0 flex-1 truncate ${label ? "font-semibold text-slate-100" : "text-slate-400"}`}>{project.name}</span>
         <span className="hidden items-center group-hover/row:flex">
-          <HoverIcon title={`${t("Git")}: ${summary.git ?? "…"}`} warn={summary.gitFailed} onClick={() => void focusProject(project.label, "changes")}>
-            <GitBranch className="size-3.5" />
-          </HoverIcon>
-          {!!summary.next && (
-            <HoverIcon title={t("Next prompt: {n} attached", { n: summary.next })} onClick={() => void focusProject(project.label, "next")}>
+          {label && (
+            <HoverIcon title={`${t("Git")}: ${summary.git ?? "…"}`} warn={summary.gitFailed} onClick={() => void focusProject(label, "changes")}>
+              <GitBranch className="size-3.5" />
+            </HoverIcon>
+          )}
+          {label && !!summary.next && (
+            <HoverIcon title={t("Next prompt: {n} attached", { n: summary.next })} onClick={() => void focusProject(label, "next")}>
               <Paperclip className="size-3.5" />
             </HoverIcon>
           )}
-          {!!summary.news && (
-            <HoverIcon title={t("Workbench: {n} new", { n: summary.news })} onClick={() => void focusProject(project.label, "workbench")}>
+          {label && !!summary.news && (
+            <HoverIcon title={t("Workbench: {n} new", { n: summary.news })} onClick={() => void focusProject(label, "workbench")}>
               <Inbox className="size-3.5" />
             </HoverIcon>
           )}
+          {project.listed && (
+            <HoverIcon title={t("Take off my list (nothing on disk changes)")} onClick={() => void removeProject(project.path)}>
+              <X className="size-3.5" />
+            </HoverIcon>
+          )}
         </span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleWindow();
+          }}
+          title={label ? t("Close its window (the project stays here)") : t("Open its window")}
+          aria-label={label ? t("Close its window") : t("Open its window")}
+          className={`shrink-0 rounded p-0.5 hover:bg-overlay-hover ${label ? "text-slate-300 hover:text-slate-100" : "text-slate-600 hover:text-slate-200"}`}
+        >
+          <AppWindow className="size-3.5" />
+        </button>
         {dot && <span className={`size-2 shrink-0 rounded-full group-hover/row:hidden ${dot}`} />}
       </div>
       {sessions.length > 0 && (
@@ -141,7 +165,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
 function Waiting({ projects }: { projects: OverviewProject[] }) {
   const now = useNow();
   const waiting = projects.flatMap((p) =>
-    p.state.sessions
+    (p.state?.sessions ?? [])
       .filter((s) => needsYou(s) === "asks" || (needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS))
       .map((s) => ({ project: p, session: s })),
   );
@@ -157,7 +181,7 @@ function Waiting({ projects }: { projects: OverviewProject[] }) {
             <li
               key={`${project.label}:${s.id}`}
               data-event={asks ? "waiting" : "done"}
-              onClick={() => void focusProject(project.label)}
+              onClick={() => void (project.label ? focusProject(project.label) : showProject(project.path))}
               title={t("Click: its project's window")}
               className={`event-row wait-card flex cursor-pointer items-center gap-2 rounded-md bg-raised py-1.5 pr-2 pl-2 ${asks ? "wait-card-asks" : ""}`}
             >
@@ -227,9 +251,10 @@ function MoreMenu({ host }: { host: string | null }) {
 export default function OverviewApp() {
   const projects = useOverview();
   useEffect(() => void (document.title = "CodeDeck"), []);
+  // ＋ takes a project into my list; its window stays closed until it is needed
   const open = async () => {
     const path = await pickFolder();
-    if (path) await openWindow(path);
+    if (path) await addProject(path);
   };
   // Ctrl+O opens a project from here too
   useEffect(() => {
@@ -242,13 +267,13 @@ export default function OverviewApp() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  const host = (projects.find((p) => p.front) ?? projects[0])?.label ?? null;
+  const host = (projects.find((p) => p.front) ?? projects.find((p) => p.label))?.label ?? null;
   return (
     <div className="flex h-screen flex-col bg-panel text-[13px]">
       <header className="flex h-10 shrink-0 items-center gap-1 border-b border-line pr-2 pl-3">
         <img src="/codedeck.svg" alt="" className="size-[18px]" />
         <span className="flex-1" />
-        <button type="button" title={t("Open a project (Ctrl+O)")} onClick={() => void open()} className={toolButton}>
+        <button type="button" title={t("Add a project to my list (Ctrl+O)")} onClick={() => void open()} className={toolButton}>
           <Plus className="size-4" />
         </button>
         <button
@@ -268,11 +293,11 @@ export default function OverviewApp() {
         {projects.length ? (
           <ul>
             {projects.map((p) => (
-              <ProjectRow key={p.label} project={p} />
+              <ProjectRow key={p.path} project={p} />
             ))}
           </ul>
         ) : (
-          <p className="px-3 py-2 text-[12px] text-slate-500">{t("No project open. + opens one; the overview stays as your radar.")}</p>
+          <p className="px-3 py-2 text-[12px] text-slate-500">{t("No projects yet. + adds one; its window opens when you click it.")}</p>
         )}
       </main>
     </div>

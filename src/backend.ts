@@ -1399,25 +1399,28 @@ export interface ProjectSummary {
   news?: number;
 }
 
-/** One open project as the overview shows it. */
+/** One of my projects as the overview shows it, with its window or without. */
 export interface OverviewProject {
-  /** The label of its window */
-  label: string;
+  /** The label of its window; `null` while it has none */
+  label: string | null;
   name: string;
   path: string;
   /** `#rrggbb` until the user picks a mark */
   color: string;
-  state: AssistantState;
+  /** Its sessions; `null` without a window, until sessions are kept without one */
+  state: AssistantState | null;
   summary: ProjectSummary | null;
   /** Its window has the focus or had it last */
   front: boolean;
+  /** On my list of projects */
+  listed: boolean;
 }
 
 /** The overview window shows this instead of a project. */
 export const isOverview = new URLSearchParams(window.location.search).get("view") === "overview";
 
 const mockOverview = (): OverviewProject[] => [
-  { label: "w1", name: "orbit-api", path: "/home/me/projects/orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", next: mockAssistant.attachments.length, news: 0 }, front: true },
+  { label: "w1", name: "orbit-api", path: "/home/me/projects/orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", next: mockAssistant.attachments.length, news: 0 }, front: true, listed: true },
   {
     label: "w2",
     name: "ai-driven-development",
@@ -1426,7 +1429,9 @@ const mockOverview = (): OverviewProject[] => [
     state: { ...mockAssistant, sessions: mockAssistant.sessions.slice(0, 1).map((s) => ({ ...s, id: "x1", title: "Kapitel 3 überarbeiten", status: "idle" as const, turnDone: Date.now() - 60_000 })), attachments: [] },
     summary: { git: "clean", news: 3 },
     front: false,
+    listed: true,
   },
+  { label: null, name: "billing-ui", path: "/home/me/projects/billing-ui", color: "#c3cf6c", state: null, summary: null, front: false, listed: true },
 ];
 
 export function overviewState(): Promise<OverviewProject[]> {
@@ -1446,6 +1451,30 @@ export function onOverviewChanged(callback: () => void): () => void {
 /** The project window tells the overview about its project. */
 export function reportSummary(summary: ProjectSummary): Promise<void> {
   if (live) return invoke("report_summary", { summary });
+  return Promise.resolve();
+}
+
+/** Puts a project on my list, without a window. */
+export function addProject(path: string): Promise<void> {
+  if (live) return invoke("add_project", { path });
+  return Promise.resolve();
+}
+
+/** Takes a project off my list; nothing on disk changes. */
+export function removeProject(path: string): Promise<void> {
+  if (live) return invoke("remove_project", { path });
+  return Promise.resolve();
+}
+
+/** Opens a project's window, or brings it to the front. */
+export function showProject(path: string): Promise<void> {
+  if (live) return invoke("show_project", { path });
+  return Promise.resolve();
+}
+
+/** Closes a project's window; the project stays on my list. */
+export function closeProjectWindow(label: string): Promise<void> {
+  if (live) return invoke("close_project_window", { label });
   return Promise.resolve();
 }
 

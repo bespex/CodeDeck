@@ -20,6 +20,7 @@ mod journal;
 mod markers;
 mod place;
 mod project;
+mod projects;
 mod recent;
 mod rules;
 mod snapshot;
@@ -630,6 +631,37 @@ fn report_summary(summary: serde_json::Value, app: AppHandle, window: WebviewWin
     Ok(())
 }
 
+/// Puts a project on my list without opening a window (from the overview's ＋).
+#[tauri::command]
+fn add_project(path: String, app: AppHandle) -> Result<(), String> {
+    let project = Project::open(Path::new(&path))?;
+    projects::add(&project.root);
+    windows::overview_changed(&app);
+    Ok(())
+}
+
+/// Takes a project off my list; its window, if open, stays.
+#[tauri::command]
+fn remove_project(path: String, app: AppHandle) -> Result<(), String> {
+    projects::remove(Path::new(&path))?;
+    windows::overview_changed(&app);
+    Ok(())
+}
+
+/// Opens the window of one of my projects, or brings it to the front.
+/// Async: building a window waits for the main thread.
+#[tauri::command]
+async fn show_project(path: String, app: AppHandle) -> Result<(), String> {
+    windows::show_project(&app, Path::new(&path))
+}
+
+/// Closes a project's window; the project stays on my list, its sessions go on.
+#[tauri::command]
+fn close_project_window(label: String, app: AppHandle) -> Result<(), String> {
+    let window = app.get_webview_window(&label).ok_or_else(|| format!("{label}: no such window"))?;
+    window.close().map_err(|e| e.to_string())
+}
+
 /// Brings a project's window to the front; with `view`, that tab opens there.
 #[tauri::command]
 fn focus_project(label: String, view: Option<String>, app: AppHandle) -> Result<(), String> {
@@ -790,7 +822,11 @@ pub fn run() {
             report_summary,
             focus_project,
             toggle_overview,
-            quit
+            quit,
+            add_project,
+            remove_project,
+            show_project,
+            close_project_window
         ])
         .build(tauri::generate_context!())
         .expect("error while building CodeDeck")

@@ -81,6 +81,40 @@ Projektübergreifende steht in der Übersicht.
 | A13: Fenster ohne Projekt wird zur Startseite | die Übersicht ist die Startseite, immer da |
 | A13: Projektmenü mit Tagesliste, „Wartet“ über alle im Projektfenster | Projektmenü bleibt klein (letzte Projekte); Projektübergreifendes nur in der Übersicht |
 
+## Meine Projekte, Fenster auf und zu, KI-Konfiguration (Nutzer, 2026-11-17)
+
+Drei Ergänzungen aus dem ersten Bau der Übersicht:
+
+**1. Projekt öffnen heißt nicht Fenster öffnen.** Ein Projekt, das man in CodeDeck aufnimmt, steht in der
+Übersicht; sein Fenster bleibt zu, bis man es braucht. Das Fenster-Symbol an der Projektzeile ist ein
+**Schalter**: Klick öffnet das Projektfenster, noch ein Klick schließt es (das Projekt bleibt in der Liste, seine
+Sitzungen laufen weiter). Klick auf die Zeile selbst holt ein offenes Fenster nach vorn, bei geschlossenem
+Fenster öffnet sie es. So bleibt der Bildschirm frei, und die Übersicht ist der Ort, an dem man Projekte hat.
+
+**2. Meine Projekte verwalten.** Die Übersicht führt die Liste der Projekte, an denen man grundsätzlich
+arbeitet, nicht nur die gerade offenen:
+- **Aufnehmen** über ＋ (Ordner wählen oder aus den letzten Projekten), **entfernen** über das Menü der
+  Projektzeile (Rechtsklick oder `⋯` beim Überfahren). Entfernen löscht nichts, es nimmt das Projekt nur aus
+  der Liste; laufende Sitzungen dort erscheinen weiter, solange sie laufen.
+- **Reihenfolge** per Ziehen; sie bleibt, statt sich nach dem Zustand zu ändern (wer sucht, findet das Projekt
+  immer an derselben Stelle). Was wartet, steht ohnehin oben unter „Wartet auf dich“.
+- **Tagesliste** (`SITZUNGEN.md` A12) ist eine Eigenschaft eines Projekts in dieser Liste (Stern im Menü der
+  Zeile), keine eigene Liste mehr. ▶ in der Werkzeugleiste startet die Sitzungen aller Projekte mit Stern.
+- Projekte, die nicht in der Liste stehen, aber eine laufende Sitzung haben (von Hand gestartet), erscheinen
+  darunter abgesetzt mit „Aufnehmen“.
+
+**3. KI-Konfiguration je Projekt.** Jedes Projekt merkt sich, mit welcher Konfiguration seine Sitzungen laufen
+(z. B. „Privat“ = `~/.claude-private`, „Work“ = `~/.claude`), gewählt im Menü der Projektzeile, mit Farbe und
+Namen aus 3.2 (Konten). Wirkt beim Starten (tmux mit `CLAUDE_CONFIG_DIR`, B2), beim Öffnen in Desktop (das
+Profil des Kontos, B4) und als Warnung, wenn eine Sitzung im Projekt mit einer anderen Konfiguration läuft. In
+der Zeile erscheint es nur als kleiner Punkt in der Farbe des Kontos, Name im Tooltip (Grundsatz 4).
+
+**Menü der Projektzeile** (beim Überfahren `⋯`, auch Rechtsklick): Fenster öffnen/schließen · Sitzung starten
+(▶) · Neue Sitzung · ★ Tagesliste · KI-Konfiguration ▸ · Marke ändern… · Aus der Liste nehmen.
+
+**Gespeichert** in `~/.config/codedeck/projects.json` je Projekt: Pfad, Reihenfolge, Stern, Konfiguration, Marke
+(eine Datei für alles, was ein Projekt in der Übersicht ausmacht).
+
 ## Marke je Projekt
 
 Jedes Projekt bekommt eine **Marke**: einen Kreis in seiner Farbe, darauf ein Zeichen (Nutzer 2026-11-17).
@@ -147,4 +181,7 @@ zu bauen. Die Leiste je Projekt wird mit 3.0b entfernt.
 | 5 | „Wartet auf dich“ im Projektfenster | nur das eigene Projekt (A13 entsprechend ändern) |
 | 6 | Zeitpunkt | 3.0b direkt nach 3.0, vor 3.1 |
 | 7 | Marke je Projekt | **Richtung abgestimmt (Nutzer 2026-11-17):** Kreis in der Projektfarbe mit Lucide-Icon, Emoji oder Buchstabe; überall, wo der Projektname steht; Emoji auch im Titel |
+| 9 | Projekt öffnen ohne Fenster, Fenster-Symbol als Schalter | **Nutzer 2026-11-17:** ja |
+| 10 | „Meine Projekte“ als feste Liste in der Übersicht, Tagesliste als Stern daran | Vorschlag nach dem Wunsch des Nutzers; Reihenfolge per Ziehen statt nach Zustand |
+| 11 | KI-Konfiguration je Projekt | **Nutzer 2026-11-17:** ja; Auswahl im Menü der Zeile, kleiner Punkt in der Kontofarbe |
 | 8 | Form der Marke | Kreis (Wunsch des Nutzers). In der App sind die Schilder der Sitzungen abgerundete Quadrate (`SessionBadge`), Kreis und Quadrat unterscheiden sich also schon; im Dummy waren beide Kreise |

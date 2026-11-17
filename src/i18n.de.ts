@@ -813,4 +813,10 @@ export const de: Record<string, string> = {
   "Settings (in the project window)": "Einstellungen (im Projektfenster)",
   "Settings: open a project first": "Einstellungen: zuerst ein Projekt öffnen",
   "Your co-deck for AI sessions": "Du und die KI, ein Deck",
+  "Open its window": "Sein Fenster öffnen",
+  "Close its window (the project stays here)": "Sein Fenster schließen (das Projekt bleibt hier)",
+  "Close its window": "Sein Fenster schließen",
+  "Take off my list (nothing on disk changes)": "Aus meiner Liste nehmen (auf der Platte ändert sich nichts)",
+  "Add a project to my list (Ctrl+O)": "Projekt in meine Liste aufnehmen (Strg+O)",
+  "No projects yet. + adds one; its window opens when you click it.": "Noch keine Projekte. + nimmt eines auf; sein Fenster öffnet sich, wenn du es anklickst.",
 };
