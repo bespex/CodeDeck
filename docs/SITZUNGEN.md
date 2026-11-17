@@ -56,6 +56,15 @@ Türen Desktop, Browser und Handy.
 
 # Teil A: Benutzeroberfläche (was du siehst)
 
+## A0 Das heutige Start-Script (`~/.local/bin/ai`, angesehen 2026-11-17)
+
+`ai [tool]` legt **eine tmux-Sitzung je Werkzeug** an (`ai-claude`), nicht je Projekt, im aktuellen Ordner,
+tippt den Befehl per `send-keys` hinein und hängt sich an; läuft sie schon, hängt es sich nur an (`ai -c`
+bzw. `aic`: nur verbinden). Remote Control kommt nicht vom Script, sondern aus der Einstellung
+`remoteControlAtStartup: true` (in `~/.claude` und `~/.claude-private`); das Konto aus der Umgebung der
+Shell. Für 3.1 heißt das: Sitzungen in `ai-*` werden über ihren Ordner (cwd des Panes) dem Projekt
+zugeordnet, nicht über den Namen. Die Tagesliste (3.4) ersetzt das Script.
+
 ## A1 Zwei Begriffe
 
 - **Läuft in** (Zuhause): *Hintergrund* (von CodeDeck gestartet, tmux), *Terminal* (von dir selbst
@@ -73,7 +82,8 @@ Bleibt, wie sie ist (zwei Zeilen, Farbe, Kurzname, „Earlier“), mit drei Erg�
 | Bedienung | Wirkung |
 |---|---|
 | **Klick** | Wählt aus und klappt die Details auf (wie heute) |
-| **Doppelklick** oder **Enter** | **Hingehen:** öffnet die Sitzung auf dem Standardweg (Einstellung, vorgegeben *Terminal*, *Desktop*, sobald der Desktop-Sprung belegt ist, siehe B4) |
+| **Doppelklick** oder **Enter** | **Hingehen:** öffnet die Sitzung auf dem Standardweg (Einstellung, vorgegeben *Desktop*, wo es ihn gibt, also mit Remote Control und Desktop-Profil des Kontos; sonst *Terminal*) |
+| **Mittelklick** | öffnet immer das *Terminal* (Nutzer 2026-11-17) |
 | **Doppelklick auf „Needs you“** | dasselbe: von der Frage direkt zur Sitzung |
 | **„+ New“** im Kopf der Liste (`Ctrl+Shift+N`) | Neue Sitzung in diesem Projekt |
 
@@ -123,7 +133,7 @@ Erlaubnis selbst gibt man im Werkzeug (D13 bleibt offen).
 
 ## A8 Einstellungen (Abschnitt „Sessions“)
 
-- Doppelklick öffnet: *Terminal* · *Desktop* · *Browser* (fällt zurück auf die nächste mögliche Tür).
+- Doppelklick öffnet: *Desktop* (Vorgabe) · *Terminal* · *Browser* (fällt zurück auf die nächste mögliche Tür). Mittelklick: immer Terminal.
 - Terminalprogramm: automatisch gefunden, wählbar.
 - Neue Sitzungen von überall erreichbar: an/aus (Vorgabe an).
 - Desktop-Profil je Konto: unter Konten (3.2), damit ein Desktop-Link im richtigen Konto landet.
@@ -291,9 +301,23 @@ Spike (eine Stunde, mit dem Nutzer): (1) Zeigt Desktop eine Remote-Control-Sitzu
 nach vorn. Ergebnis bestimmt, ob *Desktop* Standardtür werden kann. Bis dahin öffnet *Desktop* die App
 (und wo möglich die Sitzung), sonst ist die Tür ausgegraut.
 
+**Ergebnis (Spike mit dem Nutzer, 2026-11-17, Claude Code 2.1.326, claude-desktop Linux):**
+
+- `claude-desktop --user-data-dir=<profil> "claude://claude.ai/code/session_…"` holt die laufende App
+  dieses Profils nach vorn und öffnet **genau diese Sitzung**. Damit kann *Desktop* Standardtür werden.
+- Desktop listet die Remote-Control-Sitzung unter ihrem Projekt (Bildschirm-Symbol „auf diesem Rechner“).
+- Ein Prompt aus Desktop lässt die Hooks im lokalen Prozess feuern: CodeDeck zeigt „working“, dann
+  „fertig“, und die Details tmux-Name und „von überall erreichbar“. Live-Status gilt also auch, wenn man in
+  Desktop tippt (vom Handy noch nicht geprüft, der Weg ist derselbe).
+- Konto der Sitzung: tmux erbt `CLAUDE_CONFIG_DIR` vom Server; CodeDeck muss es darum ausdrücklich setzen
+  (`-e`), wie in B2 vorgesehen.
+
 **Konten und Desktop-Profile:** Bei zwei Profilen (`--user-data-dir`) gehört `claude://` immer nur
 einem. CodeDeck öffnet Links darum nicht über `xdg-open`, sondern startet die App des Kontos:
 `claude-desktop --user-data-dir=<profil> <link>`. Das Profil steht am Konto (3.2), sonst gilt der Standard.
+Beim Nutzer: `~/.claude` ↔ `~/.config/claude-desktop-btc`, `~/.claude-private` ↔
+`~/.config/claude-desktop-privat` (Starter `claude-btc.sh`, `claude-privat.sh`; `xdg-mime` zeigt auf
+eines von beiden, das ist für CodeDeck egal).
 
 **Hooks bei Remote Control:** Die Sitzung läuft weiter lokal, die Hooks feuern also im lokalen Prozess.
 Die Doku sagt es nicht ausdrücklich; der Praxistest von 3.1 prüft es mit einem Prompt vom Handy.
@@ -340,8 +364,8 @@ die Wahl neu prüfen.
 
 | Frage | Folge | Wann klären |
 |---|---|---|
-| Zeigt Desktop (Linux) Remote-Sitzungen, öffnet ein Link sie? | Desktop als Standardtür | Spike in 3.1 |
-| Feuern Hooks bei Prompts vom Handy? | Live-Status unterwegs | Praxistest 3.1 |
+| Zeigt Desktop (Linux) Remote-Sitzungen, öffnet ein Link sie? | Desktop als Standardtür | **geklärt 2026-11-17: ja** (B4) |
+| Feuern Hooks bei Prompts aus Desktop/vom Handy? | Live-Status unterwegs | **Desktop geklärt: ja**; Handy im Praxistest 3.1 |
 | Desktop-eigene Sitzungen ohne Hooks (1.1) | bleiben „nur aus dem Log“ | später, mit neuer Desktop-Version |
 | Wayland | kein Nach-vorn-Holen fremder Fenster | hinnehmen, neues Terminal |
 | `CLAUDE_CODE_BRIDGE_SESSION_ID` erst nach dem Verbinden gesetzt | Link fehlt in den ersten Sekunden | Link bei der nächsten Meldung |
@@ -350,7 +374,7 @@ die Wahl neu prüfen.
 
 | Schritt | Inhalt |
 |---|---|
-| 3.1 Sehen und Hingehen | `Place` aus dem Hook, Symbole, Doppelklick, Türen Terminal, Browser, Handy, ssh; Desktop-Spike; Meldung mit „Open“ |
+| 3.1 Sehen und Hingehen | `Place` aus dem Hook, Symbole, Doppelklick (Desktop, sonst Terminal), Mittelklick (Terminal), Türen Terminal, Desktop, Browser, Handy, ssh; Desktop-Profil je Konto zunächst als einfache Zuordnung in den Einstellungen; Meldung mit „Open“ |
 | 3.2 Konten | wie geplant, dazu das Desktop-Profil je Konto |
 | 3.3 Starten und Steuern | „+ New“, Continue, Restart, Stop, New task; Einstellungen „Sessions“ |
 | 3.3b Neustart überstehen | Liste der Hintergrundsitzungen, Erkennen nach Neustart, „Restore all“, Warnung beim Herunterfahren, Autostart; Remote Control prüfen und neu verbinden (B11) |
@@ -443,6 +467,23 @@ Remote-Sitzung an, und wie lange danach noch? (b) Trägt `--resume --fork-sessio
 Unterhaltung in die neue Remote-Sitzung? (c) Lässt sich `--fork-session` mit `--session-id` kombinieren
 (dann vergibt CodeDeck auch die neue ID selbst)? (d) Wie sieht die Trennung im Log aus?
 
+**Ergebnis (2026-11-17, ohne echten Neustart):**
+
+- (a) teilweise: `tmux kill-session`, dann sofort `--resume <id> --remote-control` bindet **dieselbe**
+  Remote-Sitzung wieder an, mit ganzer Unterhaltung. Wie lange das nach einem echten Neustart noch geht,
+  bleibt für den Praxistest von 3.3b.
+- (b) ja: `--resume <id> --fork-session --remote-control` legt eine neue Remote-Sitzung an, Desktop zeigt
+  darin die bisherige Unterhaltung, ein Prompt von dort läuft und meldet sich bei CodeDeck.
+- (c) ja: `--resume <alt> --fork-session --session-id <neu>` verwendet genau die neue ID (Log
+  `<neu>.jsonl`). CodeDeck vergibt also auch bei Reconnect die ID selbst und braucht kein Zuordnen.
+- In der Liste von Desktop stand danach **nur ein** Eintrag „CodeDeck Spike“, kein toter alter. Punkt 5
+  oben (alte Einträge) ist damit zumindest bei kurzem Abstand kein Problem.
+- (d) offen: braucht eine echte Trennung (Netz weg, Ruhezustand); Praxistest 3.3b.
+- Nebenwirkung: Während des Spikes kam eine Mail „A computer was registered to your Claude account“
+  (Zeit und Gerät passten). Im Praxistest 3.3b prüfen, ob sie bei jedem Start/Reconnect kommt oder nur
+  einmal je Rechner; bei jedem Mal wären „▶ All“ und Reconnect lästig, dann in der Oberfläche darauf
+  hinweisen.
+
 ## B12 Tagesliste und Startseite
 
 **Projekte ohne Fenster.** Nach 3.0 nimmt ein Prozess alle Hook-Meldungen an. Heute nimmt jedes Fenster
@@ -477,7 +518,7 @@ App-Menü.
 | # | Frage | Vorschlag |
 |---|---|---|
 | 1 | Zuhause für von CodeDeck gestartete Sitzungen | tmux, mit Remote Control (B7 begründet, warum nicht `--bg`) |
-| 2 | Standardtür beim Doppelklick | Terminal; Desktop, sobald der Spike positiv ist (Einstellung) |
+| 2 | Standardtür beim Doppelklick | **entschieden (Nutzer, 2026-11-17):** Desktop, wo vorhanden, sonst Terminal; Mittelklick immer Terminal; änderbar in den Einstellungen |
 | 3 | CodeDeck tippt nie in eine Sitzung, auch nicht für New task | ja |
 | 4 | Remote Control für neue Sitzungen vorgegeben an | ja |
 | 5 | Kein „Umziehen nach Desktop“ | ja, Desktop kommt über Remote Control dazu |
