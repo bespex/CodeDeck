@@ -29,6 +29,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 notify = "8"
 tauri-plugin-dialog = "2"
+# AppImage only: offers the newer signed release (latest.json) at start; APT keeps the .deb current
+tauri-plugin-updater = "2"
 tauri-plugin-opener = "2"
 # Already part of Tauri on Linux: which programs open which file type
 gio = "0.18"

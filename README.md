@@ -150,8 +150,11 @@ therefore built by GitHub Actions on Ubuntu 24.04 ([`.github/workflows/release.y
 
 1. Bump `version` in `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and `package.json`.
 2. Commit, then tag and push: `git tag v0.2.0 && git push origin v0.2.0`
-3. The workflow tests, builds the `.deb` and the AppImage and publishes a GitHub release with
-   both and `SHA256SUMS`. Started by hand (Actions → Release → Run workflow) it only builds and
+3. The workflow tests, builds the `.deb` and the signed AppImage and publishes a GitHub release with
+   both, `latest.json` (read by the AppImage's updater; installed as `.deb`, APT keeps it current)
+   and `SHA256SUMS`. It needs the repository secret `TAURI_SIGNING_PRIVATE_KEY` (the updater key,
+   see `plugins.updater.pubkey`; a local `tauri build` needs it in the environment, too, because
+   `createUpdaterArtifacts` signs the AppImage). Started by hand (Actions → Release → Run workflow) it only builds and
    keeps the packages as workflow artifacts.
 
 Logo candidates: `design/logos/index.html`.

@@ -20,6 +20,7 @@ mod project;
 mod recent;
 mod rules;
 mod snapshot;
+mod updates;
 mod watch;
 mod scratch;
 mod window;
@@ -578,6 +579,7 @@ pub fn run() {
         .manage(window::FullPlace::default())
         .manage(window::Shortcuts::default())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(window::plugin())
         // Every window notes whether it is in front: the global shortcuts act on that
         .on_window_event(|_, event| {
@@ -600,6 +602,7 @@ pub fn run() {
                 Err(e) => eprintln!("codeck: no socket for assistants: {e}"),
             }
             exclude_scratch(app.handle());
+            updates::check_in_background(app.handle());
             window::shown();
             window::claim_shortcuts(app.handle().clone());
             // Hooks of this installation that still run the old `codedeck` (or a program that is
