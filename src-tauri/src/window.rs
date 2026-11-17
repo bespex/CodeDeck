@@ -107,6 +107,44 @@ fn place(window: &WebviewWindow, x: i32, y: i32, w: u32, h: u32) -> tauri::Resul
     Ok(tries.join(" "))
 }
 
+/// Margin of a new project window to the screen's edges, in logical pixels.
+const MARGIN: f64 = 25.0;
+
+/// Puts a new project window into the space beside the overview: `MARGIN` from the work area's
+/// left, top and bottom, up to the overview on the right (or `MARGIN` before the edge when the
+/// overview is not shown on that monitor).
+pub fn place_beside_overview(app: &AppHandle, window: &WebviewWindow) {
+    let run = || -> tauri::Result<()> {
+        let overview = app.get_webview_window(crate::windows::OVERVIEW).filter(|o| o.is_visible().unwrap_or(false));
+        // The monitor of the overview, else the window's own
+        let monitor = match overview.as_ref().map(|o| o.current_monitor()).transpose()?.flatten() {
+            Some(m) => Some(m),
+            None => window.current_monitor()?,
+        };
+        let Some(monitor) = monitor else { return Ok(()) };
+        let area = *monitor.work_area();
+        let scale = monitor.scale_factor();
+        let margin = (MARGIN * scale).round() as i32;
+        let (left, top) = (area.position.x + margin, area.position.y + margin);
+        let screen_right = area.position.x + area.size.width as i32;
+        let right = match &overview {
+            Some(o) => o.outer_position()?.x.min(screen_right - margin),
+            None => screen_right - margin,
+        };
+        let bottom = area.position.y + area.size.height as i32 - margin;
+        // The size set is the inside, the position the outside: the frame counts
+        let (inner, outer) = (window.inner_size()?, window.outer_size()?);
+        let (frame_w, frame_h) = (outer.width.saturating_sub(inner.width), outer.height.saturating_sub(inner.height));
+        let width = (right - left).max(400) as u32;
+        let height = (bottom - top).max(300) as u32;
+        place(window, left, top, width.saturating_sub(frame_w), height.saturating_sub(frame_h))?;
+        Ok(())
+    };
+    if let Err(e) = run() {
+        eprintln!("codedeck: placing the window: {e}");
+    }
+}
+
 /// Makes the window a sidebar `width` (logical pixels) wide, always at the right edge of the
 /// monitor it is on and as high as the panels leave free; or the full window again, where it was. Gives the
 /// logical width it had before, so that the frontend can keep the sidebar's width for next time.

@@ -150,9 +150,6 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
         .title(crate::title_of(&win))
         .inner_size(1440.0, 900.0)
         .min_inner_size(280.0, 400.0)
-        // The whole screen for the work (user, 2026-11-17): the fixed size left gaps wherever the
-        // window manager put it; un-maximized it comes back at 1440 × 900
-        .maximized(true)
         .background_color(tauri::window::Color(2, 6, 23, 255))
         .build();
     if let Err(e) = built {
@@ -160,6 +157,12 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
         return Err(e.to_string());
     }
     bridge.show_in(app, Some(label.clone()));
+    // Beside the overview, with a margin to the screen's edges (user, 2026-11-17). Off this thread:
+    // placing waits for the window manager, and `open` may run on the main thread
+    if let Some(window) = app.get_webview_window(&label) {
+        let app = app.clone();
+        std::thread::spawn(move || crate::window::place_beside_overview(&app, &window));
+    }
     crate::set_title(app, &win);
     crate::window::shown(app);
     crate::exclude_scratch(app, &win);
