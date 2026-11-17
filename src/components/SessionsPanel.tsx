@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Paperclip,
   Pencil,
+  Eraser,
   Radio,
   RotateCcw,
   Square,
@@ -23,6 +24,9 @@ import {
 import { DRAG_TYPE } from "./FilesPanel";
 import { HookPanel } from "./AssistantStatus";
 import { Tooltip } from "./Tooltip";
+import { changes } from "../changes";
+import { notes } from "../notes";
+import { markers } from "../markers";
 import { forgetSession, openSession, openUrl, stopSession, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
 import { useProjectAccount, useProjectLook } from "../projectLook";
 import { AssistantStatusBar } from "./StatusBar";
@@ -655,6 +659,17 @@ function NextPrompt({ assistant, onPin }: Props) {
       onDrop={onDrop}
     >
       <AreaHeader title={t("Next prompt")}>
+        {count > 0 && (
+          <button
+            type="button"
+            title={t("Take everything off: files, changes, line comments and hints")}
+            aria-label={t("Clear the next prompt")}
+            onClick={() => [files, changes, notes, markers].forEach((part) => part.clear())}
+            className="flex items-center gap-0.5 rounded px-1 text-[11px] text-slate-400 hover:bg-raised hover:text-slate-100"
+          >
+            <Eraser className="size-3.5" /> {t("Clear")}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => openView("next")}
