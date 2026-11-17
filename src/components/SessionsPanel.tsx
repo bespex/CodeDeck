@@ -65,7 +65,7 @@ interface Props {
 export function SessionsPanel(props: Props) {
   return (
     <aside
-      className="zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_auto_minmax(0,3fr)_minmax(0,2fr)_auto] border-l border-line bg-panel"
+      className="zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_auto_minmax(0,1fr)_fit-content(40%)_auto] border-l border-line bg-panel"
     >
       <HeaderBar project={props.project} onOpenProject={props.onOpenProject} assistant={props.assistant} onToggleLog={props.onToggleLog} />
       <SidebarSummary git={props.git} assistant={props.assistant} />
@@ -667,7 +667,7 @@ function NextPrompt({ assistant, onPin }: Props) {
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3 pb-3">
         {/* Who it is for comes first: the numbers below read as what goes to them */}
         {count > 0 && attaches && (
-          <div className="flex flex-col gap-1 rounded-md bg-base/60 px-2 py-1.5 text-[12px] text-slate-400">
+          <div className="flex flex-col gap-1 text-[12px] text-slate-400">
             <div className="flex min-w-0 items-center gap-1.5">
               <span className="shrink-0">{t("For")}</span>
               <AttachTarget state={assistant} className="min-w-0 flex-1" />
