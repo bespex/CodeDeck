@@ -32,6 +32,13 @@ pub fn here(harness: &dyn Harness, with_name: bool) -> Place {
     }
 }
 
+/// Whether the session's process still runs: the process id is there and started when the session's
+/// did (a reused id is another process). `None` when the place does not say which process it is.
+pub fn alive(place: &Place) -> Option<bool> {
+    let (pid, since) = (place.pid?, place.since?);
+    Some(stat(Path::new("/proc"), pid).is_some_and(|s| s.start == since))
+}
+
 /// From `/proc/<pid>/stat`: the command name, the parent, the start time.
 #[derive(Debug, PartialEq)]
 struct Stat {

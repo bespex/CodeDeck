@@ -87,6 +87,9 @@ pub struct Session {
     received: Vec<Received>,
     /// Where it runs, as its latest message said; `None` for a session known from its log only
     place: Option<Place>,
+    /// Its process still runs; `None` when that is not known (a session known from its log only).
+    /// Worked out when the state is asked for, not kept
+    alive: Option<bool>,
 }
 
 /// Something a session got from CodeDeck.
@@ -667,6 +670,9 @@ impl Inner {
     /// The sessions in the order they came in, the newest first: a session keeps its place.
     fn listed(&self) -> Vec<Session> {
         let mut sessions: Vec<Session> = self.sessions.values().cloned().collect();
+        for s in &mut sessions {
+            s.alive = s.place.as_ref().and_then(crate::place::alive);
+        }
         sessions.sort_by(|a, b| b.started.cmp(&a.started).then_with(|| a.id.cmp(&b.id)));
         sessions
     }
@@ -976,6 +982,7 @@ fn new_session(id: &str, harness: &dyn Harness) -> Session {
         touched: Vec::new(),
         received: Vec::new(),
         place: None,
+        alive: None,
     }
 }
 

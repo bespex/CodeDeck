@@ -630,6 +630,8 @@ export interface Session {
   received: { at: number; labels: string[] }[];
   /** Where it runs, as its latest message said; missing for a session known from its log only */
   place?: Place | null;
+  /** Its process still runs; `null`/missing when that is not known (known from its log only) */
+  alive?: boolean | null;
 }
 
 /** Where a session runs. Only observed so far; groundwork for starting and finding sessions (`docs/SITZUNGEN.md`) */

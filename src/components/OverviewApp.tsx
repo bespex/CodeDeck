@@ -75,20 +75,38 @@ function RowIcon({ title, onClick, tone = "text-slate-400", children }: { title:
   );
 }
 
+/** How long a session whose process is not known stays in the overview after its last sign of life. */
+const RECENT_MS = 60 * 60_000;
+
+/**
+ * Whether a session belongs in the overview (user, 2026-11-17: old ones crowded it): its process
+ * still runs, or, where that is not known, it was active within the hour or waits for you. Ended
+ * ones and those whose process is gone stay in the project window under "Earlier".
+ */
+function relevant(s: Session, now: number): boolean {
+  if (s.status === "ended" || s.alive === false) return false;
+  if (s.alive === true) return true;
+  return needsYou(s) === "asks" || now - s.last < RECENT_MS;
+}
+
 /** An AI configuration (a configuration folder) by its folder's name, e.g. "claude-private". */
 const accountName = (dir: string) => dir.replace(/\/+$/, "").split("/").pop()!.replace(/^\./, "");
 
-/** A colour that stays the same for a configuration, from the session colours. */
-function accountColor(dir: string): string {
-  let h = 0;
-  for (const c of dir) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return `var(--color-session-${h % 6})`;
+/** A colour per configuration, by its place among the connected ones: never the same for two. */
+function useAccountColor(): (dir: string) => string {
+  const { setups } = useConnections();
+  const dirs = [...new Set((setups ?? []).map((c) => c.dir))].sort();
+  return (dir: string) => {
+    const at = dirs.indexOf(dir);
+    return `var(--color-session-${(at < 0 ? dirs.length : at) % 6})`;
+  };
 }
 
 /** The menu of a project's row: what is done now and then, kept out of sight (docs/UEBERSICHT.md). */
 function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () => void }) {
   const { setups } = useConnections();
   const accounts = [...new Set((setups ?? []).map((c) => c.dir))];
+  const accountColor = useAccountColor();
   useEffect(() => {
     const close = () => onClose();
     // Next tick: the click that opened the menu must not close it
@@ -150,9 +168,10 @@ let tellListener: ((text: string | null) => void) | null = null;
 const tell = (text: string) => tellListener?.(text);
 
 function ProjectRow({ project }: { project: OverviewProject }) {
-  const sessions = (project.state?.sessions ?? []).filter((s) => s.status !== "ended");
-  const label = project.label;
   const now = useNow();
+  const sessions = (project.state?.sessions ?? []).filter((s) => relevant(s, now));
+  const label = project.label;
+  const accountColor = useAccountColor();
   const asks = sessions.some((s) => needsYou(s) === "asks");
   const done = sessions.some((s) => needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS);
   const summary = project.summary ?? {};
@@ -302,7 +321,7 @@ function Waiting({ projects }: { projects: OverviewProject[] }) {
   const now = useNow();
   const waiting = projects.flatMap((p) =>
     (p.state?.sessions ?? [])
-      .filter((s) => needsYou(s) === "asks" || (needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS))
+      .filter((s) => relevant(s, now) && (needsYou(s) === "asks" || (needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS)))
       .map((s) => ({ project: p, session: s })),
   );
   waiting.sort((a, b) => Number(needsYou(b.session) === "asks") - Number(needsYou(a.session) === "asks"));

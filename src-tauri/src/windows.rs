@@ -261,7 +261,13 @@ pub fn toggle_overview(app: &AppHandle) -> Result<(), String> {
         if window.is_visible().unwrap_or(false) {
             let _ = window.hide();
         } else {
-            crate::window::obey(&window, crate::window::Request::Front);
+            // Back at the right edge of its monitor, at the width the user left it: shown again,
+            // the window manager may put it elsewhere (user, 2026-11-17)
+            let width = window.inner_size().ok().zip(window.scale_factor().ok()).map_or(OVERVIEW_WIDTH, |(s, f)| s.width as f64 / f);
+            let _ = window.show();
+            let _ = window.unminimize();
+            crate::window::set_compact(&window, &FullPlace::default(), true, width).map_err(|e| e.to_string())?;
+            let _ = window.set_focus();
         }
         return Ok(());
     }

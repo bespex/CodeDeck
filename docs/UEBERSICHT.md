@@ -48,6 +48,11 @@ rot Git-Fehler). Beim Überfahren erscheinen Icons für Git, Nächster Prompt un
 Zustand, Klick öffnet den Reiter im Projektfenster) und ▶ für ein Projekt der Tagesliste ohne Sitzung. Klick
 auf die Zeile holt das Fenster nach vorn bzw. öffnet das Projekt.
 
+**Welche Sitzungen** (Nutzer, 2026-11-17, weil alte die Liste füllten): nur die lebendigen. Eine Sitzung steht in der
+Übersicht, wenn ihr Prozess noch läuft (Prozess-ID und Startzeit aus dem Hook, `place::alive`); wo das nicht bekannt
+ist (nur aus dem Log), wenn sie in der letzten Stunde aktiv war oder fragt. Beendete und solche, deren Prozess weg ist
+(Fenster zu, Absturz, Neustart), stehen nur noch im Projektfenster unter „Earlier“.
+
 **Darunter die Sitzungen**, einzeilig: Schild, Titel, Status als farbiges Wort. Beim Überfahren erscheinen
 rechts die Türen (Desktop, Terminal) statt des Zuhause-Symbols. Doppelklick und Mittelklick wie oben, Klick
 öffnet die Details der Sitzung im Projektfenster. Ein Projekt ohne laufende Sitzung hat keine Sitzungszeilen.
