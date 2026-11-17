@@ -1393,6 +1393,8 @@ export interface ProjectSummary {
   /** Git in a few words, e.g. "3 uncommitted · ↑2"; `gitFailed` when a command failed */
   git?: string;
   gitFailed?: boolean;
+  /** Files not committed yet */
+  uncommitted?: number;
   /** Parts attached to the next prompt */
   next?: number;
   /** New in the Workbench since the last look */
@@ -1414,13 +1416,15 @@ export interface OverviewProject {
   front: boolean;
   /** On my list of projects */
   listed: boolean;
+  /** Its window is loaded and shown, not hidden */
+  visible: boolean;
 }
 
 /** The overview window shows this instead of a project. */
 export const isOverview = new URLSearchParams(window.location.search).get("view") === "overview";
 
 const mockOverview = (): OverviewProject[] => [
-  { label: "w1", name: "orbit-api", path: "/home/me/projects/orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", next: mockAssistant.attachments.length, news: 0 }, front: true, listed: true },
+  { label: "w1", name: "orbit-api", path: "/home/me/projects/orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", uncommitted: 3, next: mockAssistant.attachments.length, news: 0 }, front: true, listed: true, visible: true },
   {
     label: "w2",
     name: "ai-driven-development",
@@ -1430,8 +1434,9 @@ const mockOverview = (): OverviewProject[] => [
     summary: { git: "clean", news: 3 },
     front: false,
     listed: true,
+    visible: false,
   },
-  { label: null, name: "billing-ui", path: "/home/me/projects/billing-ui", color: "#c3cf6c", state: null, summary: null, front: false, listed: true },
+  { label: null, name: "billing-ui", path: "/home/me/projects/billing-ui", color: "#c3cf6c", state: null, summary: null, front: false, listed: true, visible: false },
 ];
 
 export function overviewState(): Promise<OverviewProject[]> {
@@ -1472,9 +1477,15 @@ export function showProject(path: string): Promise<void> {
   return Promise.resolve();
 }
 
-/** Closes a project's window; the project stays on my list. */
-export function closeProjectWindow(label: string): Promise<void> {
-  if (live) return invoke("close_project_window", { label });
+/** Hides a loaded project window, or shows it again in front. */
+export function toggleProjectWindow(label: string): Promise<void> {
+  if (live) return invoke("toggle_project_window", { label });
+  return Promise.resolve();
+}
+
+/** Goes into a session: in the tool's desktop app, or in a terminal. */
+export function openSession(project: string, session: string, door: "desktop" | "terminal"): Promise<void> {
+  if (live) return invoke("open_session", { project, session, door });
   return Promise.resolve();
 }
 

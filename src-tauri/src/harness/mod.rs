@@ -65,6 +65,12 @@ pub trait Harness: Send + Sync {
     fn page_hosts(&self) -> &'static [&'static str] {
         &[]
     }
+    /// The command that shows a session in the tool's desktop app, from its remote link (see
+    /// [`Self::remote_link`]); `profile` is the app's data folder for the session's account, if the
+    /// user set one. `None`: the tool has no desktop app that can do this.
+    fn desktop_command(&self, _remote: &str, _profile: Option<&str>) -> Option<Vec<String>> {
+        None
+    }
     /// A link that reaches the session from another device or the browser, read from the
     /// environment its hooks run in (`var` looks a variable up); `None` while there is none.
     fn remote_link(&self, _var: &dyn Fn(&str) -> Option<String>) -> Option<String> {

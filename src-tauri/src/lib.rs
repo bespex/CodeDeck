@@ -8,6 +8,7 @@ mod apps;
 mod attention;
 mod bridge;
 mod config;
+mod doors;
 mod findings;
 mod git;
 mod harness;
@@ -659,11 +660,45 @@ async fn show_project(path: String, app: AppHandle) -> Result<(), String> {
     windows::show_project(&app, Path::new(&path))
 }
 
-/// Closes a project's window; the project stays on my list, its sessions go on.
+/// Hides a project's window, or shows it again in front (a click on its mark in the overview).
+/// Closing is the window's own business; hidden, it keeps its state and comes back at once.
 #[tauri::command]
-fn close_project_window(label: String, app: AppHandle) -> Result<(), String> {
+fn toggle_project_window(label: String, app: AppHandle) -> Result<(), String> {
     let window = app.get_webview_window(&label).ok_or_else(|| format!("{label}: no such window"))?;
-    window.close().map_err(|e| e.to_string())
+    if window.is_visible().unwrap_or(false) {
+        window.hide().map_err(|e| e.to_string())?;
+    } else {
+        window::obey(&window, window::Request::Front);
+    }
+    windows::overview_changed(&app);
+    Ok(())
+}
+
+/// Goes into a session of a project: `door` is "desktop" (the tool's desktop app) or "terminal".
+#[tauri::command]
+fn open_session(project: String, session: String, door: String, app: AppHandle) -> Result<(), String> {
+    let bridge = windows::bridge_for(&app, Path::new(&project));
+    let (harness, account, place) = bridge.session_place(&session).ok_or("this session is not known (any more)")?;
+    let place = place.ok_or("this session has not said where it runs yet")?;
+    match door.as_str() {
+        "terminal" => doors::terminal(&place),
+        "desktop" => {
+            let remote = place.remote.as_deref().ok_or("not reachable from the desktop app: Remote Control is off or not connected")?;
+            let tool = harness::by_id(Some(harness)).ok_or("unknown tool")?;
+            // The app's data folder for the session's account, as the user set it (machine settings)
+            // (`desktopProfiles`: configuration folder → app data folder, `~` allowed on both sides)
+            let profile = account.as_deref().and_then(|account| {
+                let profiles = config::machine_settings().get("desktopProfiles").cloned()?;
+                let home = std::env::var("HOME").unwrap_or_default();
+                let full = |p: &str| p.strip_prefix('~').map_or_else(|| p.to_string(), |rest| format!("{home}{rest}"));
+                let found = profiles.as_object()?.iter().find(|(dir, _)| full(dir) == full(account))?;
+                found.1.as_str().map(full)
+            });
+            let command = tool.desktop_command(remote, profile.as_deref()).ok_or("this tool has no desktop app to open it in")?;
+            std::process::Command::new(&command[0]).args(&command[1..]).spawn().map(drop).map_err(|e| format!("{}: {e}", command[0]))
+        }
+        _ => Err(format!("{door}: no such way in")),
+    }
 }
 
 /// Brings a project's window to the front; with `view`, that tab opens there.
@@ -831,9 +866,10 @@ pub fn run() {
             toggle_overview,
             quit,
             add_project,
+            open_session,
             remove_project,
             show_project,
-            close_project_window
+            toggle_project_window
         ])
         .build(tauri::generate_context!())
         .expect("error while building CodeDeck")

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Ellipsis, GitBranch, Inbox, Paperclip, Plus, Settings, X } from "lucide-react";
-import { addProject, closeProjectWindow, focusProject, onOverviewChanged, overviewState, pickFolder, quit, removeProject, showProject, type OverviewProject, type Session } from "../backend";
+import { Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Plus, Settings, SquareTerminal, X } from "lucide-react";
+import { addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, showProject, toggleProjectWindow, type OverviewProject, type Session } from "../backend";
 import { DONE_SHOWN_MS, needsYou, useNow } from "../attention";
 import { SessionBadge } from "./SessionBadge";
 import { t } from "../i18n";
@@ -59,8 +59,9 @@ function ProjectMark({ project, size = 20 }: { project: OverviewProject; size?: 
   );
 }
 
-/** A small icon button that appears on hover of its row. */
-function HoverIcon({ title, onClick, warn, children }: { title: string; onClick: () => void; warn?: boolean; children: ReactNode }) {
+/** A small icon button in a project's row: what changed there, or an action. Never taller than the
+ *  row, so nothing moves when one appears. */
+function RowIcon({ title, onClick, tone = "text-slate-400", children }: { title: string; onClick: () => void; tone?: string; children: ReactNode }) {
   return (
     <button
       type="button"
@@ -69,12 +70,17 @@ function HoverIcon({ title, onClick, warn, children }: { title: string; onClick:
         e.stopPropagation();
         onClick();
       }}
-      className={`rounded p-1 hover:bg-overlay-hover hover:text-slate-100 ${warn ? "text-problem" : "text-slate-400"}`}
+      onDoubleClick={(e) => e.stopPropagation()}
+      className={`flex size-5 items-center justify-center rounded hover:bg-overlay-hover hover:text-slate-100 ${tone}`}
     >
       {children}
     </button>
   );
 }
+
+/** Says for a moment why a way into a session did not work. */
+let tellListener: ((text: string | null) => void) | null = null;
+const tell = (text: string) => tellListener?.(text);
 
 function ProjectRow({ project }: { project: OverviewProject }) {
   const sessions = (project.state?.sessions ?? []).filter((s) => s.status !== "ended");
@@ -83,60 +89,70 @@ function ProjectRow({ project }: { project: OverviewProject }) {
   const asks = sessions.some((s) => needsYou(s) === "asks");
   const done = sessions.some((s) => needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS);
   const summary = project.summary ?? {};
-  const dot = asks ? "bg-changed" : done ? "bg-added" : summary.gitFailed ? "bg-problem" : null;
-  // A click on the row: its window to the front, or opened when it has none
-  const front = () => void (label ? focusProject(label) : showProject(project.path));
-  // The window symbol switches the window: open it, or close it (the project stays on the list)
-  const toggleWindow = () => void (label ? closeProjectWindow(label) : showProject(project.path));
+  const dot = asks ? "bg-changed" : done ? "bg-added" : null;
+  // Loaded windows: a click on the row brings it to the front. Not loaded: a double click loads it
+  const front = () => label && void focusProject(label);
+  const load = () => !label && void showProject(project.path);
+  // A click on the mark hides or shows the loaded window; closing is the window's own business
+  const toggle = () => label && void toggleProjectWindow(label);
+  const hidden = !!label && !project.visible;
+  const go = (s: Session, door: "desktop" | "terminal") => openSession(project.path, s.id, door).catch((e) => tell(String(e)));
+  // Double click: Desktop where the session is reachable there, else its terminal
+  const defaultDoor = (s: Session) => (s.place?.remote ? "desktop" : "terminal");
   return (
     <li>
       <div
         role="button"
         tabIndex={0}
         onClick={front}
-        onKeyDown={(e) => e.key === "Enter" && front()}
-        title={label ? t("Bring its window to the front") : t("Open its window")}
-        className={`group/row flex cursor-pointer items-center gap-2 border-l-2 py-1.5 pr-2 pl-3 hover:bg-overlay-hover ${project.front ? "border-ai bg-raised" : "border-transparent"}`}
+        onDoubleClick={load}
+        onKeyDown={(e) => e.key === "Enter" && (label ? front() : load())}
+        title={label ? t("Bring its window to the front") : t("Double-click: load its window")}
+        className={`group/row flex h-8 cursor-pointer items-center gap-2 border-l-2 pr-2 pl-3 hover:bg-overlay-hover ${project.front && project.visible ? "border-ai bg-raised" : "border-transparent"}`}
       >
-        {/* The project's mark switches its window: open it, or close it (the project stays here).
-            On hover a ring runs round it, so it says it can be clicked */}
+        {/* The mark: a click hides or shows the loaded window, a double click loads it. A ring runs
+            round it on hover, so it reads as a switch */}
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            toggleWindow();
+            toggle();
           }}
-          title={label ? t("Close its window (the project stays here)") : t("Open its window")}
-          aria-label={label ? t("Close its window") : t("Open its window")}
-          className={`mark-switch shrink-0 rounded-full ${label ? "" : "opacity-60 hover:opacity-100"}`}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            load();
+          }}
+          title={label ? (hidden ? t("Show its window") : t("Hide its window (close it in the window itself)")) : t("Double-click: load its window")}
+          aria-label={label ? (hidden ? t("Show its window") : t("Hide its window")) : t("Load its window")}
+          className={`mark-switch flex shrink-0 rounded-full ${!label ? "opacity-50 hover:opacity-100" : hidden ? "opacity-75" : ""}`}
         >
           <ProjectMark project={project} />
         </button>
         <span className={`min-w-0 flex-1 truncate ${label ? "font-semibold text-slate-100" : "text-slate-400"}`}>{project.name}</span>
-        <span className="hidden items-center group-hover/row:flex">
-          {label && (
-            <HoverIcon title={`${t("Git")}: ${summary.git ?? "…"}`} warn={summary.gitFailed} onClick={() => void focusProject(label, "changes")}>
-              <GitBranch className="size-3.5" />
-            </HoverIcon>
-          )}
-          {label && !!summary.next && (
-            <HoverIcon title={t("Next prompt: {n} attached", { n: summary.next })} onClick={() => void focusProject(label, "next")}>
-              <Paperclip className="size-3.5" />
-            </HoverIcon>
-          )}
-          {label && !!summary.news && (
-            <HoverIcon title={t("Workbench: {n} new", { n: summary.news })} onClick={() => void focusProject(label, "workbench")}>
-              <Inbox className="size-3.5" />
-            </HoverIcon>
-          )}
-          {project.listed && (
-            <HoverIcon title={t("Take off my list (nothing on disk changes)")} onClick={() => void removeProject(project.path)}>
+        {/* What changed there: always in sight, the details in the tooltip */}
+        {label && (summary.gitFailed || !!summary.uncommitted) && (
+          <RowIcon title={`${t("Git")}: ${summary.git ?? "…"}`} tone={summary.gitFailed ? "text-problem" : "text-changed"} onClick={() => void focusProject(label, "changes")}>
+            <GitBranch className="size-3.5" />
+          </RowIcon>
+        )}
+        {label && !!summary.next && (
+          <RowIcon title={t("Next prompt: {n} attached", { n: summary.next })} tone="text-ai" onClick={() => void focusProject(label, "next")}>
+            <Paperclip className="size-3.5" />
+          </RowIcon>
+        )}
+        {label && !!summary.news && (
+          <RowIcon title={t("Workbench: {n} new", { n: summary.news })} tone="text-ai" onClick={() => void focusProject(label, "workbench")}>
+            <Inbox className="size-3.5" />
+          </RowIcon>
+        )}
+        {project.listed && (
+          <span className="hidden group-hover/row:flex">
+            <RowIcon title={t("Take off my list (nothing on disk changes)")} onClick={() => void removeProject(project.path)}>
               <X className="size-3.5" />
-            </HoverIcon>
-          )}
-        </span>
-
-        {dot && <span className={`size-2 shrink-0 rounded-full group-hover/row:hidden ${dot}`} />}
+            </RowIcon>
+          </span>
+        )}
+        {dot && <span className={`size-2 shrink-0 rounded-full ${dot}`} />}
       </div>
       {sessions.length > 0 && (
         <ul>
@@ -146,12 +162,24 @@ function ProjectRow({ project }: { project: OverviewProject }) {
               <li
                 key={s.id}
                 onClick={front}
-                title={t("Click: its project's window")}
-                className="flex cursor-default items-center gap-2 py-1 pr-2 pl-9 text-[12px] hover:bg-overlay-hover"
+                onDoubleClick={() => void go(s, defaultDoor(s))}
+                onAuxClick={(e) => e.button === 1 && void go(s, "terminal")}
+                title={t("Double-click: go to it ({door}) · middle click: terminal", { door: defaultDoor(s) === "desktop" ? t("Desktop") : t("Terminal") })}
+                className="group/s flex h-7 cursor-default items-center gap-2 pr-2 pl-9 text-[12px] hover:bg-overlay-hover"
               >
                 <SessionBadge mark={markOf(s)} />
                 <span className="min-w-0 flex-1 truncate text-slate-200">{titleOf(s)}</span>
                 <span className={`shrink-0 text-[11px] ${status.className}`}>{status.word}</span>
+                <span className="hidden items-center group-hover/s:flex">
+                  {s.place?.remote && (
+                    <RowIcon title={t("Open in the desktop app")} onClick={() => void go(s, "desktop")}>
+                      <Monitor className="size-3.5" />
+                    </RowIcon>
+                  )}
+                  <RowIcon title={t("Open in a terminal")} onClick={() => void go(s, "terminal")}>
+                    <SquareTerminal className="size-3.5" />
+                  </RowIcon>
+                </span>
               </li>
             );
           })}
@@ -159,6 +187,25 @@ function ProjectRow({ project }: { project: OverviewProject }) {
       )}
     </li>
   );
+}
+
+/** The message of a way in that did not work, for a few seconds at the bottom. */
+function Told() {
+  const [text, setText] = useState<string | null>(null);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    tellListener = (next) => {
+      setText(next);
+      clearTimeout(timer);
+      timer = setTimeout(() => setText(null), 6000);
+    };
+    return () => {
+      tellListener = null;
+      clearTimeout(timer);
+    };
+  }, []);
+  if (!text) return null;
+  return <p className="surface-overlay mx-2 mb-2 rounded-md px-2.5 py-1.5 text-[12px] text-changed">{text}</p>;
 }
 
 /** "Needs you" over every project: questions first, then finished turns of the last half hour. */
@@ -300,6 +347,7 @@ export default function OverviewApp() {
           <p className="px-3 py-2 text-[12px] text-slate-500">{t("No projects yet. + adds one; its window opens when you click it.")}</p>
         )}
       </main>
+      <Told />
     </div>
   );
 }

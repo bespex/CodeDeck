@@ -189,6 +189,8 @@ pub struct OverviewProject {
     pub front: bool,
     /// On my list of projects (an open window of a project taken off the list is not)
     pub listed: bool,
+    /// Its window is loaded and shown (not hidden from the overview)
+    pub visible: bool,
 }
 
 /// The overview's view of my projects in their order, then open windows of projects not on the list.
@@ -208,6 +210,7 @@ pub fn overview_state(app: &AppHandle) -> Vec<OverviewProject> {
             summary: win.map_or(serde_json::Value::Null, |w| w.summary.locked().clone()),
             front: win.is_some_and(|w| last.as_deref() == Some(w.label.as_str())),
             listed,
+            visible: win.and_then(|w| app.get_webview_window(&w.label)).is_some_and(|w| w.is_visible().unwrap_or(false)),
         }
     };
     let window_of = |root: &Path| open.iter().find(|w| w.current.get().root == root);

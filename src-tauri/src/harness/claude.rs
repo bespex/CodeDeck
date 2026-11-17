@@ -145,6 +145,18 @@ impl Harness for Claude {
     /// Remote Control: while a session is connected, Claude Code (2.1.199 and later) gives its hooks
     /// the remote session's id, the same as in its claude.ai/code address. Gone when the connection
     /// is, so this also tells whether the session is reachable right now.
+    /// Claude Desktop opens `claude://claude.ai/<path>` as that claude.ai page in the app: for a
+    /// remote session exactly that session (tried 2026-11-17 on Linux, docs/SITZUNGEN.md B4). With
+    /// two app profiles `claude://` belongs to one of them, so with a profile known for the
+    /// account the app of that profile is started with the link; else the system's handler takes it.
+    fn desktop_command(&self, remote: &str, profile: Option<&str>) -> Option<Vec<String>> {
+        let link = format!("claude://claude.ai/{}", remote.strip_prefix("https://claude.ai/")?);
+        Some(match profile {
+            Some(dir) => vec!["claude-desktop".into(), format!("--user-data-dir={dir}"), link],
+            None => vec!["xdg-open".into(), link],
+        })
+    }
+
     fn remote_link(&self, var: &dyn Fn(&str) -> Option<String>) -> Option<String> {
         let id = var("CLAUDE_CODE_BRIDGE_SESSION_ID")?;
         let plain = id.starts_with("session_") && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');

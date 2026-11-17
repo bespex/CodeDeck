@@ -63,8 +63,8 @@ export function SidebarSummary({ git, assistant }: { git: GitView; assistant: As
     : t("No git repository");
   const next = assistant.attachments.length;
   useEffect(() => {
-    void reportSummary({ git: gitWords, gitFailed: !!failed, next, news: fresh });
-  }, [gitWords, failed, next, fresh]);
+    void reportSummary({ git: gitWords, gitFailed: !!failed, uncommitted, next, news: fresh });
+  }, [gitWords, failed, uncommitted, next, fresh]);
 
   return (
     <section aria-label={t("Overview")} className="flex flex-col border-b border-line py-1 text-[12px]">

@@ -475,6 +475,12 @@ impl Bridge {
         self.tell(app, ASSISTANT_CHANGED, self.state());
     }
 
+    /// What is needed to go into a session: its tool, its account, where it runs.
+    pub fn session_place(&self, id: &str) -> Option<(&'static str, Option<String>, Option<Place>)> {
+        let inner = self.inner.locked();
+        inner.sessions.get(id).map(|s| (s.harness, s.account.clone(), s.place.clone()))
+    }
+
     /// The usage a tool's status line stated; the window hears of it when it changed anything.
     pub fn take_usage(&self, app: &AppHandle, usage: crate::usage::Usage) {
         let changed = self.inner.locked().usage.take(usage, now_ms());
