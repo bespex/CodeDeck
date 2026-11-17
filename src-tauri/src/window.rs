@@ -107,6 +107,17 @@ fn place(window: &WebviewWindow, x: i32, y: i32, w: u32, h: u32) -> tauri::Resul
     Ok(tries.join(" "))
 }
 
+/// The monitor CodeDeck starts on (user, 2026-11-18): the main screen unless the setting
+/// `startMonitor` says `"last"`, where the window manager's choice stands.
+pub fn start_monitor(app: &AppHandle) -> Option<tauri::Monitor> {
+    let keep = crate::config::machine_settings().get("startMonitor").and_then(|v| v.as_str().map(String::from)).as_deref() == Some("last");
+    if keep {
+        None
+    } else {
+        app.primary_monitor().ok().flatten()
+    }
+}
+
 /// Margin of a new project window to the screen's edges, in logical pixels.
 const MARGIN: f64 = 25.0;
 
@@ -119,7 +130,10 @@ pub fn place_beside_overview(app: &AppHandle, window: &WebviewWindow) {
         // The monitor of the overview, else the window's own
         let monitor = match overview.as_ref().map(|o| o.current_monitor()).transpose()?.flatten() {
             Some(m) => Some(m),
-            None => window.current_monitor()?,
+            None => match start_monitor(app) {
+                Some(m) => Some(m),
+                None => window.current_monitor()?,
+            },
         };
         let Some(monitor) = monitor else { return Ok(()) };
         let area = *monitor.work_area();
@@ -152,13 +166,17 @@ pub fn place_beside_overview(app: &AppHandle, window: &WebviewWindow) {
 /// monitor it is on and as high as the panels leave free; or the full window again, where it was. Gives the
 /// logical width it had before, so that the frontend can keep the sidebar's width for next time.
 /// Runs off the main thread: it waits for the desktop.
-pub fn set_compact(window: &WebviewWindow, kept: &FullPlace, on: bool, width: f64) -> tauri::Result<f64> {
+pub fn set_compact(window: &WebviewWindow, kept: &FullPlace, on: bool, width: f64, monitor: Option<tauri::Monitor>) -> tauri::Result<f64> {
     let scale = window.scale_factor()?;
     let size = window.inner_size()?;
     let at = window.outer_position()?;
     let before = size.width as f64 / scale;
     // The monitor the window is on, without panels: the sidebar stays on it
-    let monitor = window.current_monitor()?;
+    // (`monitor`: where the user wants it to start, see `start_monitor`; else the one it is on)
+    let monitor = match monitor {
+        Some(m) => Some(m),
+        None => window.current_monitor()?,
+    };
     let area = monitor.as_ref().map(|m| *m.work_area());
     let screen = monitor.as_ref().map(|m| (m.position().x, m.size().width as i32));
     let fit = |x: i32, w: u32| match screen {

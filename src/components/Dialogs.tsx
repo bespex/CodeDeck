@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Copy, X } from "lucide-react";
-import { appInfo, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
+import { appInfo, machineSettings, setMachineSetting, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
 import { useAccounts } from "../accounts";
 import { AccountMark, MarkPicker } from "./ProjectMark";
 import { useConnections } from "../assistant";
@@ -241,6 +241,37 @@ function Setting(props: { label: string; note?: string; scope: "machine" | "proj
   );
 }
 
+/** The screen CodeDeck opens on: the main one, or wherever the window manager puts it. */
+function StartScreen() {
+  const [value, setValue] = useState<"primary" | "last">("primary");
+  useEffect(() => void machineSettings().then((m) => setValue(m.startMonitor === "last" ? "last" : "primary")), []);
+  const choose = (v: "primary" | "last") => {
+    setValue(v);
+    void setMachineSetting("startMonitor", v === "primary" ? null : v);
+  };
+  return (
+    <div className="flex rounded-md border border-overlay-line p-0.5" role="radiogroup" aria-label={t("Starts on")}>
+      {(
+        [
+          ["primary", t("Main screen")],
+          ["last", t("Where the system puts it")],
+        ] as const
+      ).map(([v, label]) => (
+        <button
+          key={v}
+          type="button"
+          role="radio"
+          aria-checked={value === v}
+          onClick={() => choose(v)}
+          className={`rounded px-2 py-0.5 text-[12px] ${value === v ? "bg-overlay-hover text-slate-100" : "text-slate-500 hover:text-slate-200"}`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function General() {
   const global = useGlobalShortcuts();
   return (
@@ -262,7 +293,10 @@ function General() {
           ))}
         </div>
       </Setting>
-      <Setting label={t("Theme")} note={t("Point at one to see it; a click keeps it. Colours keep their meaning in every theme.")} scope="machine">
+      <Setting label={t("Starts on")} note={t("The screen CodeDeck opens on. Windows opened later follow the overview.")} scope="machine">
+        <StartScreen />
+      </Setting>
+      <Setting label={t("Theme")} note={t("A click chooses it. Colours keep their meaning in every theme.")} scope="machine">
         <ThemeChoice />
       </Setting>
       <Setting label={t("Transparency")} note={t("Menus and popups of some themes let a blurred picture of what is behind them through.")} scope="machine">

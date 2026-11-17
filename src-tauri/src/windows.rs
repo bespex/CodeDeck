@@ -272,7 +272,7 @@ pub fn toggle_overview(app: &AppHandle) -> Result<(), String> {
             let width = window.inner_size().ok().zip(window.scale_factor().ok()).map_or(OVERVIEW_WIDTH, |(s, f)| s.width as f64 / f);
             let _ = window.show();
             let _ = window.unminimize();
-            crate::window::set_compact(&window, &FullPlace::default(), true, width).map_err(|e| e.to_string())?;
+            crate::window::set_compact(&window, &FullPlace::default(), true, width, None).map_err(|e| e.to_string())?;
             let _ = window.set_focus();
         }
         return Ok(());
@@ -285,6 +285,6 @@ pub fn toggle_overview(app: &AppHandle) -> Result<(), String> {
         .build()
         .map_err(|e| e.to_string())?;
     // At the right edge of the monitor, as high as the panels leave free: the sidebar's place
-    crate::window::set_compact(&window, &FullPlace::default(), true, OVERVIEW_WIDTH).map_err(|e| e.to_string())?;
+    crate::window::set_compact(&window, &FullPlace::default(), true, OVERVIEW_WIDTH, crate::window::start_monitor(app)).map_err(|e| e.to_string())?;
     Ok(())
 }
