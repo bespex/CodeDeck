@@ -32,15 +32,15 @@ export function GitStatusBar({ git, onRepoActions, logOpen, onToggleLog, recent 
   return (
     <footer className="zone-bar @container flex h-7 shrink-0 items-center gap-3 overflow-x-clip border-t border-line bg-panel px-3 text-[12px] whitespace-nowrap text-slate-500">
       {root && (
-        <Tooltip className="flex shrink-0" content={<RepoTooltip repo={root} runs={git.runs} />}>
+        <Tooltip className="flex min-w-0" content={<RepoTooltip repo={root} runs={git.runs} />}>
           <button
             type="button"
             aria-label={t("Git actions, branch {branch}", { branch: root.branch ?? t("detached") })}
             onClick={(e) => onRepoActions(root.path, e.currentTarget, true)}
-            className={`${CLICKABLE} ${root.error ? "text-problem" : root.files.length > 0 ? "text-changed" : "text-slate-200"}`}
+            className={`${CLICKABLE.replace("shrink-0", "min-w-0")} ${root.error ? "text-problem" : root.files.length > 0 ? "text-changed" : "text-slate-200"}`}
           >
-            {root.worktreeOf ? <GitFork className="size-3.5" /> : <GitBranch className="size-3.5" />}
-            <span className="max-w-56 truncate">{root.branch ?? t("detached")}</span>
+            {root.worktreeOf ? <GitFork className="size-3.5 shrink-0" /> : <GitBranch className="size-3.5 shrink-0" />}
+            <span className="min-w-0 max-w-56 truncate">{root.branch ?? t("detached")}</span>
             {aheadBehind(root) && <span className="text-slate-500">{aheadBehind(root)}</span>}
           </button>
         </Tooltip>
@@ -52,14 +52,15 @@ export function GitStatusBar({ git, onRepoActions, logOpen, onToggleLog, recent 
         </>
       )}
       {recent > 0 && (
-        <span className="flex shrink-0 items-center gap-1.5">
-          <span className="ai-dot" />
-          {t("{n} changed recently", { n: recent })}
+        <span className="flex min-w-0 items-center gap-1.5" title={t("{n} changed recently", { n: recent })}>
+          <span className="ai-dot shrink-0" />
+          <span className="truncate">{t("{n} changed recently", { n: recent })}</span>
         </span>
       )}
       {inFolders.length > 0 && (
         <span
-          className="min-w-0 truncate"
+          // The first to go when the column is narrow; the tooltip has the details
+          className="hidden min-w-0 truncate @sm:inline"
           title={inFolders
             .map((r) => `${r.path} · ${r.branch ?? t("detached")} · ${changeSummary(r)}`)
             .join("\n")}
