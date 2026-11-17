@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import {
   AppWindow,
   Bug,
+  Check,
   ChevronDown,
   CircleHelp,
   Ellipsis,
@@ -15,7 +16,8 @@ import {
   SquareTerminal,
   Stethoscope,
 } from "lucide-react";
-import { appInfo, diagnostics, openUrl, openWindow, toggleOverview, type AssistantState, type ProjectInfo } from "../backend";
+import { appInfo, diagnostics, openUrl, openWindow, setProject, stopSession, toggleOverview, type Account, type AssistantState, type ProjectInfo } from "../backend";
+import { useAccounts } from "../accounts";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
 import { lang, setLang, t } from "../i18n";
@@ -170,26 +172,110 @@ function QuickSettings() {
 }
 
 /**
- * The AI account of this project, large: its hexagon, its name, and below it the tool and the model
- * the newest session answered with. A click opens where accounts are set up (Settings, AI tools).
+ * The AI account of this project, large: its hexagon, its name, the tool below. A project runs with
+ * one account; a click offers the others. Sessions still running with the old one go on until they
+ * end (or are stopped here); new ones start with the new one. The model belongs to each session.
  */
 function AccountBlock({ project, assistant }: { project: ProjectInfo | null; assistant: AssistantState }) {
+  const menu = usePopover<HTMLDivElement>();
   const look = useProjectLook(project?.path);
-  const { account, harness, model } = useProjectAccount(assistant, look);
-  const second = [harness.name, model].filter(Boolean).join(" · ");
+  const { account, harness } = useProjectAccount(assistant, look);
+  const accounts = useAccounts().filter((a) => a.kind !== "backup");
+  const [asking, setAsking] = useState<Account | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Running with another account than the chosen one: what a switch would leave behind
+  const runningWith = (dir: string | undefined) =>
+    assistant.sessions.filter((s) => s.status !== "ended" && s.alive !== false && s.account && s.account !== dir);
+  const close = () => {
+    menu.setOpen(false);
+    setAsking(null);
+    setError(null);
+  };
+  const choose = async (next: Account, stop: boolean) => {
+    if (!look) return;
+    try {
+      if (stop) {
+        for (const s of runningWith(next.dir).filter((s) => s.place?.tmux?.session)) await stopSession(look.path, s.id, false);
+      }
+      await setProject(look.path, "account", next.dir);
+      close();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+  const pick = (next: Account) => (runningWith(next.dir).length ? setAsking(next) : void choose(next, false));
+  const tools = assistant.harnesses.filter((h) => accounts.some((a) => a.harness === h.id));
+  const left = asking ? runningWith(asking.dir) : [];
+  const stoppable = left.filter((s) => s.place?.tmux?.session).length;
   return (
-    <button
-      type="button"
-      title={account ? `${account.name} · ${account.dir}` : t("No AI account known for this project yet")}
-      onClick={() => openDialog({ kind: "settings", section: "tools" })}
-      className="flex min-w-0 items-center gap-2.5 rounded-md px-1.5 py-1 text-left hover:bg-raised"
-    >
-      {account ? <AccountMark account={account} size={28} /> : <Sparkles className="size-6 text-slate-500" />}
-      <span className="flex min-w-0 flex-col leading-tight">
-        <span className="truncate text-[14px] font-semibold text-slate-100">{account?.name ?? harness.name}</span>
-        <span className="truncate text-[11px] text-slate-500">{account ? second : t("no account chosen")}</span>
-      </span>
-    </button>
+    <div ref={menu.ref} className="min-w-0">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={menu.open}
+        title={account ? `${account.name} · ${account.dir}` : t("No AI account known for this project yet")}
+        onClick={() => (menu.open ? close() : menu.setOpen(true))}
+        className={`flex min-w-0 items-center gap-2.5 rounded-md px-1.5 py-1 text-left hover:bg-raised ${menu.open ? "bg-raised" : ""}`}
+      >
+        {account ? <AccountMark account={account} size={28} /> : <Sparkles className="size-6 text-slate-500" />}
+        <span className="flex min-w-0 flex-col leading-tight">
+          <span className="flex items-center gap-1 truncate text-[14px] font-semibold text-slate-100">
+            {account?.name ?? harness.name}
+            <ChevronDown className="size-3 shrink-0 text-slate-500" />
+          </span>
+          <span className="truncate text-[11px] text-slate-500">{account ? harness.name : t("no account chosen")}</span>
+        </span>
+      </button>
+      {menu.open && (
+        <div role="menu" className="surface-overlay absolute top-full left-1.5 z-30 mt-1 w-[300px] overflow-hidden rounded-lg p-1 text-[13px]">
+          {!asking ? (
+            <>
+              <p className="px-2 pt-1.5 pb-1 text-[11px] text-slate-500">{t("This project's sessions run with")}</p>
+              {tools.map((h) => (
+                <div key={h.id}>
+                  {tools.length > 1 && <Heading>{h.name}</Heading>}
+                  {accounts
+                    .filter((a) => a.harness === h.id)
+                    .map((a) => (
+                      <button key={a.dir} type="button" role="menuitem" title={a.dir} onClick={() => a.dir !== account?.dir && pick(a)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-slate-200 hover:bg-overlay-hover">
+                        <AccountMark account={a} size={18} />
+                        <span className="min-w-0 flex-1 truncate">{a.name}</span>
+                        {a.dir === account?.dir && <Check className="size-3.5 text-slate-300" />}
+                      </button>
+                    ))}
+                </div>
+              ))}
+              <div className="mt-1 border-t border-overlay-line pt-1">
+                <Item icon={<Settings className="size-4" />} label={t("Set up accounts…")} onClick={() => (close(), openDialog({ kind: "settings", section: "tools" }))} />
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col gap-2 p-2">
+              <p className="font-medium text-slate-100">{t("Use {account} for this project?", { account: asking.name })}</p>
+              <p className="text-[12px] text-slate-400">
+                {t(left.length === 1 ? "1 session still runs with another account. New sessions start with {account}." : "{n} sessions still run with another account. New sessions start with {account}.", { n: left.length, account: asking.name })}
+              </p>
+              <button type="button" onClick={() => void choose(asking, false)} className="rounded-md bg-brand-fill px-2.5 py-1 text-left text-[12px] font-medium text-on-accent hover:bg-brand-fill-hover">
+                {t("Let them run until they end")}
+              </button>
+              <button
+                type="button"
+                disabled={!stoppable}
+                title={stoppable < left.length ? t("Sessions started by hand end where they run") : undefined}
+                onClick={() => void choose(asking, true)}
+                className="rounded-md border border-overlay-line px-2.5 py-1 text-left text-[12px] text-slate-200 hover:bg-overlay-hover disabled:opacity-40"
+              >
+                {stoppable < left.length ? t("Stop the {n} in tmux now", { n: stoppable }) : t("Stop them now")}
+              </button>
+              <button type="button" onClick={() => setAsking(null)} className="self-start text-[12px] text-slate-400 hover:text-slate-200">
+                {t("Back")}
+              </button>
+              {error && <p className="selectable text-[12px] text-problem">{error}</p>}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
