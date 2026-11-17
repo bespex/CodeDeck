@@ -14,13 +14,14 @@ import {
   Pencil,
   Radio,
   X,
-  Hand,
+  User,
   type LucideIcon,
 } from "lucide-react";
 import { DRAG_TYPE } from "./FilesPanel";
 import { HookPanel } from "./AssistantStatus";
 import { Tooltip } from "./Tooltip";
-import { forgetSession, openUrl, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
+import { forgetSession, openSession, openUrl, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
+import { useProjectLook } from "../projectLook";
 import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
 import { SessionBadge } from "./SessionBadge";
 import { HeaderBar } from "./HeaderBar";
@@ -237,6 +238,7 @@ function headline(s: Session): { text: string; from: "step" | "prompt" | "messag
 }
 
 function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (path: string) => void }) {
+  const look = useProjectLook(undefined);
   const hooks = useConnections();
   const harness = mainHarness(state);
   const marks = useSessionMarks();
@@ -259,7 +261,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
             {current.length > 0 ? (
               <ul className="divide-y divide-line/70 border-y border-line/70">
                 {current.map((s) => (
-                  <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} />
+                  <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} projectPath={look?.path} />
                 ))}
               </ul>
             ) : (
@@ -280,7 +282,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
                 {showEarlier && (
                   <ul className="divide-y divide-line/70 border-y border-line/70">
                     {earlier.map((s) => (
-                      <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} />
+                      <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} projectPath={look?.path} />
                     ))}
                   </ul>
                 )}
@@ -302,7 +304,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
 }
 
 /** Two lines per session: who and in which state, then the one thing that counts. The rest folds out. */
-function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, toolShort }: { session: Session; blockedUntil: number | null; onShowFile: (path: string) => void; toolName: string; toolShort: string }) {
+function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, toolShort, projectPath }: { session: Session; blockedUntil: number | null; onShowFile: (path: string) => void; toolName: string; toolShort: string; projectPath: string | undefined }) {
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const marks = useSessionMarks();
@@ -314,11 +316,26 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
   const timed = status.at !== null;
   // Not started by CodeDeck: it cannot be stopped or restarted from here, so it says where it comes from
   const byHand = s.status !== "ended" && !s.place?.launched;
+  // As in the overview: a double click goes to it (Desktop where reachable there, else its
+  // terminal), a middle click always to its terminal
+  const [failed, setFailed] = useState<string | null>(null);
+  const door = s.place?.remote ? "desktop" : "terminal";
+  const go = (to: "desktop" | "terminal") => {
+    if (!projectPath || s.status === "ended") return;
+    setFailed(null);
+    openSession(projectPath, s.id, to).catch((e) => {
+      setFailed(String(e));
+      setTimeout(() => setFailed(null), 6000);
+    });
+  };
   const head = headline(s);
   return (
     <li
       // On the list: what belongs to this session stands out on the trail and in the file list
       onMouseEnter={() => marks.hover(s.id)}
+      onDoubleClick={() => go(door)}
+      onAuxClick={(e) => e.button === 1 && go("terminal")}
+      title={s.status === "ended" ? undefined : t("Double-click: go to it ({door}) · middle click: terminal", { door: door === "desktop" ? t("Desktop") : t("Terminal") })}
       className={`group/session ${open ? "bg-raised/60" : "hover:bg-raised/40"} ${s.status === "ended" ? "opacity-55" : ""}`}
     >
       <div className="flex items-start">
@@ -344,7 +361,7 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
                   title={`${t("by hand")} · ${toolName}: ${t("Started outside CodeDeck: it ends where it runs")}`}
                   className="flex shrink-0 items-center gap-1 rounded border border-dashed border-slate-500/60 px-1 text-[11px] text-slate-300"
                 >
-                  <Hand className="size-3" />
+                  <User className="size-3" />
                   {toolShort}
                 </span>
               )}
@@ -368,6 +385,7 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
           <Pencil className="size-3" />
         </button>
       </div>
+      {failed && <p className="selectable px-3 pb-1.5 pl-[54px] text-[11px] text-problem">{failed}</p>}
       {open && renaming && <RenameForm session={s} onClose={() => setRenaming(false)} />}
       {open && (
         <div className="pr-3 pb-1.5 pl-[38px] text-[12px]">
