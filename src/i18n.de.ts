@@ -62,7 +62,7 @@ export const de: Record<string, string> = {
   "Transparency": "Transparenz",
   "Point at one to see it; a click keeps it. Colours keep their meaning in every theme.": "Zeigen zeigt es, ein Klick behält es. Die Farben behalten in jedem Theme ihre Bedeutung.",
   "Menus and popups of some themes let a blurred picture of what is behind them through.": "Menüs und Popups mancher Themes lassen ein weichgezeichnetes Bild des Dahinterliegenden durch.",
-  "Runs in tmux. Attach with: tmux attach -t {name}": "Läuft in tmux. Anhängen mit: tmux attach -t {name}",
+  "Runs in tmux ({name}). Attach with: tmux attach -t {name}": "Läuft in tmux ({name}). Anhängen mit: tmux attach -t {name}",
   "Reachable from another device or the browser right now. Opens {link}": "Gerade von einem anderen Gerät oder im Browser erreichbar. Öffnet {link}",
   "reachable from anywhere": "von überall erreichbar",
   "last step {time}": "letzter Schritt {time}",

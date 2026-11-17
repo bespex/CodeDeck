@@ -13,6 +13,7 @@ import {
   Paperclip,
   Pencil,
   Radio,
+  SquareTerminal,
   X,
   User,
   type LucideIcon,
@@ -411,6 +412,7 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
                   {s.harness !== projectTool && toolShort}
                 </span>
               )}
+              <PlaceIcons session={s} />
               <span className="min-w-0 flex-1 truncate">{head.text}</span>
               <Chevron className="size-3.5 shrink-0 text-slate-500" />
             </span>
@@ -463,7 +465,6 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
               {s.cwd === "" ? t("project root") : s.cwd}
               {` · ${t("last step {time}", { time: time(s.last) })}`}
               {s.step && head.from !== "step" && ` · ${t("step")}: ${s.step}`}
-              <PlaceNote session={s} />
               <AccountNote session={s} projectAccount={projectAccount} />
             </span>
             <button
@@ -481,31 +482,36 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
   );
 }
 
-/** Where the session runs, as far as it said: its tmux session, and whether it can be reached from
- *  elsewhere right now. Only shown, nothing to do yet (groundwork, `docs/SITZUNGEN.md`). */
-function PlaceNote({ session: s }: { session: Session }) {
+/** Where the session runs, as far as it said, as small icons with the details in their tooltips:
+ *  in tmux (CodeDeck can stop and restart it), and reachable from another device or the browser. */
+function PlaceIcons({ session: s }: { session: Session }) {
   const place = s.place;
   if (!place || s.status === "ended") return null;
   const tmux = place.tmux;
   return (
     <>
       {tmux && (
-        <span title={t("Runs in tmux. Attach with: tmux attach -t {name}", { name: tmux.session ?? tmux.pane })}>
-          {" · "}tmux
+        <span
+          title={t("Runs in tmux ({name}). Attach with: tmux attach -t {name}", { name: tmux.session ?? tmux.pane })}
+          className="flex shrink-0 text-slate-500"
+        >
+          <SquareTerminal className="size-3.5" />
         </span>
       )}
       {place.remote && (
-        <>
-          {" · "}
-          <button
-            type="button"
-            title={t("Reachable from another device or the browser right now. Opens {link}", { link: place.remote })}
-            onClick={() => openUrl(place.remote!)}
-            className="inline-flex items-center gap-0.5 text-ai hover:text-slate-100"
-          >
-            <Radio className="size-3" /> {t("reachable from anywhere")}
-          </button>
-        </>
+        <button
+          type="button"
+          title={t("Reachable from another device or the browser right now. Opens {link}", { link: place.remote })}
+          aria-label={t("reachable from anywhere")}
+          onClick={(e) => {
+            e.stopPropagation();
+            void openUrl(place.remote!);
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+          className="flex shrink-0 text-ai hover:text-slate-100"
+        >
+          <Radio className="size-3.5" />
+        </button>
       )}
     </>
   );
