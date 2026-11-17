@@ -21,6 +21,7 @@ mod recent;
 mod rules;
 mod snapshot;
 mod updates;
+mod usage;
 mod watch;
 mod scratch;
 mod window;
@@ -570,6 +571,15 @@ fn harness_connections() -> Vec<Connection> {
     harness::all().iter().flat_map(|h| h.connections()).collect()
 }
 
+/// Puts CodeDeck on the status line of one account to hear the usage, or takes it off; the state
+/// of all afterwards.
+#[tauri::command]
+fn set_usage_connection(harness: String, account: String, install: bool) -> Result<Vec<Connection>, String> {
+    let tool = harness::by_id(Some(&harness)).ok_or_else(|| format!("{harness}: not a tool CodeDeck knows"))?;
+    tool.connect_usage(&account, install)?;
+    Ok(harness_connections())
+}
+
 /// Makes the tool of one account report to CodeDeck, or stops that; the state of all afterwards.
 #[tauri::command]
 fn set_harness_connection(harness: String, account: String, install: bool) -> Result<Vec<Connection>, String> {
@@ -680,6 +690,7 @@ pub fn run() {
             forget_session,
             harness_connections,
             set_harness_connection,
+            set_usage_connection,
             git_log,
             set_title_prefix,
             attention_settings,

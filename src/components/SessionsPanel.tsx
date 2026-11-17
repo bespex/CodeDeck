@@ -30,6 +30,7 @@ import { openView } from "../view";
 import { AttachTarget, TargetLost } from "./AttachTarget";
 import { plural } from "../git";
 import { LOCALE } from "./Trail";
+import { blockedUntil, resetAt } from "../usage";
 import { known, T, t } from "../i18n";
 
 interface Props {
@@ -242,7 +243,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
             {current.length > 0 ? (
               <ul className="divide-y divide-line/70 border-y border-line/70">
                 {current.map((s) => (
-                  <SessionItem key={s.id} session={s} onShowFile={onShowFile} />
+                  <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} />
                 ))}
               </ul>
             ) : (
@@ -263,7 +264,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
                 {showEarlier && (
                   <ul className="divide-y divide-line/70 border-y border-line/70">
                     {earlier.map((s) => (
-                      <SessionItem key={s.id} session={s} onShowFile={onShowFile} />
+                      <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} />
                     ))}
                   </ul>
                 )}
@@ -285,13 +286,15 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
 }
 
 /** Two lines per session: who and in which state, then the one thing that counts. The rest folds out. */
-function SessionItem({ session: s, onShowFile }: { session: Session; onShowFile: (path: string) => void }) {
+function SessionItem({ session: s, blockedUntil: reset, onShowFile }: { session: Session; blockedUntil: number | null; onShowFile: (path: string) => void }) {
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const marks = useSessionMarks();
   const mark = markOf(s, marks.of(s.id));
   const Chevron = open ? ChevronDown : ChevronRight;
-  const status = statusWords(s);
+  // Its account's limit is used up: it cannot go on before the reset, whatever else it says
+  const blocked = reset !== null && s.status !== "ended";
+  const status = blocked ? { words: `${t("waits for reset")} · ${resetAt(reset, Date.now(), LOCALE)}`, timed: false } : statusWords(s);
   const head = headline(s);
   return (
     <li
@@ -304,7 +307,7 @@ function SessionItem({ session: s, onShowFile }: { session: Session; onShowFile:
           <span className="flex items-center gap-2">
             <SessionBadge mark={mark} />
             <span className="min-w-0 truncate font-medium text-slate-100">{titleOf(s)}</span>
-            <span className={`ml-auto flex shrink-0 items-center gap-1.5 text-[11px] ${s.status === "waiting" ? "text-changed" : "text-slate-500"}`}>
+            <span className={`ml-auto flex shrink-0 items-center gap-1.5 text-[11px] ${blocked ? "text-problem" : s.status === "waiting" ? "text-changed" : "text-slate-500"}`}>
               <StatusDot status={s.status} />
               {status.words}
             </span>

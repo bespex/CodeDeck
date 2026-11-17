@@ -32,6 +32,16 @@ pub trait Harness: Send + Sync {
     }
     /// A raw message of the tool as a neutral event; `None` for what CodeDeck does not use.
     fn translate(&self, raw: &Value) -> Option<Event>;
+    /// What the tool states about the account's allowance, from the raw message its status line
+    /// gets; `None` when it states nothing (no figures yet, an account without limits).
+    fn translate_usage(&self, _raw: &Value) -> Option<crate::usage::Usage> {
+        None
+    }
+    /// Puts CodeDeck on the tool's status line of one account, or takes it off again. A status
+    /// line the user has stays in use, and comes back untouched when it is taken off.
+    fn connect_usage(&self, _account: &str, _on: bool) -> Result<(), String> {
+        Err("this tool states no usage".to_string())
+    }
     /// What `codeck hook` prints for the tool after the windows answered: how text handed
     /// over (with a prompt) or the start rules (with the start of a session) reach the session.
     fn reply(&self, event: &Event, handed: &[String]) -> Option<String>;
@@ -145,6 +155,10 @@ pub struct Event {
     /// With a prompt the tool made itself: the background task whose end it announces
     #[serde(default)]
     pub task_ended: Option<String>,
+    /// The tool's account the session runs in (for Claude Code its configuration folder), where
+    /// the tool tells
+    #[serde(default)]
+    pub account: Option<String>,
 }
 
 /// Something that goes on after the turn that started it.
@@ -188,6 +202,10 @@ pub struct Connection {
     pub other: Option<String>,
     /// What the tool runs to report, for this CodeDeck
     pub command: String,
+    /// CodeDeck sits on its status line and hears the usage from there
+    pub usage: bool,
+    /// The status line of the user's that stays in use alongside; `None`: there is none
+    pub usage_keeps: Option<String>,
 }
 
 /// A tool as the interface needs it.

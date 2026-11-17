@@ -83,14 +83,21 @@ impl Journal {
     }
 }
 
-/// Where the journal of the project at `root` is.
-pub fn file_for(root: &Path) -> Option<PathBuf> {
+/// `~/.local/state/codedeck` (honouring `XDG_STATE_HOME`): what CodeDeck remembers and the user
+/// need not keep.
+pub fn state_dir() -> Option<PathBuf> {
     let state = std::env::var_os("XDG_STATE_HOME")
         .map(PathBuf::from)
         .filter(|p| p.is_absolute())
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/state")))?;
+    Some(state.join("codedeck"))
+}
+
+/// Where the journal of the project at `root` is.
+pub fn file_for(root: &Path) -> Option<PathBuf> {
+    let state = state_dir()?;
     let name: String = root.to_string_lossy().chars().map(|c| if c.is_alphanumeric() || c == '.' || c == '_' { c } else { '-' }).collect();
-    Some(state.join("codedeck/journal").join(format!("{name}.jsonl")))
+    Some(state.join("journal").join(format!("{name}.jsonl")))
 }
 
 /// Lets lines older than a week go.

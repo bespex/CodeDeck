@@ -5,6 +5,7 @@ import { RepoTooltip } from "./RepoTooltip";
 import { GitInitButton, lacksGit } from "./GitInit";
 import type { AssistantState, GitRun } from "../backend";
 import { AssistantStatus } from "./AssistantStatus";
+import { UsageChip } from "./UsagePanel";
 import { plural, t } from "../i18n";
 
 interface Props {
@@ -26,7 +27,7 @@ export function StatusBar({ git, onRepoActions, logOpen, onToggleLog, assistant 
   const withChanges = inFolders.filter((r) => r.files.length > 0).length;
 
   return (
-    <footer className="@container flex h-7 shrink-0 items-center gap-4 overflow-hidden border-t border-line bg-panel px-3 text-[12px] whitespace-nowrap text-slate-500">
+    <footer className="@container flex h-7 shrink-0 items-center gap-4 overflow-x-clip border-t border-line bg-panel px-3 text-[12px] whitespace-nowrap text-slate-500">
       {root && (
         <Tooltip className="flex shrink-0" content={<RepoTooltip repo={root} runs={git.runs} />}>
           <button
@@ -67,6 +68,7 @@ export function StatusBar({ git, onRepoActions, logOpen, onToggleLog, assistant 
         <Eye className="size-3.5" />
         <span className="@max-5xl:hidden">{t("Watching open folders")}</span>
       </span>
+      <UsageChip assistant={assistant} />
       <AssistantStatus state={assistant} />
     </footer>
   );

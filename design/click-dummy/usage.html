@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CodeDeck: usage (step 2.4), click dummy</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: #101214; color: #e8eaec; font: 13px/1.4 system-ui, "Noto Sans", sans-serif; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+  /* Not part of the product: switches the state the window shows */
+  .lab { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 14px; background: #f0efe9; color: #2a2a2a; }
+  .lab b { font-size: 12px; }
+  .lab .grp { display: flex; align-items: center; gap: 4px; }
+  .lab button { height: 24px; padding: 0 9px; border-radius: 12px; border: 1px solid #b9b7ad; background: #fff; font-size: 12px; }
+  .lab button.on { background: #2a2a2a; color: #fff; border-color: #2a2a2a; }
+  .note { flex-shrink: 0; padding: 6px 14px; background: #fbf3e0; color: #5a4a1f; font-size: 12px; border-bottom: 1px solid #e3d6ae; }
+  .app { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 12px auto; width: min(1180px, 96vw); border: 1px solid #3a3f46; border-radius: 8px; overflow: hidden; background: #1b1e22; }
+  .tabs { flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: #24272c; border-bottom: 1px solid #3a3f46; color: #a9afb5; }
+  .tab { padding: 5px 12px; border-radius: 6px; }
+  .tab.on { background: #30343a; color: #f5f6f7; }
+  .main { flex: 1; min-height: 0; display: flex; }
+  .view { flex: 1; min-width: 0; overflow: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 18px; }
+  .side { width: 300px; flex-shrink: 0; border-left: 1px solid #3a3f46; background: #1f2226; display: flex; flex-direction: column; }
+  h3 { margin: 0; font-size: 15px; font-weight: 600; color: #f5f6f7; display: flex; align-items: center; gap: 8px; }
+  .muted { color: #a9afb5; }
+  .small { font-size: 12px; }
+  .idea { padding: 0 5px; border-radius: 3px; border: 1px solid #8a5a33; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #ff8a3c; }
+  .acct { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border: 1px solid #30343a; border-radius: 8px; max-width: 560px; }
+  .acct .name { display: flex; align-items: center; gap: 8px; font-weight: 600; color: #f5f6f7; }
+  .sq { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .row { display: flex; flex-direction: column; gap: 4px; }
+  .row .l { display: flex; justify-content: space-between; }
+  .bar { height: 6px; border-radius: 3px; background: #30343a; overflow: hidden; }
+  .bar i { display: block; height: 6px; border-radius: 3px; }
+  .warn { color: #e0a868; }
+  .full { color: #f08585; }
+  .btn { height: 26px; padding: 0 10px; border-radius: 5px; border: 1px solid #4d545c; color: #d2d6da; }
+  .btn.pri { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+  .box { padding: 10px 12px; border-radius: 8px; background: #24272c; border: 1px solid #3a3f46; max-width: 560px; display: flex; flex-direction: column; gap: 8px; }
+  .sess { display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; border-bottom: 1px solid #30343a; }
+  .sess .t { display: flex; align-items: center; gap: 8px; }
+  .sess .s { margin-left: auto; font-size: 12px; }
+  .area { padding: 8px 12px; font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #a9afb5; }
+  footer { position: relative; flex-shrink: 0; min-height: 28px; display: flex; align-items: center; gap: 18px; padding: 0 12px; background: #24272c; border-top: 1px solid #3a3f46; font-size: 12px; color: #a9afb5; }
+  footer .ml { margin-left: auto; }
+  .chip { display: flex; align-items: center; gap: 6px; padding: 2px 6px; margin: 0 -6px; border-radius: 4px; color: #e8eaec; }
+  .chip:hover, .chip.open { background: #30343a; }
+  .mini { width: 46px; height: 4px; border-radius: 2px; background: #30343a; overflow: hidden; display: inline-block; }
+  .mini i { display: block; height: 4px; }
+  .pop { position: absolute; right: 12px; bottom: 34px; width: 360px; z-index: 5; padding: 12px; border-radius: 8px; background: #2b2f35; border: 1px solid #4d545c; box-shadow: 0 8px 24px #0009; display: flex; flex-direction: column; gap: 10px; color: #e8eaec; }
+  .where { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 9px; background: #30343a; color: #a9afb5; font-size: 11px; font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="lab">
+  <b>Usage (2.4), dummy</b>
+  <span class="grp">State:
+    <button data-s="ok">Normal</button><button data-s="pace">Pace too high</button><button data-s="soon">High, reset soon</button><button data-s="limit">Limit reached</button><button data-s="none">No data yet</button><button data-s="off">Not connected</button>
+  </span>
+  <span class="grp">Accounts:
+    <button data-a="1">One</button><button data-a="2">Two</button>
+  </span>
+  <span class="grp">Statusbar chip:
+    <button data-c="bars">Two bars</button><button data-c="worst">Only the tighter one</button>
+  </span>
+</div>
+<div class="note" id="note"></div>
+
+<div class="app">
+  <div class="tabs"><span class="tab on">Activity</span><span class="tab">Changes</span><span class="tab">Workbench</span><span class="tab">Next prompt</span></div>
+  <div class="main">
+    <div class="view" id="view"></div>
+    <aside class="side">
+      <div class="area">Sessions</div>
+      <div id="sessions"></div>
+    </aside>
+  </div>
+  <footer id="bar"></footer>
+</div>
+
+<script>
+const ACCOUNTS = [
+  { id: "work", name: "Work", color: "#e5484d", plan: "Max" },
+  { id: "private", name: "Private", color: "#46a758", plan: "Pro" },
+];
+const MIN = 60, H5 = 5 * 60, WK = 7 * 24 * 60;      // window lengths in minutes
+// Per state: what Claude Code states for each account: percent used and minutes until the reset
+const DATA = {
+  ok:    { work: { h5: [38, 4 * 60 + 10], wk: [31, 4 * 24 * 60] }, private: { h5: [12, 3 * 60], wk: [34, 6 * 24 * 60] } },
+  pace:  { work: { h5: [86, 3 * 60 + 5], wk: [48, 3 * 24 * 60] }, private: { h5: [41, 3 * 60], wk: [91, 3 * 24 * 60 + 60] } },
+  soon:  { work: { h5: [88, 22], wk: [40, 5 * 24 * 60] }, private: { h5: [12, 3 * 60], wk: [34, 6 * 24 * 60] } },
+  limit: { work: { h5: [100, 4 * 60 + 2], wk: [72, 4 * 24 * 60] }, private: { h5: [41, 3 * 60], wk: [60, 5 * 24 * 60] } },
+};
+const NOTES = {
+  ok: "Everything is fine: quick view in the status bar, a click opens the details, the same as in Activity.",
+  pace: "Warning = at this pace the allowance is used up before the reset (here: 86 % with 3 h of 5 h still to go). The label and the figure turn amber, the white marker shows how much of the time is over.",
+  soon: "88 % but the reset is 22 minutes away: at this pace it would end at 93 %, so there is no warning. A high figure alone is not worth one.",
+  limit: "At 100 %: red. The sessions of that account say \"waits for reset\" and until when, and are not listed as asking under Needs you.",
+  none: "Claude Code reports the figures only while one of its sessions runs. Before that CodeDeck says so instead of guessing.",
+  off: "The figures come with Claude Code's status line. CodeDeck has to be put there first, and says so before it changes anything (an existing status line keeps working).",
+};
+// "Now" of the dummy, so that reset times can be shown as a clock time
+const NOW = new Date(2026, 10, 17, 11, 58);
+let state = "ok", accounts = 1, chip = "bars", pop = false;
+
+const accts = () => ACCOUNTS.slice(0, accounts);
+const clock = (left) => {
+  const d = new Date(NOW.getTime() + left * 60000);
+  const hm = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return left < 24 * 60 ? hm : d.toLocaleDateString("en-GB", { weekday: "short" }) + " " + hm;
+};
+const span = (left) => (left >= 24 * 60 ? `${Math.floor(left / 1440)} d ${Math.floor((left % 1440) / 60)} h` : left >= 60 ? `${Math.floor(left / 60)} h ${left % 60} min` : `${left} min`);
+
+/**
+ * How a window stands: "limit" at 100 %; "pace" when what is used so far, spread over the time that
+ * has run, would use everything up before the reset (and a good part is gone already: below 60 %
+ * an early burst says little); else "fine". 88 % shortly before the reset is fine.
+ */
+function standing(used, left, win) {
+  if (used >= 100) return "limit";
+  const elapsed = Math.max(0.02, 1 - left / win);
+  return used >= 60 && used / elapsed >= 100 ? "pace" : "fine";
+}
+const COLOR = { fine: "#e8eaec", pace: "#e0a868", limit: "#f08585" };
+const BAR = { fine: "#818cf8", pace: "#e0a868", limit: "#f08585" };
+
+function windowRow(label, win, [used, left]) {
+  const st = standing(used, left, win);
+  const elapsed = Math.round((1 - left / win) * 100);
+  const note = st === "limit" ? "limit reached" : st === "pace" ? `at this pace used up before the reset` : "";
+  return { st, html: `<div class="row"><div class="l"><span>${label}</span><span style="color:${COLOR[st]}">${used} %${note ? " · " + note : ""}</span></div>
+    <div class="bar" style="position:relative"><i style="width:${used}%;background:${BAR[st]}"></i><u style="position:absolute;top:-2px;bottom:-2px;left:${elapsed}%;width:2px;background:#e8eaec;opacity:.7"></u></div>
+    <div class="l muted small"><span>resets in ${span(left)} · ${clock(left)}</span><span>${elapsed} % of the time is over</span></div></div>` };
+}
+
+function usageRows(a) {
+  const d = DATA[state]?.[a.id];
+  if (state === "off") return `<div class="muted small">Not connected</div>`;
+  if (!d) return `<div class="muted small">No session of this account has reported yet.</div>`;
+  return windowRow("Last 5 hours", H5, d.h5).html + windowRow("This week", WK, d.wk).html;
+}
+
+function view() {
+  const connect = state === "off" ? `
+    <div class="box">
+      <b style="color:#f5f6f7">Connect usage to Claude Code</b>
+      <span class="small">Claude Code tells its status line how much of your allowance is used. CodeDeck can listen there, for each Claude account it knows.</span>
+      <span class="small muted">What would change: the <code>statusLine</code> entry in <code>~/.claude/settings.json</code>. If you already have a status line, it is called as before and its output is passed on unchanged. You can undo it here at any time.</span>
+      <div style="display:flex;gap:8px"><button class="btn pri">Connect…</button><button class="btn">Show exactly what changes</button></div>
+    </div>` : "";
+  const cards = accts().map((a) => `
+    <div class="acct">
+      <div class="name"><span class="sq" style="background:${a.color}"></span>${a.name}<span class="muted small" style="font-weight:400">${a.plan}</span></div>
+      ${usageRows(a)}
+    </div>`).join("");
+  const none = state === "none" ? `<div class="small muted" style="max-width:560px">Figures come with the sessions: they are shown after the next turn of a session of that account, and kept as \"last seen at …\" afterwards.</div>` : "";
+  return `
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <h3>Claude usage <span class="idea">idea</span><span class="where">detail view · Activity</span></h3>
+      ${connect}${state === "off" ? "" : cards}${none}
+      <div class="small muted" style="max-width:560px">Warns when, at the pace so far, the allowance would be used up before the reset, not at a fixed percentage. The figures are Claude Code\u2019s, those of the account and not of this project; only the warning is worked out from them.</div>
+    </div>
+    <div style="height:90px;border:1px dashed #3a3f46;border-radius:8px;display:flex;align-items:center;justify-content:center" class="muted small">(timeline, how safe is your work, documents … as they are)</div>`;
+}
+
+function sessions() {
+  const rows = [
+    { t: "Rate limiter fix", acct: ACCOUNTS[0], status: "working", line: "Edit src/routes/orders.rs" },
+    { t: "Config defaults", acct: ACCOUNTS[Math.min(1, accounts - 1)], status: "done", line: "Waits for your next prompt" },
+  ];
+  return rows.map((r) => {
+    let s = r.status === "working" ? `<span style="color:#818cf8">working</span>` : `<span class="muted">turn done · 09:14</span>`;
+    let line = r.line;
+    const d = DATA[state]?.[r.acct.id];
+    // At the limit the session cannot go on: it says until when, instead of looking busy or asking
+    if (d && d.h5[0] >= 100) { s = `<span class="full">waits for reset</span>`; line = `5-hour limit reached · resets ${clock(d.h5[1])}`; }
+    return `<div class="sess"><div class="t"><span class="sq" style="background:${r.acct.color}"></span><b style="color:#f5f6f7">${r.t}</b><span class="s">${s}</span></div><div class="muted small">${line}</div></div>`;
+  }).join("") + (state === "pace" ? `<div class="sess"><span class="warn small">Private: week at 91 %, 3 d to go</span><span class="muted small">Shown here only when the pace would use it up, so it is not missed.</span></div>` : "");
+}
+
+function bar() {
+  const d = DATA[state];
+  let chipHtml;
+  if (state === "off") chipHtml = `<span class="muted">usage: not connected</span>`;
+  else if (state === "none") chipHtml = `<span class="muted">usage: no data yet</span>`;
+  else {
+    const vals = accts().map((a) => {
+      const h5 = d[a.id].h5, wk = d[a.id].wk;
+      return { a, h5, wk, s5: standing(h5[0], h5[1], H5), sw: standing(wk[0], wk[1], WK) };
+    });
+    const rank = { fine: 0, pace: 1, limit: 2 };
+    const worst = vals.reduce((m, v) => (Math.max(rank[v.s5], rank[v.sw]) > Math.max(rank[m.s5], rank[m.sw]) ? v : m));
+    // The label carries the colour as well as the figure: 5h and wk turn amber or red with their window
+    const part = (label, used, st) => `<span style="color:${COLOR[st]};font-weight:600">${label}</span><span style="color:${COLOR[st]}">${used}%</span>`;
+    const one = (v) => `<span style="display:flex;align-items:center;gap:5px">${accounts > 1 ? `<span class="sq" style="background:${v.a.color};width:8px;height:8px"></span>` : ""}${part("5h", v.h5[0], v.s5)}<span class="mini"><i style="width:${v.h5[0]}%;background:${BAR[v.s5]}"></i></span>${part("wk", v.wk[0], v.sw)}</span>`;
+    chipHtml = chip === "worst" ? one(worst) : vals.map(one).join('<span style="width:10px"></span>');
+  }
+  return `<span style="color:#e8eaec;font-weight:600">feature/rate-limit</span><span style="color:#e8eaec;font-weight:600">git</span><span class="ml" style="display:flex;align-items:center;gap:16px">
+    <button class="chip ${pop ? "open" : ""}" id="chip">${chipHtml}</button><span>Claude · 2 sessions · 1 working</span></span>
+    ${pop ? popover() : ""}`;
+}
+
+function popover() {
+  if (state === "off") return `<div class="pop"><b style="color:#f5f6f7">Usage is not connected</b><span class="small muted">Connect it in the Claude Code settings of CodeDeck.</span><button class="btn pri" style="align-self:flex-start">Connect…</button></div>`;
+  if (state === "none") return `<div class="pop"><b style="color:#f5f6f7">No data yet</b><span class="small muted">Claude Code reports the figures with a running session. They appear after its next turn.</span></div>`;
+  return `<div class="pop"><b style="color:#f5f6f7">Claude usage</b>${accts().map((a) => `<div class="acct" style="border:0;padding:0;gap:6px"><div class="name"><span class="sq" style="background:${a.color}"></span>${a.name}</div>${usageRows(a)}</div>`).join("")}<span class="small muted">The same as under Activity. The white marker shows how much of the time is over: a bar beyond it means you use it faster than the time passes.</span></div>`;
+}
+
+function render() {
+  document.getElementById("view").innerHTML = view();
+  document.getElementById("sessions").innerHTML = sessions();
+  document.getElementById("bar").innerHTML = bar();
+  document.getElementById("note").textContent = NOTES[state];
+  document.querySelectorAll("[data-s]").forEach((b) => b.classList.toggle("on", b.dataset.s === state));
+  document.querySelectorAll("[data-a]").forEach((b) => b.classList.toggle("on", +b.dataset.a === accounts));
+  document.querySelectorAll("[data-c]").forEach((b) => b.classList.toggle("on", b.dataset.c === chip));
+  const c = document.getElementById("chip");
+  if (c) c.onclick = () => { pop = !pop; render(); };
+}
+document.querySelectorAll("[data-s]").forEach((b) => (b.onclick = () => { state = b.dataset.s; render(); }));
+document.querySelectorAll("[data-a]").forEach((b) => (b.onclick = () => { accounts = +b.dataset.a; render(); }));
+document.querySelectorAll("[data-c]").forEach((b) => (b.onclick = () => { chip = b.dataset.c; render(); }));
+render();
+</script>
+</body>
+</html>

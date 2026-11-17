@@ -24,6 +24,7 @@ echte App täte.
 | `Main.dc.html` | Der Dummy: oben das Markup (`<x-dc>`), unten die Logik (`renderVals`), alles in einer Datei |
 | `index.html` | Kleiner lokaler Betrachter für `Main.dc.html` |
 | `canvas.json` | Anordnung und Notizzettel der Fassung auf claude.ai |
+| `usage.html` | Verbrauch (Schritt 2.4): Statusleiste, Popup, Activity; Zustände per Knopf |
 
 `Main.dc.html` ist für die Design-Leinwand auf claude.ai geschrieben (Fassung dort:
 https://claude.ai/artifact/RD82dLeX2U3xf2vPRipzE2, privat). Das Format: `{{name}}` holt einen Wert aus

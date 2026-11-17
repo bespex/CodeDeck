@@ -142,13 +142,89 @@ fn ask(mut stream: UnixStream, line: &str) -> Option<String> {
     answer["context"].as_str().filter(|t| !t.trim().is_empty()).map(String::from)
 }
 
+/// This program as a shell command line starts it.
+pub fn program() -> String {
+    let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "codeck".into());
+    if exe.chars().all(|c| c.is_ascii_alphanumeric() || "/._-+".contains(c)) { exe } else { quote(&exe) }
+}
+
+/// An argument as one token of a shell command line.
+pub fn quote(arg: &str) -> String {
+    format!("'{}'", arg.replace('\'', r"'\''"))
+}
+
 /// What a tool runs to report to this CodeDeck: the default tool's adapter translates.
 pub fn command() -> String {
-    let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "codeck".into());
-    let quoted = if exe.chars().all(|c| c.is_ascii_alphanumeric() || "/._-+".contains(c)) {
-        exe
-    } else {
-        format!("'{}'", exe.replace('\'', r"'\''"))
-    };
-    format!("{quoted} hook")
+    format!("{} hook", program())
+}
+
+/// What a tool runs as its status line so that CodeDeck hears the usage: `then` is the user's own
+/// status line, which keeps showing what it showed.
+pub fn statusline_command(then: Option<&str>) -> String {
+    match then {
+        Some(then) => format!("{} statusline --then {}", program(), quote(then)),
+        None => format!("{} statusline", program()),
+    }
+}
+
+/// `codeck statusline [--then <command>] [--harness <id>]`: what a tool runs as its status line. It
+/// hands the usage in what it is given to every window, then lets the user's own status line (`--then`)
+/// do what it did, with the same input and as if it had been called directly. Without one it prints
+/// the figures itself, so that the line is not empty. Never fails: a status line that goes blank
+/// is what a user notices.
+pub fn statusline(args: &[String]) -> i32 {
+    let after = |flag: &str| args.iter().position(|a| a == flag).and_then(|i| args.get(i + 1));
+    let mut input = String::new();
+    let _ = std::io::stdin().take(1024 * 1024).read_to_string(&mut input);
+    let usage = harness::by_id(after("--harness").map(String::as_str))
+        .zip(serde_json::from_str::<Value>(&input).ok())
+        .and_then(|(harness, raw)| harness.translate_usage(&raw));
+    if let Some(usage) = &usage {
+        if let Ok(line) = serde_json::to_string(&crate::usage::Message { usage: usage.clone() }) {
+            broadcast(&line);
+        }
+    }
+    match after("--then") {
+        Some(command) => chain(command, &input),
+        None => {
+            if let Some(usage) = usage {
+                let part = |label: &str, w: &Option<crate::usage::Window>| w.as_ref().map(|w| format!("{label} {:.0}%", w.used));
+                let parts: Vec<String> = [part("5h", &usage.five_hour), part("wk", &usage.seven_day)].into_iter().flatten().collect();
+                print!("{}", parts.join(" · "));
+            }
+            0
+        }
+    }
+}
+
+/// Runs the user's own status line with what this one was given, and passes on what it printed.
+fn chain(command: &str, input: &str) -> i32 {
+    let child = std::process::Command::new("sh").arg("-c").arg(command).stdin(std::process::Stdio::piped()).spawn();
+    let Ok(mut child) = child else { return 1 };
+    if let Some(mut stdin) = child.stdin.take() {
+        let _ = stdin.write_all(input.as_bytes());
+    }
+    child.wait().ok().and_then(|s| s.code()).unwrap_or(1)
+}
+
+/// Sends one line to every window without waiting for an answer.
+fn broadcast(line: &str) {
+    let Ok(entries) = std::fs::read_dir(socket_dir()) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().is_none_or(|e| e != "sock") {
+            continue;
+        }
+        match UnixStream::connect(&path) {
+            Ok(mut stream) => {
+                let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
+                let _ = stream.write_all(line.as_bytes());
+                let _ = stream.shutdown(std::net::Shutdown::Write);
+            }
+            Err(e) if matches!(e.kind(), std::io::ErrorKind::ConnectionRefused | std::io::ErrorKind::NotFound) => {
+                let _ = std::fs::remove_file(&path);
+            }
+            Err(_) => {}
+        }
+    }
 }

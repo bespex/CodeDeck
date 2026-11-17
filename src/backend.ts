@@ -591,6 +591,8 @@ export interface Session {
   short: string;
   /** Where it runs: project-relative (`""` is the root), or absolute outside the project */
   cwd: string;
+  /** The tool's account it runs in, if it told: the usage is the account's */
+  account?: string | null;
   /** working; waiting for an answer or a permission; idle: its turn is over; ended */
   status: "working" | "waiting" | "idle" | "ended";
   /** Unix milliseconds */
@@ -619,9 +621,28 @@ export interface Session {
   received: { at: number; labels: string[] }[];
 }
 
+/** One limit of an account: the percentage used (it can pass 100) and when it starts over. */
+export interface UsageWindow {
+  used: number;
+  /** Unix seconds */
+  resetsAt: number;
+}
+
+/** What a tool last stated about one account's allowance (step 2.4); nothing here is estimated. */
+export interface AccountUsage {
+  /** The tool's account: for Claude Code its configuration folder, as `Connection.dir` says */
+  account: string;
+  fiveHour: UsageWindow | null;
+  sevenDay: UsageWindow | null;
+  /** Unix milliseconds */
+  seen: number;
+}
+
 export interface AssistantState {
   /** An event arrived since this window started */
   heard: boolean;
+  /** How much of each account's allowance is used, as the tools last stated it */
+  usage: AccountUsage[];
   /** The tools CodeDeck supports, the default one first */
   harnesses: HarnessInfo[];
   /** In the order they came in, the newest first: a session keeps its place */
@@ -681,10 +702,15 @@ export interface Attachment {
   rev: number;
 }
 
-const MOCK_CAPABILITIES: Capabilities = { liveStatus: true, beforeWrite: true, attach: "withNextPrompt", startRules: true, pastSessions: true, usage: false };
+const MOCK_CAPABILITIES: Capabilities = { liveStatus: true, beforeWrite: true, attach: "withNextPrompt", startRules: true, pastSessions: true, usage: true };
 
 const mockAssistant: AssistantState = {
   heard: true,
+  // One account at an easy pace, one that would use its week up before the reset
+  usage: [
+    { account: "~/.claude", fiveHour: { used: 38, resetsAt: Math.floor(Date.now() / 1000) + 4 * 3600 }, sevenDay: { used: 31, resetsAt: Math.floor(Date.now() / 1000) + 4 * 86400 }, seen: Date.now() - 20_000 },
+    { account: "~/.claude-work", fiveHour: { used: 86, resetsAt: Math.floor(Date.now() / 1000) + 3 * 3600 }, sevenDay: { used: 48, resetsAt: Math.floor(Date.now() / 1000) + 3 * 86400 }, seen: Date.now() - 90_000 },
+  ],
   harnesses: [{ id: "claude", name: "Claude Code", shortName: "Claude", capabilities: MOCK_CAPABILITIES }],
   sessions: [
     {
@@ -983,11 +1009,17 @@ export interface Connection {
   other: string | null;
   /** What the tool runs to report, for this CodeDeck */
   command: string;
+  /** CodeDeck sits on its status line and hears the usage from there */
+  usage: boolean;
+  /** The status line of the user's that stays in use alongside; `null`: there is none */
+  usageKeeps: string | null;
+  /** What it would run as the status line, for this CodeDeck (the one that stays is `--then` in it) */
+  usageCommand?: string;
 }
 
 let mockConnections: Connection[] = [
-  { harness: "claude", dir: "~/.claude", settings: "~/.claude/settings.json", installed: true, other: null, command: "/usr/bin/codeck hook" },
-  { harness: "claude", dir: "~/.claude-work", settings: "~/.claude-work/settings.json", installed: false, other: null, command: "/usr/bin/codeck hook" },
+  { harness: "claude", dir: "~/.claude", settings: "~/.claude/settings.json", installed: true, other: null, command: "/usr/bin/codeck hook", usage: true, usageKeeps: "bash ~/.claude/statusline.sh" },
+  { harness: "claude", dir: "~/.claude-work", settings: "~/.claude-work/settings.json", installed: false, other: null, command: "/usr/bin/codeck hook", usage: true, usageKeeps: null },
 ];
 
 /** The connection of every tool and account found. */
@@ -1000,6 +1032,13 @@ export function harnessConnections(): Promise<Connection[]> {
 export function setHarnessConnection(harness: string, account: string, install: boolean): Promise<Connection[]> {
   if (live) return invoke("set_harness_connection", { harness, account, install });
   mockConnections = mockConnections.map((c) => (c.harness === harness && c.dir === account ? { ...c, installed: install, other: null } : c));
+  return Promise.resolve(mockConnections);
+}
+
+/** Puts CodeDeck on the status line of one account (`dir`) to hear its usage, or takes it off. */
+export function setUsageConnection(harness: string, account: string, install: boolean): Promise<Connection[]> {
+  if (live) return invoke("set_usage_connection", { harness, account, install });
+  mockConnections = mockConnections.map((c) => (c.harness === harness && c.dir === account ? { ...c, usage: install } : c));
   return Promise.resolve(mockConnections);
 }
 

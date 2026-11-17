@@ -5,7 +5,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { assistantState, harnessConnections, onAssistantChanged, type AssistantState, type Connection, type HarnessInfo } from "./backend";
 
-const EMPTY: AssistantState = { heard: false, harnesses: [], sessions: [], identities: [], attachments: [], preview: null, delivered: null, target: null, targetLost: null, ruled: null, found: { outside: [], pages: [] } };
+const EMPTY: AssistantState = { heard: false, usage: [], harnesses: [], sessions: [], identities: [], attachments: [], preview: null, delivered: null, target: null, targetLost: null, ruled: null, found: { outside: [], pages: [] } };
 
 /** Stands in until the backend told which tools there are: no name, nothing on offer. */
 const UNKNOWN: HarnessInfo = {

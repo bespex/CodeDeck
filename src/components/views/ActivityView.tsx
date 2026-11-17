@@ -6,6 +6,7 @@ import type { GitView } from "../../git";
 import { Row, Rows, Section, useFold } from "../blocks";
 import { SessionBadge } from "../SessionBadge";
 import { LOCALE } from "../Trail";
+import { UsageCards } from "../UsagePanel";
 import { Tooltip, ToolTipBody } from "../Tooltip";
 import { plural, snapshotLabel, t } from "../../i18n";
 import { dayOf, lanesOf, spanOf, ticksIn, useJournal, zoomed, type Day } from "../../timeline";
@@ -57,6 +58,12 @@ export function ActivityView({ assistant, git, snapshots }: { assistant: Assista
     <div className="flex min-h-full flex-col">
       <Today assistant={assistant} snapshots={snapshots} />
       <Safety git={git} snapshots={snapshots.length} />
+      <Section
+        title={t("Claude usage")}
+        help={t("How much of each account's allowance is used, as Claude Code states it to its status line: percent of the limit, and when it starts over. Nothing is estimated; only the warning (amber) is worked out: at the pace so far the limit would be used up before it starts over. The figures are the account's, not this project's, and come with a running session.")}
+      >
+        <UsageCards assistant={assistant} onlySetUp />
+      </Section>
       <Section
         title={t("Documents written")}
         note={t("last 24 hours")}

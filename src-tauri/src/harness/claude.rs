@@ -15,6 +15,7 @@ use std::time::Duration;
 
 use serde_json::{Value, json};
 
+use crate::usage::{Usage, Window};
 use super::{Attach, Background, Capabilities, Connection, Event, EventKind, Harness, SessionInfo};
 
 pub struct Claude;
@@ -66,7 +67,7 @@ impl Harness for Claude {
             // What the `SessionStart` hook prints is added to the session's context
             start_rules: true,
             past_sessions: true,
-            usage: false,
+            usage: true,
         }
     }
 
@@ -89,6 +90,24 @@ impl Harness for Claude {
             .find(|d| d.display().to_string() == account)
             .ok_or_else(|| format!("{account}: not a Claude Code configuration CodeDeck knows"))?;
         set_hooks(&dir, on)
+    }
+
+    fn connect_usage(&self, account: &str, on: bool) -> Result<(), String> {
+        let dir = config_dirs()
+            .into_iter()
+            .find(|d| d.display().to_string() == account)
+            .ok_or_else(|| format!("{account}: not a Claude Code configuration CodeDeck knows"))?;
+        set_statusline(&dir, on)
+    }
+
+    fn translate_usage(&self, raw: &Value) -> Option<Usage> {
+        let window = |w: &Value| Some(Window { used: w["used_percentage"].as_f64()?, resets_at: w["resets_at"].as_u64()? });
+        let limits = &raw["rate_limits"];
+        let (five_hour, seven_day) = (window(&limits["five_hour"]), window(&limits["seven_day"]));
+        if five_hour.is_none() && seven_day.is_none() {
+            return None;
+        }
+        Some(Usage { account: account_of(raw["transcript_path"].as_str()), five_hour, seven_day })
     }
 
     fn translate(&self, raw: &Value) -> Option<Event> {
@@ -118,6 +137,7 @@ impl Harness for Claude {
             // Only `Stop` says it; "waiting for your input" a minute later knows nothing of it
             background: (name == "Stop").then(|| running_tasks(raw)),
             task_ended: raw["prompt"].as_str().and_then(task_ended_by),
+            account: raw["transcript_path"].as_str().and_then(account_from_log),
         })
     }
 
@@ -211,6 +231,22 @@ fn task_ended_by(prompt: &str) -> Option<String> {
     let text = prompt.trim_start().strip_prefix("<task-notification>")?;
     let id = text.split("<task-id>").nth(1)?.split("</task-id>").next()?.trim();
     (!id.is_empty()).then(|| id.to_string())
+}
+
+/// The configuration folder a session's log lies in: `<folder>/projects/<project>/<session>.jsonl`.
+fn account_from_log(log: &str) -> Option<String> {
+    let path = Path::new(log);
+    path.ancestors().find(|dir| dir.file_name().is_some_and(|n| n == "projects")).and_then(Path::parent).map(|d| d.display().to_string())
+}
+
+/// The account a message belongs to: its log says, else the folder the tool was started with.
+fn account_of(log: Option<&str>) -> String {
+    log.and_then(account_from_log).unwrap_or_else(|| {
+        std::env::var("CLAUDE_CONFIG_DIR")
+            .ok()
+            .filter(|d| !d.is_empty())
+            .unwrap_or_else(|| std::env::home_dir().unwrap_or_default().join(".claude").display().to_string())
+    })
 }
 
 /// What the user asked, as a turn is named after it. Claude Code also hands notices of its own in
@@ -307,7 +343,10 @@ fn program_of(command: &str) -> PathBuf {
 /// build folder or an install that kept the old file). Another installation that still exists
 /// is not touched; the connection panel offers "Use this one" for that.
 fn left_over(command: &str, current: &Path) -> bool {
-    let old = program_of(command);
+    left_over_program(program_of(command), current)
+}
+
+fn left_over_program(old: PathBuf, current: &Path) -> bool {
     if old == current {
         return false;
     }
@@ -321,12 +360,20 @@ fn left_over(command: &str, current: &Path) -> bool {
 /// [`left_over`]). Returns whether something changed.
 fn follow_program(dir: &Path, current: &Path) -> Result<bool, String> {
     let settings = read_settings(&dir.join("settings.json"))?;
+    let mut changed = false;
     let ours: Vec<String> = EVENTS.iter().flat_map(|(event, ..)| commands(&settings, event)).filter(|c| is_ours(c)).collect();
-    if ours.is_empty() || !ours.iter().any(|c| program_of(c) != current) || !ours.iter().all(|c| program_of(c) == current || left_over(c, current)) {
-        return Ok(false);
+    if !ours.is_empty() && ours.iter().any(|c| program_of(c) != current) && ours.iter().all(|c| program_of(c) == current || left_over(c, current)) {
+        set_hooks(dir, true)?;
+        changed = true;
     }
-    set_hooks(dir, true)?;
-    Ok(true)
+    // The status line of ours too: if its program is gone the user's status line would go blank
+    if let Some((program, _)) = settings["statusLine"]["command"].as_str().and_then(split_status) {
+        if program != current && left_over_program(program, current) {
+            set_statusline(dir, true)?;
+            changed = true;
+        }
+    }
+    Ok(changed)
 }
 
 /// Whether CodeDeck's hooks are in the settings of one configuration.
@@ -334,6 +381,8 @@ fn status_of(dir: &Path) -> Connection {
     let path = dir.join("settings.json");
     let settings = read_settings(&path).unwrap_or(Value::Null);
     let command = crate::hook::command();
+    let status_command = settings["statusLine"]["command"].as_str();
+    let status = status_command.and_then(split_status);
     let found: Vec<String> = EVENTS
         .iter()
         .flat_map(|(event, ..)| commands(&settings, event))
@@ -346,6 +395,11 @@ fn status_of(dir: &Path) -> Connection {
         installed: !found.is_empty(),
         other: found.iter().find(|c| **c != command).cloned(),
         command,
+        usage: status.is_some(),
+        usage_keeps: match &status {
+            Some((_, then)) => then.clone(),
+            None => status_command.map(String::from).filter(|c| !c.trim().is_empty()),
+        },
     }
 }
 
@@ -378,8 +432,14 @@ fn set_hooks(dir: &Path, install: bool) -> Result<(), String> {
         return Err(format!("{}: not a JSON object; left alone", path.display()));
     }
     change_hooks(&mut settings, install.then(crate::hook::command).as_deref());
+    save_settings(dir, before, &settings)
+}
 
-    let text = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())? + "\n";
+/// Writes the settings of a configuration, unless nothing changed: the file as it was is kept
+/// next to it once, and the new one replaces it in one go.
+fn save_settings(dir: &Path, before: Option<String>, settings: &Value) -> Result<(), String> {
+    let path = dir.join("settings.json");
+    let text = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())? + "\n";
     if before.as_deref() == Some(text.as_str()) {
         return Ok(());
     }
@@ -397,6 +457,102 @@ fn set_hooks(dir: &Path, install: bool) -> Result<(), String> {
     std::fs::write(&tmp, text).map_err(|e| format!("{}: {e}", tmp.display()))?;
     std::fs::rename(&tmp, &path).map_err(|e| format!("{}: {e}", path.display()))?;
     Ok(())
+}
+
+/// The words of a command line CodeDeck wrote: bare, or in single quotes with `'\''` for a quote.
+/// Anything else (double quotes, escapes) is not ours to read: `None`.
+fn words_of(command: &str) -> Option<Vec<String>> {
+    let mut words = Vec::new();
+    let mut chars = command.trim().chars().peekable();
+    while chars.peek().is_some() {
+        let mut word = String::new();
+        loop {
+            match chars.peek() {
+                None | Some(' ') => break,
+                Some('\'') => {
+                    chars.next();
+                    loop {
+                        match chars.next()? {
+                            '\'' if chars.peek() == Some(&'\\') => {
+                                // `'\''`: a quote inside
+                                chars.next();
+                                if chars.next()? != '\'' || chars.next()? != '\'' {
+                                    return None;
+                                }
+                                word.push('\'');
+                            }
+                            '\'' => break,
+                            c => word.push(c),
+                        }
+                    }
+                }
+                Some('"' | '\\') => return None,
+                Some(_) => word.push(chars.next()?),
+            }
+        }
+        words.push(word);
+        while chars.peek() == Some(&' ') {
+            chars.next();
+        }
+    }
+    Some(words)
+}
+
+/// A status line command of ours (`<program> statusline [--then '<the user's>']`): the program, and
+/// the user's own status line that goes on running behind it. `None` for any other command.
+fn split_status(command: &str) -> Option<(PathBuf, Option<String>)> {
+    let words = words_of(command)?;
+    let program = words.first()?;
+    let lower = program.to_lowercase();
+    if words.get(1).map(String::as_str) != Some("statusline") || !(lower.contains("codedeck") || lower.contains("codeck")) {
+        return None;
+    }
+    let then = match words.get(2).map(String::as_str) {
+        Some("--then") => Some(words.get(3)?.clone()),
+        Some(_) => return None,
+        None => None,
+    };
+    Some((PathBuf::from(program), then))
+}
+
+/// Puts CodeDeck on the status line of one configuration, or takes it off. A status line the user
+/// has is kept inside CodeDeck's command (`--then`) and runs as before; taking CodeDeck off puts it
+/// back as it was, or removes the entry if there was none. Everything else in the file stays.
+fn set_statusline(dir: &Path, on: bool) -> Result<(), String> {
+    let path = dir.join("settings.json");
+    let before = std::fs::read_to_string(&path).ok();
+    let mut settings = read_settings(&path)?;
+    let Some(root) = settings.as_object_mut() else {
+        return Err(format!("{}: not a JSON object; left alone", path.display()));
+    };
+    let current = root.get("statusLine").cloned().unwrap_or(Value::Null);
+    if !current.is_null() && !current.is_object() {
+        return Err(format!("{}: statusLine is not an object; left alone", path.display()));
+    }
+    let own = current["command"].as_str().and_then(split_status);
+    let mut entry = current.as_object().cloned().unwrap_or_default();
+    if on {
+        let then = match &own {
+            Some((_, then)) => then.clone(),
+            None => current["command"].as_str().map(String::from).filter(|c| !c.trim().is_empty()),
+        };
+        entry.insert("type".into(), json!("command"));
+        entry.insert("command".into(), json!(crate::hook::statusline_command(then.as_deref())));
+        root.insert("statusLine".into(), Value::Object(entry));
+    } else {
+        match own {
+            // The user's own comes back, with whatever else was in the entry (padding, interval)
+            Some((_, Some(then))) => {
+                entry.insert("command".into(), json!(then));
+                root.insert("statusLine".into(), Value::Object(entry));
+            }
+            Some((_, None)) => {
+                root.remove("statusLine");
+            }
+            None => return Ok(()),
+        }
+    }
+    save_settings(dir, before, &settings)
 }
 
 /// Removes every CodeDeck hook, then adds ours for `command` if given.
@@ -835,5 +991,64 @@ mod tests {
         assert_eq!(Claude.translate(&notice).unwrap().task_ended.as_deref(), Some("bw7r"));
         let typed = json!({ "session_id": "s1", "hook_event_name": "UserPromptSubmit", "prompt": "what is <task-id>?" });
         assert_eq!(Claude.translate(&typed).unwrap().task_ended, None);
+    }
+
+    #[test]
+    fn reads_the_usage_a_status_line_gets() {
+        let raw = json!({
+            "session_id": "s1", "transcript_path": "/home/u/.claude-private/projects/-p/s1.jsonl",
+            "rate_limits": { "five_hour": { "used_percentage": 23.5, "resets_at": 1738425600 }, "seven_day": { "used_percentage": 41.2, "resets_at": 1738857600 } },
+        });
+        let usage = Claude.translate_usage(&raw).unwrap();
+        assert_eq!(usage.account, "/home/u/.claude-private");
+        assert_eq!((usage.five_hour.unwrap().used, usage.seven_day.unwrap().resets_at), (23.5, 1738857600));
+        // One limit may be absent; none at all (no subscription, no answer yet) is no usage
+        let one = json!({ "transcript_path": "/h/.claude/projects/-p/s.jsonl", "rate_limits": { "seven_day": { "used_percentage": 3, "resets_at": 5 } } });
+        assert!(Claude.translate_usage(&one).unwrap().five_hour.is_none());
+        assert!(Claude.translate_usage(&json!({ "session_id": "s1" })).is_none());
+        // The account of a session comes with its events, from the folder its log lies in
+        let stop = json!({ "session_id": "s1", "hook_event_name": "Stop", "transcript_path": "/h/.claude-work/projects/-p/s1.jsonl" });
+        assert_eq!(Claude.translate(&stop).unwrap().account.as_deref(), Some("/h/.claude-work"));
+    }
+
+    #[test]
+    fn puts_codedeck_on_the_status_line_and_back() {
+        let tmp = std::env::temp_dir().join(format!("codedeck-statusline-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        let file = tmp.join("settings.json");
+        let read = || serde_json::from_str::<Value>(&std::fs::read_to_string(&file).unwrap()).unwrap();
+
+        // The user's own status line (with an apostrophe in it, and other keys) is kept and comes back
+        let own = "bash ~/.claude/line.sh 'it'\''s'";
+        std::fs::write(&file, json!({ "model": "opus", "statusLine": { "type": "command", "command": own, "padding": 2 } }).to_string()).unwrap();
+        set_statusline(&tmp, true).unwrap();
+        let command = read()["statusLine"]["command"].as_str().unwrap().to_string();
+        assert!(command.contains(" statusline --then "), "{command}");
+        assert_eq!(split_status(&command).unwrap().1.as_deref(), Some(own));
+        assert_eq!((read()["model"].clone(), read()["statusLine"]["padding"].clone()), (json!("opus"), json!(2)));
+        let connection = status_of(&tmp);
+        assert_eq!((connection.usage, connection.usage_keeps.as_deref()), (true, Some(own)));
+        // Again: nothing piles up
+        set_statusline(&tmp, true).unwrap();
+        assert_eq!(read()["statusLine"]["command"], json!(command));
+        set_statusline(&tmp, false).unwrap();
+        assert_eq!(read()["statusLine"], json!({ "type": "command", "command": own, "padding": 2 }));
+        assert!(!status_of(&tmp).usage);
+        assert_eq!(status_of(&tmp).usage_keeps.as_deref(), Some(own), "the user's one shows as the one that stays");
+
+        // Without one: CodeDeck's own, and taking it off removes the entry
+        std::fs::write(&file, json!({ "model": "opus" }).to_string()).unwrap();
+        set_statusline(&tmp, true).unwrap();
+        assert!(split_status(read()["statusLine"]["command"].as_str().unwrap()).unwrap().1.is_none());
+        set_statusline(&tmp, false).unwrap();
+        assert_eq!(read(), json!({ "model": "opus" }));
+        // Taking off what is not ours leaves it alone
+        std::fs::write(&file, json!({ "statusLine": { "type": "command", "command": own } }).to_string()).unwrap();
+        set_statusline(&tmp, false).unwrap();
+        assert_eq!(read()["statusLine"]["command"], json!(own));
+        // Not ours: a command that only mentions it
+        assert!(split_status("echo codeck statusline").is_none());
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

@@ -49,6 +49,9 @@ pub struct Session {
     capabilities: Capabilities,
     /// Where it runs: project-relative, or absolute when outside the project
     cwd: String,
+    /// The tool's account it runs in (for Claude Code its configuration folder), if it told: the
+    /// usage is the account's
+    account: Option<String>,
     /// Index into the interface's session colours, the same wherever the session shows up
     color: u8,
     /// A letter or a few characters to tell it apart at a glance
@@ -157,6 +160,8 @@ pub type Part = (String, String, u64);
 pub struct AssistantState {
     /// An event arrived since this window started
     heard: bool,
+    /// How much of each account's allowance is used, as the tools last stated it
+    usage: Vec<crate::usage::Seen>,
     /// The tools CodeDeck supports, the default one first
     harnesses: Vec<HarnessInfo>,
     sessions: Vec<Session>,
@@ -239,6 +244,8 @@ struct Inner {
     open_saved: Option<HashMap<String, Vec<OpenTurn>>>,
     /// Files the project's sessions left outside it, pages they published
     found: Found,
+    /// What the tools last stated about the accounts' allowance
+    usage: crate::usage::Store,
 }
 
 /// How often the logs of sessions that work or wait are looked at for a stopped turn.
@@ -268,7 +275,9 @@ impl Bridge {
         let _ = std::fs::remove_file(&socket);
         let listener = UnixListener::bind(&socket)?;
         std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o600))?;
-        let bridge = Arc::new(Self { inner: Mutex::new(Inner::default()), snapshotting: Mutex::new(()), socket, journal: Journal::default() });
+        let mut inner = Inner::default();
+        inner.usage = crate::usage::Store::load();
+        let bridge = Arc::new(Self { inner: Mutex::new(inner), snapshotting: Mutex::new(()), socket, journal: Journal::default() });
         bridge.journal.write(&app.state::<Arc<Current>>().get().root, &journal::Line::opened(now_ms()), now_ms());
 
         bridge.load_recent(&app);
@@ -322,6 +331,7 @@ impl Bridge {
                 resumed: false,
                 background: None,
                 task_ended: None,
+                account: None,
             };
             self.handle(app, &end);
         }
@@ -336,6 +346,7 @@ impl Bridge {
         let harnesses = harness::all().iter().map(|h| HarnessInfo::of(*h)).collect();
         AssistantState {
             heard: inner.heard,
+            usage: inner.usage.list(),
             harnesses,
             sessions: inner.listed(),
             identities: inner.identity_list(),
@@ -485,6 +496,14 @@ impl Bridge {
         // Another CodeDeck window, for a global shortcut it holds
         if let Ok(message) = serde_json::from_str::<crate::window::Message>(&text) {
             return crate::window::obey(app, message.window);
+        }
+        // The usage a tool's status line states
+        if let Ok(message) = serde_json::from_str::<crate::usage::Message>(&text) {
+            let changed = self.inner.lock().unwrap().usage.take(message.usage, now_ms());
+            if changed {
+                let _ = app.emit(ASSISTANT_CHANGED, self.state());
+            }
+            return;
         }
         let Ok(event) = serde_json::from_str::<Event>(&text) else { return };
         let context = self.handle(app, &event);
@@ -792,6 +811,9 @@ impl Inner {
             session.cwd = relative(root, c).unwrap_or_else(|| c.display().to_string());
         }
         session.last = now;
+        if e.account.is_some() {
+            session.account = e.account.clone();
+        }
         // A turn is over when the session says so, or when the next prompt comes without that
         let over = matches!(e.kind, EventKind::TurnDone | EventKind::PromptSubmitted);
         let ends = if over { std::mem::take(&mut session.turn) } else { Vec::new() };
@@ -943,6 +965,7 @@ fn new_session(id: &str, harness: &dyn Harness) -> Session {
         // Until it reports itself
         capabilities: harness.capabilities().from_log_only(),
         cwd: String::new(),
+        account: None,
         color: 0,
         short: String::new(),
         status: "idle",

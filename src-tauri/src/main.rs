@@ -10,6 +10,11 @@ fn main() {
             let args: Vec<String> = std::env::args().skip(2).collect();
             std::process::exit(codedeck_lib::hook::forward(&args));
         }
+        // `codeck statusline`: run as a coding tool's status line, hands the usage to the open windows
+        Some("statusline") => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            std::process::exit(codedeck_lib::hook::statusline(&args));
+        }
         Some("--version" | "-V") => println!("codeck {VERSION} · be spex"),
         Some("--help" | "-h") => print!(
             "CodeDeck – AI session radar for Linux · be spex
@@ -17,6 +22,7 @@ fn main() {
 Usage:
   codeck [DIR]     open DIR in a window (default: the current directory)
   codeck hook      what a coding tool's hooks run; CodeDeck sets this up itself
+  codeck statusline  what a coding tool's status line runs to tell the usage; set up on request
   codeck --version
   codeck --help
 
