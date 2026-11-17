@@ -776,7 +776,7 @@ fn start_in(app: &AppHandle, root: &Path, fresh: bool) -> Result<Option<String>,
     // Started by CodeDeck earlier and silent so far: the tool probably waits for a question, e.g.
     // whether to trust the folder. Another one would only wait beside it (user, 2026-11-18: eight)
     if !fresh {
-        if let Some(name) = tmux::running_for(root).first() {
+        if let Some((name, _)) = tmux::started_for(root).first() {
             return Err(format!("{SILENT_START} ({name}) has not reported yet. It probably waits for a question, e.g. whether to trust this folder: open it with  tmux attach -t {name}"));
         }
     }
@@ -835,6 +835,37 @@ async fn stop_session(project: String, session: String, restart: bool, app: AppH
         tmux::start(&root, tool, account.as_deref(), Some(&session))?;
     }
     Ok(())
+}
+
+/// A session CodeDeck started in tmux that has not reported yet: it may wait for a question (e.g.
+/// whether to trust the folder), and without a report it would not be seen at all.
+#[derive(serde::Serialize)]
+struct Pending {
+    /// The tmux session's name
+    name: String,
+    /// The id of the session it will become
+    id: String,
+}
+
+/// The sessions started in tmux for a project that nothing was heard of yet.
+#[tauri::command]
+fn pending_sessions(project: String, app: AppHandle) -> Vec<Pending> {
+    let root = Path::new(&project);
+    let bridge = windows::bridge_for(&app, root);
+    tmux::started_for(root).into_iter().filter(|(_, id)| !bridge.knows(id)).map(|(name, id)| Pending { name, id }).collect()
+}
+
+/// Opens such a session in a terminal (to see its question and answer it), or ends it.
+#[tauri::command]
+fn pending_session(project: String, name: String, end: bool) -> Result<(), String> {
+    // Only what CodeDeck started for this project: never an arbitrary tmux session
+    if !tmux::started_for(Path::new(&project)).iter().any(|(n, _)| *n == name) {
+        return Err("that session is not one CodeDeck started here (any more)".into());
+    }
+    if end {
+        return tmux::stop(&name);
+    }
+    doors::terminal(&harness::Place { tmux: Some(harness::Tmux { pane: String::new(), session: Some(name) }), ..Default::default() })
 }
 
 /// Goes into a session of a project: `door` is "desktop" (the tool's desktop app) or "terminal".
@@ -1031,6 +1062,8 @@ pub fn run() {
             my_project,
             set_window_icon,
             open_session,
+            pending_sessions,
+            pending_session,
             start_session,
             accounts_list,
             set_account,

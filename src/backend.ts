@@ -1774,3 +1774,22 @@ export function onSettingsChanged(callback: () => void): () => void {
   }
   return () => {};
 }
+
+/** A session started in tmux that has not reported yet: it may wait for a question. */
+export interface PendingSession {
+  /** The tmux session's name */
+  name: string;
+  id: string;
+}
+
+/** The sessions CodeDeck started in tmux for a project that nothing was heard of yet. */
+export function pendingSessions(project: string): Promise<PendingSession[]> {
+  if (live) return invoke("pending_sessions", { project });
+  return Promise.resolve([{ name: `codedeck-${project.split("/").pop()}-2`, id: "pending-mock" }]);
+}
+
+/** Opens such a session in a terminal (to answer what it asks), or ends it. */
+export function pendingSession(project: string, name: string, end: boolean): Promise<void> {
+  if (live) return invoke("pending_session", { project, name, end });
+  return Promise.resolve();
+}

@@ -492,6 +492,11 @@ impl Bridge {
         (running, resume)
     }
 
+    /// Whether a session with this id is known (it reported, or its log was read).
+    pub fn knows(&self, id: &str) -> bool {
+        self.inner.locked().sessions.contains_key(id)
+    }
+
     /// What is needed to go into a session: its tool, its account, where it runs.
     pub fn session_place(&self, id: &str) -> Option<(&'static str, Option<String>, Option<Place>)> {
         let inner = self.inner.locked();

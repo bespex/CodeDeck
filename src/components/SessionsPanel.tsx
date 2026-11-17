@@ -13,6 +13,7 @@ import {
   Paperclip,
   Pencil,
   Eraser,
+  Loader,
   Radio,
   RotateCcw,
   Square,
@@ -27,8 +28,9 @@ import { Tooltip } from "./Tooltip";
 import { changes } from "../changes";
 import { notes } from "../notes";
 import { markers } from "../markers";
-import { forgetSession, openSession, openUrl, stopSession, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
+import { pendingSession, forgetSession, openSession, openUrl, stopSession, renameSession, type AssistantState, type Entry, type PendingSession, type ProjectInfo, type Session } from "../backend";
 import { useProjectAccount, useProjectLook } from "../projectLook";
+import { usePending } from "../pending";
 import { AssistantStatusBar } from "./StatusBar";
 import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
 import { SessionBadge } from "./SessionBadge";
@@ -260,11 +262,19 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
   const earlier = state.sessions.filter(isEarlier);
   const [showEarlier, setShowEarlier] = useState(false);
   const Fold = showEarlier ? ChevronDown : ChevronRight;
+  const pending = usePending(look?.path);
   return (
     // No tint of its own (user, 2026-11-17): it stood out more than "Needs you"; a theme with zones colours the column
     <section className="flex min-h-0 flex-col border-b border-line">
       <AreaHeader title={t("Sessions")} />
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {pending.length > 0 && (
+          <ul className="divide-y divide-line/70 border-y border-line/70">
+            {pending.map((p) => (
+              <PendingItem key={p.name} pending={p} projectPath={look?.path} />
+            ))}
+          </ul>
+        )}
         {state.sessions.length > 0 ? (
           // Left as a whole: between two sessions the highlight stays, so nothing flickers on the way
           <div onMouseLeave={() => marks.hover(null)}>
@@ -310,6 +320,43 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * A session CodeDeck started in tmux that has not reported yet. Often the tool asks something first
+ * (whether to trust the folder) and says nothing until answered; this row makes it visible and
+ * reachable: open its terminal, answer, and it turns into a normal session by itself.
+ */
+function PendingItem({ pending, projectPath }: { pending: PendingSession; projectPath: string | undefined }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const act = (end: boolean) => projectPath && pendingSession(projectPath, pending.name, end).catch((e) => setFailed(String(e)));
+  const button = "flex shrink-0 items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-[11px] text-slate-300 hover:border-overlay-line hover:bg-overlay-hover hover:text-slate-100";
+  return (
+    <li onDoubleClick={() => void act(false)} title={t("Double-click: open it in a terminal")} className="flex items-center gap-2.5 py-2 pr-3 pl-3 hover:bg-raised/40">
+      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-500/60 text-slate-400">
+        <Loader className="size-4 animate-spin [animation-duration:2.5s]" />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="flex items-center gap-2">
+          <span className="min-w-0 truncate font-medium text-slate-100">{t("Starting…")}</span>
+          <span className={`ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-2 py-px text-[11px] font-medium ${PILL.wait}`}>{t("waits in tmux")}</span>
+        </span>
+        <span className="flex items-center gap-1.5 text-[12px] text-slate-400">
+          <SquareTerminal className="size-3.5 shrink-0 text-slate-500" />
+          <span className="min-w-0 flex-1 truncate" title={pending.name}>
+            {t("Nothing reported yet: it may ask a question, e.g. whether to trust the folder.")}
+          </span>
+          <button type="button" title={t("Open it in a terminal, answer, and leave with Ctrl+B, D")} onClick={() => void act(false)} className={button}>
+            {t("Open")}
+          </button>
+          <button type="button" title={t("End this session (nothing is lost; it never began)")} onClick={() => void act(true)} className={button}>
+            <Square className="size-3" />
+          </button>
+        </span>
+        {failed && <span className="selectable text-[11px] text-problem">{failed}</span>}
+      </span>
+    </li>
   );
 }
 

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, RotateCcw, Square, SquareTerminal, TriangleAlert } from "lucide-react";
-import { addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, setProject, showProject, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type Session } from "../backend";
+import { Loader, Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, RotateCcw, Square, SquareTerminal, TriangleAlert } from "lucide-react";
+import { pendingSession, addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, setProject, showProject, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type Session } from "../backend";
 import { accountLook, useAccounts } from "../accounts";
+import { usePending } from "../pending";
 import { AccountMark, MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
 import { DONE_SHOWN_MS, needsYou, useNow } from "../attention";
 import { SessionBadge } from "./SessionBadge";
@@ -177,6 +178,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
   const closeMenu = useCallback(() => setMenu(false), []);
   // A session that runs with another configuration than the project's
   const wrongAccount = (s: Session) => !!project.account && !!s.account && s.account !== project.account;
+  const pending = usePending(project.path, 5000);
   const go = (s: Session, door: "desktop" | "terminal") => openSession(project.path, s.id, door).catch((e) => tell(String(e)));
   // Double click: Desktop where the session is reachable there, else its terminal
   const defaultDoor = (s: Session) => (s.place?.remote ? "desktop" : "terminal");
@@ -266,8 +268,31 @@ function ProjectRow({ project }: { project: OverviewProject }) {
         {dot && <span className={`size-2 shrink-0 rounded-full ${dot}`} />}
       </div>
       {menu && <RowMenu project={project} onClose={closeMenu} />}
-      {sessions.length > 0 && (
+      {(sessions.length > 0 || pending.length > 0) && (
         <ul>
+          {/* Started in tmux, nothing reported yet: maybe it asks a question; open it to answer */}
+          {pending.map((p) => (
+            <li
+              key={p.name}
+              onDoubleClick={() => void pendingSession(project.path, p.name, false).catch((e) => tell(String(e)))}
+              title={t("Nothing reported yet: it may ask a question, e.g. whether to trust the folder.")}
+              className="group/s flex h-7 cursor-default items-center gap-2 pr-2 pl-9 text-[12px] hover-session"
+            >
+              <span className="flex size-4 shrink-0 items-center justify-center rounded border border-dashed border-slate-500/60 text-slate-400">
+                <Loader className="size-3 animate-spin [animation-duration:2.5s]" />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-slate-400">{t("Starting…")}</span>
+              <span className="hidden items-center group-hover/s:flex">
+                <RowIcon title={t("Open it in a terminal, answer, and leave with Ctrl+B, D")} onClick={() => void pendingSession(project.path, p.name, false).catch((e) => tell(String(e)))}>
+                  <SquareTerminal className="size-3.5" />
+                </RowIcon>
+                <RowIcon title={t("End this session (nothing is lost; it never began)")} onClick={() => void pendingSession(project.path, p.name, true).catch((e) => tell(String(e)))}>
+                  <Square className="size-3.5" />
+                </RowIcon>
+              </span>
+              <span className="shrink-0 text-[11px] text-changed">{t("waits in tmux")}</span>
+            </li>
+          ))}
           {sessions.map((s) => {
             const status = statusOf(s);
             return (

@@ -52,10 +52,10 @@ pub fn stop(name: &str) -> Result<(), String> {
     run(Command::new("tmux").args(["kill-session", "-t", &format!("={name}")]))
 }
 
-/// The tmux sessions CodeDeck started for a project that still run. They count even before the
+/// The tmux sessions CodeDeck started for a project that still run, with the session id each carries. They count even before the
 /// tool inside has reported: it may wait for a question (e.g. whether to trust the folder) and say
 /// nothing until it is answered. Older ones without the project option are told by their name.
-pub fn running_for(root: &Path) -> Vec<String> {
+pub fn started_for(root: &Path) -> Vec<(String, String)> {
     let Ok(out) = Command::new("tmux").args(["list-sessions", "-F", "#{session_name}\t#{@codedeck}\t#{@codedeck-project}"]).output() else {
         return Vec::new();
     };
@@ -70,7 +70,8 @@ pub fn running_for(root: &Path) -> Vec<String> {
             } else {
                 Path::new(project) == root
             };
-            mine.then(|| name.to_string())
+            // The session id CodeDeck gave it: the tool reports under that id once it runs
+            mine.then(|| (name.to_string(), ours.to_string()))
         })
         .collect()
 }
