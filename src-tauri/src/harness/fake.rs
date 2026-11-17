@@ -23,7 +23,7 @@ impl Harness for Fake {
     }
 
     fn capabilities(&self) -> Capabilities {
-        Capabilities { live_status: true, before_write: true, attach: Attach::Clipboard, start_rules: true, past_sessions: true, usage: false }
+        Capabilities { live_status: true, before_write: true, attach: Attach::Clipboard, start_rules: true, past_sessions: true, usage: false, desktop_profiles: false }
     }
 
     fn connections(&self) -> Vec<Connection> {

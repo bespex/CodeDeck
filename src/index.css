@@ -447,11 +447,11 @@ body {
 .mark-daily:hover::after,
 .mark-daily:focus-visible::after {
   border-color: var(--ring, var(--color-ai));
-  animation: mark-pulse 0.9s ease-in-out infinite;
+  animation: mark-pulse 1s ease-in-out infinite;
 }
 @keyframes mark-pulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 var(--ring, var(--color-ai)); }
-  50% { transform: scale(1.3); box-shadow: 0 0 6px 2px var(--ring, var(--color-ai)); opacity: 0.5; }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
 }
 @keyframes mark-ring {
   from { transform: rotate(-180deg); opacity: 0; }
@@ -460,7 +460,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .mark-switch:hover::after { animation: none; }
   /* No motion asked for: the ring gets thicker instead of pulsing */
-  .mark-daily:hover::after { animation: none; border-width: 3px; }
+  .mark-daily:hover::after { animation: none; border-width: 4px; }
 }
 
 /* Rows of the overview take their hover from the theme's indigo: the project's a little stronger,

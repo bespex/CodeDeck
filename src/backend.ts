@@ -575,6 +575,8 @@ export interface Capabilities {
   pastSessions: boolean;
   /** It tells how much of the account's allowance is used */
   usage: boolean;
+  /** Its desktop app keeps profiles; CodeDeck can make one and start the app with it */
+  desktopProfiles: boolean;
 }
 
 /** A coding tool CodeDeck supports. Its names are the only place texts take a tool's name from. */
@@ -729,7 +731,7 @@ export interface Attachment {
   rev: number;
 }
 
-const MOCK_CAPABILITIES: Capabilities = { liveStatus: true, beforeWrite: true, attach: "withNextPrompt", startRules: true, pastSessions: true, usage: true };
+const MOCK_CAPABILITIES: Capabilities = { liveStatus: true, beforeWrite: true, attach: "withNextPrompt", startRules: true, pastSessions: true, usage: true, desktopProfiles: true };
 
 const mockAssistant: AssistantState = {
   heard: true,
@@ -1555,6 +1557,17 @@ export function trashAccount(dir: string): Promise<void> {
   mockAccounts.splice(mockAccounts.findIndex((a) => a.dir === dir), 1);
   mockAccountListeners.forEach((l) => l());
   return Promise.resolve();
+}
+
+/** Makes a profile of the tool's desktop app for an account: the app starts with a folder of its
+ *  own to sign in, and the account keeps it. */
+export function createDesktopProfile(dir: string): Promise<string> {
+  if (live) return invoke("create_desktop_profile", { dir });
+  const profile = `/home/me/.config/claude-desktop-${dir.split("/").pop()?.replace(/^\./, "")}`;
+  const account = mockAccounts.find((a) => a.dir === dir);
+  if (account) account.desktopProfile = profile;
+  mockAccountListeners.forEach((l) => l());
+  return Promise.resolve(profile);
 }
 
 /** The desktop app's profiles found on this computer. */

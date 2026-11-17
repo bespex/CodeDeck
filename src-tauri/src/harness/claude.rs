@@ -68,6 +68,7 @@ impl Harness for Claude {
             start_rules: true,
             past_sessions: true,
             usage: true,
+            desktop_profiles: true,
         }
     }
 
@@ -184,6 +185,22 @@ impl Harness for Claude {
             .collect();
         found.sort();
         found
+    }
+
+    /// `--user-data-dir` makes the app keep everything in a folder of its own, created on the first
+    /// start; by habit `~/.config/claude-desktop-<name>`. A name already taken gets a number.
+    fn new_desktop_profile(&self, name: &str) -> Option<(String, Vec<String>)> {
+        let slug: String = name.to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
+        let slug = slug.trim_matches('-');
+        let base = std::env::home_dir()?.join(".config");
+        let stem = format!("claude-desktop-{}", if slug.is_empty() { "account" } else { slug });
+        let dir = (1..)
+            .map(|n| base.join(if n == 1 { stem.clone() } else { format!("{stem}-{n}") }))
+            .find(|d| !d.exists())?
+            .display()
+            .to_string();
+        let command = vec!["claude-desktop".to_string(), format!("--user-data-dir={dir}")];
+        Some((dir, command))
     }
 
     /// `claude --session-id <id>` (or `--resume <id>`) with a name and Remote Control, so that the

@@ -195,3 +195,8 @@ zu bauen. Die Leiste je Projekt wird mit 3.0b entfernt.
 | 10 | „Meine Projekte“ als feste Liste in der Übersicht, Tagesliste als Stern daran | Vorschlag nach dem Wunsch des Nutzers; Reihenfolge per Ziehen statt nach Zustand |
 | 11 | KI-Konfiguration je Projekt | **Nutzer 2026-11-17:** ja; Auswahl im Menü der Zeile, kleiner Punkt in der Kontofarbe |
 | 8 | Form der Marke | Kreis (Wunsch des Nutzers). In der App sind die Schilder der Sitzungen abgerundete Quadrate (`SessionBadge`), Kreis und Quadrat unterscheiden sich also schon; im Dummy waren beide Kreise |
+
+**Einstellungen „KI-Werkzeuge“ (2026-11-17):** eine Seite statt zwei. Je Werkzeug ein Abschnitt, darunter seine
+Konten mit Marke, Name, Verbinden/Trennen (Hooks), „Desktop App Profile“ und „Neues Profil anlegen…“. Das Feld
+und der Knopf erscheinen nur, wenn das Werkzeug Profile kennt (`Capabilities::desktop_profiles`); der Adapter
+liefert Ordner und Startbefehl (`Harness::new_desktop_profile`), die App legt den Ordner beim ersten Start an.

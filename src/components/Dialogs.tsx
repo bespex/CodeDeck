@@ -1,13 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Copy, X } from "lucide-react";
-import { appInfo, desktopProfiles, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
+import { appInfo, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
 import { useAccounts } from "../accounts";
 import { AccountMark, MarkPicker } from "./ProjectMark";
-import { mainHarness, useConnections } from "../assistant";
+import { useConnections } from "../assistant";
 import { closeDialog, openDialog, useDialog, type SettingsSection } from "../dialogs";
-import { lang, setLang, t } from "../i18n";
+import { lang, setLang, t, T } from "../i18n";
 import { ReduceTransparency, ThemeChoice } from "./ThemeChoice";
-import { HookPanel } from "./AssistantStatus";
 import { AttentionChoice, QuietChoice } from "./AttentionChoice";
 
 /** The page of the app; the address codedeck.bespex.run follows once the domain is set up. */
@@ -193,7 +192,6 @@ const SECTIONS: [SettingsSection, string][] = [
   ["general", "General"],
   ["notifications", "Notifications"],
   ["tools", "AI tools"],
-  ["accounts", "Accounts"],
 ];
 
 /**
@@ -221,7 +219,6 @@ function Settings({ section, assistant }: { section: SettingsSection; assistant:
           {section === "general" && <General />}
           {section === "notifications" && <Notifications />}
           {section === "tools" && <Tools assistant={assistant} />}
-          {section === "accounts" && <Accounts />}
         </div>
       </div>
     </Modal>
@@ -308,7 +305,23 @@ function Notifications() {
 }
 
 /** One account: its name and colour, the desktop app's profile, what its folder is (step 3.2). */
-function AccountRow({ account, profiles }: { account: Account; profiles: string[] }) {
+function AccountRow({ account, profiles, connection, hasProfiles }: { account: Account; profiles: string[]; connection: Connection | undefined; hasProfiles: boolean }) {
+  const hooks = useConnections();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (task: () => Promise<unknown>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await task();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const connect = (install: boolean) => run(async () => hooks.update(await setHarnessConnection(account.harness, account.dir, install)));
+  const button = "shrink-0 rounded-md px-2.5 py-0.5 text-[12px] font-medium disabled:opacity-40";
   const [name, setName] = useState(account.name);
   const [confirm, setConfirm] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -333,13 +346,34 @@ function AccountRow({ account, profiles }: { account: Account; profiles: string[
         <span className="truncate font-mono text-[12px] text-slate-500" title={account.dir}>
           {home(account.dir)}
         </span>
-        <span className="ml-auto shrink-0 text-[11px] text-slate-500">
-          {account.kind === "used" ? (account.connected ? t("in use · connected") : t("in use · not connected")) : account.kind === "unused" ? t("not used yet") : t("looks like a backup")}
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {/* Said in words: the button names the action, the dot and word the state */}
+          <span className={`flex items-center gap-1.5 text-[11px] font-medium ${account.connected ? "text-added" : "text-slate-400"}`}>
+            <span className={`size-2 rounded-full ${account.connected ? "bg-added" : "bg-slate-600"}`} />
+            {account.connected ? t("Connected") : t("Not connected")}
+          </span>
+          {connection?.other && (
+            <button type="button" disabled={busy} onClick={() => void connect(true)} className={`${button} bg-brand-fill text-on-accent hover:bg-brand-fill-hover`}>
+              {t("Use this one")}
+            </button>
+          )}
+          {account.connected ? (
+            <button type="button" disabled={busy} onClick={() => void connect(false)} className={`${button} border border-overlay-line hover:bg-overlay-hover`}>
+              {t("Disconnect")}
+            </button>
+          ) : (
+            <button type="button" disabled={busy || !live} onClick={() => void connect(true)} className={`${button} bg-brand-fill text-on-accent hover:bg-brand-fill-hover`}>
+              {t("Connect")}
+            </button>
+          )}
         </span>
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pl-5">
+      {connection?.other && <p className="pl-8 text-[11px] text-changed">{t("runs another CodeDeck: {other}", { other: connection.other })}</p>}
+      {error && <p className="selectable pl-8 text-[12px] text-problem">{error}</p>}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pl-8">
+        {hasProfiles && (
         <label className="flex items-center gap-2 text-[12px] text-slate-400">
-          {t("Desktop app")}
+          {t("Desktop App Profile")}
           <select
             value={account.desktopProfile ?? ""}
             onChange={(e) => void setAccount(account.dir, "desktopProfile", e.target.value || null)}
@@ -353,6 +387,18 @@ function AccountRow({ account, profiles }: { account: Account; profiles: string[
             ))}
           </select>
         </label>
+        )}
+        {hasProfiles && (
+          <button
+            type="button"
+            disabled={busy || !live}
+            title={t("Starts the desktop app with a folder of its own. Sign in there with this account; CodeDeck keeps the profile for it.")}
+            onClick={() => void run(() => createDesktopProfile(account.dir))}
+            className="text-[12px] text-slate-300 underline-offset-2 hover:text-slate-100 hover:underline disabled:opacity-40"
+          >
+            {t("Create a new profile…")}
+          </button>
+        )}
         {account.kind !== "used" &&
           (confirm ? (
             <span className="flex items-center gap-2 text-[12px]">
@@ -390,36 +436,42 @@ function AccountRow({ account, profiles }: { account: Account; profiles: string[
   );
 }
 
-/** The accounts of the AI tools: name, colour, desktop profile; backups can go (step 3.2). */
-function Accounts() {
+/**
+ * The AI tools, each with its accounts: connecting, name, mark and colour, the desktop app's
+ * profile, backups to delete (step 3.2). One page, so a tool and what belongs to it stay together.
+ */
+function Tools({ assistant }: { assistant: AssistantState }) {
+  const hooks = useConnections();
   const accounts = useAccounts();
   const [profiles, setProfiles] = useState<string[]>([]);
   useEffect(() => void desktopProfiles().then(setProfiles), []);
+  const command = hooks.setups?.[0]?.command;
   return (
     <>
-      <h3 className="mb-1 font-semibold text-slate-100">{t("Accounts")}</h3>
-      <p className="text-[12px] text-slate-500">
-        {t("Each configuration of an AI tool is an account. Its name and colour show at projects and sessions; the desktop app's profile is the one a session opens in.")}
-      </p>
-      {accounts.length ? (
-        <ul>
-          {accounts.map((a) => (
-            <AccountRow key={a.dir} account={a} profiles={profiles} />
-          ))}
-        </ul>
-      ) : (
-        <p className="py-3 text-[12px] text-slate-500">{t("No configuration found.")}</p>
-      )}
-    </>
-  );
-}
-
-function Tools({ assistant }: { assistant: AssistantState }) {
-  const hooks = useConnections();
-  return (
-    <>
-      <h3 className="mb-1 font-semibold text-slate-100">{t("AI tools")}</h3>
-      <HookPanel hooks={hooks} harness={mainHarness(assistant)} heard={assistant.heard} />
+      {assistant.harnesses.map((h) => {
+        const own = accounts.filter((a) => a.harness === h.id);
+        return (
+          <section key={h.id} className="mb-6">
+            <h3 className="mb-1 font-semibold text-slate-100">{h.name}</h3>
+            <p className="text-[12px] text-slate-500">
+              {t("Each configuration of {tool} is an account: its name, mark and colour show at projects and sessions.", { tool: h.name })}{" "}
+              <T
+                text="Connecting adds hooks to its settings that run {command}: they tell CodeDeck which session works where and which files it writes, and let CodeDeck keep a snapshot before the first write of a turn. Nothing else in the file changes; the file as it was is kept next to it."
+                command={<code className="font-mono text-[11px]">{command ?? "codedeck hook"}</code>}
+              />
+            </p>
+            {own.length ? (
+              <ul>
+                {own.map((a) => (
+                  <AccountRow key={a.dir} account={a} profiles={profiles} hasProfiles={h.capabilities.desktopProfiles} connection={hooks.setups?.find((c) => c.harness === a.harness && c.dir === a.dir)} />
+                ))}
+              </ul>
+            ) : (
+              <p className="py-3 text-[12px] text-slate-500">{t("No configuration found.")}</p>
+            )}
+          </section>
+        );
+      })}
     </>
   );
 }

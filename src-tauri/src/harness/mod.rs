@@ -75,6 +75,12 @@ pub trait Harness: Send + Sync {
     fn desktop_profiles(&self) -> Vec<String> {
         Vec::new()
     }
+    /// A new profile of the desktop app for an account called `name`: the folder it will use and
+    /// the command that starts the app with it. The app creates the folder on its first start, so
+    /// the user signs in there. `None`: the tool's app has no profiles (`Capabilities::desktop_profiles`).
+    fn new_desktop_profile(&self, _name: &str) -> Option<(String, Vec<String>)> {
+        None
+    }
     /// How to start a session of this tool (docs/SITZUNGEN.md B2): the command and the environment
     /// it needs. `None`: CodeDeck cannot start sessions of this tool.
     fn launch(&self, _launch: &Launch) -> Option<Launched> {
@@ -108,6 +114,9 @@ pub struct Capabilities {
     pub past_sessions: bool,
     /// It tells how much of the account's allowance is used
     pub usage: bool,
+    /// Its desktop app keeps separate profiles, one can be started and made (see
+    /// [`Harness::new_desktop_profile`]); without this CodeDeck does not offer profiles at all
+    pub desktop_profiles: bool,
 }
 
 impl Capabilities {

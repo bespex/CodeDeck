@@ -12,7 +12,7 @@ const UNKNOWN: HarnessInfo = {
   id: "",
   name: "The assistant",
   shortName: "Assistant",
-  capabilities: { liveStatus: false, beforeWrite: false, attach: "none", startRules: false, pastSessions: false, usage: false },
+  capabilities: { liveStatus: false, beforeWrite: false, attach: "none", startRules: false, pastSessions: false, usage: false, desktopProfiles: false },
 };
 
 /** The tool texts and offers go by: the default one. */

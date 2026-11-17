@@ -407,12 +407,10 @@ function MoreMenu({ host }: { host: string | null }) {
         <div className="surface-overlay absolute top-9 right-0 z-20 flex w-56 flex-col rounded-lg p-1">
           <button type="button" disabled={!host} title={host ? undefined : t("Settings: open a project first")} className={item} onClick={() => inWindow("settings")}>
             {t("Settings")}
-            <span className="ml-auto text-slate-500">Ctrl+,</span>
           </button>
           <div className="my-1 h-px bg-overlay-line" />
           <button type="button" disabled={!host} className={item} onClick={() => inWindow("shortcuts")}>
             {t("Keyboard shortcuts")}
-            <span className="ml-auto text-slate-500">F1</span>
           </button>
           <button type="button" disabled={!host} className={item} onClick={() => inWindow("about")}>
             {t("About CodeDeck")}

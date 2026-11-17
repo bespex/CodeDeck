@@ -735,6 +735,19 @@ fn trash_account(dir: String, app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Makes a new profile of the tool's desktop app for an account: starts the app with a folder of
+/// its own, so the user can sign in there, and keeps it as the account's profile.
+#[tauri::command]
+fn create_desktop_profile(dir: String, app: AppHandle) -> Result<String, String> {
+    let account = accounts::list().into_iter().find(|a| a.dir == dir).ok_or("unknown account")?;
+    let tool = harness::by_id(Some(&account.harness)).ok_or("unknown tool")?;
+    let (profile, command) = tool.new_desktop_profile(&account.name).ok_or("this tool's desktop app has no profiles")?;
+    std::process::Command::new(&command[0]).args(&command[1..]).spawn().map_err(|e| format!("{}: {e}", command[0]))?;
+    accounts::set(&dir, "desktopProfile", serde_json::json!(profile))?;
+    let _ = app.emit("accounts_changed", ());
+    Ok(profile)
+}
+
 /// The desktop app's profiles found here, to pick the one an account belongs to.
 #[tauri::command]
 fn desktop_profiles() -> Vec<String> {
@@ -1005,6 +1018,7 @@ pub fn run() {
             set_account,
             trash_account,
             desktop_profiles,
+            create_desktop_profile,
             start_today,
             stop_session,
             remove_project,
