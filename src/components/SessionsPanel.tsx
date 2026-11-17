@@ -21,7 +21,7 @@ import { DRAG_TYPE } from "./FilesPanel";
 import { HookPanel } from "./AssistantStatus";
 import { Tooltip } from "./Tooltip";
 import { forgetSession, openSession, openUrl, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
-import { useProjectLook } from "../projectLook";
+import { useProjectAccount, useProjectLook } from "../projectLook";
 import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
 import { SessionBadge } from "./SessionBadge";
 import { HeaderBar } from "./HeaderBar";
@@ -239,6 +239,7 @@ function headline(s: Session): { text: string; from: "step" | "prompt" | "messag
 
 function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (path: string) => void }) {
   const look = useProjectLook(undefined);
+  const mine = useProjectAccount(state, look);
   const hooks = useConnections();
   const harness = mainHarness(state);
   const marks = useSessionMarks();
@@ -261,7 +262,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
             {current.length > 0 ? (
               <ul className="divide-y divide-line/70 border-y border-line/70">
                 {current.map((s) => (
-                  <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} projectPath={look?.path} />
+                  <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} projectPath={look?.path} projectTool={mine.harness.id} />
                 ))}
               </ul>
             ) : (
@@ -282,7 +283,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
                 {showEarlier && (
                   <ul className="divide-y divide-line/70 border-y border-line/70">
                     {earlier.map((s) => (
-                      <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} projectPath={look?.path} />
+                      <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} projectPath={look?.path} projectTool={mine.harness.id} />
                     ))}
                   </ul>
                 )}
@@ -304,7 +305,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
 }
 
 /** Two lines per session: who and in which state, then the one thing that counts. The rest folds out. */
-function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, toolShort, projectPath }: { session: Session; blockedUntil: number | null; onShowFile: (path: string) => void; toolName: string; toolShort: string; projectPath: string | undefined }) {
+function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, toolShort, projectPath, projectTool }: { session: Session; blockedUntil: number | null; onShowFile: (path: string) => void; toolName: string; toolShort: string; projectPath: string | undefined; projectTool: string }) {
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const marks = useSessionMarks();
@@ -355,14 +356,15 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
               </span>
             </span>
             <span className="flex items-center gap-1.5 text-[12px] text-slate-400">
-              {s.model && <span className="shrink-0 rounded border border-line px-1 text-[11px] font-medium text-slate-200">{s.model}</span>}
+              {s.model && <span className="flex h-[18px] shrink-0 items-center rounded border border-line px-1 text-[11px] leading-none font-medium text-slate-200">{s.model}</span>}
               {byHand && (
                 <span
                   title={`${t("by hand")} · ${toolName}: ${t("Started outside CodeDeck: it ends where it runs")}`}
-                  className="flex shrink-0 items-center gap-1 rounded border border-dashed border-slate-500/60 px-1 text-[11px] text-slate-300"
+                  className="flex h-[18px] shrink-0 items-center gap-1 rounded border border-dashed border-slate-500/60 px-1 text-[11px] leading-none text-slate-300"
                 >
-                  <User className="size-3" />
-                  {toolShort}
+                  <User className="size-3 shrink-0" />
+                  {/* The tool only when it is not the project's own */}
+                  {s.harness !== projectTool && toolShort}
                 </span>
               )}
               <span className="min-w-0 flex-1 truncate">{head.text}</span>
@@ -459,7 +461,7 @@ function PlaceNote({ session: s }: { session: Session }) {
     <>
       {tmux && (
         <span title={t("Runs in tmux. Attach with: tmux attach -t {name}", { name: tmux.session ?? tmux.pane })}>
-          {" · "}tmux {tmux.session ?? tmux.pane}
+          {" · "}tmux
         </span>
       )}
       {place.remote && (
