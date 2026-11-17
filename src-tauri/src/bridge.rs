@@ -228,6 +228,8 @@ struct Inner {
     ruled: Option<Ruled>,
     /// Sessions whose log was read since their turn ended
     looked_up: HashSet<String>,
+    /// The log of each session that reported one, to see whether its turn was cut short
+    logs: HashMap<String, PathBuf>,
     /// Colour, short name and title per session, of the project they were read for
     identities: Identities,
     project: Option<PathBuf>,
@@ -238,6 +240,9 @@ struct Inner {
     /// Files the project's sessions left outside it, pages they published
     found: Found,
 }
+
+/// How often the logs of sessions that work or wait are looked at for a stopped turn.
+const CUT_SHORT_EVERY: Duration = Duration::from_secs(3);
 
 pub struct Bridge {
     inner: Mutex<Inner>,
@@ -267,6 +272,12 @@ impl Bridge {
         bridge.journal.write(&app.state::<Arc<Current>>().get().root, &journal::Line::opened(now_ms()), now_ms());
 
         bridge.load_recent(&app);
+        let watcher = bridge.clone();
+        let watching = app.clone();
+        std::thread::spawn(move || loop {
+            std::thread::sleep(CUT_SHORT_EVERY);
+            watcher.end_cut_short(&watching);
+        });
         let me = bridge.clone();
         std::thread::spawn(move || {
             for stream in listener.incoming().flatten() {
@@ -276,6 +287,42 @@ impl Bridge {
             }
         });
         Ok(bridge)
+    }
+
+    /// A turn the user stopped says nothing to the hooks (no `Stop`, no `idle_prompt`), so the
+    /// session would stay "working" or "waiting" for good. The tool's log does say it: for the
+    /// sessions in such a state it is looked at now and then, and a stopped turn ends like any other.
+    fn end_cut_short(&self, app: &AppHandle) {
+        let open: Vec<(String, &'static str, PathBuf, u64)> = {
+            let inner = self.inner.lock().unwrap();
+            inner
+                .sessions
+                .values()
+                .filter(|s| matches!(s.status, "working" | "waiting"))
+                .filter_map(|s| Some((s.id.clone(), s.harness, inner.logs.get(&s.id)?.clone(), s.last)))
+                .collect()
+        };
+        for (session, harness, log, last) in open {
+            let Some(tool) = harness::by_id(Some(harness)) else { continue };
+            if !tool.cut_short(&log, last) {
+                continue;
+            }
+            let end = Event {
+                harness: harness.to_string(),
+                session,
+                kind: EventKind::TurnDone,
+                cwd: None,
+                file: None,
+                tool: None,
+                prompt: None,
+                message: None,
+                report: None,
+                log: Some(log.display().to_string()),
+                writes: Vec::new(),
+                resumed: false,
+            };
+            self.handle(app, &end);
+        }
     }
 
     pub fn socket(&self) -> &Path {
@@ -310,6 +357,7 @@ impl Bridge {
             inner.delivered = None;
             (inner.target, inner.target_lost, inner.ruled) = (None, None, None);
             inner.looked_up.clear();
+            inner.logs.clear();
         }
         self.journal.write(&app.state::<Arc<Current>>().get().root, &journal::Line::opened(now_ms()), now_ms());
         let _ = app.emit(ASSISTANT_CHANGED, self.state());
@@ -851,6 +899,9 @@ impl Inner {
             snapshot_repos = wanted.into_iter().filter(|top| done.insert(top.clone())).collect();
         }
         trim(self);
+        if let Some(path) = &e.log {
+            self.logs.insert(e.session.clone(), PathBuf::from(path));
+        }
         // The log has the title and model: read it for a new session and after each turn
         if e.kind == EventKind::TurnDone {
             self.looked_up.remove(&e.session);

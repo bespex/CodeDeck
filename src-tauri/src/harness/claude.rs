@@ -142,6 +142,46 @@ impl Harness for Claude {
     fn read_log(&self, log: &Path) -> Option<SessionInfo> {
         read(log)
     }
+
+    fn cut_short(&self, log: &Path, since: u64) -> bool {
+        interrupted_after(log, since)
+    }
+}
+
+/// How much of a log's end is looked at for an interruption: it is the last thing there.
+const INTERRUPT_TAIL: u64 = 32 * 1024;
+
+/// Whether the log ends in the user's interruption, written after `since`. Neither `Stop` nor
+/// `idle_prompt` come then (journal 2026-11-17): after "no" to a permission and Esc, or Esc while
+/// it works, the log is the only place that says the turn is over. The entry is a user message
+/// reading `[Request interrupted by user]`, or `… for tool use]`.
+fn interrupted_after(log: &Path, since: u64) -> bool {
+    let Ok(mut file) = File::open(log) else { return false };
+    let len = file.metadata().map_or(0, |m| m.len());
+    if file.seek(SeekFrom::Start(len.saturating_sub(INTERRUPT_TAIL))).is_err() {
+        return false;
+    }
+    let mut bytes = Vec::new();
+    if file.read_to_end(&mut bytes).is_err() {
+        return false;
+    }
+    let text = String::from_utf8_lossy(&bytes);
+    // Only the last entry that says anything about the turn counts: a prompt after it wins
+    for line in text.lines().rev() {
+        let Ok(entry) = serde_json::from_str::<Value>(line) else { continue };
+        if entry["type"] != "user" {
+            continue;
+        }
+        let first = &entry["message"]["content"][0];
+        let said = first["text"].as_str().or(entry["message"]["content"].as_str()).unwrap_or_default();
+        // A tool's result is also a "user" entry; it is no interruption and no new prompt
+        if first["type"] == "tool_result" {
+            continue;
+        }
+        let at = entry["timestamp"].as_str().and_then(iso_ms).unwrap_or(0);
+        return said.starts_with("[Request interrupted by user") && at > since;
+    }
+    false
 }
 
 /// What the user asked, as a turn is named after it. Claude Code also hands notices of its own in
@@ -711,5 +751,36 @@ mod tests {
         for s in recent(&PathBuf::from(root).canonicalize().unwrap()) {
             println!("{} {:?} {:?} {:?} writes={} last={}", &s.id[..8], s.title, s.model, s.cwd, s.writes.len(), s.last);
         }
+    }
+
+    #[test]
+    fn sees_a_turn_the_user_stopped() {
+        let file = std::env::temp_dir().join(format!("codedeck-interrupt-{}.jsonl", std::process::id()));
+        let write = |lines: &[&str]| std::fs::write(&file, lines.join("\n")).unwrap();
+        let at = |t: &str| iso_ms(t).unwrap();
+        let ask = r#"{"type":"user","timestamp":"2026-11-17T07:46:30.000Z","message":{"role":"user","content":"touch x"}}"#;
+        let tool = r#"{"type":"assistant","timestamp":"2026-11-17T07:46:32.000Z","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{}}]}}"#;
+        let cut = r#"{"type":"user","timestamp":"2026-11-17T07:47:10.917Z","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user for tool use]"}]}}"#;
+        let plain = r#"{"type":"user","timestamp":"2026-11-17T07:47:10.917Z","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]}}"#;
+        let result = r#"{"type":"user","timestamp":"2026-11-17T07:47:11.000Z","message":{"role":"user","content":[{"type":"tool_result","content":"The user doesn't want to proceed"}]}}"#;
+        let next = r#"{"type":"user","timestamp":"2026-11-17T07:48:00.000Z","message":{"role":"user","content":"go on"}}"#;
+        let before = at("2026-11-17T07:46:32.000Z");
+
+        // Nothing stopped yet: it is still asking
+        write(&[ask, tool]);
+        assert!(!interrupted_after(&file, before));
+        // Stopped after the last thing CodeDeck heard, with or without a tool; a result after it changes nothing
+        write(&[ask, tool, cut]);
+        assert!(interrupted_after(&file, before));
+        write(&[ask, tool, plain, result]);
+        assert!(interrupted_after(&file, before));
+        // A stop CodeDeck heard of already (the session said something since) does not count again
+        assert!(!interrupted_after(&file, at("2026-11-17T07:47:30.000Z")));
+        // A prompt after it: the session works again
+        write(&[ask, tool, cut, next]);
+        assert!(!interrupted_after(&file, before));
+        // No log, no answer
+        let _ = std::fs::remove_file(&file);
+        assert!(!interrupted_after(&file, before));
     }
 }

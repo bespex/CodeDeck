@@ -39,6 +39,12 @@ pub trait Harness: Send + Sync {
     fn past_sessions(&self, project: &Path) -> Vec<SessionInfo>;
     /// What one log says about its session.
     fn read_log(&self, log: &Path) -> Option<SessionInfo>;
+    /// The user stopped the running turn after `since` (Unix milliseconds). A tool does not say
+    /// so with an event, but its log may: without this a session stays "working" or "waiting"
+    /// until the next prompt.
+    fn cut_short(&self, _log: &Path, _since: u64) -> bool {
+        false
+    }
     /// The tool's own files (memory, settings, its logs): written outside the project, they are
     /// no finding.
     fn is_own_file(&self, _path: &Path) -> bool {
