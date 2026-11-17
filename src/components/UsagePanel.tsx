@@ -179,8 +179,10 @@ export function UsageCards({ assistant, onlySetUp = false }: { assistant: Assist
  * amber when the pace would use a limit up before it starts over, red at the limit). A click opens
  * the details, the same as in Activity.
  */
-export function UsageChip({ assistant }: { assistant: AssistantState }) {
-  const accounts = useAccounts(assistant);
+export function UsageChip({ assistant, account }: { assistant: AssistantState; account?: string | null }) {
+  const all = useAccounts(assistant);
+  // The project's account only, once it is known: the figures of another account say nothing here
+  const accounts = account && all.some((c) => c.dir === account) ? all.filter((c) => c.dir === account) : all;
   const now = useNow();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -216,12 +218,21 @@ export function UsageChip({ assistant }: { assistant: AssistantState }) {
           </>
         ) : (
           chips.map(({ c, i, limits }) => (
-            <span key={c.dir} className="flex items-center gap-1.5">
+            <span key={c.dir} className="flex items-center gap-3">
               {accounts.length > 1 && <span className="size-2 rounded-[2px]" style={mark(i)} />}
               {limits.map((l) => (
-                <span key={l.key} className={`flex items-center gap-1 ${STANDING_TEXT[l.standing]}`}>
-                  {l.key}
-                  <span className="tabular-nums">{Math.round(l.window.used)}%</span>
+                <span
+                  key={l.key}
+                  title={`${l.label}: ${Math.round(l.window.used)} % · ${t("resets in {time} · {at}", { time: span(l.left), at: resetAt(l.window.resetsAt, now, LOCALE) })}`}
+                  className={`flex items-center gap-1.5 ${STANDING_TEXT[l.standing]}`}
+                >
+                  <span className="font-normal text-slate-500">{l.key}</span>
+                  {/* The bar with the marker for the time that is over, as in the details */}
+                  <span className="relative h-1.5 w-16 rounded-full bg-line">
+                    <span className={`absolute inset-y-0 left-0 rounded-full ${STANDING_FILL[l.standing]}`} style={{ width: `${Math.min(100, l.window.used)}%` }} />
+                    <span className="absolute -top-0.5 -bottom-0.5 w-0.5 bg-slate-100/70" style={{ left: `${Math.round(l.elapsed * 100)}%` }} />
+                  </span>
+                  <span className="w-8 text-right tabular-nums">{Math.round(l.window.used)}%</span>
                 </span>
               ))}
             </span>

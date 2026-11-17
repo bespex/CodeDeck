@@ -737,8 +737,8 @@ const mockAssistant: AssistantState = {
   heard: true,
   // One account at an easy pace, one that would use its week up before the reset
   usage: [
-    { account: "~/.claude", fiveHour: { used: 38, resetsAt: Math.floor(Date.now() / 1000) + 4 * 3600 }, sevenDay: { used: 31, resetsAt: Math.floor(Date.now() / 1000) + 4 * 86400 }, seen: Date.now() - 20_000 },
-    { account: "~/.claude-work", fiveHour: { used: 86, resetsAt: Math.floor(Date.now() / 1000) + 3 * 3600 }, sevenDay: { used: 48, resetsAt: Math.floor(Date.now() / 1000) + 3 * 86400 }, seen: Date.now() - 90_000 },
+    { account: "/home/me/.claude", fiveHour: { used: 38, resetsAt: Math.floor(Date.now() / 1000) + 4 * 3600 }, sevenDay: { used: 31, resetsAt: Math.floor(Date.now() / 1000) + 4 * 86400 }, seen: Date.now() - 20_000 },
+    { account: "/home/me/.claude-private", fiveHour: { used: 86, resetsAt: Math.floor(Date.now() / 1000) + 3 * 3600 }, sevenDay: { used: 48, resetsAt: Math.floor(Date.now() / 1000) + 3 * 86400 }, seen: Date.now() - 90_000 },
   ],
   harnesses: [{ id: "claude", name: "Claude Code", shortName: "Claude", capabilities: MOCK_CAPABILITIES }],
   sessions: [
@@ -1049,8 +1049,8 @@ export interface Connection {
 }
 
 let mockConnections: Connection[] = [
-  { harness: "claude", dir: "~/.claude", settings: "~/.claude/settings.json", installed: true, other: null, command: "/usr/bin/codedeck hook", usage: true, usageKeeps: "bash ~/.claude/statusline.sh" },
-  { harness: "claude", dir: "~/.claude-work", settings: "~/.claude-work/settings.json", installed: false, other: null, command: "/usr/bin/codedeck hook", usage: true, usageKeeps: null },
+  { harness: "claude", dir: "/home/me/.claude", settings: "/home/me/.claude/settings.json", installed: true, other: null, command: "/usr/bin/codedeck hook", usage: true, usageKeeps: "bash /home/me/.claude/statusline.sh" },
+  { harness: "claude", dir: "/home/me/.claude-private", settings: "/home/me/.claude-private/settings.json", installed: false, other: null, command: "/usr/bin/codedeck hook", usage: true, usageKeeps: null },
 ];
 
 /** The connection of every tool and account found. */

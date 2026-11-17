@@ -1,7 +1,6 @@
 import { Tooltip, ToolTipBody } from "./Tooltip";
 import { useState, type ReactNode } from "react";
 import {
-  AppWindow,
   Bug,
   Check,
   ChevronDown,
@@ -16,7 +15,7 @@ import {
   SquareTerminal,
   Stethoscope,
 } from "lucide-react";
-import { appInfo, diagnostics, openUrl, openWindow, setProject, stopSession, toggleOverview, type Account, type AssistantState, type ProjectInfo } from "../backend";
+import { appInfo, diagnostics, openUrl, setProject, stopSession, toggleOverview, type Account, type AssistantState, type ProjectInfo } from "../backend";
 import { useAccounts } from "../accounts";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
@@ -57,7 +56,7 @@ export function HeaderBar(props: Props) {
       <AccountBlock project={props.project} assistant={props.assistant} />
       <span className="flex-1" />
       <QuickSettings />
-      <AppMenu project={props.project} onToggleLog={props.onToggleLog} assistant={props.assistant} />
+      <AppMenu onToggleLog={props.onToggleLog} assistant={props.assistant} />
       <button
         type="button"
         title={t("Overview of all projects · Ctrl+Shift+L, from anywhere Ctrl+Alt+L")}
@@ -280,7 +279,7 @@ function AccountBlock({ project, assistant }: { project: ProjectInfo | null; ass
 }
 
 /** Everything about CodeDeck itself. */
-function AppMenu({ project, onToggleLog, assistant }: { project: ProjectInfo | null; onToggleLog: () => void; assistant: AssistantState }) {
+function AppMenu({ onToggleLog, assistant }: { onToggleLog: () => void; assistant: AssistantState }) {
   const menu = usePopover<HTMLDivElement>();
   const [copied, setCopied] = useState(false);
   // What the backend knows, and what only the window knows; for a bug report or a chat
@@ -323,11 +322,6 @@ function AppMenu({ project, onToggleLog, assistant }: { project: ProjectInfo | n
               onClick={() => void copyDiagnostics()}
             />
           </div>
-          {project && (
-            <div className="border-t border-overlay-line p-1">
-              <Item icon={<AppWindow className="size-4" />} label={t("New window")} onClick={run(() => void openWindow(project.path))} />
-            </div>
-          )}
         </Panel>
       )}
     </div>

@@ -5,7 +5,7 @@ import { RepoTooltip } from "./RepoTooltip";
 import { GitInitButton, lacksGit } from "./GitInit";
 import type { AssistantState, GitRun } from "../backend";
 import { openDialog } from "../dialogs";
-import { useProjectAccount, useProjectLook } from "../projectLook";
+import { useProjectAccount, useProjectLook, type ProjectAccount } from "../projectLook";
 import { UsageChip } from "./UsagePanel";
 import { plural, t } from "../i18n";
 
@@ -26,6 +26,8 @@ export function StatusBar({ git, onRepoActions, logOpen, onToggleLog, assistant 
   const root = git.rootRepo;
   const inFolders = git.repos.filter((r) => r.path);
   const withChanges = inFolders.filter((r) => r.files.length > 0).length;
+  const look = useProjectLook(root?.path);
+  const mine = useProjectAccount(assistant, look);
 
   return (
     <footer className="zone-bar @container flex h-7 shrink-0 items-center gap-4 overflow-x-clip border-t border-line bg-panel px-3 text-[12px] whitespace-nowrap text-slate-500">
@@ -65,8 +67,8 @@ export function StatusBar({ git, onRepoActions, logOpen, onToggleLog, assistant 
         </span>
       )}
       <span className="ml-auto" />
-      <UsageChip assistant={assistant} />
-      <NotConnected assistant={assistant} projectPath={git.rootRepo?.path} />
+      <UsageChip assistant={assistant} account={mine.account?.dir} />
+      <NotConnected mine={mine} />
     </footer>
   );
 }
@@ -119,9 +121,7 @@ function GitCommands({ runs, open, onToggle }: { runs: GitRun[]; open: boolean; 
  * Only when it matters: the AI account of this project does not report to CodeDeck, so nothing of
  * its sessions arrives. Connected, the bar says nothing; the sessions are in the column beside.
  */
-function NotConnected({ assistant, projectPath }: { assistant: AssistantState; projectPath: string | undefined }) {
-  const look = useProjectLook(projectPath);
-  const { account, harness } = useProjectAccount(assistant, look);
+function NotConnected({ mine: { account, harness } }: { mine: ProjectAccount }) {
   if (!account || account.connected) return null;
   return (
     <button
