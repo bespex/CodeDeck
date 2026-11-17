@@ -653,6 +653,23 @@ fn remove_project(path: String, app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Changes one setting of one of my projects: `daily`, `account` or `mark`.
+#[tauri::command]
+fn set_project(path: String, field: String, value: serde_json::Value, app: AppHandle) -> Result<(), String> {
+    projects::set(Path::new(&path), &field, value)?;
+    windows::overview_changed(&app);
+    // Its window draws its mark into the title bar icon
+    let _ = app.emit("project_changed", &path);
+    Ok(())
+}
+
+/// One of my projects as the list keeps it (for its window: the mark).
+#[tauri::command]
+fn my_project(window: WebviewWindow) -> Result<Option<projects::Listed>, String> {
+    let root = project_of(&window)?.root.clone();
+    Ok(projects::list().into_iter().find(|p| p.path == root))
+}
+
 /// Opens the window of one of my projects, or brings it to the front.
 /// Async: building a window waits for the main thread.
 #[tauri::command]
@@ -866,6 +883,8 @@ pub fn run() {
             toggle_overview,
             quit,
             add_project,
+            set_project,
+            my_project,
             open_session,
             remove_project,
             show_project,

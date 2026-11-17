@@ -191,6 +191,12 @@ pub struct OverviewProject {
     pub listed: bool,
     /// Its window is loaded and shown (not hidden from the overview)
     pub visible: bool,
+    /// On today's list
+    pub daily: bool,
+    /// The AI configuration its sessions should run with
+    pub account: Option<String>,
+    /// Its mark, as chosen; `null`: the first letter on its colour
+    pub mark: serde_json::Value,
 }
 
 /// The overview's view of my projects in their order, then open windows of projects not on the list.
@@ -199,7 +205,7 @@ pub fn overview_state(app: &AppHandle) -> Vec<OverviewProject> {
     let mut open = app.state::<Windows>().all();
     open.sort_by_key(|w| w.label.trim_start_matches('w').parse::<u32>().unwrap_or(0));
     let listed = crate::projects::list();
-    let entry = |root: &Path, win: Option<&Arc<Win>>, listed: bool| {
+    let entry = |root: &Path, win: Option<&Arc<Win>>, listed: Option<&crate::projects::Listed>| {
         let [r, g, b] = crate::icon::project_color(root);
         OverviewProject {
             label: win.map(|w| w.label.clone()),
@@ -209,16 +215,19 @@ pub fn overview_state(app: &AppHandle) -> Vec<OverviewProject> {
             state: Some(bridge_for(app, root).state()),
             summary: win.map_or(serde_json::Value::Null, |w| w.summary.locked().clone()),
             front: win.is_some_and(|w| last.as_deref() == Some(w.label.as_str())),
-            listed,
+            listed: listed.is_some(),
+            daily: listed.is_some_and(|l| l.daily),
+            account: listed.and_then(|l| l.account.clone()),
+            mark: listed.and_then(|l| l.mark.clone()).unwrap_or(serde_json::Value::Null),
             visible: win.and_then(|w| app.get_webview_window(&w.label)).is_some_and(|w| w.is_visible().unwrap_or(false)),
         }
     };
     let window_of = |root: &Path| open.iter().find(|w| w.current.get().root == root);
-    let mut all: Vec<OverviewProject> = listed.iter().map(|p| entry(&p.path, window_of(&p.path), true)).collect();
+    let mut all: Vec<OverviewProject> = listed.iter().map(|p| entry(&p.path, window_of(&p.path), Some(p))).collect();
     for w in &open {
         let root = w.current.get().root.clone();
         if !listed.iter().any(|p| p.path == root) {
-            all.push(entry(&root, Some(w), false));
+            all.push(entry(&root, Some(w), None));
         }
     }
     all

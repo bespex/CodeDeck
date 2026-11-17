@@ -829,4 +829,10 @@ export const de: Record<string, string> = {
   "Terminal": "Terminal",
   "Open in the desktop app": "In der Desktop-App öffnen",
   "Open in a terminal": "In einem Terminal öffnen",
+  "On today's list": "Auf der Tagesliste",
+  "AI configuration its sessions run with": "KI-Konfiguration für seine Sitzungen",
+  "Not set": "Nicht festgelegt",
+  "AI configuration": "KI-Konfiguration",
+  "More (also right click)": "Mehr (auch Rechtsklick)",
+  "Runs with {account}; the project is set to {project}": "Läuft mit {account}; das Projekt ist auf {project} eingestellt",
 };

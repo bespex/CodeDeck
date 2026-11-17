@@ -10,10 +10,16 @@ use serde::{Deserialize, Serialize};
 const FILE: &str = "projects.json";
 
 /// One project on the list.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase", default)]
 pub struct Listed {
     pub path: PathBuf,
+    /// On today's list: ▶ starts its session (docs/SITZUNGEN.md A12)
+    pub daily: bool,
+    /// The AI configuration its sessions run with, e.g. `/home/me/.claude-private`
+    pub account: Option<String>,
+    /// Its mark: `{ kind: "icon" | "emoji" | "letter", value?, color? }` (docs/UEBERSICHT.md)
+    pub mark: Option<serde_json::Value>,
 }
 
 fn file() -> Option<PathBuf> {
@@ -49,8 +55,26 @@ fn add_in(file: &Path, root: &Path) -> bool {
     if list.iter().any(|p| p.path == root) {
         return false;
     }
-    list.push(Listed { path: root.to_path_buf() });
+    list.push(Listed { path: root.to_path_buf(), ..Default::default() });
     save(file, &list).is_ok()
+}
+
+/// Changes one field of a project on the list: `daily` (bool), `account` (string or null),
+/// `mark` (object or null).
+pub fn set(root: &Path, field: &str, value: serde_json::Value) -> Result<(), String> {
+    set_in(&file().ok_or("no config directory")?, root, field, value)
+}
+
+fn set_in(file: &Path, root: &Path, field: &str, value: serde_json::Value) -> Result<(), String> {
+    let mut list = load(file);
+    let project = list.iter_mut().find(|p| p.path == root).ok_or("not one of my projects")?;
+    match field {
+        "daily" => project.daily = value.as_bool().unwrap_or(false),
+        "account" => project.account = value.as_str().map(String::from),
+        "mark" => project.mark = (!value.is_null()).then_some(value),
+        _ => return Err(format!("{field}: no such field")),
+    }
+    save(file, &list)
 }
 
 fn remove_in(file: &Path, root: &Path) -> Result<(), String> {
@@ -73,8 +97,14 @@ mod tests {
         assert!(add_in(&file, &b));
         assert!(!add_in(&file, &a), "already there");
         assert_eq!(load(&file).iter().map(|p| p.path.clone()).collect::<Vec<_>>(), [a.clone(), b.clone()]);
+        set_in(&file, &b, "daily", serde_json::json!(true)).unwrap();
+        set_in(&file, &b, "account", serde_json::json!("/h/.claude-private")).unwrap();
+        assert!(set_in(&file, &PathBuf::from("/p/x"), "daily", serde_json::json!(true)).is_err());
         remove_in(&file, &a).unwrap();
-        assert_eq!(load(&file), [Listed { path: b }]);
+        assert_eq!(load(&file), [Listed { path: b, daily: true, account: Some("/h/.claude-private".into()), mark: None }]);
+        // An older file without the new fields still reads
+        std::fs::write(&file, r#"[{"path":"/p/c"}]"#).unwrap();
+        assert_eq!(load(&file)[0].path, PathBuf::from("/p/c"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

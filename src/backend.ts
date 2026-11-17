@@ -1418,13 +1418,48 @@ export interface OverviewProject {
   listed: boolean;
   /** Its window is loaded and shown, not hidden */
   visible: boolean;
+  /** On today's list */
+  daily: boolean;
+  /** The AI configuration its sessions should run with (a configuration folder) */
+  account: string | null;
+  /** Its mark as chosen; `null`: the first letter on its colour */
+  mark: ProjectMarkSpec | null;
+}
+
+/** A project's mark (docs/UEBERSICHT.md): a Lucide icon, an emoji or its first letter, on a colour. */
+export interface ProjectMarkSpec {
+  kind: "icon" | "emoji" | "letter";
+  value?: string;
+  /** `#rrggbb`; missing: the project's colour */
+  color?: string;
+}
+
+/** Changes one setting of one of my projects. */
+export function setProject(path: string, field: "daily" | "account" | "mark", value: unknown): Promise<void> {
+  if (live) return invoke("set_project", { path, field, value });
+  return Promise.resolve();
+}
+
+/** This window's project as my list keeps it (its mark). */
+export function myProject(): Promise<{ path: string; daily: boolean; account: string | null; mark: ProjectMarkSpec | null } | null> {
+  if (live) return invoke("my_project");
+  return Promise.resolve(null);
+}
+
+/** One of my projects changed (its mark, its account): the payload is its path. */
+export function onProjectChanged(callback: (path: string) => void): () => void {
+  if (live) {
+    const unlisten = listen<string>("project_changed", (e) => callback(e.payload));
+    return () => void unlisten.then((stop) => stop());
+  }
+  return () => {};
 }
 
 /** The overview window shows this instead of a project. */
 export const isOverview = new URLSearchParams(window.location.search).get("view") === "overview";
 
 const mockOverview = (): OverviewProject[] => [
-  { label: "w1", name: "orbit-api", path: "/home/me/projects/orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", uncommitted: 3, next: mockAssistant.attachments.length, news: 0 }, front: true, listed: true, visible: true },
+  { label: "w1", name: "orbit-api", path: "/home/me/projects/orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", uncommitted: 3, next: mockAssistant.attachments.length, news: 0 }, front: true, listed: true, visible: true, daily: true, account: "/home/me/.claude", mark: { kind: "icon", value: "satellite" } },
   {
     label: "w2",
     name: "ai-driven-development",
@@ -1435,8 +1470,11 @@ const mockOverview = (): OverviewProject[] => [
     front: false,
     listed: true,
     visible: false,
+    daily: true,
+    account: "/home/me/.claude-private",
+    mark: { kind: "emoji", value: "🧠" },
   },
-  { label: null, name: "billing-ui", path: "/home/me/projects/billing-ui", color: "#c3cf6c", state: null, summary: null, front: false, listed: true, visible: false },
+  { label: null, name: "billing-ui", path: "/home/me/projects/billing-ui", color: "#c3cf6c", state: null, summary: null, front: false, listed: true, visible: false, daily: false, account: null, mark: null },
 ];
 
 export function overviewState(): Promise<OverviewProject[]> {

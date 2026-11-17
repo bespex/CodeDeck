@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Plus, Settings, SquareTerminal, X } from "lucide-react";
-import { addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, showProject, toggleProjectWindow, type OverviewProject, type Session } from "../backend";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Plus, Settings, SquareTerminal, Star, TriangleAlert } from "lucide-react";
+import { addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, setProject, showProject, toggleProjectWindow, type OverviewProject, type Session } from "../backend";
+import { useConnections } from "../assistant";
 import { DONE_SHOWN_MS, needsYou, useNow } from "../attention";
 import { SessionBadge } from "./SessionBadge";
 import { t } from "../i18n";
@@ -78,6 +79,72 @@ function RowIcon({ title, onClick, tone = "text-slate-400", children }: { title:
   );
 }
 
+/** An AI configuration (a configuration folder) by its folder's name, e.g. "claude-private". */
+const accountName = (dir: string) => dir.replace(/\/+$/, "").split("/").pop()!.replace(/^\./, "");
+
+/** A colour that stays the same for a configuration, from the session colours. */
+function accountColor(dir: string): string {
+  let h = 0;
+  for (const c of dir) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return `var(--color-session-${h % 6})`;
+}
+
+/** The menu of a project's row: what is done now and then, kept out of sight (docs/UEBERSICHT.md). */
+function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () => void }) {
+  const { setups } = useConnections();
+  const accounts = [...new Set((setups ?? []).map((c) => c.dir))];
+  useEffect(() => {
+    const close = () => onClose();
+    // Next tick: the click that opened the menu must not close it
+    const timer = setTimeout(() => window.addEventListener("click", close), 0);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("click", close);
+    };
+  }, [onClose]);
+  const item = "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] text-slate-200 hover:bg-overlay-hover";
+  const label = project.label;
+  return (
+    <div onClick={(e) => e.stopPropagation()} className="surface-overlay absolute top-8 right-2 z-30 flex w-64 flex-col rounded-lg p-1">
+      <button type="button" className={item} onClick={() => (onClose(), label ? void toggleProjectWindow(label) : void showProject(project.path))}>
+        {label ? (project.visible ? t("Hide its window") : t("Show its window")) : t("Load its window")}
+      </button>
+      {project.listed && (
+        <button type="button" className={item} onClick={() => (onClose(), void setProject(project.path, "daily", !project.daily))}>
+          <Star className={`size-3.5 ${project.daily ? "fill-current text-changed" : "text-slate-500"}`} />
+          {t("On today's list")}
+        </button>
+      )}
+      {project.listed && accounts.length > 0 && (
+        <>
+          <div className="my-1 h-px bg-overlay-line" />
+          <p className="px-2 pt-0.5 pb-1 text-[11px] text-slate-500">{t("AI configuration its sessions run with")}</p>
+          {accounts.map((dir) => (
+            <button key={dir} type="button" title={dir} className={item} onClick={() => (onClose(), void setProject(project.path, "account", dir))}>
+              <span className="size-2 rounded-full" style={{ background: accountColor(dir) }} />
+              <span className="flex-1 truncate">{accountName(dir)}</span>
+              {project.account === dir && <Check className="size-3.5 text-slate-300" />}
+            </button>
+          ))}
+          <button type="button" className={item} onClick={() => (onClose(), void setProject(project.path, "account", null))}>
+            <span className="size-2 rounded-full border border-slate-500" />
+            <span className="flex-1 text-slate-400">{t("Not set")}</span>
+            {!project.account && <Check className="size-3.5 text-slate-300" />}
+          </button>
+        </>
+      )}
+      {project.listed && (
+        <>
+          <div className="my-1 h-px bg-overlay-line" />
+          <button type="button" className={item} onClick={() => (onClose(), void removeProject(project.path))}>
+            {t("Take off my list (nothing on disk changes)")}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** Says for a moment why a way into a session did not work. */
 let tellListener: ((text: string | null) => void) | null = null;
 const tell = (text: string) => tellListener?.(text);
@@ -96,16 +163,24 @@ function ProjectRow({ project }: { project: OverviewProject }) {
   // A click on the mark hides or shows the loaded window; closing is the window's own business
   const toggle = () => label && void toggleProjectWindow(label);
   const hidden = !!label && !project.visible;
+  const [menu, setMenu] = useState(false);
+  const closeMenu = useCallback(() => setMenu(false), []);
+  // A session that runs with another configuration than the project's
+  const wrongAccount = (s: Session) => !!project.account && !!s.account && s.account !== project.account;
   const go = (s: Session, door: "desktop" | "terminal") => openSession(project.path, s.id, door).catch((e) => tell(String(e)));
   // Double click: Desktop where the session is reachable there, else its terminal
   const defaultDoor = (s: Session) => (s.place?.remote ? "desktop" : "terminal");
   return (
-    <li>
+    <li className="relative">
       <div
         role="button"
         tabIndex={0}
         onClick={front}
         onDoubleClick={load}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setMenu(true);
+        }}
         onKeyDown={(e) => e.key === "Enter" && (label ? front() : load())}
         title={label ? t("Bring its window to the front") : t("Double-click: load its window")}
         className={`group/row flex h-8 cursor-pointer items-center gap-2 border-l-2 pr-2 pl-3 hover:bg-overlay-hover ${project.front && project.visible ? "border-ai bg-raised" : "border-transparent"}`}
@@ -128,7 +203,11 @@ function ProjectRow({ project }: { project: OverviewProject }) {
         >
           <ProjectMark project={project} />
         </button>
-        <span className={`min-w-0 flex-1 truncate ${label ? "font-semibold text-slate-100" : "text-slate-400"}`}>{project.name}</span>
+        <span className={`min-w-0 truncate ${label ? "font-semibold text-slate-100" : "text-slate-400"}`}>{project.name}</span>
+        {project.account && (
+          <span title={`${t("AI configuration")}: ${accountName(project.account)}`} className="size-1.5 shrink-0 rounded-full" style={{ background: accountColor(project.account) }} />
+        )}
+        <span className="flex-1" />
         {/* What changed there: always in sight, the details in the tooltip */}
         {label && (summary.gitFailed || !!summary.uncommitted) && (
           <RowIcon title={`${t("Git")}: ${summary.git ?? "…"}`} tone={summary.gitFailed ? "text-problem" : "text-changed"} onClick={() => void focusProject(label, "changes")}>
@@ -145,15 +224,14 @@ function ProjectRow({ project }: { project: OverviewProject }) {
             <Inbox className="size-3.5" />
           </RowIcon>
         )}
-        {project.listed && (
-          <span className="hidden group-hover/row:flex">
-            <RowIcon title={t("Take off my list (nothing on disk changes)")} onClick={() => void removeProject(project.path)}>
-              <X className="size-3.5" />
-            </RowIcon>
-          </span>
-        )}
+        <span className={`${menu ? "flex" : "hidden group-hover/row:flex"}`}>
+          <RowIcon title={t("More (also right click)")} onClick={() => setMenu((m) => !m)}>
+            <Ellipsis className="size-3.5" />
+          </RowIcon>
+        </span>
         {dot && <span className={`size-2 shrink-0 rounded-full ${dot}`} />}
       </div>
+      {menu && <RowMenu project={project} onClose={closeMenu} />}
       {sessions.length > 0 && (
         <ul>
           {sessions.map((s) => {
@@ -169,6 +247,11 @@ function ProjectRow({ project }: { project: OverviewProject }) {
               >
                 <SessionBadge mark={markOf(s)} />
                 <span className="min-w-0 flex-1 truncate text-slate-200">{titleOf(s)}</span>
+                {wrongAccount(s) && (
+                  <span title={t("Runs with {account}; the project is set to {project}", { account: accountName(s.account!), project: accountName(project.account!) })}>
+                    <TriangleAlert className="size-3.5 shrink-0 text-changed" />
+                  </span>
+                )}
                 <span className={`shrink-0 text-[11px] ${status.className}`}>{status.word}</span>
                 <span className="hidden items-center group-hover/s:flex">
                   {s.place?.remote && (
