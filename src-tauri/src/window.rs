@@ -111,8 +111,8 @@ fn place(window: &WebviewWindow, x: i32, y: i32, w: u32, h: u32) -> tauri::Resul
 const MARGIN: f64 = 25.0;
 
 /// Puts a new project window into the space beside the overview: `MARGIN` from the work area's
-/// left, top and bottom, up to the overview on the right (or `MARGIN` before the edge when the
-/// overview is not shown on that monitor).
+/// left, top and bottom and from the overview on the right (or from the edge when the overview is
+/// not shown on that monitor).
 pub fn place_beside_overview(app: &AppHandle, window: &WebviewWindow) {
     let run = || -> tauri::Result<()> {
         let overview = app.get_webview_window(crate::windows::OVERVIEW).filter(|o| o.is_visible().unwrap_or(false));
@@ -130,7 +130,8 @@ pub fn place_beside_overview(app: &AppHandle, window: &WebviewWindow) {
         // The overview stands at the right edge: its width, frame included, is taken off. Its
         // position is not used, it may still be on its way there
         let right = match &overview {
-            Some(o) => screen_right - o.outer_size()?.width as i32,
+            // and the same margin to it as to the screen's edges (user, 2026-11-17)
+            Some(o) => screen_right - o.outer_size()?.width as i32 - margin,
             None => screen_right - margin,
         };
         let bottom = area.position.y + area.size.height as i32 - margin;
