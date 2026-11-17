@@ -1261,9 +1261,9 @@ export function setAttentionSettings(settings: AttentionSettings): Promise<void>
   return Promise.resolve();
 }
 
-/** Tells the user, in the ways they chose; the preview only keeps what it would have said. */
-export function notifyAttention(summary: string, body: string): Promise<void> {
-  if (live) return invoke("notify_attention", { summary, body });
+/** Tells the user, in the ways they chose; the preview only keeps what it would have said. A new one with the same `key` replaces the old one on the desktop. */
+export function notifyAttention(key: string, summary: string, body: string): Promise<void> {
+  if (live) return invoke("notify_attention", { key, summary, body });
   mockNotifications.push({ summary, body });
   return Promise.resolve();
 }

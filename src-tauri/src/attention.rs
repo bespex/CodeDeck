@@ -4,7 +4,8 @@
 //! new and whether it is looked at); this module shows it: the window's title, the taskbar, a
 //! desktop notification whose click brings the window to the front.
 
-use std::sync::Mutex;
+use std::collections::HashMap;
+use std::sync::{LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, UserAttentionType, WebviewWindow};
@@ -56,9 +57,14 @@ pub fn title(prefix: &str, project: &str) -> String {
     format!("{prefix}{project} – CodeDeck")
 }
 
+/// The desktop notification each key (a session, "git", "several") has on screen. Telling again
+/// replaces it: the notification area of the desktop, and the badge on the taskbar icon that counts
+/// it, hold one per key and not one per event.
+static SHOWN: LazyLock<Mutex<HashMap<String, u32>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+
 /// Tells the user, in the ways they chose. `summary` and `body` are already in the language of
 /// the interface. Nothing is shown when neither way is on.
-pub fn notify(app: &AppHandle, window: &WebviewWindow, summary: &str, body: &str) {
+pub fn notify(app: &AppHandle, window: &WebviewWindow, key: &str, summary: &str, body: &str) {
     let settings = load();
     if settings.quiet_until.is_some_and(|until| until > now_ms()) {
         return;
@@ -69,19 +75,24 @@ pub fn notify(app: &AppHandle, window: &WebviewWindow, summary: &str, body: &str
     }
     if settings.desktop {
         let (app, label) = (app.clone(), window.label().to_string());
-        let (summary, body) = (summary.to_string(), body.to_string());
+        let (key, summary, body) = (key.to_string(), summary.to_string(), body.to_string());
         // Waiting for the click blocks: a thread of its own per notification
-        std::thread::spawn(move || desktop(&app, &label, &summary, &body));
+        std::thread::spawn(move || desktop(&app, &label, &key, &summary, &body));
     }
 }
 
-fn desktop(app: &AppHandle, label: &str, summary: &str, body: &str) {
+fn desktop(app: &AppHandle, label: &str, key: &str, summary: &str, body: &str) {
     let mut note = notify_rust::Notification::new();
     note.appname("CodeDeck").summary(summary).body(body).action("default", "Show");
     if let Some(icon) = icon_file() {
         note.icon(&icon);
     }
+    // An earlier one of this key is replaced in place; if it is gone the server makes a new one
+    if let Some(id) = SHOWN.lock().unwrap().get(key) {
+        note.id(*id);
+    }
     let Ok(handle) = note.show() else { return };
+    SHOWN.lock().unwrap().insert(key.to_string(), handle.id());
     handle.wait_for_action(|action| {
         // A click on the notification itself is the "default" action
         if action == "default" {

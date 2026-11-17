@@ -122,10 +122,13 @@ export function useAttention(state: AssistantState, runs: GitRun[], project: str
   const pending = useRef<{ sessions: Session[]; failed: GitRun[] }>({ sessions: [], failed: [] });
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const n = waiting.length;
+  // Asking and finished apart: only a question blocks a session, and a number that mixes both says little
+  const asking = waiting.filter((s) => needsYou(s) === "asks").length;
+  const done = waiting.length - asking;
   useEffect(() => {
-    void setTitlePrefix(n ? `● ${t(n === 1 ? "1 waiting" : "{n} waiting", { n })} · ` : "");
-  }, [n]);
+    const parts = [asking && t("{n} asking", { n: asking }), done && t("{n} done", { n: done })].filter(Boolean);
+    void setTitlePrefix(parts.length ? `● ${parts.join(" · ")} · ` : "");
+  }, [asking, done]);
 
   const flush = () => {
     const { sessions, failed } = pending.current;
@@ -137,14 +140,14 @@ export function useAttention(state: AssistantState, runs: GitRun[], project: str
       const asks = needsYou(s) === "asks";
       const summary = `${titleOf(s)} ${asks ? t("asks") : t("finished its turn")}`;
       const body = (asks ? (s.message ?? t("Waits for your answer")) : (s.prompt ?? t("Waits for your next prompt"))) + where;
-      void notifyAttention(summary, body);
+      void notifyAttention(s.id, summary, body);
     } else if (sessions.length > 0) {
       const lines = sessions.map((s) => `${s.short}: ${titleOf(s)} ${needsYou(s) === "asks" ? t("asks") : t("finished its turn")}`);
       if (failed.length) lines.push(t("A git command failed"));
-      void notifyAttention(t("{sessions} need you", { sessions: plural(sessions.length, "session") }) + where, lines.join("\n"));
+      void notifyAttention("sessions", t("{sessions} need you", { sessions: plural(sessions.length, "session") }) + where, lines.join("\n"));
     } else {
       const run = failed[failed.length - 1];
-      void notifyAttention(t("A git command failed") + where, `git ${run.command}`);
+      void notifyAttention("git", t("A git command failed") + where, `git ${run.command}`);
     }
   };
   const gather = () => {

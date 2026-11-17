@@ -222,8 +222,8 @@ fn global_shortcuts(shortcuts: State<window::Shortcuts>) -> window::ShortcutStat
 
 /// Tells the user something happened, in the ways they chose (taskbar, desktop notification).
 #[tauri::command]
-fn notify_attention(summary: String, body: String, app: AppHandle, window: tauri::WebviewWindow) {
-    attention::notify(&app, &window, &summary, &body);
+fn notify_attention(key: String, summary: String, body: String, app: AppHandle, window: tauri::WebviewWindow) {
+    attention::notify(&app, &window, &key, &summary, &body);
 }
 
 #[tauri::command]

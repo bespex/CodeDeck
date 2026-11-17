@@ -77,11 +77,18 @@ const markOf = (s: Session, known: SessionMark | null): SessionMark =>
   known ?? { color: `var(--color-session-${s.color})`, short: s.short, title: s.title };
 
 /** The heading of an area: small capitals, as quiet as the area itself. */
-function AreaHeader({ title, count, children }: { title: string; count?: number; children?: ReactNode }) {
+function AreaHeader({ title, count, hint, children }: { title: string; count?: number; hint?: string; children?: ReactNode }) {
   return (
     <header className="flex h-9 shrink-0 items-center gap-2 px-3">
       <h2 className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{title}</h2>
-      {!!count && <span className="rounded-full bg-changed/25 px-1.5 text-[11px] font-semibold text-changed">{count}</span>}
+      {!!count &&
+        (hint ? (
+          <Tooltip content={<span>{hint}</span>}>
+            <span className="rounded-full bg-changed/25 px-1.5 text-[11px] font-semibold text-changed">{count}</span>
+          </Tooltip>
+        ) : (
+          <span className="rounded-full bg-changed/25 px-1.5 text-[11px] font-semibold text-changed">{count}</span>
+        ))}
       {children && <div className="ml-auto flex min-w-0 items-center gap-1">{children}</div>}
     </header>
   );
@@ -103,7 +110,14 @@ function NeedsYou({ state }: { state: AssistantState }) {
 
   return (
     <section className={`flex max-h-[40vh] min-h-0 flex-col border-b border-line ${waiting.length > 0 ? "bg-[var(--color-area-wait)]" : ""}`}>
-      <AreaHeader title={t("Needs you")} count={waiting.length} />
+      <AreaHeader
+        title={t("Needs you")}
+        count={waiting.length}
+        hint={t("{asking} asking, {done} finished within the last 30 minutes", {
+          asking: waiting.filter((s) => needsYou(s) === "asks").length,
+          done: waiting.filter((s) => needsYou(s) === "done").length,
+        })}
+      />
       {waiting.length === 0 ? (
         <p className="px-3 pb-2.5 text-[12px] text-slate-500">{t("Nothing. No session waits for you.")}</p>
       ) : (
