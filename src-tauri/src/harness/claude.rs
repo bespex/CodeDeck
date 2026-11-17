@@ -138,7 +138,17 @@ impl Harness for Claude {
             background: (name == "Stop").then(|| running_tasks(raw)),
             task_ended: raw["prompt"].as_str().and_then(task_ended_by),
             account: raw["transcript_path"].as_str().and_then(account_from_log),
+            place: None,
         })
+    }
+
+    /// Remote Control: while a session is connected, Claude Code (2.1.199 and later) gives its hooks
+    /// the remote session's id, the same as in its claude.ai/code address. Gone when the connection
+    /// is, so this also tells whether the session is reachable right now.
+    fn remote_link(&self, var: &dyn Fn(&str) -> Option<String>) -> Option<String> {
+        let id = var("CLAUDE_CODE_BRIDGE_SESSION_ID")?;
+        let plain = id.starts_with("session_") && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+        plain.then(|| format!("https://claude.ai/code/{id}"))
     }
 
     /// Claude Code adds what the `UserPromptSubmit` hook prints to that prompt, and what the
@@ -742,6 +752,15 @@ mod tests {
         let home = std::env::home_dir().unwrap_or_default().to_string_lossy().into_owned();
         let out = shell_outputs("cat > /tmp/plan.md <<'EOF' && echo ok 2>/dev/null >&2 | tee -a ~/notes.txt; echo x >>rel.txt");
         assert_eq!(out, ["/tmp/plan.md".to_string(), "/dev/null".to_string(), format!("{home}/notes.txt")]);
+    }
+
+    #[test]
+    fn reads_the_remote_link_while_connected() {
+        let env = |value: Option<&'static str>| move |key: &str| (key == "CLAUDE_CODE_BRIDGE_SESSION_ID").then_some(value).flatten().map(String::from);
+        assert_eq!(Claude.remote_link(&env(Some("session_01AbC9"))).as_deref(), Some("https://claude.ai/code/session_01AbC9"));
+        assert_eq!(Claude.remote_link(&env(None)), None);
+        // Only what looks like an id goes into a link
+        assert_eq!(Claude.remote_link(&env(Some("session_x/../y"))), None);
     }
 
     #[test]

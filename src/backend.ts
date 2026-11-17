@@ -619,6 +619,22 @@ export interface Session {
   touched: { path: string; at: number }[];
   /** What it got from CodeDeck, the newest first: attachments with a prompt, the rules at its start */
   received: { at: number; labels: string[] }[];
+  /** Where it runs, as its latest message said; missing for a session known from its log only */
+  place?: Place | null;
+}
+
+/** Where a session runs. Only observed so far; groundwork for starting and finding sessions (`docs/SITZUNGEN.md`) */
+export interface Place {
+  /** The tool's process */
+  pid: number | null;
+  /** When that process started (clock ticks since boot), so that a reused process id is not taken for it */
+  since: number | null;
+  /** The tmux pane, and the name of its tmux session once known */
+  tmux: { pane: string; session: string | null } | null;
+  /** The id CodeDeck gave it when it started it itself */
+  launched: string | null;
+  /** A link that reaches it from another device or the browser, while it is reachable there */
+  remote: string | null;
 }
 
 /** One limit of an account: the percentage used (it can pass 100) and when it starts over. */
@@ -743,6 +759,7 @@ const mockAssistant: AssistantState = {
         { at: Date.now() - 12 * 60_000, labels: ["2 line comments", "1 change"] },
         { at: Date.now() - 20 * 60_000, labels: ["Start rules"] },
       ],
+      place: { pid: 48211, since: 991_204, tmux: { pane: "%3", session: "orbit-api" }, launched: null, remote: "https://claude.ai/code/session_01MockB7Kq" },
     },
     {
       id: "b07e11d4-6c3a-4f2e-8d90-1a2b3c4d5e6f",
@@ -765,6 +782,7 @@ const mockAssistant: AssistantState = {
       turn: [],
       touched: [{ path: "docs/api.md", at: Date.now() - 4 * 60_000 }],
       received: [],
+      place: { pid: 50377, since: 1_002_310, tmux: null, launched: null, remote: null },
     },
     {
       id: "c41d7e02-5b9f-4a3c-8e21-9d0f1a2b3c4d",

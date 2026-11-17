@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use serde_json::Value;
 
-use crate::harness::{self, Event};
+use crate::harness::{self, Event, EventKind};
 
 /// How long the hook waits for one window's answer.
 const ANSWER_WAIT: Duration = Duration::from_secs(20);
@@ -53,7 +53,11 @@ pub fn forward(args: &[String]) -> i32 {
     }
     let Ok(raw) = serde_json::from_str::<Value>(&input) else { return 0 };
     record_raw(&input);
-    let Some(event) = harness.translate(&raw) else { return 0 };
+    let Some(mut event) = harness.translate(&raw) else { return 0 };
+    // Where it runs: a tmux session's name only when a session starts or a turn begins or ends,
+    // the pane stands for it in between
+    let named = matches!(event.kind, EventKind::SessionStarted | EventKind::PromptSubmitted | EventKind::TurnDone);
+    event.place = Some(crate::place::here(harness, named));
     let Ok(line) = serde_json::to_string(&event) else { return 0 };
 
     let mut handed = Vec::new();

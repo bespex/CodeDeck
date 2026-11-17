@@ -18,7 +18,7 @@ use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::git::{Git, GitRun};
-use crate::harness::{self, Capabilities, Event, EventKind, Harness, HarnessInfo, SessionInfo};
+use crate::harness::{self, Capabilities, Event, EventKind, Harness, HarnessInfo, Place, SessionInfo};
 use crate::findings::{self, Found, FoundView};
 use crate::identity::{self, Identities, Listed};
 use crate::journal::{self, Journal};
@@ -86,6 +86,8 @@ pub struct Session {
     touched: Vec<Touch>,
     /// What it got from CodeDeck, the newest first: attachments with a prompt, rules at its start
     received: Vec<Received>,
+    /// Where it runs, as its latest message said; `None` for a session known from its log only
+    place: Option<Place>,
 }
 
 /// Something a session got from CodeDeck.
@@ -332,6 +334,7 @@ impl Bridge {
                 background: None,
                 task_ended: None,
                 account: None,
+                place: None,
             };
             self.handle(app, &end);
         }
@@ -814,6 +817,9 @@ impl Inner {
         if e.account.is_some() {
             session.account = e.account.clone();
         }
+        if let Some(place) = &e.place {
+            session.place = Some(moved_to(session.place.take(), place));
+        }
         // A turn is over when the session says so, or when the next prompt comes without that
         let over = matches!(e.kind, EventKind::TurnDone | EventKind::PromptSubmitted);
         let ends = if over { std::mem::take(&mut session.turn) } else { Vec::new() };
@@ -958,6 +964,18 @@ impl Inner {
     }
 }
 
+/// The place a message reports, taking the place known before into account: not every message asks
+/// tmux for the session's name, and the same pane is the same tmux session.
+fn moved_to(before: Option<Place>, now: &Place) -> Place {
+    let mut place = now.clone();
+    if let (Some(new), Some(old)) = (place.tmux.as_mut(), before.and_then(|p| p.tmux)) {
+        if new.session.is_none() && new.pane == old.pane {
+            new.session = old.session;
+        }
+    }
+    place
+}
+
 fn new_session(id: &str, harness: &dyn Harness) -> Session {
     Session {
         id: id.to_string(),
@@ -983,6 +1001,7 @@ fn new_session(id: &str, harness: &dyn Harness) -> Session {
         turn: Vec::new(),
         touched: Vec::new(),
         received: Vec::new(),
+        place: None,
     }
 }
 
@@ -1110,6 +1129,31 @@ mod tests {
         std::fs::write(&shell, "x").unwrap();
         assert_eq!(listed(&inner).len(), 2);
         std::fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    /// Where a session runs comes with each message: the tmux name survives messages that did not
+    /// ask for it, and a remote link that is gone is gone (the connection dropped).
+    #[test]
+    fn keeps_where_a_session_runs() {
+        use crate::harness::Tmux;
+        let root = Path::new("/p");
+        let mut inner = Inner::default();
+        let mut step = |raw: &str, place: Place, now: u64| {
+            let mut event = Fake.translate(&serde_json::from_str(raw).unwrap()).unwrap();
+            event.place = Some(place);
+            inner.take_in(&event, &Fake, root, Vec::new, now);
+            inner.sessions["a1"].place.clone().unwrap()
+        };
+        let pane = |session: Option<&str>| Some(Tmux { pane: "%3".into(), session: session.map(String::from) });
+        let link = Some("https://example.test/s1".to_string());
+        let first = Place { pid: Some(10), since: Some(1), tmux: pane(Some("codeck-p-A")), launched: None, remote: link.clone() };
+        assert_eq!(step(r#"{"who":"a1","did":"asked","in":"/p","text":"Go"}"#, first.clone(), 10), first);
+        let later = step(r#"{"who":"a1","did":"wrote","in":"/p","path":"/p/a","with":"Write"}"#, Place { tmux: pane(None), remote: None, ..first.clone() }, 20);
+        assert_eq!(later.tmux, pane(Some("codeck-p-A")));
+        assert_eq!(later.remote, None);
+        // Another pane is another tmux session: its name is not known yet
+        let moved = step(r#"{"who":"a1","did":"done","in":"/p"}"#, Place { tmux: Some(Tmux { pane: "%9".into(), session: None }), ..first }, 30);
+        assert_eq!(moved.tmux.unwrap().session, None);
     }
 
     #[test]

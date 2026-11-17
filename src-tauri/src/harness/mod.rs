@@ -65,6 +65,11 @@ pub trait Harness: Send + Sync {
     fn page_hosts(&self) -> &'static [&'static str] {
         &[]
     }
+    /// A link that reaches the session from another device or the browser, read from the
+    /// environment its hooks run in (`var` looks a variable up); `None` while there is none.
+    fn remote_link(&self, _var: &dyn Fn(&str) -> Option<String>) -> Option<String> {
+        None
+    }
 }
 
 /// What a tool, or one of its sessions, lets CodeDeck do. The interface offers only what is here.
@@ -159,6 +164,36 @@ pub struct Event {
     /// the tool tells
     #[serde(default)]
     pub account: Option<String>,
+    /// Where the session runs, as `codeck hook` saw it from inside the tool's process tree; every
+    /// message brings all of it. The adapter leaves it empty, the transport fills it in
+    #[serde(default)]
+    pub place: Option<Place>,
+}
+
+/// Where a session runs: what is needed to find it, to tell whether it is still alive, and to reach
+/// it from elsewhere. Only observed, never acted on here.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+pub struct Place {
+    /// The tool's process
+    pub pid: Option<u32>,
+    /// When that process started, in clock ticks since boot: a later process with the same id is
+    /// not it
+    pub since: Option<u64>,
+    pub tmux: Option<Tmux>,
+    /// The id CodeDeck gave the session when it started it itself; `None` for any other start
+    pub launched: Option<String>,
+    /// A link that reaches the session from another device or the browser, while it is reachable
+    /// there; `None` when the tool offers none or the connection is down
+    pub remote: Option<String>,
+}
+
+/// The tmux pane a session runs in.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Tmux {
+    /// Stable for the life of the pane, e.g. `%3`
+    pub pane: String,
+    /// The tmux session's name; asked only now and then, see [`crate::place::here`]
+    pub session: Option<String>,
 }
 
 /// Something that goes on after the turn that started it.

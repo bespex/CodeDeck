@@ -16,6 +16,7 @@ pub mod hook;
 mod identity;
 mod journal;
 mod markers;
+mod place;
 mod project;
 mod recent;
 mod rules;

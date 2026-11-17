@@ -65,6 +65,7 @@ impl Harness for Fake {
             }),
             task_ended: text("ended"),
             account: text("account"),
+            place: None,
         })
     }
 

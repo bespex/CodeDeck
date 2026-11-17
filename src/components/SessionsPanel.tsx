@@ -10,13 +10,14 @@ import {
   MessageSquare,
   Paperclip,
   Pencil,
+  Radio,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { DRAG_TYPE } from "./FilesPanel";
 import { HookPanel } from "./AssistantStatus";
 import { Tooltip } from "./Tooltip";
-import { forgetSession, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
+import { forgetSession, openUrl, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
 import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
 import { SessionBadge } from "./SessionBadge";
 import { HeaderBar } from "./HeaderBar";
@@ -377,6 +378,7 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile }: { session:
               {s.cwd === "" ? t("project root") : s.cwd}
               {!status.timed && ` · ${t("last step {time}", { time: time(s.last) })}`}
               {s.step && head.from !== "step" && ` · ${s.step}`}
+              <PlaceNote session={s} />
             </span>
             <button
               type="button"
@@ -390,6 +392,36 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile }: { session:
         </div>
       )}
     </li>
+  );
+}
+
+/** Where the session runs, as far as it said: its tmux session, and whether it can be reached from
+ *  elsewhere right now. Only shown, nothing to do yet (groundwork, `docs/SITZUNGEN.md`). */
+function PlaceNote({ session: s }: { session: Session }) {
+  const place = s.place;
+  if (!place || s.status === "ended") return null;
+  const tmux = place.tmux;
+  return (
+    <>
+      {tmux && (
+        <span title={t("Runs in tmux. Attach with: tmux attach -t {name}", { name: tmux.session ?? tmux.pane })}>
+          {" · "}tmux {tmux.session ?? tmux.pane}
+        </span>
+      )}
+      {place.remote && (
+        <>
+          {" · "}
+          <button
+            type="button"
+            title={t("Reachable from another device or the browser right now. Opens {link}", { link: place.remote })}
+            onClick={() => openUrl(place.remote!)}
+            className="inline-flex items-center gap-0.5 text-teal-300/80 hover:text-teal-200"
+          >
+            <Radio className="size-3" /> {t("reachable from anywhere")}
+          </button>
+        </>
+      )}
+    </>
   );
 }
 

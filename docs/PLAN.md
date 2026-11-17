@@ -162,7 +162,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 | Schritt | Ziel | Dummy | Dateien | Fertig wenn |
 |---|---|---|---|---|
 | 3.0 Ein Prozess ☐ | D25 umsetzen, ohne neues Verhalten: Zustand je Fenster (`Windows`: Projekt, `Inner`, Watch, Git), Commands über das aufrufende Fenster, Ereignisse mit `emit_to`; ein Socket für alle Hooks; zweiter Aufruf und „Neues Fenster“ öffnen im laufenden Prozess; globale Kürzel und „vorn“ im Prozess (Abstimmung über Dateien entfällt); Einstellungen als Ereignis; Sperren ohne `unwrap()`; Dev- und installierte Version mit getrennten Socket-Namen. Ablauf in `docs/PROZESSMODELL.md` „Aufwand für B“ | – | `lib.rs`, `bridge.rs`, `window.rs`, `hook.rs`, `watch.rs`, `git.rs` | Praxistest: zwei Projekte in zwei Fenstern, Hooks landen im richtigen, Kürzel wirken, letztes Fenster zu beendet das Programm |
-| 3.1 tmux sehen ☐ | Laufende tmux-Sitzungen den Projekten und Claude-Sitzungen zuordnen; Sprungziele „Desktop“ und „tmux“. Vorher klären, wie das heutige Script startet (Befehl, Remote Control) | Sitzungsdetails | neu `tmux.rs`, `apps.rs` | Vom Script gestartete Sitzungen tragen ihren tmux-Namen, „tmux“ öffnet ein Terminal dort |
+| 3.1 tmux sehen ☐ | Konzept zur Abstimmung: `docs/SITZUNGEN.md` (Entwurf 2026-11-17, Dummy `sessions.html`; schlägt neue Zuschnitte für 3.1 bis 3.3 vor). Laufende tmux-Sitzungen den Projekten und Claude-Sitzungen zuordnen; Sprungziele „Desktop“ und „tmux“. Vorher klären, wie das heutige Script startet (Befehl, Remote Control) | Sitzungsdetails | neu `tmux.rs`, `apps.rs` | Vom Script gestartete Sitzungen tragen ihren tmux-Namen, „tmux“ öffnet ein Terminal dort |
 | 3.2 Konten ☐ | Gefundene Konfigurationen benennen und einfärben, Seitenleiste; Konto an jeder Sitzung. Verwaltung: Verzeichnisse, die keine benutzte Konfiguration sind (Sicherungskopien wie `.claude-cleanup-…`, nur `settings.json` und Kopien, keine Sitzungen), erkennbar kennzeichnen und nach Rückfrage löschbar machen (nie von selbst; Anlass 2026-11-17). Neue, noch unbenutzte Konfigurationen bleiben sichtbar, auch für tmux-Starts (3.3) | Startseite, Personen-Knopf | `hook.rs` (`config_dirs`), `config.rs`, Adapter | Jede Sitzung zeigt ihr Konto |
 | 3.3 Steuern ☐ | Start, Stop, Restart, New task über tmux, jeweils mit sichtbarem Befehl; Neustart nach dem Verbinden der Hooks anbieten | Sitzungsdetails, Kacheln | `tmux.rs`, Adapter (`launch`) | Eine Sitzung lässt sich aus CodeDeck starten und ist danach in Desktop bedienbar |
 | 3.4 Profile ☐ | „Arbeitszeit“ und „Freizeit“: Projekte × Konto; Warnung bei falschem Konto | Startseite, Umschalter | `config.rs`, `recent.rs` | Ein Profil startet alle seine Sitzungen |
@@ -415,6 +415,8 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   (mit Inhalten, nur für Tests).
 
 ## Notizen
+
+- Vorarbeit MVP 3 (2026-11-17, vor 3.0): Der Hook meldet je Nachricht `Place` (Prozess des Werkzeugs samt Startzeit, tmux-Pane und -Name, `CODEDECK_SESSION`, Remote-Link aus `CLAUDE_CODE_BRIDGE_SESSION_ID`), die Brücke hält es an der Sitzung, die Details zeigen es. Nur Beobachtung, keine Entscheidung aus `docs/SITZUNGEN.md` vorweggenommen. Praxistest offen: Sitzung in tmux mit `--remote-control` zeigt Name und Link; der tmux-Name kommt nur bei Start, Prompt und Rundenende (kostet einen Prozess).
 
 - Zielbild (2026-11-15): Der Dummy wurde nur im lokalen Betrachter durchgeklickt, nicht gegen echte Daten
   geprüft. Technisch ungeprüft sind vor allem: Text über den Hook „Sitzung beginnt“, Link einer

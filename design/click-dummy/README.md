@@ -25,6 +25,7 @@ echte App täte.
 | `index.html` | Kleiner lokaler Betrachter für `Main.dc.html` |
 | `canvas.json` | Anordnung und Notizzettel der Fassung auf claude.ai |
 | `usage.html` | Verbrauch (Schritt 2.4): Statusleiste, Popup, Activity; Zustände per Knopf |
+| `sessions.html` | Sitzungen überall bedienen (MVP 3, `docs/SITZUNGEN.md`): Zuhause und Türen, Doppelklick, „+ New“, Handy, Einstellungen |
 
 `Main.dc.html` ist für die Design-Leinwand auf claude.ai geschrieben (Fassung dort:
 https://claude.ai/artifact/RD82dLeX2U3xf2vPRipzE2, privat). Das Format: `{{name}}` holt einen Wert aus
