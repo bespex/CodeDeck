@@ -1,18 +1,15 @@
-import { useEffect } from "react";
 import { Check } from "lucide-react";
-import { previewTheme, rolesOf, setReduceTransparency, setTheme, THEMES, useTheme } from "../theme";
+import { rolesOf, setReduceTransparency, setTheme, THEMES, useTheme } from "../theme";
 import { t } from "../i18n";
 
 /**
- * The themes to choose from. Pointing at one (or moving to it with the keyboard) shows it in the whole
- * window at once; a click keeps it, leaving the list goes back. Trying one out costs nothing.
+ * The themes to choose from. A theme changes only on a click: pointing at one used to show it at
+ * once, which unsettled the window while the pointer merely passed (user, 2026-11-17).
  */
 export function ThemeChoice() {
   const { theme } = useTheme();
-  // A list closed while one is shown on trial (Esc, a click elsewhere): back to the chosen one
-  useEffect(() => () => previewTheme(null), []);
   return (
-    <div role="radiogroup" aria-label={t("Theme")} className="grid grid-cols-2 gap-1" onMouseLeave={() => previewTheme(null)}>
+    <div role="radiogroup" aria-label={t("Theme")} className="grid grid-cols-2 gap-1">
       {THEMES.map((th) => {
         const r = rolesOf(th);
         const on = th.id === theme;
@@ -22,9 +19,6 @@ export function ThemeChoice() {
             type="button"
             role="radio"
             aria-checked={on}
-            onMouseEnter={() => previewTheme(th.id)}
-            onFocus={() => previewTheme(th.id)}
-            onBlur={() => previewTheme(null)}
             onClick={() => setTheme(th.id)}
             className={`flex items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] hover:bg-overlay-hover ${on ? "text-slate-100" : "text-slate-300"} border border-overlay-line`}
           >
