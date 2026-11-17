@@ -4,7 +4,8 @@ import { GitLog } from "./components/GitLog";
 import { Deck } from "./components/Deck";
 import { SessionsPanel } from "./components/SessionsPanel";
 import { StatusBar } from "./components/StatusBar";
-import { live, onWindowRequest, openProject, openWindow, projectInfo, type Entry, type ProjectInfo } from "./backend";
+import { live, onOpenView, onWindowRequest, openProject, openWindow, projectInfo, type Entry, type ProjectInfo } from "./backend";
+import { openView, type ViewId } from "./view";
 import { initialPins } from "./mock";
 import { files, pinFromEntry } from "./files";
 import { clearAttachments, useAttachments } from "./attachments";
@@ -57,9 +58,12 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     const stop = onWindowRequest((request) => request === "toggleCompact" && void toggleCompact());
+    // The overview of all projects opens a view here (docs/UEBERSICHT.md)
+    const stopView = onOpenView((view) => openView(view as ViewId));
     return () => {
       window.removeEventListener("keydown", onKey);
       stop();
+      stopView();
     };
   }, []);
   const actionsRepo = actions && git.repos.find((r) => r.path === actions.repo);

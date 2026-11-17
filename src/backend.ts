@@ -1386,6 +1386,91 @@ export function onWindowRequest(callback: (request: WindowRequest) => void): () 
   return () => {};
 }
 
+// ── The overview of all projects (docs/UEBERSICHT.md) ─────────────────────────
+
+/** What a project window tells the overview about its project; every field optional. */
+export interface ProjectSummary {
+  /** Git in a few words, e.g. "3 uncommitted · ↑2"; `gitFailed` when a command failed */
+  git?: string;
+  gitFailed?: boolean;
+  /** Parts attached to the next prompt */
+  next?: number;
+  /** New in the Workbench since the last look */
+  news?: number;
+}
+
+/** One open project as the overview shows it. */
+export interface OverviewProject {
+  /** The label of its window */
+  label: string;
+  name: string;
+  path: string;
+  /** `#rrggbb` until the user picks a mark */
+  color: string;
+  state: AssistantState;
+  summary: ProjectSummary | null;
+  /** Its window has the focus or had it last */
+  front: boolean;
+}
+
+/** The overview window shows this instead of a project. */
+export const isOverview = new URLSearchParams(window.location.search).get("view") === "overview";
+
+const mockOverview = (): OverviewProject[] => [
+  { label: "w1", name: "orbit-api", path: "/home/me/projects/orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", next: mockAssistant.attachments.length, news: 0 }, front: true },
+  {
+    label: "w2",
+    name: "ai-driven-development",
+    path: "/home/me/projects/ai-driven-development",
+    color: "#4fc9bd",
+    state: { ...mockAssistant, sessions: mockAssistant.sessions.slice(0, 1).map((s) => ({ ...s, id: "x1", title: "Kapitel 3 überarbeiten", status: "idle" as const, turnDone: Date.now() - 60_000 })), attachments: [] },
+    summary: { git: "clean", news: 3 },
+    front: false,
+  },
+];
+
+export function overviewState(): Promise<OverviewProject[]> {
+  if (live) return invoke("overview_state");
+  return Promise.resolve(mockOverview());
+}
+
+/** Something the overview shows changed: ask again. */
+export function onOverviewChanged(callback: () => void): () => void {
+  if (live) {
+    const unlisten = listen("overview_changed", () => callback());
+    return () => void unlisten.then((stop) => stop());
+  }
+  return () => {};
+}
+
+/** The project window tells the overview about its project. */
+export function reportSummary(summary: ProjectSummary): Promise<void> {
+  if (live) return invoke("report_summary", { summary });
+  return Promise.resolve();
+}
+
+/** Brings a project's window to the front, with a view of its deck open if given. */
+export function focusProject(label: string, view?: string): Promise<void> {
+  if (live) return invoke("focus_project", { label, view: view ?? null });
+  return Promise.resolve();
+}
+
+/** Shows or hides the overview (Ctrl+Alt+L). */
+export function toggleOverview(): Promise<void> {
+  if (live) return invoke("toggle_overview");
+  window.open("?view=overview", "_blank", "width=340,height=800");
+  return Promise.resolve();
+}
+
+/** The overview asks this project window to open a view of its deck. */
+export function onOpenView(callback: (view: string) => void): () => void {
+  if (live) {
+    const unlisten = listen<string>("open_view", (e) => callback(e.payload));
+    return () => void unlisten.then((stop) => stop());
+  }
+  return () => {};
+}
+
 /** A global shortcut and who holds it (docs/SEITENLEISTE.md, "Tastenkürzel"). */
 export interface GlobalShortcut {
   keys: string;

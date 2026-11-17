@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { reportNews, scratchKey, useNews } from "../news";
 import { AtSign, GitBranch, History, TriangleAlert } from "lucide-react";
-import { onFsChanged, scratchList, type AssistantState } from "../backend";
+import { onFsChanged, reportSummary, scratchList, type AssistantState } from "../backend";
 import { aheadBehind, type GitView } from "../git";
 import { useSnapshots } from "../history";
 import { useMarkers } from "../markers";
@@ -57,6 +57,14 @@ export function SidebarSummary({ git, assistant }: { git: GitView; assistant: As
   useNewScratch();
   const fresh = useNews().count;
   const elsewhere = assistant.found.outside.filter((f) => !f.fetched).length;
+  // The overview of all projects shows the same in a few words (docs/UEBERSICHT.md)
+  const gitWords = root
+    ? [root.branch ?? t("detached"), aheadBehind(root), uncommitted > 0 ? plural(uncommitted, "uncommitted file") : t("all committed")].filter(Boolean).join(" · ")
+    : t("No git repository");
+  const next = assistant.attachments.length;
+  useEffect(() => {
+    void reportSummary({ git: gitWords, gitFailed: !!failed, next, news: fresh });
+  }, [gitWords, failed, next, fresh]);
 
   return (
     <section aria-label={t("Overview")} className="flex flex-col border-b border-line py-1 text-[12px]">

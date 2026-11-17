@@ -30,6 +30,8 @@ pub struct Win {
     pub title_status: Mutex<String>,
     /// Whether a session asks, whether a turn is done: the dot on the window's icon
     pub waiting: Mutex<(bool, bool)>,
+    /// What the window reports about its project for the overview (git, next prompt, workbench)
+    pub summary: Mutex<serde_json::Value>,
 }
 
 #[derive(Default)]
@@ -77,6 +79,7 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
         place: FullPlace::default(),
         title_status: Mutex::new(String::new()),
         waiting: Mutex::new((false, false)),
+        summary: Mutex::new(serde_json::Value::Null),
     });
     // Known before the page loads: it asks for its project at once
     windows.all.locked().insert(label.clone(), win.clone());
@@ -93,5 +96,81 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
     crate::set_title(app, &win);
     crate::window::shown(app);
     crate::exclude_scratch(app, &win);
+    overview_changed(app);
     Ok(label)
+}
+
+// ── The overview (docs/UEBERSICHT.md) ─────────────────────────────────────────
+
+/// The label of the overview: one window for every project, no project of its own.
+pub const OVERVIEW: &str = "overview";
+/// Width of the overview when it opens, in logical pixels.
+const OVERVIEW_WIDTH: f64 = 330.0;
+
+/// One open project, as the overview shows it.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverviewProject {
+    /// The label of its window
+    pub label: String,
+    pub name: String,
+    pub path: String,
+    /// Its colour, `#rrggbb`, until the user picks a mark
+    pub color: String,
+    /// Its sessions and what waits
+    pub state: crate::bridge::AssistantState,
+    /// What its window reported (git, next prompt, workbench); `null` until it did
+    pub summary: serde_json::Value,
+    /// Its window has the focus or had it last
+    pub front: bool,
+}
+
+/// The overview's view of every open project, in the order the windows were opened.
+pub fn overview_state(app: &AppHandle) -> Vec<OverviewProject> {
+    let last = crate::window::last_label(app);
+    let mut all = app.state::<Windows>().all();
+    all.sort_by_key(|w| w.label.trim_start_matches('w').parse::<u32>().unwrap_or(0));
+    all.iter()
+        .map(|w| {
+            let project = w.current.get();
+            let [r, g, b] = crate::icon::project_color(&project.root);
+            OverviewProject {
+                label: w.label.clone(),
+                name: project.root.file_name().map_or_else(|| "/".into(), |n| n.to_string_lossy().into_owned()),
+                path: project.root.display().to_string(),
+                color: format!("#{r:02x}{g:02x}{b:02x}"),
+                state: w.bridge.state(),
+                summary: w.summary.locked().clone(),
+                front: last.as_deref() == Some(w.label.as_str()),
+            }
+        })
+        .collect()
+}
+
+/// Tells the overview that something it shows changed; it asks for the state again.
+pub fn overview_changed(app: &AppHandle) {
+    use tauri::Emitter;
+    let _ = app.emit_to(OVERVIEW, "overview_changed", ());
+}
+
+/// Shows the overview, or hides it when it is shown; opens it the first time. Off the main thread.
+pub fn toggle_overview(app: &AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(OVERVIEW) {
+        if window.is_visible().unwrap_or(false) {
+            let _ = window.hide();
+        } else {
+            crate::window::obey(&window, crate::window::Request::Front);
+        }
+        return Ok(());
+    }
+    let window = WebviewWindowBuilder::new(app, OVERVIEW, WebviewUrl::App("index.html?view=overview".into()))
+        .title("CodeDeck")
+        .inner_size(OVERVIEW_WIDTH, 800.0)
+        .min_inner_size(260.0, 300.0)
+        .background_color(tauri::window::Color(2, 6, 23, 255))
+        .build()
+        .map_err(|e| e.to_string())?;
+    // At the right edge of the monitor, as high as the panels leave free: the sidebar's place
+    crate::window::set_compact(&window, &FullPlace::default(), true, OVERVIEW_WIDTH).map_err(|e| e.to_string())?;
+    Ok(())
 }

@@ -411,8 +411,11 @@ fn recent_projects(window: WebviewWindow) -> Result<Vec<RecentProject>, String> 
 /// The system's folder dialog, starting next to the current project. `None` when cancelled.
 #[tauri::command]
 async fn pick_folder(app: AppHandle, window: WebviewWindow) -> Option<String> {
-    let current = project_of(&window).ok()?;
-    let start = current.root.parent().map_or_else(|| current.root.clone(), PathBuf::from);
+    // Next to the window's project; from the overview, which has none, in the home folder
+    let start = match project_of(&window) {
+        Ok(current) => current.root.parent().map_or_else(|| current.root.clone(), PathBuf::from),
+        Err(_) => std::env::var_os("HOME").map(PathBuf::from)?,
+    };
     tauri::async_runtime::spawn_blocking(move || {
         app.dialog()
             .file()
@@ -609,6 +612,42 @@ fn set_harness_connection(harness: String, account: String, install: bool) -> Re
     Ok(harness_connections())
 }
 
+/// Every open project for the overview: its sessions, what waits, what its window reported.
+#[tauri::command]
+fn overview_state(app: AppHandle) -> Vec<windows::OverviewProject> {
+    windows::overview_state(&app)
+}
+
+/// What a project window tells the overview about its project (git, next prompt, workbench).
+#[tauri::command]
+fn report_summary(summary: serde_json::Value, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+    let win = windows::of(&window)?;
+    let changed = *win.summary.locked() != summary;
+    if changed {
+        *win.summary.locked() = summary;
+        windows::overview_changed(&app);
+    }
+    Ok(())
+}
+
+/// Brings a project's window to the front; with `view`, that tab opens there.
+#[tauri::command]
+fn focus_project(label: String, view: Option<String>, app: AppHandle) -> Result<(), String> {
+    let window = app.get_webview_window(&label).ok_or_else(|| format!("{label}: no such window"))?;
+    window::obey(&window, window::Request::Front);
+    if let Some(view) = view {
+        let _ = window.emit_to(label.as_str(), "open_view", view);
+    }
+    Ok(())
+}
+
+/// Shows or hides the overview of all projects (`Ctrl+Alt+L`).
+/// Async: building the window waits for the main thread.
+#[tauri::command]
+async fn toggle_overview(app: AppHandle) -> Result<(), String> {
+    windows::toggle_overview(&app)
+}
+
 /// The git commands run so far, oldest first.
 #[tauri::command]
 fn git_log(window: WebviewWindow) -> Result<Vec<GitRun>, String> {
@@ -640,8 +679,17 @@ pub fn run() {
         .plugin(window::plugin())
         .on_window_event(|window, event| match event {
             // The window in front is the one the global shortcuts act on
-            tauri::WindowEvent::Focused(focused) => window::focus_changed(window.app_handle(), window.label(), *focused),
-            tauri::WindowEvent::Destroyed => window.app_handle().state::<Windows>().remove(window.label()),
+            tauri::WindowEvent::Focused(focused) => {
+                window::focus_changed(window.app_handle(), window.label(), *focused);
+                // The overview marks the project window used last
+                if *focused && window.label() != windows::OVERVIEW {
+                    windows::overview_changed(window.app_handle());
+                }
+            }
+            tauri::WindowEvent::Destroyed => {
+                window.app_handle().state::<Windows>().remove(window.label());
+                windows::overview_changed(window.app_handle());
+            }
             _ => {}
         })
         .plugin(tauri_plugin_opener::init())
@@ -654,6 +702,13 @@ pub fn run() {
                 Err(e) => eprintln!("codeck: no socket for assistants: {e}"),
             }
             windows::open(app.handle(), project)?;
+            // The overview of all projects comes along (docs/UEBERSICHT.md; to become a setting)
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                if let Err(e) = windows::toggle_overview(&handle) {
+                    eprintln!("codeck: overview: {e}");
+                }
+            });
             updates::check_in_background(app.handle());
             window::claim_shortcuts(app.handle().clone());
             // Hooks of this installation that still run the old `codedeck` (or a program that is
@@ -724,7 +779,11 @@ pub fn run() {
             machine_settings,
             set_machine_setting,
             layout,
-            set_layout
+            set_layout,
+            overview_state,
+            report_summary,
+            focus_project,
+            toggle_overview
         ])
         .build(tauri::generate_context!())
         .expect("error while building CodeDeck")

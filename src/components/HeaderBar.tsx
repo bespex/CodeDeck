@@ -8,6 +8,7 @@ import {
   Ellipsis,
   Info,
   Keyboard,
+  LayoutList,
   Maximize2,
   PanelRight,
   Settings,
@@ -17,7 +18,7 @@ import {
   SquareTerminal,
   Stethoscope,
 } from "lucide-react";
-import { appInfo, diagnostics, openUrl, openWindow, type AssistantState, type ProjectInfo } from "../backend";
+import { appInfo, diagnostics, openUrl, openWindow, toggleOverview, type AssistantState, type ProjectInfo } from "../backend";
 import { mainHarness, useConnections } from "../assistant";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
@@ -61,6 +62,16 @@ export function HeaderBar(props: Props) {
       <AssistantMenu assistant={props.assistant} />
       <QuickSettings />
       <AppMenu project={props.project} onToggleLog={props.onToggleLog} assistant={props.assistant} />
+      <button
+        type="button"
+        title={t("Overview of all projects · Ctrl+Alt+L")}
+        aria-label={t("Overview of all projects")}
+        aria-keyshortcuts="Control+Alt+L"
+        onClick={() => void toggleOverview()}
+        className={iconButton(false)}
+      >
+        <LayoutList className="size-4" />
+      </button>
       <button
         type="button"
         title={props.compact ? t("Full window · Ctrl+Shift+L") : t("Sidebar · Ctrl+Shift+L")}

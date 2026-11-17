@@ -285,6 +285,10 @@ impl Bridge {
     /// Sends this window an event about its project.
     fn tell<S: Serialize + Clone>(&self, app: &AppHandle, event: &str, payload: S) {
         let _ = app.emit_to(self.label.as_str(), event, payload);
+        // The overview shows every project's sessions
+        if event == ASSISTANT_CHANGED {
+            crate::windows::overview_changed(app);
+        }
     }
 
     /// A turn the user stopped says nothing to the hooks (no `Stop`, no `idle_prompt`), so the
