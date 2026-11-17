@@ -130,6 +130,7 @@ mod tests {
         // A file from a later version with fewer or more fields still reads
         let s: Settings = serde_json::from_str(r#"{"desktop":false,"newThing":1}"#).unwrap();
         assert!(!s.desktop && s.asks && s.quiet_until.is_none());
-        assert_eq!(title("● 2 waiting · ", "orbit-api"), "● 2 waiting · orbit-api – CodeDeck");
+        assert_eq!(title("orbit-api", "● 2 asking"), "orbit-api ● 2 asking – CodeDeck");
+        assert_eq!(title("orbit-api", ""), "orbit-api – CodeDeck");
     }
 }

@@ -1337,8 +1337,8 @@ const mockNotifications: { summary: string; body: string }[] = [];
 if (!live) (window as unknown as { mockNotifications: typeof mockNotifications }).mockNotifications = mockNotifications;
 
 /** What follows the project's name in the window title, e.g. "● 2 asking"; empty for nothing. */
-export function setTitleStatus(status: string): Promise<void> {
-  if (live) return invoke("set_title_status", { status });
+export function setTitleStatus(status: string, asks = 0, done = 0): Promise<void> {
+  if (live) return invoke("set_title_status", { status, asks, done });
   document.title = status ? `orbit-api ${status} – CodeDeck` : "orbit-api – CodeDeck";
   return Promise.resolve();
 }

@@ -13,6 +13,7 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 |---|---|
 | `src-tauri/src/lib.rs` | Tauri-Commands (finden ihr Fenster über `windows::of`), Setup, `Locked` (Sperren ohne `unwrap`) |
 | `src-tauri/src/windows.rs` | Ein Prozess, ein Fenster je Projekt (D25): `Win` (Projekt, Git, Watch, Bridge, Titel), `open` |
+| `src-tauri/src/icon.rs` | Icon je Fenster, selbst gezeichnet: Projektfarbe (`project_color`), Statuspunkt (fragt/fertig) |
 | `src-tauri/src/hub.rs` | Der eine Socket des Prozesses: Hook-Ereignisse an alle Fenster, Nutzung, zweiter Aufruf `codeck <ordner>` (`hand_over`, Instanz-Datei je Programmpfad) |
 | `src-tauri/src/git.rs` | `Git`: Repos finden (`repos`, `find`), `run`/`execute` (jeder Befehl ins Log), Status, Aktionen-Whitelist `allowed` |
 | `src-tauri/src/history.rs` | Log, Diffs, `ScratchIndex`, `worktree_diff(base)` |

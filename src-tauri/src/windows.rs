@@ -28,6 +28,8 @@ pub struct Win {
     pub place: FullPlace,
     /// What follows the project's name in the title, e.g. "● 2 asking"; set by the window
     pub title_status: Mutex<String>,
+    /// Whether a session asks, whether a turn is done: the dot on the window's icon
+    pub waiting: Mutex<(bool, bool)>,
 }
 
 #[derive(Default)]
@@ -74,6 +76,7 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
         bridge,
         place: FullPlace::default(),
         title_status: Mutex::new(String::new()),
+        waiting: Mutex::new((false, false)),
     });
     // Known before the page loads: it asks for its project at once
     windows.all.locked().insert(label.clone(), win.clone());
@@ -87,6 +90,7 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
         windows.remove(&label);
         return Err(e.to_string());
     }
+    crate::set_title(app, &win);
     crate::window::shown(app);
     crate::exclude_scratch(app, &win);
     Ok(label)

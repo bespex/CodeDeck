@@ -12,6 +12,7 @@ mod findings;
 mod git;
 mod harness;
 mod history;
+mod icon;
 pub mod hook;
 mod hub;
 mod identity;
@@ -80,17 +81,21 @@ pub(crate) fn title_of(win: &Win) -> String {
     attention::title(&name, &win.title_status.locked())
 }
 
-fn set_title(app: &AppHandle, win: &Win) {
+/// Title and icon: the icon carries the project's colour and a dot for what waits.
+pub(crate) fn set_title(app: &AppHandle, win: &Win) {
     if let Some(window) = app.get_webview_window(&win.label) {
         let _ = window.set_title(&title_of(win));
+        let (asks, done) = *win.waiting.locked();
+        let _ = window.set_icon(icon::render(icon::project_color(&win.current.get().root), asks, done));
     }
 }
 
 /// What follows the project's name in the window title, e.g. "● 2 asking" (in the interface's language).
 #[tauri::command]
-fn set_title_status(status: String, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+fn set_title_status(status: String, asks: Option<u32>, done: Option<u32>, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
     let win = windows::of(&window)?;
     *win.title_status.locked() = status;
+    *win.waiting.locked() = (asks.unwrap_or(0) > 0, done.unwrap_or(0) > 0);
     set_title(&app, &win);
     Ok(())
 }
