@@ -145,6 +145,47 @@ impl Harness for Claude {
     /// Remote Control: while a session is connected, Claude Code (2.1.199 and later) gives its hooks
     /// the remote session's id, the same as in its claude.ai/code address. Gone when the connection
     /// is, so this also tells whether the session is reachable right now.
+    /// A configuration with session logs under `projects/` is in use. Without, a folder whose name
+    /// says copy, backup or cleanup, or that holds nothing but settings files, is taken for a
+    /// backup; any other is a configuration not used yet. `~/.claude` is never a backup.
+    fn account_kind(&self, dir: &Path) -> crate::harness::AccountKind {
+        use crate::harness::AccountKind;
+        let logs = std::fs::read_dir(dir.join("projects"))
+            .into_iter()
+            .flatten()
+            .flatten()
+            .any(|p| std::fs::read_dir(p.path()).into_iter().flatten().flatten().any(|f| f.path().extension().is_some_and(|e| e == "jsonl")));
+        if logs {
+            return AccountKind::Used;
+        }
+        let home = std::env::home_dir().unwrap_or_default();
+        if dir == home.join(".claude") {
+            return AccountKind::Unused;
+        }
+        let name = dir.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+        let named = ["backup", "bak", "cleanup", "copy", "old", "kopie"].iter().any(|w| name.contains(w));
+        let only_settings = std::fs::read_dir(dir).into_iter().flatten().flatten().all(|e| e.file_name().to_string_lossy().starts_with("settings"));
+        if named || only_settings { AccountKind::Backup } else { AccountKind::Unused }
+    }
+
+    /// Claude Desktop keeps its data in `~/.config/Claude`; a second profile is started with
+    /// `--user-data-dir`, by habit as `~/.config/claude-desktop-<name>`.
+    fn desktop_profiles(&self) -> Vec<String> {
+        let config = std::env::home_dir().unwrap_or_default().join(".config");
+        let mut found: Vec<String> = std::fs::read_dir(&config)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter(|e| {
+                let name = e.file_name().to_string_lossy().to_lowercase();
+                e.path().is_dir() && (name == "claude" || name.starts_with("claude-desktop"))
+            })
+            .map(|e| e.path().display().to_string())
+            .collect();
+        found.sort();
+        found
+    }
+
     /// `claude --session-id <id>` (or `--resume <id>`) with a name and Remote Control, so that the
     /// session is reachable from Claude Desktop, the browser and the phone at once (B2, B4). The
     /// account is the configuration folder (`CLAUDE_CONFIG_DIR`).

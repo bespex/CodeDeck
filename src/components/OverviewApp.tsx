@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, RotateCcw, Settings, Square, SquareTerminal, Star, TriangleAlert } from "lucide-react";
 import { addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, setProject, showProject, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type Session } from "../backend";
-import { useConnections } from "../assistant";
+import { accountLook, useAccounts } from "../accounts";
 import { MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
 import { DONE_SHOWN_MS, needsYou, useNow } from "../attention";
 import { SessionBadge } from "./SessionBadge";
@@ -89,24 +89,10 @@ function relevant(s: Session, now: number): boolean {
   return needsYou(s) === "asks" || now - s.last < RECENT_MS;
 }
 
-/** An AI configuration (a configuration folder) by its folder's name, e.g. "claude-private". */
-const accountName = (dir: string) => dir.replace(/\/+$/, "").split("/").pop()!.replace(/^\./, "");
-
-/** A colour per configuration, by its place among the connected ones: never the same for two. */
-function useAccountColor(): (dir: string) => string {
-  const { setups } = useConnections();
-  const dirs = [...new Set((setups ?? []).map((c) => c.dir))].sort();
-  return (dir: string) => {
-    const at = dirs.indexOf(dir);
-    return `var(--color-session-${(at < 0 ? dirs.length : at) % 6})`;
-  };
-}
-
 /** The menu of a project's row: what is done now and then, kept out of sight (docs/UEBERSICHT.md). */
 function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () => void }) {
-  const { setups } = useConnections();
-  const accounts = [...new Set((setups ?? []).map((c) => c.dir))];
-  const accountColor = useAccountColor();
+  // Accounts in use or new; a backup copy is no configuration to run with
+  const accounts = useAccounts().filter((a) => a.kind !== "backup");
   useEffect(() => {
     const close = () => onClose();
     // Next tick: the click that opened the menu must not close it
@@ -160,11 +146,11 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
         <>
           <div className="my-1 h-px bg-overlay-line" />
           <p className="px-2 pt-0.5 pb-1 text-[11px] text-slate-500">{t("AI configuration its sessions run with")}</p>
-          {accounts.map((dir) => (
-            <button key={dir} type="button" title={dir} className={item} onClick={() => (onClose(), void setProject(project.path, "account", dir))}>
-              <span className="size-2 rounded-full" style={{ background: accountColor(dir) }} />
-              <span className="flex-1 truncate">{accountName(dir)}</span>
-              {project.account === dir && <Check className="size-3.5 text-slate-300" />}
+          {accounts.map((a) => (
+            <button key={a.dir} type="button" title={a.dir} className={item} onClick={() => (onClose(), void setProject(project.path, "account", a.dir))}>
+              <span className="size-2 rounded-full" style={{ background: a.color }} />
+              <span className="flex-1 truncate">{a.name}</span>
+              {project.account === a.dir && <Check className="size-3.5 text-slate-300" />}
             </button>
           ))}
           <button type="button" className={item} onClick={() => (onClose(), void setProject(project.path, "account", null))}>
@@ -198,7 +184,8 @@ function ProjectRow({ project }: { project: OverviewProject }) {
   const now = useNow();
   const sessions = (project.state?.sessions ?? []).filter((s) => relevant(s, now));
   const label = project.label;
-  const accountColor = useAccountColor();
+  const accounts = useAccounts();
+  const look = (dir: string) => accountLook(accounts, dir);
   const asks = sessions.some((s) => needsYou(s) === "asks");
   const done = sessions.some((s) => needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS);
   const summary = project.summary ?? {};
@@ -256,7 +243,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
           </span>
         )}
         {project.account && (
-          <span title={`${t("AI configuration")}: ${accountName(project.account)}`} className="size-1.5 shrink-0 rounded-full" style={{ background: accountColor(project.account) }} />
+          <span title={`${t("AI configuration")}: ${look(project.account).name}`} className="size-1.5 shrink-0 rounded-full" style={{ background: look(project.account).color }} />
         )}
         {/* Right after the name, so the status icons on the right never move */}
         <span className={`${menu ? "flex" : "invisible group-hover/row:visible"} flex`}>
@@ -300,7 +287,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
                 <SessionBadge mark={markOf(s)} />
                 <span className="min-w-0 flex-1 truncate text-slate-200">{titleOf(s)}</span>
                 {wrongAccount(s) && (
-                  <span title={t("Runs with {account}; the project is set to {project}", { account: accountName(s.account!), project: accountName(project.account!) })}>
+                  <span title={t("Runs with {account}; the project is set to {project}", { account: look(s.account!).name, project: look(project.account!).name })}>
                     <TriangleAlert className="size-3.5 shrink-0 text-changed" />
                   </span>
                 )}

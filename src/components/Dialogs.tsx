@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Copy, X } from "lucide-react";
-import { appInfo, globalShortcuts, onShortcutsChanged, openUrl, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
+import { appInfo, desktopProfiles, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
+import { useAccounts } from "../accounts";
+import { MARK_COLORS } from "../marks";
 import { mainHarness, useConnections } from "../assistant";
 import { closeDialog, openDialog, useDialog, type SettingsSection } from "../dialogs";
 import { lang, setLang, t } from "../i18n";
@@ -191,6 +193,7 @@ const SECTIONS: [SettingsSection, string][] = [
   ["general", "General"],
   ["notifications", "Notifications"],
   ["tools", "AI tools"],
+  ["accounts", "Accounts"],
 ];
 
 /**
@@ -218,6 +221,7 @@ function Settings({ section, assistant }: { section: SettingsSection; assistant:
           {section === "general" && <General />}
           {section === "notifications" && <Notifications />}
           {section === "tools" && <Tools assistant={assistant} />}
+          {section === "accounts" && <Accounts />}
         </div>
       </div>
     </Modal>
@@ -299,6 +303,105 @@ function Notifications() {
       <Setting label={t("Tell me when I look elsewhere")} note={t("While CodeDeck is hidden or another window has the focus.")} scope="machine">
         <AttentionChoice />
       </Setting>
+    </>
+  );
+}
+
+/** One account: its name and colour, the desktop app's profile, what its folder is (step 3.2). */
+function AccountRow({ account, profiles }: { account: Account; profiles: string[] }) {
+  const [name, setName] = useState(account.name);
+  const [confirm, setConfirm] = useState(false);
+  useEffect(() => setName(account.name), [account.name]);
+  const home = (p: string) => p.replace(/^\/home\/[^/]+/, "~");
+  const options = [...new Set([...profiles, ...(account.desktopProfile ? [account.desktopProfile] : [])])];
+  return (
+    <li className="flex flex-col gap-2 border-b border-overlay-line/60 py-3">
+      <div className="flex items-center gap-2">
+        <span className="size-3 shrink-0 rounded-full" style={{ background: account.color }} />
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => name !== account.name && void setAccount(account.dir, "name", name)}
+          onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+          aria-label={t("Name")}
+          className="w-40 rounded-md border border-overlay-line bg-base px-2 py-0.5 text-slate-100 outline-none focus:border-slate-500"
+        />
+        <span className="truncate font-mono text-[12px] text-slate-500" title={account.dir}>
+          {home(account.dir)}
+        </span>
+        <span className="ml-auto shrink-0 text-[11px] text-slate-500">
+          {account.kind === "used" ? (account.connected ? t("in use · connected") : t("in use · not connected")) : account.kind === "unused" ? t("not used yet") : t("looks like a backup")}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pl-5">
+        <span className="flex items-center gap-1">
+          {MARK_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              aria-label={c}
+              onClick={() => void setAccount(account.dir, "color", c)}
+              style={{ background: c }}
+              className={`size-4 rounded-full border-2 ${account.color === c ? "border-white" : "border-transparent"}`}
+            />
+          ))}
+        </span>
+        <label className="flex items-center gap-2 text-[12px] text-slate-400">
+          {t("Desktop app")}
+          <select
+            value={account.desktopProfile ?? ""}
+            onChange={(e) => void setAccount(account.dir, "desktopProfile", e.target.value || null)}
+            className="rounded-md border border-overlay-line bg-base px-1.5 py-0.5 text-slate-200"
+          >
+            <option value="">{t("the app's default")}</option>
+            {options.map((p) => (
+              <option key={p} value={p}>
+                {home(p)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {account.kind !== "used" &&
+          (confirm ? (
+            <span className="flex items-center gap-2 text-[12px]">
+              <span className="text-changed">{t("Move {folder} to the trash?", { folder: home(account.dir) })}</span>
+              <button type="button" onClick={() => void trashAccount(account.dir)} className="rounded-md bg-problem px-2 py-0.5 text-white">
+                {t("Move to trash")}
+              </button>
+              <button type="button" onClick={() => setConfirm(false)} className="rounded-md border border-overlay-line px-2 py-0.5 text-slate-300">
+                {t("Cancel")}
+              </button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setConfirm(true)} className="text-[12px] text-slate-400 underline-offset-2 hover:text-slate-100 hover:underline">
+              {t("Delete folder…")}
+            </button>
+          ))}
+      </div>
+    </li>
+  );
+}
+
+/** The accounts of the AI tools: name, colour, desktop profile; backups can go (step 3.2). */
+function Accounts() {
+  const accounts = useAccounts();
+  const [profiles, setProfiles] = useState<string[]>([]);
+  useEffect(() => void desktopProfiles().then(setProfiles), []);
+  return (
+    <>
+      <h3 className="mb-1 font-semibold text-slate-100">{t("Accounts")}</h3>
+      <p className="text-[12px] text-slate-500">
+        {t("Each configuration of an AI tool is an account. Its name and colour show at projects and sessions; the desktop app's profile is the one a session opens in.")}
+      </p>
+      {accounts.length ? (
+        <ul>
+          {accounts.map((a) => (
+            <AccountRow key={a.dir} account={a} profiles={profiles} />
+          ))}
+        </ul>
+      ) : (
+        <p className="py-3 text-[12px] text-slate-500">{t("No configuration found.")}</p>
+      )}
     </>
   );
 }

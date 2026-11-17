@@ -14,6 +14,7 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src-tauri/src/lib.rs` | Tauri-Commands (finden ihr Fenster über `windows::of`), Setup, `Locked` (Sperren ohne `unwrap`) |
 | `src-tauri/src/windows.rs` | Ein Prozess, ein Fenster je Projekt (D25): `Win` (Projekt, Git, Watch, Bridge, Titel), `open` |
 | `src-tauri/src/icon.rs` | Icon je Fenster, selbst gezeichnet: Projektfarbe (`project_color`), Statuspunkt (fragt/fertig) |
+| `src-tauri/src/accounts.rs`, `src/accounts.ts` | Konten (3.2): Konfigurationen mit Name, Farbe, Desktop-Profil (`accounts.json`), Art laut Adapter (`account_kind`), Papierkorb für Sicherungen; `useAccounts`, `accountLook` |
 | `src-tauri/src/tmux.rs` | Sitzungen in tmux starten (`start`, Befehl vom Adapter `Harness::launch`, über die Login-Shell) und beenden; nie `send-keys` |
 | `src-tauri/src/projects.rs`, `doors.rs` | Meine Projekte (`projects.json`); Wege in eine Sitzung: Terminal (tmux attach oder Fenster nach vorn), Desktop über `Harness::desktop_command` |
 | `src-tauri/src/hub.rs` | Der eine Socket des Prozesses: Hook-Ereignisse an alle Fenster, Nutzung, zweiter Aufruf `codedeck <ordner>` (`hand_over`, Instanz-Datei je Programmpfad) |

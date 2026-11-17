@@ -65,6 +65,16 @@ pub trait Harness: Send + Sync {
     fn page_hosts(&self) -> &'static [&'static str] {
         &[]
     }
+    /// What a configuration folder of this tool is (step 3.2): in use (it has sessions), not used yet,
+    /// or what looks like a backup copy of one, which may be deleted after asking.
+    fn account_kind(&self, _dir: &Path) -> AccountKind {
+        AccountKind::Used
+    }
+    /// The data folders of the tool's desktop app found on this computer, for choosing the one an
+    /// account belongs to.
+    fn desktop_profiles(&self) -> Vec<String> {
+        Vec::new()
+    }
     /// How to start a session of this tool (docs/SITZUNGEN.md B2): the command and the environment
     /// it needs. `None`: CodeDeck cannot start sessions of this tool.
     fn launch(&self, _launch: &Launch) -> Option<Launched> {
@@ -179,6 +189,15 @@ pub struct Event {
     /// message brings all of it. The adapter leaves it empty, the transport fills it in
     #[serde(default)]
     pub place: Option<Place>,
+}
+
+/// What a configuration folder is, see [`Harness::account_kind`].
+#[derive(Serialize, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum AccountKind {
+    Used,
+    Unused,
+    Backup,
 }
 
 /// A session CodeDeck starts.

@@ -1,3 +1,4 @@
+import { accountLook, useAccounts } from "../accounts";
 import { useState, type DragEvent, type ReactNode } from "react";
 import {
   ArrowUpRight,
@@ -384,6 +385,7 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile }: { session:
               {!status.timed && ` · ${t("last step {time}", { time: time(s.last) })}`}
               {s.step && head.from !== "step" && ` · ${s.step}`}
               <PlaceNote session={s} />
+              <AccountNote session={s} />
             </span>
             <button
               type="button"
@@ -427,6 +429,20 @@ function PlaceNote({ session: s }: { session: Session }) {
         </>
       )}
     </>
+  );
+}
+
+/** The account a session runs in, by the name and colour set under Settings → Accounts (3.2). */
+function AccountNote({ session: s }: { session: Session }) {
+  const accounts = useAccounts();
+  if (!s.account) return null;
+  const look = accountLook(accounts, s.account);
+  return (
+    <span title={t("Account: {dir}", { dir: s.account })}>
+      {" · "}
+      <span className="mr-1 inline-block size-1.5 translate-y-[-1px] rounded-full" style={{ background: look.color }} />
+      {look.name}
+    </span>
   );
 }
 

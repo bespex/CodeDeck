@@ -4,6 +4,7 @@
 //! list and a file watcher, git for every repository in it. One socket for the process, through
 //! which coding tools report what they do (see [`hub`], [`harness`]).
 
+mod accounts;
 mod apps;
 mod attention;
 mod bridge;
@@ -712,6 +713,36 @@ fn toggle_project_window(label: String, app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// The accounts of every tool with their names, colours and desktop profiles (step 3.2).
+#[tauri::command]
+fn accounts_list() -> Vec<accounts::Account> {
+    accounts::list()
+}
+
+/// Changes an account's `name`, `color` or `desktopProfile`; every window hears of it.
+#[tauri::command]
+fn set_account(dir: String, field: String, value: serde_json::Value, app: AppHandle) -> Result<(), String> {
+    accounts::set(&dir, &field, value)?;
+    let _ = app.emit("accounts_changed", ());
+    Ok(())
+}
+
+/// Moves a configuration folder that looks like a backup, or was never used, to the trash.
+#[tauri::command]
+fn trash_account(dir: String, app: AppHandle) -> Result<(), String> {
+    accounts::trash(&dir)?;
+    let _ = app.emit("accounts_changed", ());
+    Ok(())
+}
+
+/// The desktop app's profiles found here, to pick the one an account belongs to.
+#[tauri::command]
+fn desktop_profiles() -> Vec<String> {
+    let mut all: Vec<String> = harness::all().iter().flat_map(|h| h.desktop_profiles()).collect();
+    all.dedup();
+    all
+}
+
 /// Starts a session of a project in tmux (docs/SITZUNGEN.md B2), with the project's AI
 /// configuration and Remote Control. `fresh`: a new conversation; else the latest one that did not
 /// end is continued, and nothing starts while one runs already. The tmux session's name.
@@ -786,15 +817,8 @@ fn open_session(project: String, session: String, door: String, app: AppHandle) 
         "desktop" => {
             let remote = place.remote.as_deref().ok_or("not reachable from the desktop app: Remote Control is off or not connected")?;
             let tool = harness::by_id(Some(harness)).ok_or("unknown tool")?;
-            // The app's data folder for the session's account, as the user set it (machine settings)
-            // (`desktopProfiles`: configuration folder → app data folder, `~` allowed on both sides)
-            let profile = account.as_deref().and_then(|account| {
-                let profiles = config::machine_settings().get("desktopProfiles").cloned()?;
-                let home = std::env::var("HOME").unwrap_or_default();
-                let full = |p: &str| p.strip_prefix('~').map_or_else(|| p.to_string(), |rest| format!("{home}{rest}"));
-                let found = profiles.as_object()?.iter().find(|(dir, _)| full(dir) == full(account))?;
-                found.1.as_str().map(full)
-            });
+            // The app's data folder for the session's account, as set under Settings → Accounts
+            let profile = account.as_deref().and_then(accounts::desktop_profile);
             let command = tool.desktop_command(remote, profile.as_deref()).ok_or("this tool has no desktop app to open it in")?;
             std::process::Command::new(&command[0]).args(&command[1..]).spawn().map(drop).map_err(|e| format!("{}: {e}", command[0]))
         }
@@ -977,6 +1001,10 @@ pub fn run() {
             set_window_icon,
             open_session,
             start_session,
+            accounts_list,
+            set_account,
+            trash_account,
+            desktop_profiles,
             start_today,
             stop_session,
             remove_project,

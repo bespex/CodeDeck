@@ -1509,6 +1509,67 @@ export function toggleProjectWindow(label: string): Promise<void> {
   return Promise.resolve();
 }
 
+// ── Accounts (step 3.2) ───────────────────────────────────────────────────────
+
+/** A tool's account (for Claude Code a configuration folder) with what the user set for it. */
+export interface Account {
+  harness: string;
+  /** Its configuration folder: sessions and projects name it by this */
+  dir: string;
+  name: string;
+  /** `#rrggbb` */
+  color: string;
+  /** The desktop app's data folder for it; `null`: the app's default */
+  desktopProfile: string | null;
+  /** in use (has sessions) · not used yet · looks like a backup copy */
+  kind: "used" | "unused" | "backup";
+  connected: boolean;
+}
+
+const mockAccounts: Account[] = [
+  { harness: "claude", dir: "/home/me/.claude", name: "Work", color: "#7f95ff", desktopProfile: "/home/me/.config/claude-desktop-work", kind: "used", connected: true },
+  { harness: "claude", dir: "/home/me/.claude-private", name: "Private", color: "#4fc9bd", desktopProfile: null, kind: "used", connected: true },
+  { harness: "claude", dir: "/home/me/.claude-cleanup-2026", name: "claude-cleanup-2026", color: "#e391d0", desktopProfile: null, kind: "backup", connected: false },
+];
+const mockAccountListeners = new Set<() => void>();
+
+export function accountsList(): Promise<Account[]> {
+  if (live) return invoke("accounts_list");
+  return Promise.resolve(mockAccounts.map((a) => ({ ...a })));
+}
+
+/** Changes an account's name, colour or desktop profile (`null`: back to the default). */
+export function setAccount(dir: string, field: "name" | "color" | "desktopProfile", value: string | null): Promise<void> {
+  if (live) return invoke("set_account", { dir, field, value });
+  const a = mockAccounts.find((x) => x.dir === dir);
+  if (a) Object.assign(a, { [field]: value ?? (field === "name" ? dir.split("/").pop()!.replace(/^\./, "") : null) });
+  mockAccountListeners.forEach((l) => l());
+  return Promise.resolve();
+}
+
+/** Moves a configuration folder that looks like a backup, or was never used, to the trash. */
+export function trashAccount(dir: string): Promise<void> {
+  if (live) return invoke("trash_account", { dir });
+  mockAccounts.splice(mockAccounts.findIndex((a) => a.dir === dir), 1);
+  mockAccountListeners.forEach((l) => l());
+  return Promise.resolve();
+}
+
+/** The desktop app's profiles found on this computer. */
+export function desktopProfiles(): Promise<string[]> {
+  if (live) return invoke("desktop_profiles");
+  return Promise.resolve(["/home/me/.config/Claude", "/home/me/.config/claude-desktop-work"]);
+}
+
+export function onAccountsChanged(callback: () => void): () => void {
+  if (live) {
+    const unlisten = listen("accounts_changed", () => callback());
+    return () => void unlisten.then((stop) => stop());
+  }
+  mockAccountListeners.add(callback);
+  return () => mockAccountListeners.delete(callback);
+}
+
 /** Starts a session in tmux: a new conversation (`fresh`), else the last one continues. The tmux
  *  session's name, or `null` when one runs there already. */
 export function startSession(project: string, fresh: boolean): Promise<string | null> {
