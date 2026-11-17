@@ -23,7 +23,7 @@ export const nouns: Record<string, [string, string]> = {
   "failed command": ["Befehl fehlgeschlagen", "Befehle fehlgeschlagen"],
   "uncommitted file": ["offene Datei", "offene Dateien"],
   turn: ["Runde", "Runden"],
-  "new scratch file": ["neue Scratch-Datei", "neue Scratch-Dateien"],
+  "new entry": ["neu", "neu"],
   page: ["Seite", "Seiten"],
 };
 
@@ -55,6 +55,8 @@ export const de: Record<string, string> = {
   "attachments": "Anhänge",
   "Start rules": "Startregeln",
   "project root": "Projektwurzel",
+  "changed": "geändert",
+  "{n} new in the Workbench": "{n} neu in der Werkbank",
   "Theme": "Theme",
   "Reduce transparency": "Weniger Transparenz",
   "Transparency": "Transparenz",

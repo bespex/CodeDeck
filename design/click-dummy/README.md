@@ -25,8 +25,9 @@ echte App täte.
 | `index.html` | Kleiner lokaler Betrachter für `Main.dc.html` |
 | `canvas.json` | Anordnung und Notizzettel der Fassung auf claude.ai |
 | `usage.html` | Verbrauch (Schritt 2.4): Statusleiste, Popup, Activity; Zustände per Knopf |
-| `sessions.html` | Sitzungen überall bedienen (MVP 3, `docs/SITZUNGEN.md`): Zuhause und Türen, Doppelklick, „+ New“, Handy, Einstellungen |
+| `sessions.html` | Sitzungen überall bedienen (MVP 3, `docs/SITZUNGEN.md`): Zuhause und Türen, Doppelklick, „+ New“, Handy, Einstellungen; Startseite ohne offenes Projekt (Leiste), Tagesliste mit ▶ und „▶ All“, Projektmenü, „CodeDeck started“ |
 | `themes.html` | Theme-Labor (`docs/STYLING.md`): CodeDeck, Paper, Graphite, Signal; Wahl mit Vorschau beim Überfahren (im Dummy in den Schnelleinstellungen, in der App nur im Einstellungsdialog), Theme-Datei live bearbeiten, Prüfbericht, inaktives Fenster |
+| `attention.html` | „Wartet auf dich“ im Theme „CodeDeck“: heutiger Stand und drei Alternativen (Kante und Schild, Karte, Überschrift und „neu“), neue Einträge per Knopf |
 
 `Main.dc.html` ist für die Design-Leinwand auf claude.ai geschrieben (Fassung dort:
 https://claude.ai/artifact/RD82dLeX2U3xf2vPRipzE2, privat). Das Format: `{{name}}` holt einen Wert aus

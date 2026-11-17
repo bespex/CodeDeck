@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type HTMLAttributes, type ReactNode } from "react";
+import { NewsTag, newsClass } from "../News";
+import { markSeen, reportNews, scratchKey, useNews } from "../../news";
 import { Check, ChevronDown, ChevronRight, Eye, FileText, Folder, FolderOpen, FolderSearch, GripVertical, SquarePen, Trash2 } from "lucide-react";
 import { onFsChanged, openFile, showInFileManager, scratchList, scratchTrash, type AssistantState, type WorkFile } from "../../backend";
 import { mainHarness, shortId, useSessionMarks } from "../../assistant";
@@ -93,7 +95,11 @@ function ScratchTile() {
 
   const load = useCallback(() => {
     scratchList()
-      .then((f) => (setFiles(f), setError(null)))
+      .then((f) => {
+        setFiles(f);
+        setError(null);
+        reportNews("scratch", f.map(scratchItem));
+      })
       .catch((e) => setError(String(e)));
   }, []);
   useEffect(() => {
@@ -254,6 +260,9 @@ function DirRow({ dir, depth, now, onTrash }: { dir: Dir; depth: number; now: nu
   const Chevron = open ? ChevronDown : ChevronRight;
   const Icon = open ? FolderOpen : Folder;
   const name = dir.path.slice(SCRATCH_DIR.length + 1);
+  const news = useNews();
+  // A closed folder says how much in it is new, so one need not open each
+  const fresh = filesIn(dir).filter((f) => news.of(scratchItem(f))).length;
   return (
     <>
       <ScratchLine
@@ -271,6 +280,7 @@ function DirRow({ dir, depth, now, onTrash }: { dir: Dir; depth: number; now: nu
           <button type="button" aria-expanded={open} onClick={(e) => e.detail <= 1 && setOpen(!open)} className="flex min-w-0 flex-1 items-baseline gap-2 text-left">
             <span className="truncate font-mono text-[12px] text-slate-200">{dir.name}/</span>
             <span className="shrink-0 text-[11px] text-slate-500">{plural(dir.count, "file")}</span>
+            {fresh > 0 && <span className="news-tag shrink-0">{plural(fresh, "new entry")}</span>}
           </button>
         }
         when={age(dir.newest, now)}
@@ -302,6 +312,11 @@ function DirRow({ dir, depth, now, onTrash }: { dir: Dir; depth: number; now: nu
   );
 }
 
+/** A scratch file as an entry of the Workbench for "new": changed when it was changed after it was seen. */
+const scratchItem = (f: WorkFile) => ({ key: scratchKey(f.path), time: f.modified, changes: true });
+/** All files below a folder. */
+const filesIn = (d: Dir): WorkFile[] => [...d.files, ...d.dirs.flatMap(filesIn)];
+
 /** A file: dragged onto a folder of the file list it moves into the project. */
 function FileRow({ file: f, depth, now, onTrash }: { file: WorkFile; depth: number; now: number; onTrash: (paths: string[], what: string) => void }) {
   const marks = useSessionMarks();
@@ -310,11 +325,14 @@ function FileRow({ file: f, depth, now, onTrash }: { file: WorkFile; depth: numb
   const name = f.path.split("/").pop() ?? f.path;
   // One line only: who wrote it is in the tooltip
   const by = writer ? t("written by {who}", { who: mark?.title ?? t("session {id}", { id: shortId(writer) }) }) : "";
+  const news = useNews().of(scratchItem(f));
   return (
     <ScratchLine
       depth={depth}
       rowProps={{
         draggable: true,
+        // Anything done with it means it was seen
+        onClickCapture: () => news && markSeen(scratchItem(f)),
         onDragStart: (e) => {
           e.dataTransfer.setData(SCRATCH_DRAG, f.path);
           e.dataTransfer.effectAllowed = "move";
@@ -322,14 +340,18 @@ function FileRow({ file: f, depth, now, onTrash }: { file: WorkFile; depth: numb
         // As in the file list: double click views, middle click edits
         onDoubleClick: () => openFile(f.path, "view"),
         onAuxClick: (e) => e.button === 1 && openFile(f.path, "edit"),
-        className: "cursor-grab active:cursor-grabbing",
+        className: `cursor-grab active:cursor-grabbing ${newsClass(news)}`,
+        onDragStartCapture: () => news && markSeen(scratchItem(f)),
       }}
       lead={<GripVertical className="size-3.5 text-slate-600 group-hover:text-slate-400" />}
       icon={<FileText className="size-3.5 shrink-0 text-slate-400" />}
       name={
-        <span className="truncate font-mono text-[12px] text-slate-200" title={by ? `${f.path}\n${by}` : f.path}>
-          {name}
-        </span>
+        <>
+          <span className="truncate font-mono text-[12px] text-slate-200" title={by ? `${f.path}\n${by}` : f.path}>
+            {name}
+          </span>
+          <NewsTag news={news} />
+        </>
       }
       when={age(f.modified, now)}
       old={now - f.modified > OLD_DAYS * DAY}

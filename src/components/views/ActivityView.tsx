@@ -62,7 +62,10 @@ export function ActivityView({ assistant, git, snapshots }: { assistant: Assista
         title={t("Claude usage")}
         help={t("How much of each account's allowance is used, as Claude Code states it to its status line: percent of the limit, and when it starts over. Nothing is estimated; only the warning (amber) is worked out: at the pace so far the limit would be used up before it starts over. The figures are the account's, not this project's, and come with a running session.")}
       >
-        <UsageCards assistant={assistant} onlySetUp />
+        {/* Boxes, not text: as much room above them as below, where the next section begins (user, 2026-11-17) */}
+        <div className="pt-4">
+          <UsageCards assistant={assistant} onlySetUp />
+        </div>
       </Section>
       <Section
         title={t("Documents written")}

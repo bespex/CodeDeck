@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { reportNews, scratchKey, useNews } from "../news";
 import { AtSign, GitBranch, History, TriangleAlert } from "lucide-react";
 import { onFsChanged, scratchList, type AssistantState } from "../backend";
 import { aheadBehind, type GitView } from "../git";
@@ -10,17 +11,18 @@ import { openView, type ViewId } from "../view";
 import { LOCALE } from "./Trail";
 import { plural, t } from "../i18n";
 
-/** A file in the scratch folder counts as new for this long. */
-const NEW_FOR_MS = 24 * 3600_000;
-
-/** How many files in the scratch folder are new; read again when the folder changes. */
+/** Keeps the scratch folder's files reported for "new" (src/news.ts); read again when the folder changes. */
 function useNewScratch(): number {
   const [count, setCount] = useState(0);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     const load = () =>
       scratchList()
-        .then((files) => setCount(files.filter((f) => Date.now() - f.modified < NEW_FOR_MS).length))
+        .then((files) => {
+          // The Workbench's "new" is "not seen yet" (src/news.ts); the scratch folder reports here too, so that it counts while the Workbench is closed
+          reportNews("scratch", files.map((f) => ({ key: scratchKey(f.path), time: f.modified, changes: true })));
+          setCount(files.length);
+        })
         .catch(() => setCount(0));
     load();
     const stop = onFsChanged((change) => {
@@ -52,7 +54,8 @@ export function SidebarSummary({ git, assistant }: { git: GitView; assistant: As
   const last = snapshots[0];
   const { markers } = useMarkers();
   const hints = markers?.length ?? 0;
-  const scratch = useNewScratch();
+  useNewScratch();
+  const fresh = useNews().count;
   const elsewhere = assistant.found.outside.filter((f) => !f.fetched).length;
 
   return (
@@ -86,11 +89,11 @@ export function SidebarSummary({ git, assistant }: { git: GitView; assistant: As
           )}
         </Line>
       )}
-      {(hints > 0 || scratch > 0 || elsewhere > 0) && (
+      {(hints > 0 || fresh > 0 || elsewhere > 0) && (
         <Line view="workbench" icon={<AtSign className="size-3.5" />}>
           {[
             hints > 0 && <span key="h" className="text-slate-300">{plural(hints, "hint")}</span>,
-            scratch > 0 && <span key="s" className="truncate text-slate-300">{plural(scratch, "new scratch file")}</span>,
+            fresh > 0 && <span key="s" className="truncate font-medium text-ai">{t("{n} new in the Workbench", { n: fresh })}</span>,
             elsewhere > 0 && <span key="e" className="truncate text-changed">{t("{n} left elsewhere", { n: elsewhere })}</span>,
           ]
             .filter(Boolean)

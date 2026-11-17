@@ -227,7 +227,9 @@ body::after {
 :is(.theme-events-clear, .theme-events-focus, .theme-events-loud) .event-chip[data-event="working"] {
   color: var(--color-ai);
 }
-:is(.theme-events-clear, .theme-events-focus, .theme-events-loud) .event-chip:is([data-event="done"], [data-event="waiting"]) :is(> span, > span > span) {
+/* The dot takes the word's colour (`:is(> span)` would be a relative selector, which browsers drop) */
+:is(.theme-events-clear, .theme-events-focus, .theme-events-loud) .event-chip:is([data-event="done"], [data-event="waiting"]) > span.rounded-full,
+:is(.theme-events-clear, .theme-events-focus, .theme-events-loud) .event-chip:is([data-event="done"], [data-event="waiting"]) > span > span.rounded-full {
   background-color: currentColor;
 }
 .theme-events-loud .event-chip:is([data-event="done"], [data-event="waiting"], [data-event="working"]),
@@ -235,6 +237,15 @@ body::after {
   padding: 0 7px 0 5px;
   border-radius: 9999px;
   font-weight: 600;
+}
+/* A filled label needs no dot before its word: it would be the label's own colour, a gap only */
+.theme-events-loud .event-chip:is([data-event="done"], [data-event="waiting"]) > span:first-child,
+.theme-events-focus .event-chip[data-event="waiting"] > span:first-child {
+  display: none;
+}
+.theme-events-loud .event-chip:is([data-event="done"], [data-event="waiting"]),
+.theme-events-focus .event-chip[data-event="waiting"] {
+  padding: 0 7px;
 }
 .theme-events-loud .event-chip[data-event="done"] {
   background-color: var(--t-done);
@@ -257,8 +268,7 @@ body::after {
   background-color: color-mix(in srgb, var(--t-done) 13%, transparent);
   box-shadow: inset 2px 0 0 var(--t-done);
 }
-.theme-events-loud .event-row[data-event="waiting"],
-.theme-events-focus .event-row[data-event="waiting"] {
+.theme-events-loud .event-row[data-event="waiting"] {
   background-color: color-mix(in srgb, var(--color-changed) 14%, transparent);
 }
 .theme-events-loud .count-badge {
@@ -325,18 +335,75 @@ body {
   }
 }
 
-/* Something new under "Needs you": the row pulses in amber a few times, then stays as it is */
-@keyframes attention-new {
-  0%,
-  100% {
-    background-color: transparent;
+/*
+ * "Needs you" as cards (user, 2026-11-17, variant B of design/click-dummy/attention.html): raised, with a
+ * fine outline, amber when the session asks. Something new slides in, its outline glows and settles.
+ */
+.wait-card {
+  box-shadow: inset 0 0 0 1px var(--color-line);
+}
+.wait-card-asks {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-changed) 70%, transparent);
+}
+@keyframes card-in {
+  from {
+    transform: translateY(-6px);
+    opacity: 0;
   }
-  50% {
-    background-color: color-mix(in srgb, var(--flash, var(--color-changed)) var(--t-flash, 22%), transparent);
+}
+@keyframes card-glow {
+  0%,
+  30% {
+    box-shadow:
+      inset 0 0 0 1px var(--flash, var(--color-changed)),
+      0 0 0 3px color-mix(in srgb, var(--flash, var(--color-changed)) 35%, transparent),
+      0 0 18px color-mix(in srgb, var(--flash, var(--color-changed)) var(--t-flash, 22%), transparent);
   }
 }
 .attention-new {
-  animation: attention-new 1.1s ease-in-out var(--t-pulses, 3);
+  animation:
+    card-in 0.45s ease-out,
+    card-glow 2.6s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .attention-new {
+    animation: card-glow 2.6s ease-out;
+  }
+}
+
+/*
+ * New in the Workbench (src/news.ts): what was not seen yet is a card like the ones under "Needs you",
+ * outlined in the assistant's colour, with a word; it glows once when it comes.
+ */
+.news-card {
+  background-color: var(--color-raised);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-ai) 65%, transparent);
+}
+.news-new {
+  animation: news-glow 2.4s ease-out;
+}
+@keyframes news-glow {
+  0%,
+  25% {
+    box-shadow:
+      inset 0 0 0 1px var(--color-ai),
+      0 0 0 3px color-mix(in srgb, var(--color-ai) 30%, transparent);
+  }
+}
+.news-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 15px;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ai);
+  background-color: color-mix(in srgb, var(--color-ai) 18%, transparent);
 }
 
 /* The window's edge lights up while something waits (`events: loud`), also when another window has the

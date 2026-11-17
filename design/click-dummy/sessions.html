@@ -99,11 +99,38 @@
   .dlg .box { width: 460px; padding: 16px; border-radius: 10px; background: #2b2f35; border: 1px solid #4d545c; display: flex; flex-direction: column; gap: 14px; }
   .dlg .set { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   .dlg .set span small { display: block; color: #8d949b; }
+  /* Start page: the same column in sidebar form, without a project */
+  .app.compact { flex: 0 0 auto; width: 340px; margin: 12px 24px 12px auto; }
+  .app.compact .tabs, .app.compact .view, .app.compact footer { display: none; }
+  .app.compact .side { width: 100%; border-left: 0; }
+  .head .pm { font-weight: 600; color: #f5f6f7; padding: 3px 6px; margin-left: -6px; border-radius: 5px; }
+  .head .pm:hover, .head .pm.open { background: #30343a; }
+  .logo { width: 18px; height: 18px; border-radius: 5px; background: linear-gradient(135deg, #818cf8, #4fc9bd); }
+  .projchip { font-size: 11px; padding: 0 5px; border-radius: 4px; background: #30343a; color: #c4c9ce; cursor: pointer; font-weight: 400; }
+  .projchip:hover { background: #3a3f46; color: #fff; }
+  .prow { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: default; user-select: none; }
+  .prow:hover { background: #24282d; }
+  .prow.cur { background: #262b31; }
+  .prow .pname { color: #f0f1f2; cursor: pointer; }
+  .prow .pname:hover { text-decoration: underline; }
+  .prow small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge.off { background: transparent; border: 1px dashed #4d545c; }
+  .play { width: 24px; height: 24px; border-radius: 50%; border: 1px solid #4d545c; color: #d2d6da; font-size: 10px; flex-shrink: 0; }
+  .play:hover { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+  .pin { color: #4d545c; font-size: 13px; width: 18px; flex-shrink: 0; }
+  .pin.on { color: #e0b84f; }
+  .pin:hover { color: #f0d070; }
+  .plus[disabled] { opacity: .4; cursor: default; }
+  .auto { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; color: #a9afb5; cursor: pointer; }
+  .sfoot { padding: 8px 12px; border-top: 1px solid #30343a; font-size: 12px; color: #a9afb5; }
 </style>
 </head>
 <body>
 <div class="lab">
   <b>Sessions everywhere, dummy</b>
+  <span class="grp">Window:
+    <button data-win="project">Project open</button><button data-win="start">No project (start page)</button>
+  </span>
   <span class="grp">Machine:
     <button data-env="x11">X11, tmux there</button><button data-env="wayland">Wayland</button><button data-env="notmux">No tmux</button>
   </span>
@@ -111,7 +138,7 @@
     <button data-desk="yes">works</button><button data-desk="no">not (yet)</button>
   </span>
   <span class="grp">Event:
-    <button id="fire">Desktop notification</button><button id="reboot">Computer restarted</button><button id="shutdown">Shut down…</button><button id="rclost">Remote Control lost</button>
+    <button id="fire">Desktop notification</button><button id="reboot">Computer restarted</button><button id="shutdown">Shut down…</button><button id="rclost">Remote Control lost</button><button id="launch">CodeDeck started</button>
   </span>
   <button id="reset">Reset</button>
 </div>
@@ -142,6 +169,7 @@ const ICON = {
   browser: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6.2"/><path d="M1.8 8h12.4M8 1.8c2 2 2 10.4 0 12.4M8 1.8c-2 2-2 10.4 0 12.4"/></svg>',
   phone: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="4.5" y="1.5" width="7" height="13" rx="1.5"/><path d="M7 12.5h2"/></svg>',
   ssh: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 5l3 3-3 3M7.5 11H13"/></svg>',
+  folder: '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M1.5 4.5v8a1 1 0 001 1h11a1 1 0 001-1v-6.5a1 1 0 00-1-1H8L6.5 3.5h-4a1 1 0 00-1 1z"/></svg>',
   gear: '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg>',
 };
 const PLACE_TEXT = {
@@ -150,20 +178,39 @@ const PLACE_TEXT = {
   desktop: "Started in Claude Desktop. CodeDeck knows it from its log only: no live status.",
 };
 
-let banner0, S, sel, env, desk, dbl, pop, overlay, toast, dialog, nextColor, lastNote;
+let banner0, S, P, sel, env, desk, dbl, pop, overlay, toast, dialog, nextColor, lastNote, win, cur, autoStart;
 function reset() {
   S = [
-    { id: "a1", short: "A", color: 0, title: "Auth refactor", status: "waiting", why: "needs your permission: npm test", place: "bg", tmux: "codeck-orbit-api-A", remote: true, acct: "work", started: "08:12" },
-    { id: "b2", short: "B", color: 2, title: "API docs refresh", status: "working", why: "editing docs/api.md", place: "bg", tmux: "codeck-orbit-api-B", remote: true, acct: "work", started: "09:40" },
-    { id: "c3", short: "C", color: 3, title: "Fix date picker CSS", status: "idle", why: "turn done 4 min ago", place: "term", acct: "work", started: "10:05", termApp: "gnome-terminal" },
-    { id: "d4", short: "D", color: 4, title: "Explain pagination", status: "idle", why: "from log only", place: "desktop", acct: "private", started: "10:30" },
-    { id: "e5", short: "E", color: 1, title: "Release notes 2.3", status: "ended", why: "ended 07:55", place: "bg", tmux: "codeck-orbit-api-E", remote: true, acct: "work", started: "07:10", earlier: true },
+    { id: "a1", proj: "orbit-api", daily: true, short: "A", color: 0, title: "Auth refactor", status: "waiting", why: "needs your permission: npm test", place: "bg", tmux: "codeck-orbit-api", remote: true, acct: "work", started: "08:12" },
+    { id: "b2", proj: "orbit-api", short: "B", color: 2, title: "API docs refresh", status: "working", why: "editing docs/api.md", place: "bg", tmux: "codeck-orbit-api-B", remote: true, acct: "work", started: "09:40" },
+    { id: "c3", proj: "orbit-api", short: "C", color: 3, title: "Fix date picker CSS", status: "idle", why: "turn done 4 min ago", place: "term", acct: "work", started: "10:05", termApp: "gnome-terminal" },
+    { id: "d4", proj: "orbit-api", short: "D", color: 4, title: "Explain pagination", status: "idle", why: "from log only", place: "desktop", acct: "private", started: "10:30" },
+    { id: "e5", proj: "orbit-api", short: "E", color: 1, title: "Release notes 2.3", status: "ended", why: "ended 07:55", place: "bg", tmux: "codeck-orbit-api-E", remote: true, acct: "work", started: "07:10", earlier: true },
+    { id: "i1", proj: "infra", daily: true, short: "A", color: 4, title: "Terraform upgrade", status: "working", why: "running terraform plan", place: "bg", tmux: "codeck-infra", remote: true, acct: "work", started: "08:01" },
+    { id: "s1", proj: "docs-site", daily: true, short: "A", color: 3, title: "Heading styles", status: "waiting", why: "asks: which heading style?", place: "bg", tmux: "codeck-docs-site", remote: true, acct: "private", started: "08:02" },
+    { id: "p1", proj: "playground", short: "A", color: 5, title: "Try the new SDK", status: "idle", why: "started by hand · turn done", place: "term", acct: "private", started: "10:40", termApp: "kitty" },
+  ];
+  P = [
+    { name: "orbit-api", daily: true, acct: "work" },
+    { name: "infra", daily: true, acct: "work" },
+    { name: "docs-site", daily: true, acct: "private" },
+    { name: "billing-ui", daily: true, acct: "work", last: "Invoice table paging" },
+    { name: "playground", daily: false, acct: "private", seen: "opened yesterday" },
+    { name: "homepage", daily: false, acct: "private", seen: "opened 3 days ago" },
   ];
   banner0 = false; sel = null; env ??= "x11"; desk ??= "yes"; dbl ??= "terminal"; pop = null; overlay = null; toast = null; dialog = false; nextColor = 5;
+  win ??= "project"; cur = "orbit-api"; autoStart ??= false;
   note("Click a session: details and the ways to it. Double-click (or Enter): go to it the default way. The small icon right of the status says where it runs; the teal arc means: reachable from anywhere (Remote Control).");
 }
 function note(t) { lastNote = t; document.getElementById("note").innerHTML = t; }
 const sessOf = (id) => S.find((s) => s.id === id);
+const projOf = (name) => P.find((p) => p.name === name);
+const liveIn = (name) => S.filter((s) => s.proj === name && s.status !== "ended");
+/** The session a project row stands for: today's session, else any live one (also hand-started) */
+const mainOf = (p) => liveIn(p.name).find((s) => s.daily) ?? liveIn(p.name)[0];
+const stLabel = (s) => ({ working: "working", waiting: "waiting", idle: s.place === "desktop" ? "known from log" : "idle", ended: "ended", starting: "starting…" })[s.status];
+const remoteIcon = (s) => s.remote && s.status !== "ended" ? `<span class="remote ${s.rcLost ? "lost" : ""}" title="${s.rcLost ? "Not reachable from your phone: " + s.rcLost : "Reachable from anywhere (Remote Control)"}">${ICON.remote}</span>` : "";
+const chip = (name) => `<span class="projchip" data-openp="${name}" title="Open ${name}">${name}</span>`;
 
 /** The ways to a session, in this order; `def` is the one double-click takes */
 function doors(s) {
@@ -181,44 +228,140 @@ function defaultDoor(s) {
 }
 
 function render() {
+  document.getElementById("app").classList.toggle("compact", win === "start");
   const side = document.getElementById("side");
-  const needs = S.filter((s) => s.status === "waiting");
-  const live = S.filter((s) => !s.earlier), earlier = S.filter((s) => s.earlier);
-  side.innerHTML = `
-    <div class="head"><span class="proj">orbit-api</span><span style="flex:1"></span>
-      <button class="ib ${dialog ? "open" : ""}" id="gear" title="Settings (Ctrl+,)">${ICON.gear}</button></div>
-    ${S.some((s) => s.lost) && !banner0 ? `<div class="restart"><b>Computer restarted</b><span>${S.filter((s) => s.lost).length} sessions were running in the background. Their conversations are kept.</span>${S.some((s) => s.lost && s.cut) ? `<span class="waiting">One turn was cut off: Changes shows what it had changed so far.</span>` : ""}<div class="row"><button class="btn pri" id="rall">Restore all</button><button class="btn" id="rno">Not now</button></div></div>` : ""}
-    ${needs.length ? `<div class="area">Needs you</div>` + needs.map((s) => `
-      <div class="needs" data-id="${s.id}" title="Double-click: go to it">${badge(s)}<span style="flex:1"><b style="color:#f5f6f7">${s.title}</b><br><span class="small waiting">${s.why}</span></span>
-        <span class="place">${ICON[s.place]}</span></div>`).join("") : ""}
+  side.innerHTML = win === "start" ? startPage() : projectColumn();
+  bindSide(side);
+  document.getElementById("foot").innerHTML = footText();
+  renderPop(); renderOverlay(); renderToast(); renderDialog();
+}
+const gearBtn = () => `<button class="ib ${dialog ? "open" : ""}" id="gear" title="Settings (Ctrl+,)">${ICON.gear}</button>`;
+function footText() {
+  const bg = S.filter((s) => s.place === "bg" && s.status !== "ended").length, r = S.filter((s) => s.remote && !s.rcLost && s.status !== "ended").length;
+  return `${bg} in background · <span class="remote">${ICON.remote.replace("<svg", '<svg width="12" height="12" style="vertical-align:-2px"')}</span> ${r} reachable from anywhere`;
+}
+function restartBanner() {
+  if (!S.some((s) => s.lost) || banner0) return "";
+  return `<div class="restart"><b>Computer restarted</b><span>${S.filter((s) => s.lost).length} sessions were running in the background. Their conversations are kept.</span>${S.some((s) => s.lost && s.cut) ? `<span class="waiting">One turn was cut off: Changes shows what it had changed so far.</span>` : ""}<div class="row"><button class="btn pri" id="rall">Restore all</button><button class="btn" id="rno">Not now</button></div></div>`;
+}
+/** Needs you over all projects; in a project its own come first, the others carry their project's name */
+function needsBlock() {
+  const needs = S.filter((s) => s.status === "waiting").sort((a, b) => (a.proj === cur && win === "project" ? 0 : 1) - (b.proj === cur && win === "project" ? 0 : 1));
+  if (!needs.length) return "";
+  return `<div class="area">Needs you</div>` + needs.map((s) => `
+    <div class="needs" data-id="${s.id}" title="Double-click: go to it">${badge(s)}<span style="flex:1;min-width:0"><b style="color:#f5f6f7">${s.title}</b> ${win === "start" || s.proj !== cur ? chip(s.proj) : ""}<br><span class="small waiting">${s.why}</span></span>
+      <span class="place">${ICON[s.place]}</span></div>`).join("");
+}
+function projectColumn() {
+  const here = S.filter((s) => s.proj === cur);
+  const live = here.filter((s) => !s.earlier), earlier = here.filter((s) => s.earlier);
+  return `
+    <div class="head"><button class="pm ${pop?.k === "projects" ? "open" : ""}" id="pm" title="Projects: today's list, start, switch, close">${cur} ▾</button><span style="flex:1"></span>${gearBtn()}</div>
+    ${restartBanner()}${needsBlock()}
     <div class="area">Sessions <span class="ml"><button class="plus ${pop?.k === "new" ? "open" : ""}" id="plus" title="Start a session in this project (Ctrl+Shift+N)">+ New</button></span></div>
     ${live.map(row).join("")}
     ${earlier.length ? `<div class="area">Earlier</div>` + earlier.map(row).join("") : ""}
     <div style="flex:1"></div>`;
+}
+function todayHead(withAuto) {
+  const n = P.filter((p) => p.daily && !mainOf(p)).length;
+  return `<div class="area">Today <span class="ml row" style="gap:8px">${withAuto ? `<label class="auto" title="Start today's projects whenever CodeDeck starts"><input type="checkbox" id="auto" ${autoStart ? "checked" : ""}>at start</label>` : ""}
+    <button class="plus" data-all ${n ? "" : "disabled"} title="${n ? "Start every project of today's list that has no session yet" : "All of today's projects are running"}">▶ All${n ? ` (${n})` : ""}</button></span></div>`;
+}
+function startPage() {
+  return `
+    <div class="head"><span class="logo"></span><span class="proj">CodeDeck</span><span style="flex:1"></span>
+      <button class="ib" id="openf" title="Open a project folder (Ctrl+O)">${ICON.folder}</button>${gearBtn()}</div>
+    ${restartBanner()}${needsBlock()}
+    ${todayHead(true)}
+    ${P.filter((p) => p.daily).map(projRow).join("")}
+    <div class="area">Other projects</div>
+    ${P.filter((p) => !p.daily).map(projRow).join("")}
+    <div style="flex:1"></div>
+    <div class="sfoot">${footText()}</div>`;
+}
+function projRow(p) {
+  const m = mainOf(p), n = liveIn(p.name).length;
+  const st = m ? `<span class="${m.status}">${stLabel(m)}</span> · ${m.why}` : p.daily ? (p.last ? `not running · ▶ continues “${p.last}”` : "not running · ▶ starts fresh") : p.seen ?? "";
+  return `<div class="prow ${win === "project" && p.name === cur ? "cur" : ""}" data-p="${p.name}" title="${m ? "Double-click: go to its session (" + (defaultDoor(m)?.label ?? "–") + ")" : ""}">
+    ${m ? badge(m) : `<span class="badge off"></span>`}
+    <span style="flex:1;min-width:0"><span class="pname" data-openp="${p.name}" title="Open ${p.name}">${p.name}</span>${n > 1 ? ` <span class="hint small">+${n - 1} more</span>` : ""}<small class="hint">${st}</small></span>
+    ${m ? `<span class="place" title="${PLACE_TEXT[m.place]}">${remoteIcon(m)}${ICON[m.place]}</span>` : p.daily ? `<button class="play" data-start="${p.name}" title="Start its session in the background (tmux, Remote Control). No project window opens.">▶</button>` : ""}
+    <button class="pin ${p.daily ? "on" : ""}" data-pin="${p.name}" title="${p.daily ? "Remove from today's list" : "Add to today's list"}">★</button>
+  </div>`;
+}
+function bindRows(root) {
+  root.querySelectorAll(".prow").forEach((el) => (el.ondblclick = (e) => {
+    if (e.target.closest("button, [data-openp]")) return;
+    const m = mainOf(projOf(el.dataset.p));
+    if (m) go(m); else note("No session runs there. ▶ starts it in the background; click the name to open the project.");
+  }));
+  root.querySelectorAll("[data-openp]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); openProject(b.dataset.openp); }));
+  root.querySelectorAll("[data-start]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); startDaily(projOf(b.dataset.start)); }));
+  root.querySelectorAll("[data-all]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); startAll(); }));
+  root.querySelectorAll("[data-pin]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); const p = projOf(b.dataset.pin); p.daily = !p.daily;
+    note(p.daily ? `${p.name} is on today's list: ▶ All and “at start” include it, with its start values (account, reachable from anywhere).` : `${p.name} is off today's list. Its sessions keep running; it just is not started for you any more.`); render(); }));
+}
+function bindSide(side) {
   side.querySelectorAll(".sess, .needs").forEach((el) => {
-    el.onclick = (e) => { if (e.target.closest("button")) return; sel = sel === el.dataset.id && el.classList.contains("sess") ? null : el.dataset.id; pop = null; render(); };
-    el.ondblclick = (e) => { if (e.target.closest("button")) return; go(sessOf(el.dataset.id)); };
+    el.onclick = (e) => { if (e.target.closest("button, [data-openp]")) return; sel = sel === el.dataset.id && el.classList.contains("sess") ? null : el.dataset.id; pop = null; render(); };
+    el.ondblclick = (e) => { if (e.target.closest("button, [data-openp]")) return; go(sessOf(el.dataset.id)); };
   });
   side.querySelectorAll("[data-door]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); open(sessOf(b.dataset.s), b.dataset.door, b); }));
   side.querySelectorAll("[data-ctl]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); control(sessOf(b.dataset.s), b.dataset.ctl); }));
   side.querySelectorAll("[data-cmd]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); const s = sessOf(b.dataset.cmd); s.showCmd = !s.showCmd; render(); }));
-  document.getElementById("plus").onclick = (e) => { e.stopPropagation(); pop = pop?.k === "new" ? null : { k: "new" }; render(); };
+  bindRows(side);
+  const plus = document.getElementById("plus");
+  if (plus) plus.onclick = (e) => { e.stopPropagation(); pop = pop?.k === "new" ? null : { k: "new" }; render(); };
+  const pm = document.getElementById("pm");
+  if (pm) pm.onclick = (e) => { e.stopPropagation(); pop = pop?.k === "projects" ? null : { k: "projects" };
+    if (pop) note("The project menu holds the start page's list: today's projects with ▶ and ▶ All, the other projects, Open folder and Close project. Same rows, same clicks as on the start page."); render(); };
+  const openf = document.getElementById("openf");
+  if (openf) openf.onclick = () => note("Opens a folder picker. From the start page the project opens in this window, from a project in a new one.");
+  const auto = document.getElementById("auto");
+  if (auto) auto.onchange = () => { autoStart = auto.checked; note(autoStart ? "From now on, when CodeDeck starts, it starts today's projects by itself (after restoring what a restart interrupted, so nothing runs twice). Try “CodeDeck started” above." : "CodeDeck no longer starts today's projects by itself; ▶ All stays."); render(); };
   const ra = document.getElementById("rall");
   if (ra) { ra.onclick = () => { const l = S.filter((s) => s.lost); l.forEach((s, i) => setTimeout(() => { s.lost = false; s.cut = false; control(s, "continue");
       if (i === 1) setTimeout(() => { s.status = "starting"; s.why = "reconnecting Remote Control…"; render(); setTimeout(() => { s.status = "idle"; s.why = "waiting for your prompt · reconnected"; render(); }, 1400); }, 1600); }, i * 500));
     setTimeout(() => note("First CodeDeck waits for the network. Then each session is continued with <code>--resume</code>. A: Remote Control came back on its own. B: no remote id within 60 s (\"Previous session is unavailable\"), so CodeDeck reconnected it once by itself with <code>--fork-session</code>; nobody was typing in it yet, so that is safe."), 700); };
     document.getElementById("rno").onclick = () => { banner0 = true; note("The banner goes; each session keeps \"Continue in background\" in its details."); render(); }; }
   document.getElementById("gear").onclick = () => { dialog = true; render(); };
-  document.getElementById("foot").innerHTML = `${S.filter((s) => s.place === "bg" && s.status !== "ended").length} in background · <span class="remote">${ICON.remote.replace("<svg", '<svg width="12" height="12" style="vertical-align:-2px"')}</span> ${S.filter((s) => s.remote && !s.rcLost && s.status !== "ended").length} reachable from anywhere`;
-  renderPop(); renderOverlay(); renderToast(); renderDialog();
+}
+function openProject(name) {
+  const was = win; win = "project"; cur = name; sel = null; pop = null;
+  note(was === "start" ? `${name} opens in this window, which leaves the sidebar form. There is no second start page now; its two parts stay: Needs you also lists other projects (with their name), and the project menu (click the name top left) holds today's list.`
+    : `In the app another project opens in a new window (as today); the dummy just switches.`);
+  render();
+}
+function startDaily(p, quiet) {
+  if (!p || mainOf(p)) return;
+  const used = new Set(S.filter((s) => s.proj === p.name).map((s) => s.short));
+  const short = "ABCDEFGH".split("").find((c) => !used.has(c));
+  const tm = env !== "notmux", was = p.last;
+  const s = { id: "d" + Date.now() + p.name, proj: p.name, daily: true, short, color: nextColor++ % 6, title: was ?? p.name, status: "starting", why: was ? "continuing…" : "starting…", place: tm ? "bg" : "term", tmux: `codeck-${p.name}`, remote: tm, acct: p.acct, started: "08:01", termApp: "gnome-terminal" };
+  p.last = null; S.push(s);
+  if (!quiet) note(was ? `Continues the project's last conversation (“${was}”) with <code>--resume</code> in tmux <code>codeck-${p.name}</code>, Remote Control on. You had not ended it yourself, so it goes on; for a fresh start use Restart or New task afterwards. No project window opens.`
+    : `Nothing to continue: a fresh session starts in tmux <code>codeck-${p.name}</code>. No project window opens.`);
+  render();
+  setTimeout(() => { s.status = "idle"; s.why = "waiting for your prompt"; render(); }, 1200 + Math.random() * 900);
+}
+function startAll() {
+  const daily = P.filter((p) => p.daily), todo = daily.filter((p) => !mainOf(p)), skip = daily.filter((p) => mainOf(p));
+  todo.forEach((p, i) => setTimeout(() => startDaily(p, true), i * 450));
+  note(`Starts ${todo.length} of today's projects one after the other, each continuing its last conversation where there is one. ${skip.length ? `Skipped, because a session already runs there (also one started by hand): ${skip.map((p) => p.name).join(", ")}. ` : ""}No project window opens; the rows show how they come up.`);
+}
+function morning() {
+  S = S.filter((s) => s.proj === "playground");
+  const last = { "orbit-api": "Auth refactor", infra: "Terraform upgrade", "docs-site": "Heading styles" };
+  for (const p of P) if (last[p.name]) p.last = last[p.name];
 }
 const badge = (s) => `<span class="badge" style="background:${COLORS[s.color]}">${s.short}</span>`;
 function row(s) {
-  const st = { working: "working", waiting: "waiting", idle: s.place === "desktop" ? "known from log" : "idle", ended: "ended", starting: "starting…" }[s.status];
+  const st = stLabel(s);
   const open = sel === s.id;
   return `<div class="sess ${open ? "sel" : ""} ${s.status === "ended" ? "dim" : ""}" data-id="${s.id}" title="${s.status === "ended" ? "" : "Double-click: " + (defaultDoor(s)?.label ?? "–")}">
     <div class="t">${badge(s)}<span class="title">${s.title}</span>
-      <span class="place" title="${PLACE_TEXT[s.place]}">${s.remote && s.status !== "ended" ? `<span class="remote ${s.rcLost ? "lost" : ""}" title="${s.rcLost ? "Not reachable from your phone: " + s.rcLost : "Reachable from anywhere (Remote Control)"}">${ICON.remote}</span>` : ""}${ICON[s.place]}</span></div>
+      <span class="place" title="${PLACE_TEXT[s.place]}">${remoteIcon(s)}${ICON[s.place]}</span></div>
     <div class="s"><span class="${s.status}">${st}</span><span>· ${s.why}</span></div>
     ${open ? detail(s) : ""}</div>`;
 }
@@ -237,8 +380,8 @@ function detail(s) {
        <button class="door" data-ctl="stop" data-s="${s.id}" title="Ends the session; the conversation is kept and can be continued">Stop</button>
        <button class="door" data-ctl="new" data-s="${s.id}" title="A fresh session in this project; this one stays as it is">New task</button>` : "";
   const cmds = {
-    bg: `tmux new-session -d -s ${s.tmux} -c ~/projects/orbit-api \\\n  -e CLAUDE_CONFIG_DIR=~/.claude-work \\\n  claude --session-id 3f2c…-${s.id} -n "${s.title}" --remote-control "${s.title}"`,
-    term: `claude   (pid 48211, in ${s.termApp}, window "orbit-api")`,
+    bg: `tmux new-session -d -s ${s.tmux} -c ~/projects/${s.proj} \\\n  -e CLAUDE_CONFIG_DIR=~/.claude-work \\\n  claude --session-id 3f2c…-${s.id} -n "${s.title}" --remote-control "${s.title}"`,
+    term: `claude   (pid 48211, in ${s.termApp}, window "${s.proj}")`,
     desktop: `Claude Desktop, profile ~/.config/claude-desktop-privat`,
   };
   return `<div class="detail">
@@ -260,7 +403,7 @@ function open(s, k, anchor) {
   pop = null;
   if (k === "terminal") {
     if (s.place === "term") {
-      if (env === "wayland") { note("Started by hand in a terminal, and on Wayland CodeDeck cannot bring another program's window to the front. It says where the session is instead."); toast = { text: `${s.short} runs in your ${s.termApp} window "orbit-api". CodeDeck cannot bring it to the front on Wayland.` }; render(); return; }
+      if (env === "wayland") { note("Started by hand in a terminal, and on Wayland CodeDeck cannot bring another program's window to the front. It says where the session is instead."); toast = { text: `${s.short} runs in your ${s.termApp} window "${s.proj}". CodeDeck cannot bring it to the front on Wayland.` }; render(); return; }
       note("CodeDeck knows the session's process (it came with the hook) and the terminal window it runs in, and brings that window to the front.");
       overlay = { k: "term", s }; render(); return;
     }
@@ -278,7 +421,7 @@ function open(s, k, anchor) {
   if (k === "ssh") { pop = { k: "ssh", s }; note("Copies the command that attaches to this session from another machine."); render(); return; }
 }
 function control(s, k) {
-  if (k === "continue") { s.earlier = false; s.status = "starting"; s.why = "continuing…"; s.place = "bg"; s.remote = true; s.tmux = `codeck-orbit-api-${s.short}`;
+  if (k === "continue") { s.earlier = false; s.status = "starting"; s.why = "continuing…"; s.place = "bg"; s.remote = true; s.tmux = s.tmux ?? `codeck-${s.proj}-${s.short}`;
     note("Starts <code>claude --resume &lt;id&gt;</code> in a new tmux session. The history is the same; from now on it runs in the background."); render();
     setTimeout(() => { s.status = "idle"; s.why = "waiting for your prompt"; render(); }, 1400); return; }
   if (k === "reconnect") {
@@ -299,9 +442,21 @@ function renderPop() {
   const el = document.createElement("div");
   el.className = "pop";
   el.style.cssText = "right:10px;top:76px;width:310px";
+  if (pop.k === "projects") {
+    el.style.cssText = "left:8px;top:40px;width:318px;padding:4px 0 10px;gap:0";
+    el.innerHTML = `${todayHead(false)}${P.filter((p) => p.daily).map(projRow).join("")}
+      <div class="area">Other projects</div>${P.filter((p) => !p.daily).map(projRow).join("")}
+      <div class="row" style="padding:10px 12px 0;margin-top:6px;border-top:1px solid #3a3f46"><button class="btn" id="openf2">Open folder…</button><span style="flex:1"></span><button class="btn" id="closep" title="This window becomes the start page">Close project</button></div>`;
+    side.appendChild(el);
+    bindRows(el);
+    el.querySelector("#openf2").onclick = () => note("Opens a folder picker; the project opens in a new window.");
+    el.querySelector("#closep").onclick = () => { win = "start"; pop = null; sel = null;
+      note("Close project, and closing the last project window, turn the window into the start page in sidebar form. CodeDeck keeps running and keeps watching every session. Quit is in the ⋯ menu (later also in the tray)."); render(); };
+    return;
+  }
   if (pop.k === "new") {
     const tm = env !== "notmux";
-    el.innerHTML = `<h4>New session in orbit-api</h4>
+    el.innerHTML = `<h4>New session in ${cur}</h4>
       <label>Name (optional)<input type="text" id="nn" placeholder="e.g. Rate limiting" value=""></label>
       <label>Account<select id="na"><option value="work"${pop.from?.acct !== "private" ? " selected" : ""}>● Work · ~/.claude-work</option><option value="private"${pop.from?.acct === "private" ? " selected" : ""}>● Private · ~/.claude-private</option></select></label>
       <label class="chk"><input type="checkbox" id="nr" ${tm ? "checked" : "disabled"}><span>Reachable from anywhere<br><small class="hint">Remote Control: also in Claude Desktop, the browser and the Claude app</small></span></label>
@@ -313,10 +468,10 @@ function renderPop() {
     el.querySelector("#nc").onclick = () => { pop = null; render(); };
     const start = () => {
       const name = el.querySelector("#nn").value.trim() || "New session";
-      const used = new Set(S.map((s) => s.short));
-      const short = "FGHIJK".split("").find((c) => !used.has(c));
-      const s = { id: "n" + Date.now(), short, color: nextColor++ % 6, title: name, status: "starting", why: "starting…", place: tm ? "bg" : "term", tmux: `codeck-orbit-api-${short}`, remote: el.querySelector("#nr").checked, acct: el.querySelector("#na").value, started: "11:58", termApp: "gnome-terminal" };
-      S.splice(S.findIndex((x) => x.earlier) === -1 ? S.length : S.findIndex((x) => x.earlier), 0, s);
+      const used = new Set(S.filter((s) => s.proj === cur).map((s) => s.short));
+      const short = "ABCDEFGHIJK".split("").find((c) => !used.has(c));
+      const s = { id: "n" + Date.now(), proj: cur, short, color: nextColor++ % 6, title: name, status: "starting", why: "starting…", place: tm ? "bg" : "term", tmux: `codeck-${cur}-${short}`, remote: el.querySelector("#nr").checked, acct: el.querySelector("#na").value, started: "11:58", termApp: "gnome-terminal" };
+      S.push(s);
       pop = null; sel = s.id;
       note(tm ? "The session appears at once as \"starting\", then hooks report it. CodeDeck gave it its id up front (<code>--session-id</code>), so there is nothing to match up. Double-click to go to it." : "Without tmux: a terminal window opens with the session. It is watched like any other, but ends with its window.");
       render();
@@ -366,7 +521,7 @@ function renderOverlay() {
   el.style.cssText = "left:8%;top:6%;width:min(760px,80vw);height:72%";
   if (overlay.k === "term") {
     const tmux = s.place === "bg";
-    el.innerHTML = `<div class="bar">${tmux ? `tmux: ${s.tmux}` : `${s.termApp}: orbit-api`}<span class="x">×</span></div>
+    el.innerHTML = `<div class="bar">${tmux ? `tmux: ${s.tmux}` : `${s.termApp}: ${s.proj}`}<span class="x">×</span></div>
       <div class="term">╭─────────────────────────────────────────────────────╮
 │ ✻ Claude Code  ·  ${s.title.padEnd(32)}│
 ╰─────────────────────────────────────────────────────╯
@@ -388,12 +543,12 @@ ${s.status === "waiting" ? `
 `}
 ${s.remote ? "  /rc active · claude.ai/code/session_01…" : ""}
 
-${tmux ? `<span class="st">[${s.tmux}] 0:claude*                          "orbit-api" 11:58</span>` : ""}</div>`;
+${tmux ? `<span class="st">[${s.tmux}] 0:claude*                          "${s.proj}" 11:58</span>` : ""}</div>`;
   } else if (overlay.k === "desktop") {
     el.innerHTML = `<div class="bar">Claude${s.acct === "private" ? " (Privat)" : " (Work)"}<span class="x">×</span></div>
       <div class="desk"><div class="nav"><b style="padding:5px 7px">Code</b>${S.filter((x) => x.remote || x.place === "desktop").filter((x) => x.status !== "ended").map((x) => `<div class="${x.id === s.id ? "on" : ""}">${x.place === "desktop" ? "" : "⇄ "}${x.title}</div>`).join("")}
         <div style="margin-top:auto;color:#8b877c;font-size:11px">⇄ = remote session on this computer</div></div>
-      <div class="conv"><div style="color:#8b877c;font-size:12px">${s.place === "desktop" ? "Local session · ~/projects/orbit-api" : "Remote Control · workstation · ~/projects/orbit-api"}</div>
+      <div class="conv"><div style="color:#8b877c;font-size:12px">${s.place === "desktop" ? "Local session · ~/projects/${s.proj}" : "Remote Control · workstation · ~/projects/${s.proj}"}</div>
         <div class="bubble">${s.status === "waiting" ? "Run the tests after the refactor" : "Refresh the endpoint docs from the OpenAPI spec"}</div>
         <div>${s.status === "waiting" ? "Claude wants to run <code>npm test</code>. <b>Allow</b> · <b>Deny</b>" : "Updated docs/api.md with 4 new endpoints…"}</div></div></div>`;
   } else {
@@ -416,7 +571,7 @@ function renderToast() {
   const el = document.createElement("div");
   el.className = "toast";
   el.innerHTML = toast.s
-    ? `<b>CodeDeck · orbit-api</b><span>${badge(toast.s)} ${toast.s.title} needs your permission: npm test</span><div class="row"><button class="btn" id="tx">Dismiss</button><button class="btn pri" id="to">Open</button></div>`
+    ? `<b>CodeDeck · ${toast.s.proj}</b><span>${badge(toast.s)} ${toast.s.title} needs your permission: npm test</span><div class="row"><button class="btn" id="tx">Dismiss</button><button class="btn pri" id="to">Open</button></div>`
     : `<span>${toast.text}</span><div class="row"><button class="btn" id="tx">OK</button></div>`;
   document.getElementById("stage").appendChild(el);
   el.querySelector("#tx").onclick = () => { toast = null; render(); };
@@ -438,12 +593,14 @@ function renderDialog() {
     <div class="set"><span>New sessions reachable from anywhere<small>Remote Control on at start; change it per session</small></span><input type="checkbox" checked></div>
     <div class="set"><span>After a computer restart<small>Background sessions that were running</small></span>
       <select><option>Ask</option><option>Restore automatically</option><option>Do nothing</option></select></div>
-    <div class="set"><span>Start CodeDeck when I log in<small>Needed to restore without a click</small></span><input type="checkbox"></div>
+    <div class="set"><span>Start today's projects when CodeDeck starts<small>Same as “at start” on the start page</small></span><input type="checkbox" id="dauto" ${autoStart ? "checked" : ""}></div>
+    <div class="set"><span>Start CodeDeck when I log in <span class="projchip" style="cursor:default">to decide</span><small>Needed to restore without a click; maybe only in the tray</small></span><input type="checkbox"></div>
     <div class="set"><span>Desktop profile per account<small>Which Claude Desktop starts for which account</small></span><span class="link">Accounts…</span></div>
     <div class="row" style="justify-content:flex-end"><button class="btn pri" id="dc">Done</button></div></div>`;
   document.getElementById("app").appendChild(el);
   el.querySelectorAll("[data-dbl]").forEach((b) => (b.onclick = () => { dbl = b.dataset.dbl; note(`Double-click now opens ${b.textContent} first; a session that cannot be opened there falls back to the next way.`); render(); }));
   el.querySelector("#dc").onclick = () => { dialog = false; render(); };
+  el.querySelector("#dauto").onchange = (e) => { autoStart = e.target.checked; render(); };
 }
 
 document.querySelectorAll("[data-env]").forEach((b) => (b.onclick = () => { env = b.dataset.env; marks(); note({ x11: "X11 with tmux: everything works, windows of other programs can be brought to the front.", wayland: "Wayland: other programs' windows cannot be raised. CodeDeck opens a new terminal on the tmux session instead, or says where a hand-started session is.", notmux: "No tmux: + New still works, but the session lives in a terminal window and ends with it. CodeDeck shows how to install tmux." }[env]); render(); }));
@@ -473,12 +630,20 @@ document.getElementById("rclost").onclick = () => {
   render();
 };
 document.getElementById("reset").onclick = () => { reset(); marks(); render(); };
+document.querySelectorAll("[data-win]").forEach((b) => (b.onclick = () => { win = b.dataset.win; pop = null; sel = null; marks();
+  note(win === "start" ? "No project open: the window is the start page, always in sidebar form. Needs you over all projects, today's list with ▶ and ▶ All, the other projects. Double-click a row: go to its session. Click a name: open the project." : "A project is open. Click its name (top left) for the project menu with today's list; Needs you also shows other projects."); render(); }));
+document.getElementById("launch").onclick = () => {
+  reset(); morning(); win = "start"; marks();
+  if (autoStart) { render(); setTimeout(() => { startAll(); note("CodeDeck started with “at start” on: first it restores what a restart interrupted (nothing here), then it starts today's projects one after the other, each continuing its last conversation. No project opens; the window is the start page."); }, 500); }
+  else { note("CodeDeck started, no project open: the window comes up as the start page in sidebar form. Today's projects are not running yet; ▶ All starts them, “at start” does it every time CodeDeck starts. The hand-started session in playground was found on its own."); render(); }
+};
 document.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && sel && !pop && !dialog && !overlay) go(sessOf(sel));
   if (e.key === "Escape") { if (overlay) back(); else { pop = null; dialog = false; render(); } }
-  if (e.key === "N" && e.ctrlKey && e.shiftKey) { e.preventDefault(); pop = { k: "new" }; render(); }
+  if (e.key === "N" && e.ctrlKey && e.shiftKey && win === "project") { e.preventDefault(); pop = { k: "new" }; render(); }
 });
 function marks() {
+  document.querySelectorAll("[data-win]").forEach((b) => b.classList.toggle("on", b.dataset.win === win));
   document.querySelectorAll("[data-env]").forEach((b) => b.classList.toggle("on", b.dataset.env === env));
   document.querySelectorAll("[data-desk]").forEach((b) => b.classList.toggle("on", b.dataset.desk === desk));
 }

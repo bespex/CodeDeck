@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { NewsTag, newsClass } from "../News";
+import { hintKey, markSeen, useNews } from "../../news";
 import { ClipboardCopy, ExternalLink, Paperclip } from "lucide-react";
 import { openFile, type HarnessInfo, type Marker } from "../../backend";
 import { useConnections } from "../../assistant";
@@ -16,6 +18,7 @@ import { Tooltip, TooltipHint } from "../Tooltip";
  * staying lit once attached.
  */
 export function HintsTile({ marks, harness }: { marks: Markers; harness: HarnessInfo }) {
+  const news = useNews();
   const { markers, error, sent, done } = marks;
   const attached = hints.use();
   const enabled = useAttachEnabled();
@@ -127,10 +130,17 @@ export function HintsTile({ marks, harness }: { marks: Markers; harness: Harness
               <ul>
                 {list.map((m) => {
                   const on = isAttached(m);
+                  const item = { key: hintKey(m.path, m.text), time: 0 };
+                  const fresh = news.of(item);
                   return (
-                    <li key={m.line} className="group flex min-h-6 items-start gap-2 rounded px-1 py-0.5 hover:bg-raised/50">
+                    <li
+                      key={m.line}
+                      onClickCapture={() => fresh && markSeen(item)}
+                      className={`group flex min-h-6 items-start gap-2 rounded px-1 py-0.5 hover:bg-raised/50 ${newsClass(fresh)}`}
+                    >
                       <span className="w-7 shrink-0 pt-px text-right font-mono text-[11px] text-slate-500 tabular-nums">{m.line}</span>
                       <span className="selectable min-w-0 flex-1 text-slate-300">{m.text}</span>
+                      <NewsTag news={fresh} />
                       {canAttach && (
                         <Tooltip content={<span>{on ? t("Attached to your next prompt; click to remove it") : t("Attach to next prompt")}</span>} className="flex shrink-0">
                           <button

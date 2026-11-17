@@ -146,6 +146,20 @@ Wenige Regler mit festen Stufen. Jeder wirkt an genau einer Stelle, die die Komp
 Bewusst **nicht** regelbar: Schriftgröße und Dichte (das ist Zoom und Barrierefreiheit, gehört in eine
 eigene Einstellung), Abstände, Anordnung, Icons.
 
+## B4b „Wartet auf dich“ und „neu“: Karten statt Flächen
+
+Für alle Themes (Nutzer 2026-11-17, Variante B aus `design/click-dummy/attention.html`): Einträge unter „Wartet auf
+dich“ sind erhabene Karten (`raised`) mit feiner Umrandung, bernsteinfarben (`wait`), wenn die Sitzung fragt. Der
+Bereich selbst wird nicht mehr getönt, denn Bernstein auf Grau wird braun. Ein neuer Eintrag gleitet herein, seine
+Umrandung leuchtet kurz in der Farbe des Ereignisses und beruhigt sich. Dieselbe Form zeigt **Neues in der Werkbank**
+(noch nicht gesehen, `src/news.ts`): Karte mit Umrandung in der KI-Farbe und dem Wort „neu“ bzw. „geändert“.
+Laute Themes (`events: loud`) tönen die Karten zusätzlich; `focus` tut das nicht mehr.
+
+Die übrigen Bereiche der rechten Spalte (Sitzungen, Nächster Prompt) haben **keine eigene Tönung** mehr: Sie standen
+sonst stärker hervor als „Wartet auf dich“, in Farben, die sonst nirgends vorkommen. Die Zahl in der Überschrift von
+„Wartet auf dich“ ist bernsteinfarben, solange eine Sitzung fragt, sonst neutral. Die Bereichsfarbe `area-you` bleibt,
+wo sie etwas bedeutet: deine Zeilenkommentare im Diff. Themes mit `zones` färben die Spalte als Ganzes.
+
 ## B4a Transparenz und Verläufe: was erlaubt ist
 
 Beides macht Themes lebendiger, gefährdet aber zwei Grundsätze: Lesbarkeit (was hinter einer Fläche liegt,

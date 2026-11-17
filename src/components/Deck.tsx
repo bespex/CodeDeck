@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { hintKey, lookingAtWorkbench, outsideKey, pageKey, reportNews, useNews } from "../news";
 import { Bell } from "lucide-react";
 import { Trail, type Point } from "./Trail";
 import { ActivityView } from "./views/ActivityView";
@@ -14,7 +15,7 @@ import { useHistory, useSnapshots } from "../history";
 import { useMarkers } from "../markers";
 import { useAttachedCount } from "./AttachmentList";
 import { useView, type ViewId } from "../view";
-import { t } from "../i18n";
+import { plural, t } from "../i18n";
 import { Tooltip, ToolTipBody } from "./Tooltip";
 import { Splitter } from "./Splitter";
 import type { Side } from "../layout";
@@ -46,6 +47,20 @@ export function Deck({ git, selected, assistant, onResize }: Props) {
   const marks = useMarkers();
   const attachedCount = useAttachedCount();
   const openMarkers = marks.markers?.length ?? 0;
+  const news = useNews();
+  // What the Workbench shows besides the scratch folder, for "new" (the scratch folder reports itself)
+  useEffect(() => {
+    reportNews("outside", assistant.found.outside.filter((f) => !f.fetched).map((f) => ({ key: outsideKey(f.path), time: f.at })));
+    reportNews("pages", assistant.found.pages.map((p) => ({ key: pageKey(p.url), time: p.at })));
+  }, [assistant.found]);
+  useEffect(() => {
+    if (marks.markers) reportNews("hints", marks.markers.map((m) => ({ key: hintKey(m.path, m.text), time: 0 })));
+  }, [marks.markers]);
+  // Looking at the Workbench: leaving it after a real look makes what is there seen
+  useEffect(() => {
+    lookingAtWorkbench(view === "workbench");
+    return () => lookingAtWorkbench(false);
+  }, [view]);
   const changed = git.changed;
 
   // The repository of the selection: on the trail its commits stay bright, others fade
@@ -126,6 +141,9 @@ export function Deck({ git, selected, assistant, onResize }: Props) {
               }`}
             >
               {t(label)}
+              {id === "workbench" && news.count > 0 && (
+                <span title={plural(news.count, "new entry")} className="size-1.5 shrink-0 rounded-full bg-brand" />
+              )}
               {badge !== undefined && (
                 <span className="count-badge rounded-full bg-brand/20 px-1.5 text-[11px] font-semibold text-brand-soft">
                   {badge}

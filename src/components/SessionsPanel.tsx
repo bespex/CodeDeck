@@ -79,17 +79,19 @@ const markOf = (s: Session, known: SessionMark | null): SessionMark =>
   known ?? { color: `var(--color-session-${s.color})`, short: s.short, title: s.title };
 
 /** The heading of an area: small capitals, as quiet as the area itself. */
-function AreaHeader({ title, count, hint, children }: { title: string; count?: number; hint?: string; children?: ReactNode }) {
+function AreaHeader({ title, count, hint, asks, children }: { title: string; count?: number; hint?: string; asks?: boolean; children?: ReactNode }) {
+  // The count is amber only while a session asks; finished turns alone are no call for attention
+  const badge = `rounded-full px-1.5 text-[11px] font-semibold ${asks ? "bg-changed text-[var(--t-on-wait,var(--color-base))]" : "bg-raised text-slate-200"}`;
   return (
     <header className="flex h-9 shrink-0 items-center gap-2 px-3">
       <h2 className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{title}</h2>
       {!!count &&
         (hint ? (
           <Tooltip content={<span>{hint}</span>}>
-            <span className="rounded-full bg-changed/25 px-1.5 text-[11px] font-semibold text-changed">{count}</span>
+            <span className={badge}>{count}</span>
           </Tooltip>
         ) : (
-          <span className="rounded-full bg-changed/25 px-1.5 text-[11px] font-semibold text-changed">{count}</span>
+          <span className={badge}>{count}</span>
         ))}
       {children && <div className="ml-auto flex min-w-0 items-center gap-1">{children}</div>}
     </header>
@@ -111,10 +113,12 @@ function NeedsYou({ state }: { state: AssistantState }) {
   const waiting = useWaiting(state);
 
   return (
-    <section className={`flex max-h-[40vh] min-h-0 flex-col border-b border-line ${waiting.length > 0 ? "area-wait" : ""}`}>
+    // No tinted area (amber on grey turns brown): the cards below carry the colour (user, 2026-11-17)
+    <section className="flex max-h-[40vh] min-h-0 flex-col border-b border-line">
       <AreaHeader
         title={t("Needs you")}
         count={waiting.length}
+        asks={waiting.some((s) => needsYou(s) === "asks")}
         hint={t("{asking} asking, {done} finished within the last 30 minutes", {
           asking: waiting.filter((s) => needsYou(s) === "asks").length,
           done: waiting.filter((s) => needsYou(s) === "done").length,
@@ -126,7 +130,8 @@ function NeedsYou({ state }: { state: AssistantState }) {
         // Rows like the sessions below, not cards: calmer, and the same reading. What stands out is
         // what counts: the area's tint and count, a question's edge and words in amber, and a new
         // entry pulsing a few times
-        <ul className="min-h-0 divide-y divide-line/70 overflow-y-auto border-y border-line/70">
+        // Room around the cards, most below: they end where "Sessions" begins
+        <ul className="flex min-h-0 flex-col gap-2 overflow-y-auto px-2.5 pt-1 pb-3.5">
           {waiting.map((s) => {
             const asks = needsYou(s) === "asks";
             return (
@@ -137,9 +142,8 @@ function NeedsYou({ state }: { state: AssistantState }) {
                 onMouseLeave={() => marks.hover(null)}
                 // `data-event`: a theme can make the reason stand out in its colour (docs/STYLING.md, `events`)
                 data-event={asks ? "waiting" : "done"}
-                className={`event-row group/wait relative py-1.5 pr-1.5 pl-3 ${waitsSince(s) > OPENED_AT ? "attention-new" : ""}`}
+                className={`event-row wait-card group/wait relative rounded-md bg-raised py-1.5 pr-1.5 pl-2.5 ${asks ? "wait-card-asks" : ""} ${waitsSince(s) > OPENED_AT ? "attention-new" : ""}`}
               >
-                {asks && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-changed" />}
                 <div className="flex items-center gap-2">
                   <SessionBadge mark={markOf(s, marks.of(s.id))} />
                   <span className="min-w-0 flex-1 truncate font-medium text-slate-100">{titleOf(s)}</span>
@@ -237,7 +241,8 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
   const [showEarlier, setShowEarlier] = useState(false);
   const Fold = showEarlier ? ChevronDown : ChevronRight;
   return (
-    <section className="flex min-h-0 flex-col border-b border-line area-ai">
+    // No tint of its own (user, 2026-11-17): it stood out more than "Needs you"; a theme with zones colours the column
+    <section className="flex min-h-0 flex-col border-b border-line">
       <AreaHeader title={t("Sessions")} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {state.sessions.length > 0 ? (
@@ -513,7 +518,7 @@ function NextPrompt({ assistant, onPin }: Props) {
 
   return (
     <section
-      className={`flex min-h-0 flex-col area-you transition-shadow ${over ? "shadow-[inset_0_0_0_1px_var(--color-ai)]" : ""}`}
+      className={`flex min-h-0 flex-col transition-shadow ${over ? "shadow-[inset_0_0_0_1px_var(--color-ai)]" : ""}`}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes(DRAG_TYPE)) {
           e.preventDefault();

@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from "react";
+import { NewsTag, newsClass } from "../News";
+import { markSeen, outsideKey, pageKey, useNews } from "../../news";
 import { ArrowDownToLine, Check, Copy, ExternalLink, Eye, FileText, FolderOpen, Globe, X } from "lucide-react";
 import { fetchOutside, forgetFound, openOutside, openUrl, type OutsideFile, type PublishedPage } from "../../backend";
 import { shortId, useSessionMarks } from "../../assistant";
@@ -73,6 +75,7 @@ function OutsideFiles({ files }: { files: OutsideFile[] }) {
   const [error, setError] = useState<string | null>(null);
   const { items, more } = useShowAll(files);
   const now = Date.now();
+  const news = useNews();
   const fetch = async (path: string) => {
     try {
       await fetchOutside(path);
@@ -89,13 +92,16 @@ function OutsideFiles({ files }: { files: OutsideFile[] }) {
         {items.map((f) => {
           const slash = f.path.lastIndexOf("/");
           const [dir, name] = [f.path.slice(0, slash + 1), f.path.slice(slash + 1)];
+          const item = { key: outsideKey(f.path), time: f.at };
+          const fresh = f.fetched ? null : news.of(item);
           return (
             <li
               key={f.path}
+              onClickCapture={() => fresh && markSeen(item)}
               // As in the file list: double click views, middle click edits
               onDoubleClick={() => void openOutside(f.path, "view")}
               onAuxClick={(e) => e.button === 1 && void openOutside(f.path, "edit")}
-              className="group flex min-h-9 items-center gap-2 px-1 py-1"
+              className={`group flex min-h-9 items-center gap-2 px-1 py-1 ${newsClass(fresh)}`}
             >
               <FileText className="size-3.5 shrink-0 text-slate-400" />
               <div className="min-w-0 flex-1">
@@ -103,6 +109,9 @@ function OutsideFiles({ files }: { files: OutsideFile[] }) {
                   {/* A long folder is cut at its start; the name stays */}
                   <span className="min-w-0 truncate text-slate-500 [direction:rtl]">{dir}</span>
                   <span className="shrink-0 text-slate-200">{name}</span>
+                  <span className="ml-2 inline-flex">
+                    <NewsTag news={fresh} />
+                  </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
                   {f.fetched ? (
@@ -154,15 +163,22 @@ function OnlinePages({ pages }: { pages: PublishedPage[] }) {
   const [copied, setCopied] = useState<string | null>(null);
   const { items, more } = useShowAll(pages);
   const now = Date.now();
+  const news = useNews();
   return (
     <>
       <Group>{t("Online")}</Group>
       <Rows>
-        {items.map((p) => (
-          <li key={p.url} className="group flex min-h-9 items-center gap-2 px-1 py-1">
+        {items.map((p) => {
+          const item = { key: pageKey(p.url), time: p.at };
+          const fresh = news.of(item);
+          return (
+          <li key={p.url} onClickCapture={() => fresh && markSeen(item)} className={`group flex min-h-9 items-center gap-2 px-1 py-1 ${newsClass(fresh)}`}>
             <Globe className="size-3.5 shrink-0 text-slate-400" />
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px] text-slate-200">{p.title}</div>
+              <div className="flex items-center gap-2">
+                <span className="truncate text-[13px] text-slate-200">{p.title}</span>
+                <NewsTag news={fresh} />
+              </div>
               <div className="truncate font-mono text-[11px] text-slate-500">{p.url}</div>
               <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
                 <span>{age(p.at, now)}</span>
@@ -189,7 +205,8 @@ function OnlinePages({ pages }: { pages: PublishedPage[] }) {
               </IconButton>
             </div>
           </li>
-        ))}
+          );
+        })}
       </Rows>
       {more}
     </>

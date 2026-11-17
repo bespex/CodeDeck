@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CodeDeck: "Needs you", three alternatives, click dummy</title>
+<style>
+  /* Colours of the default theme "CodeDeck" (src/themes/codedeck.json) */
+  :root {
+    --base: #1b1e22; --panel: #24272c; --raised: #2e3238; --line: #3a3f46;
+    --n50: #f5f6f7; --n100: #e8eaec; --n300: #b9bec4; --n400: #a9afb5; --n500: #959ca4; --n600: #757c84;
+    --wait: #e0a868; --done: #9cc39a; --ai: #818cf8; --s0: #7f95ff; --s2: #4fc9bd; --s1: #c08cf5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: #101214; color: var(--n300); font: 13px/1.45 system-ui, "Noto Sans", sans-serif; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+  /* Not part of the product */
+  .lab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 14px; background: #f0efe9; color: #2a2a2a; }
+  .lab b { font-size: 12px; }
+  .lab button { height: 24px; padding: 0 10px; border-radius: 12px; border: 1px solid #b9b7ad; background: #fff; font-size: 12px; }
+  .note { padding: 6px 14px; background: #fbf3e0; color: #5a4a1f; font-size: 12px; border-bottom: 1px solid #e3d6ae; }
+  .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; padding: 14px; }
+  .variant { display: flex; flex-direction: column; gap: 8px; }
+  .variant h2 { margin: 0; font-size: 13px; color: #f0efe9; }
+  .variant p.why { margin: 0; font-size: 12px; color: #a9afb5; min-height: 52px; }
+  /* The product: the right column, as far as it matters here */
+  .col { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .head { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid var(--line); color: var(--n50); font-weight: 600; }
+  .area { display: flex; align-items: center; gap: 6px; padding: 8px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--n400); }
+  .count { min-width: 18px; height: 16px; padding: 0 5px; border-radius: 8px; font-size: 10.5px; letter-spacing: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--raised); color: var(--n100); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { position: relative; padding: 6px 10px 6px 12px; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .badge { width: 18px; height: 18px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 700; border: 1px solid currentColor; flex-shrink: 0; }
+  .title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--n100); font-weight: 500; }
+  .sub { padding-left: 26px; font-size: 12px; color: var(--n400); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; white-space: nowrap; }
+  .chip i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .sessions li { border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+  .dim { color: var(--n500); }
+
+  /* ---- Today: area tinted amber, filled label, row tinted, the whole row flashes ---- */
+  .today .needs { background: color-mix(in srgb, var(--wait) 9%, var(--panel)); }
+  .today li.asks { background: color-mix(in srgb, var(--wait) 14%, transparent); box-shadow: inset 2px 0 0 var(--wait); }
+  .today .asks .chip { background: var(--wait); color: var(--base); padding: 0 7px 0 5px; border-radius: 9px; font-weight: 600; }
+  .today .done .chip { color: var(--done); }
+  .today li.new { animation: rowflash 1.1s ease-in-out 3; }
+  @keyframes rowflash { 50% { background-color: color-mix(in srgb, var(--wait) 34%, transparent); } }
+
+  /* ---- A: Edge and label. Neutral area, the waiting row has an amber edge; new: the label pulses ---- */
+  .a li.asks::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 0 2px 2px 0; background: var(--wait); }
+  .a .asks .chip { color: var(--wait); border: 1px solid color-mix(in srgb, var(--wait) 60%, transparent); padding: 0 7px 0 5px; border-radius: 9px; font-weight: 600; }
+  .a .done .chip { color: var(--done); }
+  .a li.done::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 0 2px 2px 0; background: color-mix(in srgb, var(--done) 70%, transparent); }
+  .a .needs .count { background: var(--wait); color: var(--base); }
+  .a li.new::before { animation: edgein .5s ease-out; }
+  .a li.new .chip { animation: chippulse 1.4s ease-in-out 3; }
+  @keyframes edgein { from { transform: scaleY(0); } }
+  @keyframes chippulse { 50% { background: var(--wait); color: var(--base); box-shadow: 0 0 0 4px color-mix(in srgb, var(--wait) 22%, transparent); } }
+
+  /* ---- B: Card. Waiting entries are raised cards with a fine amber outline; new: the outline glows and settles ---- */
+  .b .needs ul { display: flex; flex-direction: column; gap: 6px; padding: 2px 8px 8px; }
+  .b .needs li { border-radius: 6px; background: var(--raised); padding: 7px 10px; }
+  .b li.asks { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wait) 70%, transparent); }
+  .b li.done { box-shadow: inset 0 0 0 1px var(--line); }
+  .b .asks .chip { color: var(--wait); font-weight: 600; }
+  .b .done .chip { color: var(--done); }
+  .b .needs .count { background: color-mix(in srgb, var(--wait) 25%, var(--raised)); color: var(--wait); }
+  .b li.new { animation: cardin .45s ease-out, cardglow 2.6s ease-out; }
+  @keyframes cardin { from { transform: translateY(-6px); opacity: 0; } }
+  @keyframes cardglow { 0%, 30% { box-shadow: inset 0 0 0 1px var(--wait), 0 0 0 3px color-mix(in srgb, var(--wait) 35%, transparent), 0 0 18px color-mix(in srgb, var(--wait) 30%, transparent); } }
+
+  /* ---- C: Heading and "new". Only the heading carries the colour; a new entry wears "new" until it is looked at ---- */
+  .c .needs { border-top: 2px solid var(--wait); }
+  .c .needs .area { color: var(--wait); }
+  .c .needs .count { background: var(--wait); color: var(--base); }
+  .c .asks .chip { color: var(--wait); font-weight: 600; }
+  .c .done .chip { color: var(--done); }
+  .tag { display: none; }
+  .c .tag { margin-left: 4px; padding: 0 5px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: .05em; color: var(--base); background: var(--wait); }
+  .c li.new .tag { display: inline-block; animation: tagin .4s ease-out; }
+  .c li.new { animation: slidein .4s ease-out; }
+  .c li:hover .tag { display: none; }
+  @keyframes tagin { from { transform: scale(.6); opacity: 0; } }
+  @keyframes slidein { from { transform: translateX(10px); opacity: 0; } }
+</style>
+</head>
+<body>
+<div class="lab">
+  <b>"Needs you": today and three alternatives, dummy</b>
+  <button id="add">A session asks now</button>
+  <button id="done">A turn finished now</button>
+  <button id="reset">Reset</button>
+</div>
+<div class="note">Same right column four times, in the colours of "CodeDeck". The buttons add a new entry to all four at once. None of the alternatives tints the area: no brown on grey. In C, pointing at the new entry takes "new" away (in the app: after a while, or once you looked).</div>
+<div class="grid" id="grid"></div>
+<script>
+const VARIANTS = [
+  { k: "today", name: "Today", why: "The whole area tinted amber, the row tinted, the whole row flashes. Amber on grey turns brown; the flash is a patch, not a pointer." },
+  { k: "a", name: "A · Edge and label", why: "Neutral area. A waiting row has an amber edge on the left (finished: sage) and an outlined label. New: the edge grows in, the label lights up three times." },
+  { k: "b", name: "B · Card", why: "Waiting entries become raised cards with a fine outline, amber when asking. New: the card slides in, its outline glows and settles. Most structure, no fill colour." },
+  { k: "c", name: "C · Heading and \"new\"", why: "Only the heading carries the colour (a line and its count). Rows stay plain, the words in their colour. A new entry wears \"NEW\" until you looked. Calmest." },
+];
+const BASE = [
+  { id: 1, kind: "asks", short: "A", color: "--s0", title: "Limiter documentation", sub: "Claude needs your permission to use Bash" },
+  { id: 2, kind: "done", short: "C", color: "--s2", title: "Config defaults", sub: "Waits for your next prompt" },
+];
+let entries, nextId;
+function reset() { entries = BASE.map((e) => ({ ...e })); nextId = 3; render(); }
+function chip(e) { return e.kind === "asks" ? `<span class="chip"><i></i>asks</span>` : `<span class="chip"><i></i>turn done · 16:21</span>`; }
+function column(v) {
+  return `<div class="col ${v.k}">
+    <div class="head">orbit-api ▾</div>
+    <section class="needs">
+      <div class="area">Needs you <span class="count">${entries.length}</span></div>
+      <ul>${entries.map((e) => `<li class="${e.kind} ${e.fresh ? "new" : ""}">
+        <div class="row"><span class="badge" style="color:var(${e.color})">${e.short}</span><span class="title">${e.title}<span class="tag">NEW</span></span>${chip(e)}</div>
+        <div class="sub">${e.sub}</div></li>`).join("")}</ul>
+    </section>
+    <section class="sessions">
+      <div class="area">Sessions</div>
+      <ul>
+        <li><div class="row"><span class="badge" style="color:var(--s1)">B</span><span class="title">Per-client rate limit</span><span class="chip" style="color:var(--ai)"><i></i>working</span></div><div class="sub">Edit tests/rate_limit.rs</div></li>
+        <li><div class="row"><span class="badge" style="color:var(--s0)">A</span><span class="title">Limiter documentation</span><span class="chip" style="color:var(--wait)"><i></i>waiting for you</span></div><div class="sub">Claude needs your permission to use Bash</div></li>
+        <li><div class="row"><span class="badge" style="color:var(--s2)">C</span><span class="title">Config defaults</span><span class="chip dim"><i></i>turn done · 16:21</span></div><div class="sub">Wrote 1 file</div></li>
+      </ul>
+    </section>
+  </div>`;
+}
+function render() {
+  document.getElementById("grid").innerHTML = VARIANTS.map((v) => `<div class="variant"><h2>${v.name}</h2><p class="why">${v.why}</p>${column(v)}</div>`).join("");
+}
+function add(kind) {
+  entries.forEach((e) => (e.fresh = false));
+  const n = nextId++;
+  entries.unshift(kind === "asks"
+    ? { id: n, kind, short: "D", color: "--s1", title: "Pagination cursor", sub: "Claude asks: overwrite src/api/page.rs?", fresh: true }
+    : { id: n, kind, short: "E", color: "--s2", title: "Release notes", sub: "Waits for your next prompt", fresh: true });
+  render();
+}
+document.getElementById("add").onclick = () => add("asks");
+document.getElementById("done").onclick = () => add("done");
+document.getElementById("reset").onclick = reset;
+reset();
+window.lab = { add };
+</script>
+</body>
+</html>

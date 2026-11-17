@@ -1,6 +1,7 @@
 # Sitzungen führen: überall bedienen, in CodeDeck im Blick
 
-Konzept für MVP 3 (Schritte 3.1 bis 3.3, berührt 3.2 und 3.5), Entwurf vom 2026-11-17 zur Abstimmung.
+Konzept für MVP 3 (Schritte 3.1 bis 3.5), Entwurf vom 2026-11-17 zur Abstimmung; Tagesliste und Startseite
+(A12, A13, B12) mit dem Nutzer abgestimmt am selben Tag.
 Click-Dummy: `design/click-dummy/sessions.html` (Aufruf wie in `design/click-dummy/README.md`, dann
 `http://localhost:5392/sessions.html`).
 
@@ -14,6 +15,12 @@ sehen ist, zeigt das Werkzeug selbst.
 
 Damit wird das heutige Muster „tmux + Remote Control + Desktop“ zum eingebauten Standardweg. Das
 Start-Script und das Suchen nach Fenstern entfallen.
+
+Für den Alltag gibt es eine **Tagesliste**: die Projekte, an denen du jeden Tag arbeitest, mit einer
+Sitzung je Projekt. Ein Klick startet ein Projekt oder alle, auf Wunsch von selbst beim Start von
+CodeDeck. Dabei öffnet sich kein Projektfenster. Ohne offenes Projekt ist das Fenster die **Startseite**
+in Leistenform: „Wartet auf dich“ über alle Projekte und die Tagesliste. Sitzungen, die du von Hand
+startest, erkennt CodeDeck weiter von selbst.
 
 ---
 
@@ -158,6 +165,45 @@ Der türkise Bogen heißt „jetzt erreichbar“, nicht „war mal so gestartet�
 (Netz, Ruhezustand, nach etwa 30 Minuten ohne Server), wird er orange: „Not reachable from your phone“.
 In den Details steht der Grund und der Knopf **Reconnect** (startet die Sitzung kurz neu, die
 Unterhaltung bleibt). Arbeitet die Sitzung gerade, fragt CodeDeck vorher.
+
+## A12 Tagesliste
+
+Die Projekte, an denen du jeden Tag arbeitest. Jedes hat **eine** Sitzung, die CodeDeck für dich führt
+(weitere startest du wie bisher mit „+ New“).
+
+- **In die Liste:** Stern an einem Projekt, in der Startseite oder im Projektmenü. Je Projekt gelten
+  Startwerte: Konto (vorbelegt mit dem zuletzt benutzten), „von überall erreichbar“ (an).
+- **▶ an einem Projekt** startet seine Sitzung im Hintergrund (tmux, Remote Control). Dabei öffnet sich
+  kein Projektfenster; die Zeile zeigt „starting…“, dann den Status.
+- **„▶ All“** startet alle Projekte der Liste nacheinander. Projekte, in denen schon eine Sitzung läuft,
+  werden übersprungen, auch wenn du sie von Hand gestartet hast. Es läuft also nichts doppelt.
+- **„at start“** (Haken an der Liste): „▶ All“ geschieht von selbst, wenn CodeDeck startet.
+- **Fortsetzen statt neu:** ▶ setzt die letzte Unterhaltung des Projekts fort, wenn du sie nicht selbst
+  beendet hast; sonst beginnt eine frische. Wer frisch beginnen will, nimmt danach *Restart* oder *New
+  task* (A3, A4). Die Zeile sagt vorher, was ▶ tun wird („continues ‚Auth refactor‘“).
+- **Die Zeile eines Projekts:** Schild und Status seiner Sitzung, Symbol für das Zuhause und den Bogen
+  (A1), „+2 more“, wenn dort weitere Sitzungen laufen. **Doppelklick** geht zur Sitzung (wie A2),
+  **Klick auf den Namen** öffnet das Projekt.
+- Später kann es weitere Listen geben („Arbeitszeit“, „Freizeit“, mit Konto je Liste); das ist der Rest
+  des früheren Schritts „Profile“.
+
+## A13 Startseite und Projektfenster
+
+- **Kein Projekt offen:** Das Fenster ist die Startseite, immer in Leistenform. Von oben: Kopf
+  (CodeDeck, Ordner öffnen, Einstellungen), „Wartet auf dich“ über **alle** Projekte (mit Projektname),
+  „Today“ (die Tagesliste mit „▶ All“ und „at start“), „Other projects“ (die letzten Projekte, mit
+  Sitzungen, die dort gerade laufen), unten die Zeile „3 in background · 3 reachable from anywhere“.
+- **Ein Projekt offen:** keine zweite Startseite. Ihre zwei Teile stehen im Projektfenster:
+  - „Wartet auf dich“ zeigt zuerst die eigenen Sitzungen, darunter die aus anderen Projekten mit
+    Projektname. Doppelklick geht zur Sitzung, Klick auf den Namen öffnet das Projekt.
+  - Das **Projektmenü** (Klick auf den Projektnamen im Kopf) zeigt dieselben Zeilen wie die Startseite:
+    Today mit „▶ All“, Other projects, dazu „Open folder…“ und „Close project“.
+- **Projekt schließen** und **letztes Projektfenster schließen** machen aus dem Fenster die Startseite;
+  das Programm läuft weiter. Beendet wird über das App-Menü `⋯` → Quit (später auch über das Tray).
+- Die Leistenform der Startseite ist dieselbe Spalte wie im Projekt (`docs/SEITENLEISTE.md`), nur ohne
+  „Nächster Prompt“; Zeilen und „Wartet auf dich“ sind dieselben Komponenten.
+- **Offen, später zu entscheiden:** CodeDeck bei der Anmeldung starten (Schalter, siehe A10) und dabei
+  nur im Tray erscheinen.
 
 ---
 
@@ -308,7 +354,8 @@ die Wahl neu prüfen.
 | 3.2 Konten | wie geplant, dazu das Desktop-Profil je Konto |
 | 3.3 Starten und Steuern | „+ New“, Continue, Restart, Stop, New task; Einstellungen „Sessions“ |
 | 3.3b Neustart überstehen | Liste der Hintergrundsitzungen, Erkennen nach Neustart, „Restore all“, Warnung beim Herunterfahren, Autostart; Remote Control prüfen und neu verbinden (B11) |
-| 3.4, 3.5 | unverändert; die Startseite nutzt dieselben Zeilen und Türen über alle Projekte |
+| 3.4 Tagesliste und Startseite | A12, A13, B12: Startseite in Leistenform ohne offenes Projekt, Tagesliste mit ▶, „▶ All“, „at start“; Projektmenü mit denselben Zeilen; „Wartet auf dich“ über alle Projekte; Projekt schließen → Startseite |
+| 3.5 Startseite ausbauen | weitere Listen (Arbeitszeit/Freizeit, Konto je Liste), Warnungen mit Behebung, Anmelde-Autostart und Tray (nach Entscheidung) |
 
 ## B10 Neustart: merken, erkennen, wiederherstellen
 
@@ -396,6 +443,35 @@ Remote-Sitzung an, und wie lange danach noch? (b) Trägt `--resume --fork-sessio
 Unterhaltung in die neue Remote-Sitzung? (c) Lässt sich `--fork-session` mit `--session-id` kombinieren
 (dann vergibt CodeDeck auch die neue ID selbst)? (d) Wie sieht die Trennung im Log aus?
 
+## B12 Tagesliste und Startseite
+
+**Projekte ohne Fenster.** Nach 3.0 nimmt ein Prozess alle Hook-Meldungen an. Heute nimmt jedes Fenster
+nur die seines Projekts; die anderen gehen verloren (`hook.rs` `forward`). Für die Tagesliste hält der
+Prozess ein `Inner` je **bekanntem** Projekt (Tagesliste, offene Fenster, Projekte mit laufender
+Sitzung), unabhängig davon, ob ein Fenster es zeigt. Ein Fenster, das ein Projekt öffnet, bekommt dessen
+`Inner`, statt ein neues anzulegen. Meldungen aus unbekannten Ordnern legen ein Projekt nur an, wenn der
+Ordner zu einem Repo gehört (wie heute `project.rs`).
+
+**Speichern.** In `~/.config/codedeck/projects.json` (oder als Felder an `recent.rs`): je Projekt
+`daily`, Konto, Remote an/aus; dazu der Haken `start_daily`. Dieselbe Datei nimmt später weitere Listen
+auf (3.5).
+
+**Starten.** ▶ ruft denselben Start wie „+ New“ (B2), mit festem tmux-Namen `codeck-<projekt>` für die
+Sitzung der Tagesliste (weitere: `codeck-<projekt>-<kurzname>`). Fortsetzen: Der Eintrag in
+`background.json` (B10) bzw. die letzte Sitzung des Projekts aus dem Log, wenn sie nicht mit einem
+Grund „vom Nutzer“ endete (`Event.by_user`); dann `--resume <id>`, sonst `--session-id <neu>`. „▶ All“
+startet nacheinander mit kurzer Pause (wie das Wiederherstellen in B10) und überspringt Projekte mit
+einer lebenden Sitzung, gleich welchen Zuhauses (`Session.place`, Prozess lebt).
+
+**„at start“ und Neustart.** Beim Start von CodeDeck läuft zuerst die Wiederherstellung (B10), dann
+„▶ All“ für das, was danach noch fehlt. Damit startet nichts doppelt, und die Sitzungen der Tagesliste
+werden nach einem Neustart fortgesetzt statt neu begonnen.
+
+**Fenster.** Ohne Projekt lädt das Fenster die Startseite (eigener Zustand im Frontend, kein
+`Current`-Projekt); die Leistenform ist dann fest. „Close project“ und das Schließen des letzten
+Projektfensters wechseln dorthin, statt das Programm zu beenden (ändert die Regel aus 3.0). Quit steht im
+App-Menü.
+
 ## Zu entscheiden
 
 | # | Frage | Vorschlag |
@@ -407,3 +483,7 @@ Unterhaltung in die neue Remote-Sitzung? (c) Lässt sich `--fork-session` mit `-
 | 5 | Kein „Umziehen nach Desktop“ | ja, Desktop kommt über Remote Control dazu |
 | 6 | Nach einem Neustart | fragen (Vorgabe), wahlweise automatisch; Warnung beim Herunterfahren, solange eine Sitzung arbeitet |
 | 7 | Remote Control wiederherstellen | per Neustart mit `--fork-session` (neuer Eintrag in der App), nie per Tippen; automatisch nur beim Wiederherstellen nach dem Neustart, sonst Knopf |
+| 8 | Tagesliste | **entschieden (Nutzer, 2026-11-17):** eine Sitzung je Projekt; ▶ setzt fort, frisch beginnen über Restart/New task; „▶ All“ überspringt Laufendes |
+| 9 | Automatischer Start der Tagesliste | **entschieden:** beim Start von CodeDeck reicht („at start“) |
+| 10 | Startseite | **entschieden:** ohne offenes Projekt die Leiste als Startseite; mit Projekt keine eigene Startseite, sondern „Wartet auf dich“ über alle Projekte und die Tagesliste im Projektmenü; Projekt schließen → Startseite |
+| 11 | CodeDeck bei der Anmeldung starten, nur im Tray | offen; Nutzer findet es gut, Entscheidung mit 3.5 |
