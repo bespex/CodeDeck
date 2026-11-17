@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { myProject, onProjectChanged, type AssistantState, type HarnessInfo, type ProjectLook } from "./backend";
 import { useAccounts } from "./accounts";
+import { mainHarness } from "./assistant";
 import type { Account } from "./backend";
 
 /** This window's project: name, colour, mark, account. Read again when it changes in the overview. */
@@ -42,6 +43,7 @@ export function useProjectAccount(assistant: AssistantState, look: ProjectLook |
   const account = accounts.find((a) => a.dir === dir) ?? null;
   const own = live.filter((s) => !s.account || s.account === dir);
   const model = own.find((s) => s.model)?.model ?? null;
-  const harness = assistant.harnesses.find((h) => h.id === account?.harness) ?? assistant.harnesses[0];
+  // Before the first state arrives the list of tools is empty: the stand-in keeps the header alive
+  const harness = assistant.harnesses.find((h) => h.id === account?.harness) ?? mainHarness(assistant);
   return { account, harness, model };
 }

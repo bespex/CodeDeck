@@ -10,7 +10,7 @@
 //   text:<text>          click the first button or tab whose text starts with <text>
 //   ctrl+click:…, ctrl+text:…   the same with Ctrl held
 //   type:<text>          types into the element that has the focus
-//   eval:<expression>    prints what the expression gives in the page. Headless Chromium reports
+//   eval:<expression>    prints what the expression gives in the page (a promise is awaited). Headless Chromium reports
 //                        no mouse, so what CSS shows on hover only stays hidden: click it with
 //                        eval:document.querySelector("…").click()
 //   wait:<ms>
@@ -91,7 +91,7 @@ for (const step of steps.length ? steps : ["snap:page"]) {
   else if (kind === "text")
     await mouse(`[...document.querySelectorAll("button,[role=tab]")].find(e => e.textContent.trim().startsWith(${q}))`, true, ctrl);
   else if (kind === "type") await cmd("Input.insertText", { text: arg });
-  else if (kind === "eval") console.log((await cmd("Runtime.evaluate", { expression: arg, returnByValue: true })).result?.value);
+  else if (kind === "eval") console.log((await cmd("Runtime.evaluate", { expression: arg, returnByValue: true, awaitPromise: true })).result?.value);
   else if (kind === "wait") await sleep(Number(arg));
   else if (kind === "size") {
     const [width, height] = arg.split("x").map(Number);
