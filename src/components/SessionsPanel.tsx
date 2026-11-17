@@ -492,9 +492,10 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
                 </button>
               </>
             )}
-            {/* Only what is over: a session that still runs must stay in sight, or one could never
-                find it again to write its next prompt (user, 2026-11-17) */}
-            {(s.status === "ended" || s.alive === false) && (
+            {/* Not while its process is known to run: it must stay in sight, or one could never find
+                it again to write its next prompt (user, 2026-11-17). Where the process is not known
+                (a session seen in its log only) CodeDeck cannot promise anything, so it may go */}
+            {(s.status === "ended" || s.alive !== true) && (
               <button
                 type="button"
                 title={t("Takes it off this list. It comes back by itself when the session takes its next step")}
