@@ -761,6 +761,9 @@ fn desktop_profiles() -> Vec<String> {
     all
 }
 
+/// How the message begins when a session CodeDeck started earlier has not reported yet.
+const SILENT_START: &str = "A session started earlier";
+
 /// Starts a session of a project in tmux (docs/SITZUNGEN.md B2), with the project's AI
 /// configuration and Remote Control. `fresh`: a new conversation; else the latest one that did not
 /// end is continued, and nothing starts while one runs already. The tmux session's name.
@@ -769,6 +772,13 @@ fn start_in(app: &AppHandle, root: &Path, fresh: bool) -> Result<Option<String>,
     let (running, resume) = bridge.start_info();
     if running && !fresh {
         return Ok(None);
+    }
+    // Started by CodeDeck earlier and silent so far: the tool probably waits for a question, e.g.
+    // whether to trust the folder. Another one would only wait beside it (user, 2026-11-18: eight)
+    if !fresh {
+        if let Some(name) = tmux::running_for(root).first() {
+            return Err(format!("{SILENT_START} ({name}) has not reported yet. It probably waits for a question, e.g. whether to trust this folder: open it with  tmux attach -t {name}"));
+        }
     }
     let account = projects::list().into_iter().find(|p| p.path == root).and_then(|p| p.account);
     let tool = harness::all().first().copied().ok_or("no tool")?;
@@ -791,13 +801,16 @@ async fn start_today(app: AppHandle) -> Result<(Vec<String>, Vec<String>), Strin
     let (mut started, mut skipped) = (Vec::new(), Vec::new());
     for project in projects::list().into_iter().filter(|p| p.daily) {
         let name = project.path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
-        match start_in(&app, &project.path, false)? {
-            Some(_) => {
+        match start_in(&app, &project.path, false) {
+            Ok(Some(_)) => {
                 started.push(name);
                 // A breath between two: every tool start reads its configuration and logs in
                 std::thread::sleep(std::time::Duration::from_millis(400));
             }
-            None => skipped.push(name),
+            Ok(None) => skipped.push(name),
+            // Started before and silent: it waits in tmux; the others still start
+            Err(e) if e.starts_with(SILENT_START) => skipped.push(format!("{name} (waits in tmux)")),
+            Err(e) => return Err(e),
         }
     }
     Ok((started, skipped))

@@ -42,12 +42,37 @@ pub fn start(root: &Path, harness: &dyn Harness, account: Option<&str>, resume: 
     run(&mut command)?;
     // Which session it is, kept with the tmux session: it outlives a restart of CodeDeck (B10)
     let _ = run(Command::new("tmux").args(["set-option", "-t", &format!("={name}"), "@codedeck", &id]));
+    // And for which project, so that "does one run there?" can ask tmux itself
+    let _ = run(Command::new("tmux").args(["set-option", "-t", &format!("={name}"), "@codedeck-project", &root.display().to_string()]));
     Ok((id, name))
 }
 
 /// Ends the tmux session a session runs in. The tool keeps its conversation; it can be continued.
 pub fn stop(name: &str) -> Result<(), String> {
     run(Command::new("tmux").args(["kill-session", "-t", &format!("={name}")]))
+}
+
+/// The tmux sessions CodeDeck started for a project that still run. They count even before the
+/// tool inside has reported: it may wait for a question (e.g. whether to trust the folder) and say
+/// nothing until it is answered. Older ones without the project option are told by their name.
+pub fn running_for(root: &Path) -> Vec<String> {
+    let Ok(out) = Command::new("tmux").args(["list-sessions", "-F", "#{session_name}\t#{@codedeck}\t#{@codedeck-project}"]).output() else {
+        return Vec::new();
+    };
+    let base = format!("codedeck-{}", safe(&root.file_name().map_or_else(|| "project".into(), |n| n.to_string_lossy().into_owned())));
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|line| {
+            let mut f = line.split('\t');
+            let (name, ours, project) = (f.next()?, f.next().unwrap_or(""), f.next().unwrap_or(""));
+            let mine = if project.is_empty() {
+                !ours.is_empty() && (name == base || name.strip_prefix(&format!("{base}-")).is_some_and(|n| n.chars().all(|c| c.is_ascii_digit())))
+            } else {
+                Path::new(project) == root
+            };
+            mine.then(|| name.to_string())
+        })
+        .collect()
 }
 
 /// Whether a tmux session of this name exists.
