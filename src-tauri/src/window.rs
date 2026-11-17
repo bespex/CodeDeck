@@ -2,6 +2,7 @@
 //! the right column alone. The full window's place and size are kept while the sidebar is shown,
 //! so that it comes back as it was.
 
+use crate::Locked;
 use std::sync::Mutex;
 
 use tauri::{PhysicalPosition, PhysicalSize, WebviewWindow};
@@ -37,7 +38,7 @@ pub struct FullPlace {
 
 impl FullPlace {
     pub fn last(&self) -> String {
-        self.last.lock().unwrap().clone()
+        self.last.locked().clone()
     }
 }
 
@@ -132,7 +133,7 @@ pub fn set_compact(window: &WebviewWindow, kept: &FullPlace, on: bool, width: f6
     if on {
         let (maximized, fullscreen) = (window.is_maximized()?, window.is_fullscreen()?);
         let full = Place { x: at.x, y: at.y, width: size.width, height: size.height, maximized: maximized || fullscreen };
-        *kept.kept.lock().unwrap() = Some(full);
+        *kept.kept.locked() = Some(full);
         let w = ((width.max(SIDEBAR_MIN.0)) * scale).round() as u32;
         // Always at the right edge of the monitor, from top to bottom of what panels leave free.
         // The size set is the inside, the position the outside: the desktop's frame counts
@@ -156,7 +157,7 @@ pub fn set_compact(window: &WebviewWindow, kept: &FullPlace, on: bool, width: f6
             "sidebar: full {full:?} (fullscreen {fullscreen}), scale {scale}, monitor {screen:?}, work area {area:?}, frame {frame_w}x{frame_h} -> x {x}, y {y}, {w}x{h}; landed at {landed}"
         );
     } else {
-        let place = kept.kept.lock().unwrap().take();
+        let place = kept.kept.locked().take();
         let full_w = (FULL_WIDTH * scale).round() as u32;
         let place = place.unwrap_or(Place {
             // Grows to the left, so that the sidebar's place becomes the right column
@@ -173,26 +174,19 @@ pub fn set_compact(window: &WebviewWindow, kept: &FullPlace, on: bool, width: f6
         note = format!("full: back to {place:?}, scale {scale}, work area {area:?}; landed at {landed}");
     }
     eprintln!("codeck: {note}");
-    *kept.last.lock().unwrap() = note;
+    *kept.last.locked() = note;
     Ok(before)
 }
 
 // ── Global shortcuts ───────────────────────────────────────────────────────────
 //
-// Each CodeDeck window is a process of its own, and under X11 only one program can hold a key
-// combination. So the first window holds both shortcuts and acts for all of them: it tells the
-// others over their sockets what to do. The others try again now and then, so that one of them
-// takes over when the holder is closed.
-//
-// Which window was used last, every window writes on getting the focus into a small file next to
-// the sockets; whether the shortcut hid CodeDeck is another one. The holder reads them.
+// The process holds both shortcuts for all its windows (D25). Which window was used last it knows
+// from their focus events; whether a press hid CodeDeck it keeps itself.
 
-use std::io::Write as _;
-use std::os::unix::net::UnixStream;
-use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutEvent, ShortcutState};
 
@@ -200,12 +194,11 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutEvent, S
 const SHOW_HIDE: &str = "Ctrl+Alt+C";
 /// Switches the window used last between sidebar and full window.
 const SIDEBAR: &str = "Ctrl+Alt+L";
-/// How often a window that holds no shortcut tries to take them over.
+/// How often the process tries again to hold a shortcut another program holds.
 const RETRY: Duration = Duration::from_secs(15);
 
-/// What one window asks another over its socket.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
+/// What a shortcut asks of one window.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Request {
     Show,
     Hide,
@@ -213,14 +206,6 @@ pub enum Request {
     Front,
     /// To the front, then switch between sidebar and full window
     ToggleCompact,
-    /// A setting of this machine changed in another window: read them again
-    SettingsChanged,
-}
-
-/// A message on a window's socket that is not an event of a coding tool.
-#[derive(Serialize, Deserialize)]
-pub struct Message {
-    pub window: Request,
 }
 
 /// Where the global shortcuts stand, for the settings.
@@ -236,84 +221,50 @@ pub struct ShortcutInfo {
     pub keys: &'static str,
     /// "showHide" or "sidebar"
     pub action: &'static str,
-    /// "here": this window holds it · "otherWindow": another CodeDeck window does · "taken":
-    /// another program holds it · "unsupported": the desktop has no global shortcuts (Wayland)
+    /// "here": CodeDeck holds it · "taken": another program holds it · "unsupported": the desktop
+    /// has no global shortcuts (Wayland)
     pub state: &'static str,
 }
 
 #[derive(Default)]
-pub struct Shortcuts(Mutex<ShortcutStatus>);
+pub struct Shortcuts {
+    status: Mutex<ShortcutStatus>,
+    /// The window used last: the one a shortcut brings back
+    last: Mutex<Option<String>>,
+    /// Set while a press has hidden CodeDeck: the next one brings it back
+    hidden: AtomicBool,
+}
 
 impl Shortcuts {
     pub fn get(&self) -> ShortcutStatus {
-        self.0.lock().unwrap().clone()
+        self.status.locked().clone()
     }
 }
 
-fn last_file() -> PathBuf {
-    crate::hook::socket_dir().join("last-used")
-}
-
-fn alive(pid: u32) -> bool {
-    std::path::Path::new(&format!("/proc/{pid}")).exists()
-}
-
-/// The other CodeDeck windows, by the process ids their sockets are named after.
-fn other_windows() -> Vec<u32> {
-    let me = std::process::id();
-    std::fs::read_dir(crate::hook::socket_dir())
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter_map(|e| {
-            let path = e.path();
-            (path.extension()? == "sock").then_some(())?;
-            path.file_stem()?.to_str()?.parse::<u32>().ok()
-        })
-        .filter(|&pid| pid != me && alive(pid))
-        .collect()
-}
-
-/// Notes focus changes of this window: the one used last is the one a shortcut brings back. A
-/// window that gets the focus is in sight, whoever showed it: the next press hides again.
-pub fn focus_changed(focused: bool) {
+/// Notes focus changes: the window used last is the one a shortcut brings back. A window that gets
+/// the focus is in sight, whoever showed it: the next press hides again.
+pub fn focus_changed(app: &AppHandle, label: &str, focused: bool) {
     if focused {
-        let _ = std::fs::write(last_file(), std::process::id().to_string());
-        shown();
+        let shortcuts = app.state::<Shortcuts>();
+        *shortcuts.last.locked() = Some(label.to_string());
+        shortcuts.hidden.store(false, Ordering::Relaxed);
     }
 }
 
-/// The window used last; this one when no other is known.
-fn last_used() -> u32 {
-    std::fs::read_to_string(last_file())
-        .ok()
-        .and_then(|t| t.trim().parse().ok())
-        .filter(|&pid| alive(pid))
-        .unwrap_or_else(std::process::id)
+/// A window that opens is shown: CodeDeck is no longer hidden.
+pub fn shown(app: &AppHandle) {
+    app.state::<Shortcuts>().hidden.store(false, Ordering::Relaxed);
 }
 
-/// Asks the window of process `pid` for something; this window does it at once.
-fn ask(app: &AppHandle, pid: u32, request: Request) {
-    if pid == std::process::id() {
-        return obey(app, request);
-    }
-    let socket = crate::hook::socket_dir().join(format!("{pid}.sock"));
-    std::thread::spawn(move || {
-        let Ok(mut stream) = UnixStream::connect(&socket) else { return };
-        let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
-        let message = serde_json::to_string(&Message { window: request }).unwrap_or_default();
-        let _ = stream.write_all(message.as_bytes());
-        let _ = stream.shutdown(std::net::Shutdown::Write);
-    });
+/// The window used last; any window when that one is gone.
+fn last_used(app: &AppHandle) -> Option<WebviewWindow> {
+    let last = app.state::<Shortcuts>().last.locked().clone();
+    last.and_then(|l| app.get_webview_window(&l)).or_else(|| app.webview_windows().into_values().next())
 }
 
-/// Does what another window (or this one's shortcut) asks.
-pub fn obey(app: &AppHandle, request: Request) {
-    let Some(window) = app.get_webview_window("main") else { return };
+/// Does what a shortcut asks of one window.
+pub fn obey(window: &WebviewWindow, request: Request) {
     match request {
-        Request::SettingsChanged => {
-            let _ = app.emit("settings_changed", ());
-        }
         Request::Hide => {
             let _ = window.hide();
         }
@@ -327,72 +278,75 @@ pub fn obey(app: &AppHandle, request: Request) {
             let _ = window.set_focus();
             // Asked by the window itself, Cinnamon refuses the focus and only marks it in the
             // taskbar; asked as a pager (what a taskbar does on a click), it grants it
-            std::thread::spawn(|| {
+            let title = window.title().unwrap_or_default();
+            std::thread::spawn(move || {
                 std::thread::sleep(Duration::from_millis(50));
-                activate_as_pager();
+                activate_as_pager(&title);
             });
             if request == Request::ToggleCompact {
-                let _ = app.emit("window_request", "toggleCompact");
+                let _ = window.emit_to(window.label(), "window_request", "toggleCompact");
             }
         }
     }
 }
 
-/// Tells every other CodeDeck window that a setting of this machine changed.
+/// Tells every window that a setting of this machine changed.
 pub fn settings_changed(app: &AppHandle) {
-    other_windows().into_iter().for_each(|pid| ask(app, pid, Request::SettingsChanged));
+    let _ = app.emit("settings_changed", ());
 }
 
-/// Set while the shortcut has hidden CodeDeck: the next press brings it back.
-fn hidden_file() -> PathBuf {
-    crate::hook::socket_dir().join("hidden")
-}
-
-/// A window that starts is shown: CodeDeck is no longer hidden.
-pub fn shown() {
-    let _ = std::fs::remove_file(hidden_file());
-}
-
-/// Asks the window manager to activate this process's window the way a pager or taskbar does
-/// (`_NET_ACTIVE_WINDOW` with source 2). X11 only; elsewhere nothing happens.
-fn activate_as_pager() -> Option<()> {
+/// Asks the window manager to activate the window of this process with this title the way a pager
+/// or taskbar does (`_NET_ACTIVE_WINDOW` with source 2). X11 only; elsewhere nothing happens.
+fn activate_as_pager(title: &str) -> Option<()> {
     use x11rb::connection::Connection;
     use x11rb::protocol::xproto::{AtomEnum, ClientMessageEvent, ConnectionExt, EventMask};
     let (conn, screen) = x11rb::connect(None).ok()?;
     let root = conn.setup().roots.get(screen)?.root;
     let atom = |name: &str| conn.intern_atom(false, name.as_bytes()).ok()?.reply().ok().map(|r| r.atom);
     let (clients, pid_atom, active) = (atom("_NET_CLIENT_LIST")?, atom("_NET_WM_PID")?, atom("_NET_ACTIVE_WINDOW")?);
+    let (name_atom, utf8) = (atom("_NET_WM_NAME")?, atom("UTF8_STRING")?);
     let list = conn.get_property(false, root, clients, AtomEnum::WINDOW, 0, 4096).ok()?.reply().ok()?;
     let me = std::process::id();
-    let ours = list.value32()?.find(|&w| {
-        conn.get_property(false, w, pid_atom, AtomEnum::CARDINAL, 0, 1)
+    let mine: Vec<u32> = list
+        .value32()?
+        .filter(|&w| {
+            conn.get_property(false, w, pid_atom, AtomEnum::CARDINAL, 0, 1)
+                .ok()
+                .and_then(|c| c.reply().ok())
+                .and_then(|r| r.value32().and_then(|mut v| v.next()))
+                == Some(me)
+        })
+        .collect();
+    // Several windows of this process: the one with the title; one alone needs no title
+    let ours = mine.iter().copied().find(|&w| {
+        conn.get_property(false, w, name_atom, utf8, 0, 1024)
             .ok()
             .and_then(|c| c.reply().ok())
-            .and_then(|r| r.value32().and_then(|mut v| v.next()))
-            == Some(me)
-    })?;
+            .is_some_and(|r| r.value == title.as_bytes())
+    });
+    let ours = ours.or_else(|| (mine.len() == 1).then(|| mine[0]))?;
     let event = ClientMessageEvent::new(32, ours, active, [2, x11rb::CURRENT_TIME, 0, 0, 0]);
     conn.send_event(false, root, EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY, event).ok()?;
     conn.flush().ok()
 }
 
-/// A shortcut was pressed in the window that holds it.
+/// A shortcut was pressed.
 fn pressed(app: &AppHandle, shortcut: &Shortcut) {
-    let all: Vec<u32> = other_windows().into_iter().chain([std::process::id()]).collect();
+    let Some(last) = last_used(app) else { return };
     if shortcut.id() == parse(SIDEBAR).id() {
-        return ask(app, last_used(), Request::ToggleCompact);
+        return obey(&last, Request::ToggleCompact);
     }
     // Shown, a press hides it, hidden, a press brings it back. Not "in front": with several
     // monitors CodeDeck is often in sight without the focus, and bringing it "to the front" then
     // changed nothing one could see (user, 2026-11-16)
-    if hidden_file().exists() {
-        shown();
-        let last = last_used();
-        all.iter().filter(|&&pid| pid != last).for_each(|&pid| ask(app, pid, Request::Show));
-        ask(app, last, Request::Front);
+    let shortcuts = app.state::<Shortcuts>();
+    let all = app.webview_windows();
+    if shortcuts.hidden.swap(false, Ordering::Relaxed) {
+        all.values().filter(|w| w.label() != last.label()).for_each(|w| obey(w, Request::Show));
+        obey(&last, Request::Front);
     } else {
-        let _ = std::fs::write(hidden_file(), "");
-        all.iter().for_each(|&pid| ask(app, pid, Request::Hide));
+        shortcuts.hidden.store(true, Ordering::Relaxed);
+        all.values().for_each(|w| obey(w, Request::Hide));
     }
 }
 
@@ -411,7 +365,7 @@ pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
         .build()
 }
 
-/// Tries to hold both shortcuts, now and again later while another window holds them.
+/// Tries to hold both shortcuts, now and again later while another program holds them.
 /// Runs in its own thread: registering waits for the main thread.
 pub fn claim_shortcuts(app: AppHandle) {
     let wayland = std::env::var("XDG_SESSION_TYPE").is_ok_and(|t| t == "wayland");
@@ -424,17 +378,15 @@ pub fn claim_shortcuts(app: AppHandle) {
                 "unsupported"
             } else if manager.is_registered(shortcut) || manager.register(shortcut).is_ok() {
                 "here"
-            } else if other_windows().is_empty() {
-                "taken"
             } else {
-                "otherWindow"
+                "taken"
             };
             keys.push(ShortcutInfo { keys: keys_text, action, state });
         }
         let settled = keys.iter().all(|k| k.state == "here" || k.state == "unsupported");
         let changed = {
             let kept = app.state::<Shortcuts>();
-            let mut kept = kept.0.lock().unwrap();
+            let mut kept = kept.status.locked();
             let changed = kept.keys.iter().map(|k| k.state).ne(keys.iter().map(|k| k.state));
             kept.keys = keys;
             changed
@@ -447,16 +399,4 @@ pub fn claim_shortcuts(app: AppHandle) {
         }
         std::thread::sleep(RETRY);
     });
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_window_message_is_told_apart_from_a_tool_event() {
-        let m: Message = serde_json::from_str(r#"{"window":"toggleCompact"}"#).unwrap();
-        assert_eq!(m.window, Request::ToggleCompact);
-        assert!(serde_json::from_str::<Message>(r#"{"who":"x","did":"started","in":"/q"}"#).is_err());
-    }
 }

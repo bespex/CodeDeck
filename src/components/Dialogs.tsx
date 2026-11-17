@@ -146,7 +146,7 @@ function useGlobalShortcuts(): GlobalShortcut[] {
 const shortcutAction = (s: GlobalShortcut) =>
   s.action === "showHide" ? t("Show CodeDeck, or hide it when it is in front") : t("Sidebar or full window, from anywhere");
 
-/** Says when a global shortcut does not work from this window; held by another CodeDeck window, it does. */
+/** Says when a global shortcut does not work; CodeDeck holds it for all its windows. */
 function ShortcutState({ shortcut }: { shortcut: GlobalShortcut }) {
   if (shortcut.state === "taken") return <span className="text-changed">{t("Taken by another program: it does nothing.")}</span>;
   if (shortcut.state === "unsupported") return <span className="text-slate-500">{t("This desktop has no global shortcuts (Wayland).")}</span>;

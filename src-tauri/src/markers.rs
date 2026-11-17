@@ -38,8 +38,8 @@ impl Git {
             if !repo.prefix.is_empty() {
                 args.extend(["--", repo.prefix.as_str()]);
             }
-            // Finding nothing is exit code 1, which counts as failure: no markers then
-            let Ok(out) = self.run(report, &repo, &args) else { continue };
+            // Finding nothing is exit code 1: an answer, no failure in the log
+            let Some(out) = self.ask(report, &repo, &args) else { continue };
             let mut found = parse(&String::from_utf8_lossy(&out));
             drop_fenced(&mut found, &repo.top);
             for m in found {

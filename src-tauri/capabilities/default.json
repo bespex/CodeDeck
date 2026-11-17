@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Minimal rights for the main window: events and the webview itself.",
-  "windows": ["main"],
+  "description": "Minimal rights for every CodeDeck window (one per project, labels w1, w2, …): events and the webview itself.",
+  "windows": ["*"],
   "permissions": ["core:event:default", "core:webview:default"]
 }

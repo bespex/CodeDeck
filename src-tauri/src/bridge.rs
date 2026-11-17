@@ -1,21 +1,19 @@
-//! The window's side of the bridge to coding assistants. Each window listens on a socket of its
-//! own; `codeck hook` (see [`crate::hook`]) sends it the tools' events, already translated by
-//! their adapters (see [`crate::harness`]). From them the window knows the sessions working in
+//! The window's side of the bridge to coding assistants. The process listens on one socket
+//! ([`crate::hub`]); `codeck hook` (see [`crate::hook`]) sends it the tools' events, already
+//! translated by their adapters (see [`crate::harness`]), and the hub hands each to every window.
+//! From them a window knows the sessions working in
 //! its project, what they are doing and which files they touched, takes a snapshot before a
 //! session's first write in a turn, and can hand a task to the next prompt. No tool is named
 //! here: what a session can do is in its [`Capabilities`].
 
+use crate::Locked;
 use std::collections::{HashMap, HashSet};
-use std::io::{Read, Write};
-use std::os::unix::fs::PermissionsExt;
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 use crate::git::{Git, GitRun};
 use crate::harness::{self, Capabilities, Event, EventKind, Harness, HarnessInfo, Place, SessionInfo};
@@ -257,47 +255,36 @@ pub struct Bridge {
     inner: Mutex<Inner>,
     /// One snapshot at a time: two sessions writing at once must not race on one repository
     snapshotting: Mutex<()>,
-    socket: PathBuf,
+    /// The window this bridge belongs to: its events go there only
+    label: String,
+    /// The window's project and git view
+    current: Arc<Current>,
+    git: Arc<Git>,
     /// What happened in the project, kept for a week
     journal: Journal,
 }
 
-impl Drop for Bridge {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.socket);
-    }
-}
-
 impl Bridge {
-    /// Opens the window's socket and answers on it from now on.
-    pub fn start(app: AppHandle) -> std::io::Result<Arc<Self>> {
-        let dir = crate::hook::ensure_socket_dir()?;
-        remove_stale(&dir);
-        let socket = dir.join(format!("{}.sock", std::process::id()));
-        let _ = std::fs::remove_file(&socket);
-        let listener = UnixListener::bind(&socket)?;
-        std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o600))?;
+    /// The bridge of one window; it hears from the hub from now on.
+    pub fn new(app: &AppHandle, label: String, current: Arc<Current>, git: Arc<Git>) -> Arc<Self> {
         let mut inner = Inner::default();
         inner.usage = crate::usage::Store::load();
-        let bridge = Arc::new(Self { inner: Mutex::new(inner), snapshotting: Mutex::new(()), socket, journal: Journal::default() });
-        bridge.journal.write(&app.state::<Arc<Current>>().get().root, &journal::Line::opened(now_ms()), now_ms());
-
-        bridge.load_recent(&app);
-        let watcher = bridge.clone();
-        let watching = app.clone();
+        let bridge = Arc::new(Self { inner: Mutex::new(inner), snapshotting: Mutex::new(()), label, current, git, journal: Journal::default() });
+        bridge.journal.write(&bridge.current.get().root, &journal::Line::opened(now_ms()), now_ms());
+        bridge.load_recent(app);
+        // Holds the bridge only weakly: when its window is gone, the loop ends
+        let (watcher, watching) = (Arc::downgrade(&bridge), app.clone());
         std::thread::spawn(move || loop {
             std::thread::sleep(CUT_SHORT_EVERY);
-            watcher.end_cut_short(&watching);
+            let Some(bridge) = watcher.upgrade() else { return };
+            bridge.end_cut_short(&watching);
         });
-        let me = bridge.clone();
-        std::thread::spawn(move || {
-            for stream in listener.incoming().flatten() {
-                let (me, app) = (me.clone(), app.clone());
-                // A snapshot may take a moment; other sessions' events need not wait for it
-                std::thread::spawn(move || me.serve(&app, stream));
-            }
-        });
-        Ok(bridge)
+        bridge
+    }
+
+    /// Sends this window an event about its project.
+    fn tell<S: Serialize + Clone>(&self, app: &AppHandle, event: &str, payload: S) {
+        let _ = app.emit_to(self.label.as_str(), event, payload);
     }
 
     /// A turn the user stopped says nothing to the hooks (no `Stop`, no `idle_prompt`), so the
@@ -305,7 +292,7 @@ impl Bridge {
     /// sessions in such a state it is looked at now and then, and a stopped turn ends like any other.
     fn end_cut_short(&self, app: &AppHandle) {
         let open: Vec<(String, &'static str, PathBuf, u64)> = {
-            let inner = self.inner.lock().unwrap();
+            let inner = self.inner.locked();
             inner
                 .sessions
                 .values()
@@ -340,12 +327,8 @@ impl Bridge {
         }
     }
 
-    pub fn socket(&self) -> &Path {
-        &self.socket
-    }
-
     pub fn state(&self) -> AssistantState {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.locked();
         let harnesses = harness::all().iter().map(|h| HarnessInfo::of(*h)).collect();
         AssistantState {
             heard: inner.heard,
@@ -366,7 +349,7 @@ impl Bridge {
     /// A new project: what was known about the old one does not apply.
     pub fn clear(self: &Arc<Self>, app: &AppHandle) {
         {
-            let mut inner = self.inner.lock().unwrap();
+            let mut inner = self.inner.locked();
             inner.sessions.clear();
             inner.turn.clear();
             inner.attachments.clear();
@@ -375,8 +358,8 @@ impl Bridge {
             inner.looked_up.clear();
             inner.logs.clear();
         }
-        self.journal.write(&app.state::<Arc<Current>>().get().root, &journal::Line::opened(now_ms()), now_ms());
-        let _ = app.emit(ASSISTANT_CHANGED, self.state());
+        self.journal.write(&self.current.get().root, &journal::Line::opened(now_ms()), now_ms());
+        self.tell(app, ASSISTANT_CHANGED, self.state());
         self.load_recent(app);
     }
 
@@ -385,7 +368,7 @@ impl Bridge {
     fn load_recent(self: &Arc<Self>, app: &AppHandle) {
         let (me, app) = (self.clone(), app.clone());
         std::thread::spawn(move || {
-            let root = app.state::<Arc<Current>>().get().root.clone();
+            let root = me.current.get().root.clone();
             let found: Vec<(&dyn Harness, SessionInfo)> = harness::all()
                 .iter()
                 .filter(|h| h.capabilities().past_sessions)
@@ -395,8 +378,8 @@ impl Bridge {
                 let mut found = found;
                 // Oldest first, so that colours and letters follow the order the sessions came in
                 found.sort_by_key(|(_, info)| info.last);
-                let mut inner = me.inner.lock().unwrap();
-                if app.state::<Arc<Current>>().get().root != root {
+                let mut inner = me.inner.locked();
+                if me.current.get().root != root {
                     return; // the project changed meanwhile
                 }
                 inner.use_project(&root);
@@ -406,7 +389,7 @@ impl Bridge {
                 trim(&mut inner);
                 inner.save_identities();
             }
-            let _ = app.emit(ASSISTANT_CHANGED, me.state());
+            me.tell(&app, ASSISTANT_CHANGED, me.state());
         });
     }
 
@@ -414,7 +397,7 @@ impl Bridge {
     /// takes that part back. All parts go together with the next prompt.
     pub fn attach(&self, app: &AppHandle, key: String, part: Option<Part>) {
         {
-            let mut inner = self.inner.lock().unwrap();
+            let mut inner = self.inner.locked();
             // Something new is queued: the receipt of the last attachments has done its job
             if part.is_some() {
                 inner.delivered = None;
@@ -425,102 +408,87 @@ impl Bridge {
                 (inner.target, inner.target_lost) = (None, None);
             }
         }
-        let _ = app.emit(ASSISTANT_CHANGED, self.state());
+        self.tell(app, ASSISTANT_CHANGED, self.state());
     }
 
     /// The session the attachments are meant for; `None`: whichever prompts first in the project.
     pub fn set_target(&self, app: &AppHandle, session: Option<String>) {
         {
-            let mut inner = self.inner.lock().unwrap();
+            let mut inner = self.inner.locked();
             inner.target = session;
             inner.target_lost = None;
         }
-        let _ = app.emit(ASSISTANT_CHANGED, self.state());
+        self.tell(app, ASSISTANT_CHANGED, self.state());
     }
 
     /// The user's title and short name for a session, kept for the project.
     pub fn rename(&self, app: &AppHandle, id: &str, title: Option<&str>, short: Option<&str>) {
         {
-            let mut inner = self.inner.lock().unwrap();
-            inner.use_project(&app.state::<Arc<Current>>().get().root);
+            let mut inner = self.inner.locked();
+            inner.use_project(&self.current.get().root);
             inner.rename(id, title, short);
             inner.save_identities();
         }
-        let _ = app.emit(ASSISTANT_CHANGED, self.state());
+        self.tell(app, ASSISTANT_CHANGED, self.state());
     }
 
     /// Copies a file a session left outside into the scratch folder; its project-relative path.
     pub fn fetch_outside(&self, app: &AppHandle, path: &str) -> Result<String, String> {
         let copy = {
-            let project = app.state::<Arc<Current>>().get();
-            let mut inner = self.inner.lock().unwrap();
+            let project = self.current.get();
+            let mut inner = self.inner.locked();
             inner.use_project(&project.root);
             let copy = inner.found.fetch(&project, path);
             inner.save_found();
             copy
         };
-        let _ = app.emit(ASSISTANT_CHANGED, self.state());
+        self.tell(app, ASSISTANT_CHANGED, self.state());
         copy
     }
 
     /// Whether `path` is a file the project's sessions left outside it.
     pub fn is_found(&self, path: &str) -> bool {
-        self.inner.lock().unwrap().found.has_file(path)
+        self.inner.locked().found.has_file(path)
     }
 
     /// Forgets a file left outside or a published page (by its path or address).
     pub fn forget_found(&self, app: &AppHandle, key: &str) {
         {
-            let mut inner = self.inner.lock().unwrap();
-            inner.use_project(&app.state::<Arc<Current>>().get().root);
+            let mut inner = self.inner.locked();
+            inner.use_project(&self.current.get().root);
             inner.found.forget(key);
             inner.save_found();
         }
-        let _ = app.emit(ASSISTANT_CHANGED, self.state());
+        self.tell(app, ASSISTANT_CHANGED, self.state());
     }
 
     /// Takes a session off the list until it reports again.
     pub fn forget(&self, app: &AppHandle, id: &str) {
         {
-            let mut inner = self.inner.lock().unwrap();
-            inner.use_project(&app.state::<Arc<Current>>().get().root);
+            let mut inner = self.inner.locked();
+            inner.use_project(&self.current.get().root);
             inner.forget(id);
             inner.save_identities();
         }
-        let _ = app.emit(ASSISTANT_CHANGED, self.state());
+        self.tell(app, ASSISTANT_CHANGED, self.state());
     }
 
-    fn serve(&self, app: &AppHandle, mut stream: UnixStream) {
-        let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
-        let mut text = String::new();
-        if (&mut stream).take(256 * 1024).read_to_string(&mut text).is_err() {
-            return;
+    /// The usage a tool's status line stated; the window hears of it when it changed anything.
+    pub fn take_usage(&self, app: &AppHandle, usage: crate::usage::Usage) {
+        let changed = self.inner.locked().usage.take(usage, now_ms());
+        if changed {
+            self.tell(app, ASSISTANT_CHANGED, self.state());
         }
-        // Another CodeDeck window, for a global shortcut it holds
-        if let Ok(message) = serde_json::from_str::<crate::window::Message>(&text) {
-            return crate::window::obey(app, message.window);
-        }
-        // The usage a tool's status line states
-        if let Ok(message) = serde_json::from_str::<crate::usage::Message>(&text) {
-            let changed = self.inner.lock().unwrap().usage.take(message.usage, now_ms());
-            if changed {
-                let _ = app.emit(ASSISTANT_CHANGED, self.state());
-            }
-            return;
-        }
-        let Ok(event) = serde_json::from_str::<Event>(&text) else { return };
-        let context = self.handle(app, &event);
-        let _ = stream.write_all(json!({ "context": context }).to_string().as_bytes());
     }
 
     /// Takes in one event; the text to hand to the assistant, if any.
-    fn handle(&self, app: &AppHandle, e: &Event) -> Option<String> {
+    pub fn handle(&self, app: &AppHandle, e: &Event) -> Option<String> {
         let harness = harness::by_id(Some(&e.harness))?;
-        let project = app.state::<Arc<Current>>().get();
+        let project = self.current.get();
         let root = &project.root;
-        let repos = || app.state::<Git>().repos(&project).iter().map(|r| r.top.clone()).collect();
+        let repos = || self.git.repos(&project).iter().map(|r| r.top.clone()).collect();
         let todo = {
-            let mut inner = self.inner.lock().unwrap();
+            let mut inner = self.inner.locked();
             inner.use_project(root);
             let todo = inner.take_in(e, harness, root, repos, now_ms());
             inner.save_identities();
@@ -534,23 +502,21 @@ impl Bridge {
         let mut said = e.report.clone();
         if let Some(mut info) = todo.log.and_then(|p| harness.read_log(&p)) {
             said = said.or(info.report.take());
-            let mut inner = self.inner.lock().unwrap();
+            let mut inner = self.inner.locked();
             inner.apply(&e.session, info, harness, root);
             inner.save_identities();
         }
         // The start rules ask for the link of a page published elsewhere at the end of the turn
         if let (EventKind::TurnDone, Some(text)) = (e.kind, &said) {
-            let mut inner = self.inner.lock().unwrap();
+            let mut inner = self.inner.locked();
             inner.found.said(text, &e.session, now_ms(), harness.page_hosts());
         }
-        self.inner.lock().unwrap().save_found();
+        self.inner.locked().save_found();
 
-        let git = app.state::<Git>();
-        let report = |run: &GitRun| {
-            let _ = app.emit(GIT_RAN, run);
-        };
+        let git = &self.git;
+        let report = |run: &GitRun| self.tell(app, GIT_RAN, run.clone());
         if !todo.ends.is_empty() {
-            let _one = self.snapshotting.lock().unwrap();
+            let _one = self.snapshotting.locked();
             let mut taken = false;
             for repo in git.repos(&project) {
                 let Some(start) = todo.ends.iter().find(|s| s.top == repo.top) else { continue };
@@ -558,7 +524,7 @@ impl Bridge {
                 taken |= matches!(git.end_turn(&report, &repo, &origin), Ok(Some(_)));
             }
             if taken {
-                let _ = app.emit(SNAPSHOT_TAKEN, ());
+                self.tell(app, SNAPSHOT_TAKEN, ());
             }
         }
 
@@ -569,23 +535,23 @@ impl Bridge {
                 (Some(t), None) => Some(t.clone()),
                 _ => None,
             };
-            let _one = self.snapshotting.lock().unwrap();
+            let _one = self.snapshotting.locked();
             let mut taken = false;
             for repo in git.repos(&project).iter().filter(|r| todo.snapshot_repos.contains(&r.top)) {
                 let origin = Origin::before(&todo.label, Some(&e.session), tool.as_deref());
                 if let Ok(start) = git.take_snapshot(&report, repo, &origin) {
                     taken |= start.new;
                     let start = TurnStart { repo: repo.path.clone(), hash: start.hash, top: repo.top.clone() };
-                    let mut inner = self.inner.lock().unwrap();
+                    let mut inner = self.inner.locked();
                     inner.turn_began(&e.session, start);
                     inner.save_open_turns();
                 }
             }
             if taken {
-                let _ = app.emit(SNAPSHOT_TAKEN, ());
+                self.tell(app, SNAPSHOT_TAKEN, ());
             }
         }
-        let _ = app.emit(ASSISTANT_CHANGED, self.state());
+        self.tell(app, ASSISTANT_CHANGED, self.state());
         todo.context
     }
 }
@@ -1035,18 +1001,6 @@ fn take_parts(list: &mut Vec<Attachment>) -> Option<String> {
     let text = joined(list);
     list.clear();
     text
-}
-
-/// Sockets of windows that were killed and could not remove theirs: `<pid>.sock` without a
-/// process of that number.
-fn remove_stale(dir: &Path) {
-    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
-        let path = entry.path();
-        let pid = path.file_stem().and_then(|s| s.to_str()).and_then(|s| s.parse::<u32>().ok());
-        if path.extension().is_some_and(|e| e == "sock") && pid.is_some_and(|p| !Path::new(&format!("/proc/{p}")).exists()) {
-            let _ = std::fs::remove_file(&path);
-        }
-    }
 }
 
 /// The repository a file belongs to: the innermost one around it.

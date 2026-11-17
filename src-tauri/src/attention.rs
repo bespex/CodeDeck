@@ -4,6 +4,7 @@
 //! new and whether it is looked at); this module shows it: the window's title, the taskbar, a
 //! desktop notification whose click brings the window to the front.
 
+use crate::Locked;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
@@ -48,10 +49,6 @@ pub fn save(settings: &Settings) -> Result<(), String> {
     crate::config::write(&file, &serde_json::to_vec_pretty(settings).map_err(|e| e.to_string())?)
 }
 
-/// What goes in front of the window's title, e.g. "● 2 waiting · "; set by the window.
-#[derive(Default)]
-pub struct TitlePrefix(pub Mutex<String>);
-
 /// The window's title: what waits, the project, the app.
 pub fn title(prefix: &str, project: &str) -> String {
     format!("{prefix}{project} – CodeDeck")
@@ -75,7 +72,8 @@ pub fn notify(app: &AppHandle, window: &WebviewWindow, key: &str, summary: &str,
     }
     if settings.desktop {
         let (app, label) = (app.clone(), window.label().to_string());
-        let (key, summary, body) = (key.to_string(), summary.to_string(), body.to_string());
+        // Per window: two projects may both have a session with the same key
+        let (key, summary, body) = (format!("{label}:{key}"), summary.to_string(), body.to_string());
         // Waiting for the click blocks: a thread of its own per notification
         std::thread::spawn(move || desktop(&app, &label, &key, &summary, &body));
     }
@@ -88,18 +86,18 @@ fn desktop(app: &AppHandle, label: &str, key: &str, summary: &str, body: &str) {
         note.icon(&icon);
     }
     // An earlier one of this key is replaced in place; if it is gone the server makes a new one
-    if let Some(id) = SHOWN.lock().unwrap().get(key) {
+    if let Some(id) = SHOWN.locked().get(key) {
         note.id(*id);
     }
     let Ok(handle) = note.show() else { return };
-    SHOWN.lock().unwrap().insert(key.to_string(), handle.id());
+    SHOWN.locked().insert(key.to_string(), handle.id());
     handle.wait_for_action(|action| {
         // A click on the notification itself is the "default" action
         if action == "default" {
+            // The way a shortcut does it: Cinnamon refuses the focus to a window that asks for
+            // itself, and with one process for all windows another one may stay in front
             if let Some(window) = app.get_webview_window(label) {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
+                crate::window::obey(&window, crate::window::Request::Front);
             }
         }
     });

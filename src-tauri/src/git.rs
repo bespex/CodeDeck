@@ -4,6 +4,7 @@
 //! A project may hold any number of repositories: the one it lies in (if any) and those found
 //! in folders below it. Paths that cross the IPC boundary are project-relative, as everywhere.
 
+use crate::Locked;
 use std::collections::VecDeque;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -147,8 +148,8 @@ impl Git {
 
     /// The commands run so far, oldest first.
     pub fn log(&self) -> Vec<GitRun> {
-        let mut all: Vec<GitRun> = self.changes.lock().unwrap().iter().cloned().collect();
-        all.extend(self.reads.lock().unwrap().iter().cloned());
+        let mut all: Vec<GitRun> = self.changes.locked().iter().cloned().collect();
+        all.extend(self.reads.locked().iter().cloned());
         all.sort_by_key(|r| r.id);
         all
     }
@@ -156,8 +157,8 @@ impl Git {
     /// Forgets the commands run so far: they belong to the project that was open, and the log of
     /// the next one must not look as if git had been used there.
     pub fn clear_log(&self) {
-        self.changes.lock().unwrap().clear();
-        self.reads.lock().unwrap().clear();
+        self.changes.locked().clear();
+        self.reads.locked().clear();
     }
 
     /// Makes the project folder a repository (`git init -b main`). Not one of the [`ACTIONS`]: it is
@@ -170,7 +171,7 @@ impl Git {
         let repo = Repo::new(project.root.clone(), String::new(), String::new());
         let (ok, stdout, stderr) = self.execute(report, &repo, &["init", "-b", "main"]);
         // The next status round must look again
-        *self.repos.lock().unwrap() = None;
+        *self.repos.locked() = None;
         let output = [stdout, stderr].map(|b| String::from_utf8_lossy(&b).trim_end().to_string());
         ActionResult { ok, output: output.into_iter().filter(|o| !o.is_empty()).collect::<Vec<_>>().join("\n") }
     }
@@ -179,7 +180,7 @@ impl Git {
     /// Also returns the `.git` directories, which are worth watching.
     pub fn status(&self, report: Report, project: &Project, rescan: bool) -> (Vec<RepoStatus>, Vec<PathBuf>) {
         let repos = {
-            let mut cache = self.repos.lock().unwrap();
+            let mut cache = self.repos.locked();
             match cache.as_ref() {
                 Some((root, repos)) if !rescan && *root == project.root => repos.clone(),
                 _ => {
@@ -215,7 +216,7 @@ impl Git {
 
     /// Every repository of the project, from the last search, or searched now.
     pub(crate) fn repos(&self, project: &Project) -> Vec<Repo> {
-        let mut cache = self.repos.lock().unwrap();
+        let mut cache = self.repos.locked();
         match cache.as_ref() {
             Some((root, repos)) if *root == project.root => repos.clone(),
             _ => {
@@ -228,7 +229,7 @@ impl Git {
 
     /// A repository of the project by its project-relative path, as found by the last search.
     pub(crate) fn find(&self, project: &Project, repo: &str) -> Option<Repo> {
-        let cache = self.repos.lock().unwrap();
+        let cache = self.repos.locked();
         let (root, repos) = cache.as_ref()?;
         (*root == project.root).then(|| repos.iter().find(|r| r.path == repo).cloned()).flatten()
     }
@@ -272,8 +273,14 @@ impl Git {
     /// repository without commits `HEAD` does not exist yet, and a red line in the log would look
     /// like something went wrong.
     pub(crate) fn verify(&self, report: Report, repo: &Repo, rev: &str) -> Option<String> {
-        match self.execute_logged(report, repo, &["rev-parse", "--verify", "--quiet", rev], &[], Logged::Question) {
-            (true, out, _) => Some(String::from_utf8_lossy(&out).trim().to_string()),
+        self.ask(report, repo, &["rev-parse", "--verify", "--quiet", rev]).map(|out| String::from_utf8_lossy(&out).trim().to_string())
+    }
+
+    /// Runs a command whose exit code 1 means "no" or "nothing found" (`rev-parse --verify`,
+    /// `grep`): its output, or `None`. Only other codes count as failure in the log.
+    pub(crate) fn ask(&self, report: Report, repo: &Repo, args: &[&str]) -> Option<Vec<u8>> {
+        match self.execute_logged(report, repo, args, &[], Logged::Question) {
+            (true, out, _) => Some(out),
             _ => None,
         }
     }
@@ -375,7 +382,7 @@ impl Git {
             output: result.err().unwrap_or_default(),
         };
         {
-            let mut log = self.changes.lock().unwrap();
+            let mut log = self.changes.locked();
             if log.len() == LOG_LIMIT {
                 log.pop_front();
             }
@@ -391,7 +398,7 @@ enum Logged {
     Always,
     /// Routine reads that run all the time, like the status round: only when they fail
     OnFailure,
-    /// A yes/no question (`rev-parse --verify --quiet`): exit code 1 means "no" and is logged as ok
+    /// A question (`rev-parse --verify --quiet`, `grep`): exit code 1 means "no" and is logged as ok
     Question,
 }
 
@@ -735,7 +742,7 @@ mod tests {
 
         let project = Project::open(&base).unwrap();
         let runs = Mutex::new(Vec::new());
-        let report = |run: &GitRun| runs.lock().unwrap().push(run.command.clone());
+        let report = |run: &GitRun| runs.locked().push(run.command.clone());
         let g = Git::new();
         let (repos, _) = g.status(&report, &project, true);
         assert_eq!(repos[0].path, "group/app");
@@ -750,7 +757,7 @@ mod tests {
         let (repos, _) = g.status(&report, &project, false);
         let _ = fs::remove_dir_all(&base);
         assert_eq!(repos[0].files.len(), 0);
-        assert!(runs.lock().unwrap().contains(&"git commit -m 'first: it'\\''s here'".to_string()));
+        assert!(runs.locked().contains(&"git commit -m 'first: it'\\''s here'".to_string()));
     }
 
     #[test]
@@ -760,7 +767,7 @@ mod tests {
         Command::new("git").args(["init", "-q", "-b", "main"]).current_dir(&dir).output().unwrap();
         let repo = Repo { top: dir.clone(), path: String::new(), prefix: String::new(), worktree_of: None };
         let runs = Mutex::new(Vec::new());
-        let report = |run: &GitRun| runs.lock().unwrap().push(run.ok);
+        let report = |run: &GitRun| runs.locked().push(run.ok);
         let g = Git::new();
         let head = g.verify(&report, &repo, "HEAD");
         // Outside any repository git fails with 128: that stays a failure
@@ -773,7 +780,7 @@ mod tests {
         assert_eq!(head, None);
         assert_eq!(broken, None);
         // "No HEAD yet" is logged as ok; a real error still is not
-        assert_eq!(*runs.lock().unwrap(), [true, false]);
+        assert_eq!(*runs.locked(), [true, false]);
     }
 
     #[test]

@@ -2,7 +2,7 @@
 
 Stand 2026-11-16. **Entschieden 2026-11-17: Option B**, letztes Fenster zu beendet das Programm, Absturzrisiko
 mit Gegenmitteln in Kauf genommen (Antworten auf die Fragen unten: 1 ja, 2 beenden, 3 ja; 4 erledigt sich,
-Umsetzung ist Schritt 3.0 im Plan). Anlass: Review „Steht die Architektur?“. Die
+Umsetzung ist Schritt 3.0 im Plan, **gebaut und getestet 2026-11-17**: `windows.rs`, `hub.rs`). Anlass: Review „Steht die Architektur?“. Die
 Fensterfunktionen von 2.1c (globale Kürzel) brauchten schon ein eigenes Protokoll zwischen den Prozessen, und
 MVP 3 (Startseite, Konten, Profile) braucht noch mehr Austausch zwischen den Fenstern.
 

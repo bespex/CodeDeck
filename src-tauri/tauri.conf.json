@@ -11,19 +11,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "CodeDeck",
-        "width": 1440,
-        "height": 900,
-        "minWidth": 280,
-        "minHeight": 400,
-        "decorations": true,
-        "resizable": true,
-        "backgroundColor": "#020617"
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": {
         "default-src": "'self'",

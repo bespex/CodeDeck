@@ -73,10 +73,9 @@ pub fn forward(args: &[String]) -> i32 {
         }
         match UnixStream::connect(&path) {
             Ok(stream) => {
-                windows += 1;
-                if let Some(text) = ask(stream, &line) {
-                    handed.push(text);
-                }
+                let (reached, texts) = ask(stream, &line);
+                windows += reached;
+                handed.extend(texts);
             }
             // A window that is gone left its socket behind
             Err(e) if matches!(e.kind(), std::io::ErrorKind::ConnectionRefused | std::io::ErrorKind::NotFound) => {
@@ -134,16 +133,28 @@ fn record_raw(input: &str) {
     }
 }
 
-/// Sends the event, waits for the answer; the text handed over, if any.
-fn ask(mut stream: UnixStream, line: &str) -> Option<String> {
-    stream.set_write_timeout(Some(Duration::from_secs(2))).ok()?;
-    stream.set_read_timeout(Some(ANSWER_WAIT)).ok()?;
-    stream.write_all(line.as_bytes()).ok()?;
-    stream.shutdown(std::net::Shutdown::Write).ok()?;
-    let mut answer = String::new();
-    stream.take(1024 * 1024).read_to_string(&mut answer).ok()?;
-    let answer: Value = serde_json::from_str(&answer).ok()?;
-    answer["context"].as_str().filter(|t| !t.trim().is_empty()).map(String::from)
+/// Sends the event to one CodeDeck process, waits for the answer: how many windows it has, and
+/// the texts they handed over.
+fn ask(mut stream: UnixStream, line: &str) -> (usize, Vec<String>) {
+    let mut asked = || -> Option<Value> {
+        stream.set_write_timeout(Some(Duration::from_secs(2))).ok()?;
+        stream.set_read_timeout(Some(ANSWER_WAIT)).ok()?;
+        stream.write_all(line.as_bytes()).ok()?;
+        stream.shutdown(std::net::Shutdown::Write).ok()?;
+        let mut answer = String::new();
+        (&stream).take(1024 * 1024).read_to_string(&mut answer).ok()?;
+        serde_json::from_str(&answer).ok()
+    };
+    let Some(answer) = asked() else { return (1, Vec::new()) };
+    let texts = answer["contexts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .filter(|t| !t.trim().is_empty())
+        .map(String::from)
+        .collect();
+    (answer["windows"].as_u64().map_or(1, |n| n as usize), texts)
 }
 
 /// This program as a shell command line starts it.

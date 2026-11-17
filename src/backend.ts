@@ -3,7 +3,16 @@
 
 import { parsePatch } from "./diff";
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import type { EventCallback, EventName, UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+
+/**
+ * Events for this window. One process serves every window (D25): what concerns a project goes to
+ * its window only, what concerns all (settings, shortcuts) reaches every window.
+ */
+function listen<T>(event: EventName, handler: EventCallback<T>): Promise<UnlistenFn> {
+  return getCurrentWebviewWindow().listen<T>(event, handler);
+}
 import { project as mockProject, tree as mockTree, type FileNode, type GitState } from "./mock";
 
 /** The commit the mock's root repository is on. */
@@ -1381,8 +1390,8 @@ export function onWindowRequest(callback: (request: WindowRequest) => void): () 
 export interface GlobalShortcut {
   keys: string;
   action: "showHide" | "sidebar";
-  /** here: this window · otherWindow: another CodeDeck window · taken: another program · unsupported: Wayland */
-  state: "here" | "otherWindow" | "taken" | "unsupported";
+  /** here: CodeDeck holds it (for all its windows) · taken: another program · unsupported: Wayland */
+  state: "here" | "taken" | "unsupported";
 }
 
 export function globalShortcuts(): Promise<GlobalShortcut[]> {

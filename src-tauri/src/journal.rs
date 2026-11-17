@@ -5,6 +5,7 @@
 //! `XDG_STATE_HOME`). A window writes what concerns its project: the neutral events of the
 //! coding tools, and when it opened. Old lines go when a window first writes in a project.
 
+use crate::Locked;
 use std::collections::HashSet;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
@@ -69,7 +70,7 @@ pub struct Journal {
 impl Journal {
     pub fn write(&self, root: &Path, line: &Line, now: u64) {
         let Some(file) = file_for(root) else { return };
-        if self.pruned.lock().unwrap().insert(root.to_path_buf()) {
+        if self.pruned.locked().insert(root.to_path_buf()) {
             prune(&file, now);
         }
         let Ok(text) = serde_json::to_string(line) else { return };
