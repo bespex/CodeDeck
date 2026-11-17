@@ -127,8 +127,10 @@ pub fn place_beside_overview(app: &AppHandle, window: &WebviewWindow) {
         let margin = (MARGIN * scale).round() as i32;
         let (left, top) = (area.position.x + margin, area.position.y + margin);
         let screen_right = area.position.x + area.size.width as i32;
+        // The overview stands at the right edge: its width, frame included, is taken off. Its
+        // position is not used, it may still be on its way there
         let right = match &overview {
-            Some(o) => o.outer_position()?.x.min(screen_right - margin),
+            Some(o) => screen_right - o.outer_size()?.width as i32,
             None => screen_right - margin,
         };
         let bottom = area.position.y + area.size.height as i32 - margin;
