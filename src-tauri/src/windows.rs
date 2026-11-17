@@ -26,8 +26,8 @@ pub struct Win {
     pub bridge: Arc<Bridge>,
     /// Where the full window was while it is a sidebar
     pub place: FullPlace,
-    /// What goes in front of the title, e.g. "● 2 waiting · "; set by the window
-    pub title_prefix: Mutex<String>,
+    /// What follows the project's name in the title, e.g. "● 2 asking"; set by the window
+    pub title_status: Mutex<String>,
 }
 
 #[derive(Default)]
@@ -73,7 +73,7 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
         watch,
         bridge,
         place: FullPlace::default(),
-        title_prefix: Mutex::new(String::new()),
+        title_status: Mutex::new(String::new()),
     });
     // Known before the page loads: it asks for its project at once
     windows.all.locked().insert(label.clone(), win.clone());

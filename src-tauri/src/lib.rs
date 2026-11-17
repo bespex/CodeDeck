@@ -77,7 +77,7 @@ impl Current {
 pub(crate) fn title_of(win: &Win) -> String {
     let project = win.current.get();
     let name = project.root.file_name().map_or_else(|| "/".into(), |n| n.to_string_lossy());
-    attention::title(&win.title_prefix.locked(), &name)
+    attention::title(&name, &win.title_status.locked())
 }
 
 fn set_title(app: &AppHandle, win: &Win) {
@@ -86,11 +86,11 @@ fn set_title(app: &AppHandle, win: &Win) {
     }
 }
 
-/// What goes in front of the window title, e.g. "● 2 waiting · " (in the interface's language).
+/// What follows the project's name in the window title, e.g. "● 2 asking" (in the interface's language).
 #[tauri::command]
-fn set_title_prefix(prefix: String, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+fn set_title_status(status: String, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
     let win = windows::of(&window)?;
-    *win.title_prefix.locked() = prefix;
+    *win.title_status.locked() = status;
     set_title(&app, &win);
     Ok(())
 }
@@ -704,7 +704,7 @@ pub fn run() {
             set_harness_connection,
             set_usage_connection,
             git_log,
-            set_title_prefix,
+            set_title_status,
             attention_settings,
             set_attention_settings,
             notify_attention,

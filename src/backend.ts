@@ -1336,10 +1336,10 @@ export function notifyAttention(key: string, summary: string, body: string): Pro
 const mockNotifications: { summary: string; body: string }[] = [];
 if (!live) (window as unknown as { mockNotifications: typeof mockNotifications }).mockNotifications = mockNotifications;
 
-/** What goes in front of the window title, e.g. "● 2 waiting · ". */
-export function setTitlePrefix(prefix: string): Promise<void> {
-  if (live) return invoke("set_title_prefix", { prefix });
-  document.title = `${prefix}orbit-api – CodeDeck`;
+/** What follows the project's name in the window title, e.g. "● 2 asking"; empty for nothing. */
+export function setTitleStatus(status: string): Promise<void> {
+  if (live) return invoke("set_title_status", { status });
+  document.title = status ? `orbit-api ${status} – CodeDeck` : "orbit-api – CodeDeck";
   return Promise.resolve();
 }
 

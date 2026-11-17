@@ -49,9 +49,10 @@ pub fn save(settings: &Settings) -> Result<(), String> {
     crate::config::write(&file, &serde_json::to_vec_pretty(settings).map_err(|e| e.to_string())?)
 }
 
-/// The window's title: what waits, the project, the app.
-pub fn title(prefix: &str, project: &str) -> String {
-    format!("{prefix}{project} – CodeDeck")
+/// The window's title: the project first, so that a taskbar that cuts it short still tells the
+/// windows apart; then what waits, then the app.
+pub fn title(project: &str, status: &str) -> String {
+    if status.is_empty() { format!("{project} – CodeDeck") } else { format!("{project} {status} – CodeDeck") }
 }
 
 /// The desktop notification each key (a session, "git", "several") has on screen. Telling again

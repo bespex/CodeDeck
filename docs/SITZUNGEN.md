@@ -199,6 +199,9 @@ Die Projekte, an denen du jeden Tag arbeitest. Jedes hat **eine** Sitzung, die C
 
 ## A13 Startseite und Projektfenster
 
+> **Überholt durch `docs/UEBERSICHT.md` (Entwurf 2026-11-17), sofern abgestimmt:** Die Startseite ist dort
+> eine eigene, immer verfügbare Übersicht für alle Projekte statt der Leiste eines Fensters ohne Projekt.
+
 - **Kein Projekt offen:** Das Fenster ist die Startseite, immer in Leistenform. Von oben: Kopf
   (CodeDeck, Ordner öffnen, Einstellungen), „Wartet auf dich“ über **alle** Projekte (mit Projektname),
   „Today“ (die Tagesliste mit „▶ All“ und „at start“), „Other projects“ (die letzten Projekte, mit
