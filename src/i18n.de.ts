@@ -897,6 +897,8 @@ export const de: Record<string, string> = {
   "Continue the last conversation in a new session (nothing starts while one runs)": "Letzte Unterhaltung in einer neuen Sitzung fortsetzen (nichts startet, solange dort eine läuft)",
   "Start a new conversation": "Neue Unterhaltung beginnen",
   "Continue session": "Sitzung fortsetzen",
+  "Restart": "Neu starten",
+  "Stop": "Beenden",
   "Desktop App Profile": "Desktop-App-Profil",
   "Create a new profile…": "Neues Profil anlegen…",
   "Starts the desktop app with a folder of its own. Sign in there with this account; CodeDeck keeps the profile for it.": "Startet die Desktop-App mit einem eigenen Ordner. Melde dich dort mit diesem Konto an; CodeDeck merkt sich das Profil dafür.",

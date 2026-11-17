@@ -13,6 +13,8 @@ import {
   Paperclip,
   Pencil,
   Radio,
+  RotateCcw,
+  Square,
   SquareTerminal,
   X,
   User,
@@ -21,7 +23,7 @@ import {
 import { DRAG_TYPE } from "./FilesPanel";
 import { HookPanel } from "./AssistantStatus";
 import { Tooltip } from "./Tooltip";
-import { forgetSession, openSession, openUrl, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
+import { forgetSession, openSession, openUrl, stopSession, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
 import { useProjectAccount, useProjectLook } from "../projectLook";
 import { AssistantStatusBar } from "./StatusBar";
 import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
@@ -469,6 +471,27 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
               {s.step && head.from !== "step" && ` · ${t("step")}: ${s.step}`}
               <AccountNote session={s} projectAccount={projectAccount} />
             </span>
+            {/* Sessions CodeDeck can reach in tmux end here; not while they work. Their conversation stays */}
+            {s.place?.tmux?.session && s.status !== "working" && s.status !== "ended" && projectPath && (
+              <>
+                <button
+                  type="button"
+                  title={t("Restart: same conversation, fresh process")}
+                  onClick={() => void stopSession(projectPath, s.id, true).catch((e) => setFailed(String(e)))}
+                  className="flex shrink-0 items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-slate-300 hover:border-overlay-line hover:bg-overlay-hover hover:text-slate-100"
+                >
+                  <RotateCcw className="size-3" /> {t("Restart")}
+                </button>
+                <button
+                  type="button"
+                  title={t("Stop (the conversation is kept and can be continued)")}
+                  onClick={() => void stopSession(projectPath, s.id, false).catch((e) => setFailed(String(e)))}
+                  className="flex shrink-0 items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-slate-300 hover:border-overlay-line hover:bg-overlay-hover hover:text-slate-100"
+                >
+                  <Square className="size-3" /> {t("Stop")}
+                </button>
+              </>
+            )}
             <button
               type="button"
               title={t("Takes it off this list. It comes back by itself when the session takes its next step")}
