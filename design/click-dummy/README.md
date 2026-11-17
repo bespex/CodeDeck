@@ -27,7 +27,7 @@ echte App täte.
 | `usage.html` | Verbrauch (Schritt 2.4): Statusleiste, Popup, Activity; Zustände per Knopf |
 | `sessions.html` | Sitzungen überall bedienen (MVP 3, `docs/SITZUNGEN.md`): Zuhause und Türen, Doppelklick, „+ New“, Handy, Einstellungen; Startseite ohne offenes Projekt (Leiste), Tagesliste mit ▶ und „▶ All“, Projektmenü, „CodeDeck started“ |
 | `themes.html` | Theme-Labor (`docs/STYLING.md`): CodeDeck, Paper, Graphite, Signal; Wahl mit Vorschau beim Überfahren (im Dummy in den Schnelleinstellungen, in der App nur im Einstellungsdialog), Theme-Datei live bearbeiten, Prüfbericht, inaktives Fenster |
-| `overview.html` | Eine Übersicht für alle Projekte (`docs/UEBERSICHT.md`): ersetzt die Leiste je Projekt, ist die Startseite; Projekt-Blöcke, Today, Taskleiste mit Titel und Icon je Fenster |
+| `overview.html` | Eine Übersicht für alle Projekte (`docs/UEBERSICHT.md`): ersetzt die Leiste je Projekt, ist die Startseite; Projekt-Blöcke, Today, Taskleiste mit Titel und Icon je Fenster; Marke je Projekt mit Auswahldialog (Klick auf den Kreis). `lucide-icons.js` sind die Umrisse aller Lucide-Icons, erzeugt aus `node_modules/lucide-react` |
 | `attention.html` | „Wartet auf dich“ im Theme „CodeDeck“: heutiger Stand und drei Alternativen (Kante und Schild, Karte, Überschrift und „neu“), neue Einträge per Knopf |
 
 `Main.dc.html` ist für die Design-Leinwand auf claude.ai geschrieben (Fassung dort:

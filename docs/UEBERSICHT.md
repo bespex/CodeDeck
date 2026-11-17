@@ -67,6 +67,33 @@ Projektübergreifende steht in der Übersicht.
 | A13: Fenster ohne Projekt wird zur Startseite | die Übersicht ist die Startseite, immer da |
 | A13: Projektmenü mit Tagesliste, „Wartet“ über alle im Projektfenster | Projektmenü bleibt klein (letzte Projekte); Projektübergreifendes nur in der Übersicht |
 
+## Marke je Projekt
+
+Jedes Projekt bekommt eine **Marke**: einen Kreis in seiner Farbe, darauf ein Zeichen (Nutzer 2026-11-17).
+Sie steht überall dort, wo der Projektname steht, und macht Projekte auf einen Blick unterscheidbar.
+
+- **Zeichen**, frei wählbar im Dialog „Mark for …“ (Klick auf die Marke):
+  - **Icons:** alle Lucide-Icons (rund 2.000, schon im Programm, gleicher Stil wie die Oberfläche),
+    weiß auf der Projektfarbe, mit Suche über den Namen und einer Vorauswahl von etwa 70 passenden;
+  - **Emoji:** kuratierte Gruppen ohne Smileys (Technik, Natur, Tiere, Orte, Dinge, Essen, Symbole), auf
+    der Projektfarbe, aufgehellt;
+  - **Buchstabe:** der erste des Projektnamens. Das ist die Vorgabe für jedes neue Projekt.
+- **Farbe:** aus einer Palette passend zu den Themes; Vorgabe aus dem Pfad, damit Projekte von Anfang an
+  verschieden aussehen.
+- **Wo sie erscheint:** Fenster-Icon in der Taskleiste (mit dem Statuspunkt), Kopf der rechten Spalte im
+  Projektfenster, Übersicht (Blöcke, Today, Other projects, Projektname an den Karten von „Wartet auf
+  dich“), Projektmenü, Desktop-Meldung (als deren Icon).
+- **Emoji auch im Titel:** Ein gewähltes Emoji steht zusätzlich vorn im Fenstertitel (`📚 docs-site ● 1
+  asking`). So hilft es auch, wo die Taskleiste Fenster unter einem Icon gruppiert.
+- **Gespeichert** je Projekt in `~/.config/codedeck/projects.json` (dieselbe Datei wie die Tagesliste, B12).
+- **Technik:** Die Oberfläche zeichnet das Fenster-Icon (Kreis, Lucide-SVG oder Emoji mit der
+  System-Schrift, Statuspunkt) auf eine Zeichenfläche und gibt die Pixel an das Backend (`set_window_icon`);
+  Rust kann keine Schrift und keine SVGs zeichnen. `icon.rs` aus dem Spike entfällt dann bis auf die
+  Vorgabefarbe.
+- **Zu bedenken:** Die Schilder der Sitzungen sind ebenfalls farbige Kreise mit Buchstaben (A, B, …).
+  Damit Projekt und Sitzung nicht verwechselt werden, ist die Marke etwas größer und trägt standardmäßig den
+  Buchstaben fett; Alternative: Marke als abgerundetes Quadrat (Entscheidung 8).
+
 ## Technik
 
 - **Fenster `overview`** im selben Prozess, gleiche Oberfläche mit eigenem Einstieg
@@ -100,4 +127,5 @@ zu bauen. Die Leiste je Projekt wird mit 3.0b entfernt.
 | 4 | Programmende | wenn das letzte Fenster zugeht, Übersicht eingeschlossen; Quit im Menü |
 | 5 | „Wartet auf dich“ im Projektfenster | nur das eigene Projekt (A13 entsprechend ändern) |
 | 6 | Zeitpunkt | 3.0b direkt nach 3.0, vor 3.1 |
-| 7 | Marke je Projekt (Farbe oder Emoji) | Farbe als Vorgabe, Emoji wählbar; dieselbe Marke im Fenster-Icon (Spike) und in der Übersicht |
+| 7 | Marke je Projekt | **Richtung abgestimmt (Nutzer 2026-11-17):** Kreis in der Projektfarbe mit Lucide-Icon, Emoji oder Buchstabe; überall, wo der Projektname steht; Emoji auch im Titel |
+| 8 | Form der Marke | Kreis (Wunsch des Nutzers); prüfen im Dummy, ob sie sich genug von den Sitzungsschildern unterscheidet, sonst abgerundetes Quadrat |

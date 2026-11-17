@@ -49,7 +49,28 @@
   .chip:hover { background: #3a3f46; color: #fff; }
   .badge { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #111; flex-shrink: 0; }
   .badge.off { background: transparent; border: 1px dashed #4d545c; }
-  .mark { width: 18px; height: 18px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+  .mark { border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; line-height: 1; }
+  .mark:hover { box-shadow: 0 0 0 2px #ffffff55; }
+  /* Choosing a project's mark */
+  .dlg { position: absolute; z-index: 40; inset: 0; background: #0009; display: flex; align-items: center; justify-content: center; }
+  .dlg .box { width: 560px; max-height: 92%; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 10px; background: #2b2f35; border: 1px solid #4d545c; box-shadow: 0 16px 48px #000c; }
+  .dlg h4 { margin: 0; font-size: 14px; color: #f5f6f7; }
+  .prev { display: flex; align-items: center; gap: 18px; padding: 10px; border-radius: 8px; background: #1f2226; }
+  .prev small { display: block; color: #8d949b; font-size: 11px; text-align: center; margin-top: 4px; }
+  .segs { display: inline-flex; border: 1px solid #4d545c; border-radius: 6px; overflow: hidden; }
+  .segs button { padding: 4px 12px; font-size: 12px; }
+  .segs button.on { background: #4f46e5; color: #fff; }
+  .search { height: 28px; padding: 0 9px; border-radius: 6px; border: 1px solid #4d545c; background: #1b1e22; width: 100%; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 4px; overflow: auto; max-height: 260px; padding: 2px; }
+  .cell { height: 38px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #d2d6da; font-size: 20px; }
+  .cell:hover { background: #3a3f46; }
+  .cell.on { background: #4f46e5; color: #fff; }
+  .glabel { grid-column: 1 / -1; font-size: 11px; color: #8d949b; text-transform: uppercase; letter-spacing: .06em; padding: 6px 2px 2px; }
+  .swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sw { width: 24px; height: 24px; border-radius: 50%; border: 2px solid transparent; }
+  .sw.on { border-color: #fff; }
+  .btn { height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid #4d545c; }
+  .btn.pri { background: #4f46e5; border-color: #4f46e5; color: #fff; }
   .proj { margin: 6px 8px; border-radius: 8px; background: #23272c; border: 1px solid #30343a; }
   .proj.front { border-color: #6366f1; }
   .ph { display: flex; align-items: center; gap: 7px; padding: 7px 8px; cursor: pointer; user-select: none; }
@@ -99,9 +120,7 @@
   <span class="grp">Event:
     <button id="ask">docs-site asks</button><button id="done">orbit-api turn done</button><button id="hide">Ctrl+Alt+L</button><button id="closeall">Close all project windows</button>
   </span>
-  <span class="grp">Mark per project:
-    <button data-mark="color">colour</button><button data-mark="emoji">emoji</button>
-  </span>
+  <span class="grp">Mark: click a project's circle (overview, title bar) to choose icon, emoji or letter and its colour</span>
   <span class="grp">Taskbar:
     <button data-icon="plain">app icon only</button><button data-icon="own">own icon per window</button>
   </span>
@@ -110,17 +129,29 @@
 <div class="note" id="note"></div>
 <div class="desk" id="desk"></div>
 
+<script src="lucide-icons.js"></script>
 <script>
 const COLORS = ["#818cf8", "#c08cf5", "#4fc9bd", "#ee8fbd", "#62b6ee", "#c3cf6c"];
-let P, S, front, ovHidden, mark, icon, folded, otherOpen, autoStart, toastText, freshId, lastNote;
+const PALETTE = ["#7f95ff", "#4fc9bd", "#e391d0", "#c3cf6c", "#62b6ee", "#c08cf5", "#f0a060", "#6cc58e", "#e66a78", "#a9afb5"];
+const SUGGESTED = "rocket book-open database server globe code terminal flask-conical leaf sprout brain bot shield layers package puzzle palette camera map compass house factory wallet receipt chart-line cpu cloud zap flame star heart anchor feather gem key-round landmark mountain trees satellite orbit telescope microscope notebook-pen newspaper graduation-cap briefcase shopping-cart truck plane ship bike coffee gamepad-2 film pen-tool hammer wrench bug sun moon snowflake tent castle".split(" ").filter((n) => LUCIDE[n]);
+const EMOJI = {
+  Technology: "🛰️ 🚀 🧪 🔬 🔧 🛠️ ⚙️ 💾 🖥️ 💡 🔋 📡 🤖 🧬 🧲 🔌",
+  Nature: "🌲 🌵 🌊 🔥 ⛰️ 🌙 ☀️ ⭐ ❄️ 🌈 🍀 🌻 🌸 🍄 🌍 ⚡",
+  Animals: "🦊 🐙 🦉 🐝 🐢 🦋 🐳 🦀 🐧 🦁 🐺 🦜 🐞 🦔 🐬 🦄",
+  Places: "🏠 🏭 🏰 🏝️ 🗼 🏔️ 🏛️ 🏟️ 🗺️ 🧭 ⛺ 🚉",
+  Things: "📚 🧾 🎨 🎵 📷 🎲 🧩 🎯 🔑 📦 🧰 🗂️ 📝 📊 💼 🏷️",
+  Food: "☕ 🍎 🍋 🍕 🍩 🍪 🧁 🍇 🥕 🌶️",
+  Symbols: "♻️ ⚓ 🔶 🔷 ❤️ ⚜️ ☯️ 🏁 ♾️ ⚛️",
+};
+let P, S, front, ovHidden, icon, folded, otherOpen, autoStart, toastText, freshId, lastNote, pick;
 function reset() {
   P = [
-    { name: "orbit-api", open: true, color: "#7f95ff", emoji: "🛰️", git: "3 uncommitted · ↑2", next: 2, news: 0, daily: true, z: 2 },
-    { name: "ai-driven-development", open: true, color: "#4fc9bd", emoji: "🧠", git: "clean", next: 0, news: 3, daily: true, z: 1 },
-    { name: "docs-site", open: false, color: "#ee8fbd", emoji: "📚", daily: true },
-    { name: "billing-ui", open: false, color: "#c3cf6c", emoji: "🧾", daily: true, last: "Invoice table paging" },
-    { name: "homepage", open: false, color: "#62b6ee", emoji: "🏠", daily: false, seen: "opened 3 days ago" },
-    { name: "playground", open: false, color: "#c08cf5", emoji: "🧪", daily: false, seen: "opened yesterday" },
+    { name: "orbit-api", open: true, mark: { kind: "icon", value: "satellite", color: "#7f95ff" }, git: "3 uncommitted · ↑2", next: 2, news: 0, daily: true, z: 2 },
+    { name: "ai-driven-development", open: true, mark: { kind: "icon", value: "brain", color: "#4fc9bd" }, git: "clean", next: 0, news: 3, daily: true, z: 1 },
+    { name: "docs-site", open: false, mark: { kind: "emoji", value: "📚", color: "#e391d0" }, daily: true },
+    { name: "billing-ui", open: false, mark: { kind: "letter", color: "#c3cf6c" }, daily: true, last: "Invoice table paging" },
+    { name: "homepage", open: false, mark: { kind: "icon", value: "house", color: "#62b6ee" }, daily: false, seen: "opened 3 days ago" },
+    { name: "playground", open: false, mark: { kind: "emoji", value: "🧪", color: "#c08cf5" }, daily: false, seen: "opened yesterday" },
   ];
   S = [
     { id: "a1", proj: "orbit-api", short: "A", color: 0, title: "Auth refactor", status: "waiting", why: "needs your permission: npm test", remote: true },
@@ -129,7 +160,7 @@ function reset() {
     { id: "d1", proj: "ai-driven-development", short: "A", color: 1, title: "Kapitel 3 überarbeiten", status: "done", why: "turn done just now", remote: true },
     { id: "s1", proj: "docs-site", short: "A", color: 3, title: "Heading styles", status: "working", why: "running the build", remote: true, daily: true },
   ];
-  front = "orbit-api"; ovHidden = false; mark ??= "color"; icon ??= "own"; folded = new Set(); otherOpen = false; autoStart = false; toastText = null; freshId = null;
+  front = "orbit-api"; ovHidden = false; pick = null; icon ??= "own"; folded = new Set(); otherOpen = false; autoStart = false; toastText = null; freshId = null;
   note("One overview at the right edge for every project, always there, also with no project open. Click a project's header: its window comes to the front. Double-click a session: to it (Desktop, else terminal). The taskbar below shows the windows with the project's name first.");
 }
 function note(t) { lastNote = t; document.getElementById("note").innerHTML = t; }
@@ -137,13 +168,19 @@ const projOf = (n) => P.find((p) => p.name === n);
 const live = (n) => S.filter((s) => s.proj === n && s.status !== "ended");
 const asks = (n) => live(n).filter((s) => s.status === "waiting").length;
 const dones = (n) => live(n).filter((s) => s.status === "done").length;
-const markOf = (p, size = 18) => mark === "emoji"
-  ? `<span class="mark" style="background:#30343a;width:${size}px;height:${size}px">${p.emoji}</span>`
-  : `<span class="mark" style="background:${p.color};width:${size}px;height:${size}px"></span>`;
+/** The project's mark: its icon, emoji or first letter on a circle in its colour. */
+function glyph(m, name, size) {
+  if (m.kind === "icon") return `<svg viewBox="0 0 24 24" width="${Math.round(size * 0.6)}" height="${Math.round(size * 0.6)}" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${LUCIDE[m.value] ?? ""}</svg>`;
+  if (m.kind === "emoji") return `<span style="font-size:${Math.round(size * 0.62)}px">${m.value}</span>`;
+  return `<span style="font-size:${Math.round(size * 0.52)}px;font-weight:700;color:#fff">${name[0].toUpperCase()}</span>`;
+}
+const markOf = (p, size = 18, m = p.mark) =>
+  `<span class="mark" data-pick="${p.name}" title="${p.name}: change its mark" style="width:${size}px;height:${size}px;background:${m.kind === "emoji" ? m.color + "66" : m.color}${m.kind === "emoji" ? `;box-shadow:inset 0 0 0 ${Math.max(1, size / 14)}px ${m.color}` : ""}">${glyph(m, p.name, size)}</span>`;
 const badge = (s) => `<span class="badge" style="background:${COLORS[s.color]}">${s.short}</span>`;
 const stLabel = (s) => ({ working: "working", waiting: "asks", idle: "idle", done: "done", starting: "starting…" })[s.status];
 const status = (n) => { const a = asks(n), d = dones(n); return [a && `${a} asking`, d && `${d} done`].filter(Boolean).join(" · "); };
-const titleOf = (p) => { const st = status(p.name); return `${p.name}${st ? " ● " + st : ""} – CodeDeck`; };
+// An emoji leads the title too: it shows even where the taskbar groups windows under one icon
+const titleOf = (p) => { const st = status(p.name); return `${p.mark.kind === "emoji" ? p.mark.value + " " : ""}${p.name}${st ? " ● " + st : ""} – CodeDeck`; };
 
 function render() {
   const desk = document.getElementById("desk");
@@ -151,12 +188,12 @@ function render() {
   // Project windows, the one in front on top
   const wins = open.map((p, i) => `
     <div class="win ${p.name === front ? "front" : ""}" data-win="${p.name}" style="left:${3 + i * 7}%;top:${5 + i * 8}%;width:${ovHidden ? 70 : 52}%;height:68%;z-index:${p.name === front ? 5 : p.z}">
-      <div class="bar">${mark === "emoji" ? p.emoji : `<span class="dot" style="background:${p.color}"></span>`} ${titleOf(p)}<span class="x" data-close="${p.name}" title="Close this window">×</span></div>
+      <div class="bar">${titleOf(p)}<span class="x" data-close="${p.name}" title="Close this window">×</span></div>
       <div class="body"><div class="deck"><div class="tabs"><span>Activity</span><span class="on">Changes</span><span>Workbench</span><span>Next prompt</span></div>
         <div class="ghost" style="width:60%"></div><div class="ghost" style="width:80%"></div><div class="ghost" style="width:45%"></div><div class="ghost" style="width:70%"></div></div>
-        <div class="col"><b style="color:#d2d6da">Sessions · ${p.name}</b>${live(p.name).map((s) => `<div>${badge(s)} ${s.title}</div>`).join("")}<span style="margin-top:auto;color:#6b7178">(full window; no sidebar form any more)</span></div></div>
+        <div class="col"><b style="color:#d2d6da;display:flex;gap:6px;align-items:center">${markOf(p, 20)} ${p.name}</b>${live(p.name).map((s) => `<div>${badge(s)} ${s.title}</div>`).join("")}<span style="margin-top:auto;color:#6b7178">(full window; no sidebar form any more)</span></div></div>
     </div>`).join("");
-  desk.innerHTML = wins + `<aside class="ov ${ovHidden ? "hidden" : ""}" id="ov">${overview()}</aside>` + taskbar() + (toastText ? `<div class="toast">${toastText}</div>` : "");
+  desk.innerHTML = wins + `<aside class="ov ${ovHidden ? "hidden" : ""}" id="ov">${overview()}</aside>` + taskbar() + (toastText ? `<div class="toast">${toastText}</div>` : "") + picker();
   bind();
 }
 
@@ -169,7 +206,7 @@ function overview() {
       <button class="ib" title="Open folder… (Ctrl+O)" id="openf">📂</button><button class="ib" title="Settings (Ctrl+,)">⚙</button><button class="ib" title="About, Quit">⋯</button></div>
     ${needs.length ? `<div class="area">Needs you <span class="ml" style="color:${needs.some((s) => s.status === "waiting") ? "#e0a868" : "#a9afb5"}">${needs.length}</span></div>` + needs.map((s) => `
       <div class="card ${s.status === "waiting" ? "asks" : ""} ${s.id === freshId ? "fresh" : ""}" data-s="${s.id}" title="Double-click: go to it · middle click: terminal">${badge(s)}
-        <span style="flex:1;min-width:0"><b style="color:#f5f6f7">${s.title}</b> <span class="chip" data-front="${s.proj}">${s.proj}</span><br><span class="${s.status === "waiting" ? "waiting" : "done"}" style="font-size:12px">${s.why}</span></span></div>`).join("") : ""}
+        <span style="flex:1;min-width:0"><b style="color:#f5f6f7">${s.title}</b> <span class="chip" data-front="${s.proj}">${markOf(projOf(s.proj), 12)} ${s.proj}</span><br><span class="${s.status === "waiting" ? "waiting" : "done"}" style="font-size:12px">${s.why}</span></span></div>`).join("") : ""}
     <div class="area">Open projects <span class="ml">${open.length}</span></div>
     ${open.length ? open.map(block).join("") : `<div class="empty">No project open. Open one from Today, Other projects or with 📂; the overview stays as your radar.</div>`}
     ${today.length ? `<div class="area">Today <span class="ml"><label class="auto" title="Start today's projects whenever CodeDeck starts"><input type="checkbox" id="auto" ${autoStart ? "checked" : ""}>at start</label>
@@ -195,7 +232,7 @@ function block(p) {
 function prow(p) {
   const m = live(p.name)[0];
   const st = m ? `<span class="${m.status}">${stLabel(m)}</span> · ${m.why}` : p.daily ? (p.last ? `not running · ▶ continues “${p.last}”` : "not running") : p.seen;
-  return `<div class="prow" data-p="${p.name}">${m ? badge(m) : markOf(p)}
+  return `<div class="prow" data-p="${p.name}">${markOf(p, 22)}
     <span style="flex:1;min-width:0"><span class="pname" data-openp="${p.name}" title="Open ${p.name} in a window">${p.name}</span><small>${st}</small></span>
     ${!m && p.daily ? `<button class="play" data-start="${p.name}" title="Start its session in the background; no window opens">▶</button>` : m?.remote ? `<span class="remote">⌔</span>` : ""}</div>`;
 }
@@ -205,7 +242,7 @@ function taskbar() {
   const ico = (p) => {
     if (icon === "plain") return `<span class="ico"><span class="base">◆</span>${unread ? `<span class="cnt">${unread}</span>` : ""}</span>`;
     const a = asks(p.name), d = dones(p.name);
-    return `<span class="ico"><span class="base">${mark === "emoji" ? p.emoji : "◆"}</span>${mark === "color" ? `<span class="bar2" style="background:${p.color}"></span>` : ""}
+    return `<span class="ico">${markOf(p, 22)}
       ${a ? `<span class="st" style="background:#e0a868"></span>` : d ? `<span class="st" style="background:#6cc58e"></span>` : ""}${unread ? `<span class="cnt">${unread}</span>` : ""}</span>`;
   };
   return `<div class="task"><span class="menu"></span>
@@ -228,11 +265,53 @@ function bind() {
   q("[data-close]").forEach((el) => (el.onclick = (e) => { e.stopPropagation(); const p = projOf(el.dataset.close); p.open = false; if (front === p.name) front = P.find((x) => x.open)?.name;
     note(`${p.name}'s window is closed. Its sessions keep running and stay in the overview (${p.daily ? "under Today" : "under Other projects"}); CodeDeck ends only when the last window, the overview included, closes.`); render(); }));
   q(".win").forEach((el) => (el.onmousedown = () => { if (front !== el.dataset.win) { front = el.dataset.win; render(); } }));
+  q(".ov [data-pick], .win [data-pick]").forEach((el) => (el.onclick = (e) => { e.stopPropagation(); const p = projOf(el.dataset.pick); pick = { name: p.name, ...p.mark, tab: p.mark.kind === "letter" ? "icon" : p.mark.kind, q: "" }; render(); }));
+  bindPick();
   const all = document.getElementById("all"); if (all) all.onclick = () => { P.filter((p) => p.daily && !p.open && !live(p.name).length).forEach((p, i) => setTimeout(() => start(p, true), i * 400)); note("Starts every project of today's list that has no session yet, one after the other. No window opens."); };
   const auto = document.getElementById("auto"); if (auto) auto.onchange = () => { autoStart = auto.checked; note(autoStart ? "Today's projects start by themselves whenever CodeDeck starts." : "No start by itself any more; ▶ All stays."); };
   document.getElementById("other").onclick = () => { otherOpen = !otherOpen; render(); };
   document.getElementById("openf").onclick = () => note("A folder picker; the project opens in a new window and gets its own block here.");
   document.getElementById("tbov").onclick = () => { ovHidden = !ovHidden; render(); };
+}
+function picker() {
+  if (!pick) return "";
+  const p = projOf(pick.name), m = { kind: pick.kind, value: pick.value, color: pick.color };
+  const q = pick.q.trim().toLowerCase();
+  let grid = "";
+  if (pick.tab === "icon") {
+    const all = Object.keys(LUCIDE);
+    const list = q ? all.filter((n) => n.includes(q)) : SUGGESTED;
+    grid = `<div class="glabel">${q ? `${list.length} of ${all.length} icons` : `Suggested · type to search all ${all.length} icons`}</div>` +
+      list.slice(0, 400).map((n) => `<button class="cell ${m.kind === "icon" && m.value === n ? "on" : ""}" data-icon-pick="${n}" title="${n}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${LUCIDE[n]}</svg></button>`).join("");
+  } else if (pick.tab === "emoji") {
+    grid = Object.entries(EMOJI).map(([g, list]) => `<div class="glabel">${g}</div>` + list.split(" ").map((e) => `<button class="cell ${m.kind === "emoji" && m.value === e ? "on" : ""}" data-emoji-pick="${e}">${e}</button>`).join("")).join("");
+  } else {
+    grid = `<div class="glabel" style="text-transform:none;letter-spacing:0;font-size:12px">The first letter of the project's name, “${p.name[0].toUpperCase()}”. Every new project starts like this, in a colour of its own.</div>`;
+  }
+  return `<div class="dlg" id="dlg"><div class="box">
+    <h4>Mark for ${p.name}</h4>
+    <div class="prev">${markOf(p, 56, m)}<span><span class="tb" style="width:200px;background:#0b0c0e;cursor:default"><span class="ico">${markOf(p, 22, m)}<span class="st" style="background:#e0a868"></span></span><span class="lbl">${m.kind === "emoji" ? m.value + " " : ""}${p.name} ● 1 asking – CodeDeck</span></span><small>taskbar</small></span>
+      <span>${markOf(p, 16, m)}<small>16 px</small></span></div>
+    <div class="row" style="display:flex;gap:10px;align-items:center"><span class="segs">${[["icon", "Icons"], ["emoji", "Emoji"], ["letter", "Letter"]].map(([k, l]) => `<button data-tab-pick="${k}" class="${pick.tab === k ? "on" : ""}">${l}</button>`).join("")}</span>
+      ${pick.tab === "icon" ? `<input class="search" id="pq" placeholder="Search: rocket, book, database, leaf…" value="${pick.q}" style="flex:1">` : ""}</div>
+    <div class="grid">${grid}</div>
+    <div><div class="glabel" style="padding-left:0">Colour</div><div class="swatches">${PALETTE.map((c) => `<button class="sw ${m.color === c ? "on" : ""}" data-color-pick="${c}" style="background:${c}"></button>`).join("")}</div></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="pcancel">Cancel</button><button class="btn pri" id="pok">Use</button></div>
+  </div></div>`;
+}
+function bindPick() {
+  if (!pick) return;
+  const q = (sel) => document.querySelectorAll(sel);
+  q("[data-tab-pick]").forEach((b) => (b.onclick = () => { pick.tab = b.dataset.tabPick; if (pick.tab === "letter") pick.kind = "letter"; render(); }));
+  q("[data-icon-pick]").forEach((b) => (b.onclick = () => { pick.kind = "icon"; pick.value = b.dataset.iconPick; render(); }));
+  q("[data-emoji-pick]").forEach((b) => (b.onclick = () => { pick.kind = "emoji"; pick.value = b.dataset.emojiPick; render(); }));
+  q("[data-color-pick]").forEach((b) => (b.onclick = () => { pick.color = b.dataset.colorPick; render(); }));
+  const input = document.getElementById("pq");
+  if (input) { input.oninput = () => { pick.q = input.value; const at = input.selectionStart; render(); const i = document.getElementById("pq"); i.focus(); i.setSelectionRange(at, at); }; if (pick.focus !== false) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); } }
+  document.getElementById("pcancel").onclick = () => { pick = null; render(); };
+  document.getElementById("pok").onclick = () => { const p = projOf(pick.name); p.mark = { kind: pick.kind, value: pick.value, color: pick.color };
+    note(`${p.name} now shows its mark in the overview, its window's header and taskbar icon (with the status dot)${p.mark.kind === "emoji" ? ", and its emoji leads the window title" : ""}. Kept per project in ~/.config/codedeck.`); pick = null; render(); };
+  document.getElementById("dlg").onclick = (e) => { if (e.target.id === "dlg") { pick = null; render(); } };
 }
 function toFront(name, say = true) {
   const p = projOf(name);
@@ -272,11 +351,9 @@ document.getElementById("done").onclick = () => {
 document.getElementById("hide").onclick = () => { ovHidden = !ovHidden; note(ovHidden ? "Ctrl+Alt+L hides the overview; project windows stay. The same keys bring it back from anywhere." : "The overview is back, at the right edge of the monitor it was on."); render(); };
 document.getElementById("closeall").onclick = () => { P.forEach((p) => (p.open = false)); front = null; note("No project window left: the overview stays and is the start page. Sessions keep running and still show; today's list starts with ▶ All. Quit is in ⋯."); render(); };
 document.getElementById("reset").onclick = () => { reset(); marks(); render(); };
-document.querySelectorAll("[data-mark]").forEach((b) => (b.onclick = () => { mark = b.dataset.mark; marks(); note(mark === "emoji" ? "Each project gets an emoji of your choice: in the overview, the window's title bar and its taskbar icon." : "Each project gets a colour (by default): a square in the overview, a stripe under the taskbar icon."); render(); }));
 document.querySelectorAll("[data-icon]").forEach((b) => (b.onclick = () => { icon = b.dataset.icon; marks(); note(icon === "plain" ? "Today: every window shows the same CodeDeck icon; only the (cut) title tells them apart." : "Own icon per window (to try in a spike): the project's colour or emoji, and a dot for what waits: amber asks, green done."); render(); }));
-document.addEventListener("keydown", (e) => { if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "l") document.getElementById("hide").click(); });
+document.addEventListener("keydown", (e) => { if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "l") document.getElementById("hide").click(); if (e.key === "Escape" && pick) { pick = null; render(); } });
 function marks() {
-  document.querySelectorAll("[data-mark]").forEach((b) => b.classList.toggle("on", b.dataset.mark === mark));
   document.querySelectorAll("[data-icon]").forEach((b) => b.classList.toggle("on", b.dataset.icon === icon));
 }
 reset(); marks(); render();
