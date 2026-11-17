@@ -418,6 +418,7 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
 ## Notizen
 
 - Forest überarbeitet (2026-11-17, Nutzer): Bedienelemente grün (obere Leiste, Statusleiste, Knöpfe, Menüs), Inhalt erdig, Highlights in Blüten- und Fruchtfarben, `events: loud`. Neu: `zoneSurfaces` (Bereichsflächen genau setzen); Pfadleiste und Kopfleiste gehören zur Zone `zone-tabs`.
+- Vorgabe „CodeDeck“ verfeinert (2026-11-17, Nutzer): `events: focus`, Fehler `#e66a78`, Hauptknopf `#bd4f00`, Menügrund `#32373e`, Sitzungen A `#7f95ff` und D `#e391d0`; Rückfallwerte in `index.css` gleich.
 - Terminal beruhigt (2026-11-17): ANSI-Farben mit Bedeutung (Gelb geändert/wartet, Magenta du, Cyan KI), kaum noch Grün in Schrift und Flächen, kein Schimmer, `events: focus`.
 - Elegance verfeinert (2026-11-17): Lackrahmen (obere Leiste, Statusleiste), „wartet“ in Cognac statt Rosé (war neben Fehlerrot kaum zu unterscheiden), `events: focus`.
 - Moon überarbeitet (2026-11-17, Nutzer: „sehr blau“): Nachtblau nur als Rahmen, Inhalt Graphit, KI Flieder, `events: focus`, kein Schimmer. Lehre für alle Themes in `STYLING.md` B7 (Forest).

@@ -201,14 +201,18 @@ etwas bedeutet. Die Werte sind die heutigen aus `src/index.css`.
 | `fg` | `#f5f6f7` | – |
 | `base` / `panel` / `raised` | `#1b1e22` / `#24272c` / `#2e3238` | Deck am dunkelsten, Spalten davor |
 | `line` | `#3a3f46` | haarfein, gerade sichtbar |
-| `overlay` / `-hover` / `-line` | `#363b42` / `#424850` / `#4d545c` | eine Stufe näher, tiefer Schatten |
+| `overlay` / `-hover` / `-line` | `#32373e` / `#424850` / `#4d545c` | eine Stufe näher, tiefer Schatten; leiser Text darauf 4,3 : 1 |
 | Skala `n-50 … n-950` | `#f5f6f7` … `#1b1e22` (11 Stufen, wie heute `slate-*`) | 500 ist leiser Text mit ≥ 4 : 1 |
 | `accent` / `accent-soft` | `#f26500` / `#ff8a3c` | Orange der obersten Logo-Lage |
-| `accent-fill` / `-hover` / `on-accent` | `#c75300` / `#b34a00` / `#ffffff` | tiefer, damit Weiß 4,5 : 1 hat |
+| `accent-fill` / `-hover` / `on-accent` | `#bd4f00` / `#a94600` / `#ffffff` | tiefer, damit Weiß mit Luft lesbar ist (4,9 : 1) |
 | `ai` | `#818cf8` | Indigo der mittleren Logo-Lage |
-| `wait` / `added` / `problem` / `moved` | `#e0a868` / `#9cc39a` / `#e08a80` / `#8fb1cf` | gedämpft, sitzen mit dem Grau |
-| `session-0 … 5` | `#818cf8` `#c08cf5` `#4fc9bd` `#ee8fbd` `#62b6ee` `#c3cf6c` | kühl, fern von Orange, Warm und Rot |
-| Eingriffe | radius `default` (6 px), lines `subtle`, areaTint 5 / 6 / 9 %, surfaceTint 0, glow `soft`, depth `deep`, motion `calm`, selection `fill`, font `system` | ruhig, eher Werkzeug als Bühne |
+| `wait` / `added` / `problem` / `moved` | `#e0a868` / `#9cc39a` / `#e66a78` / `#8fb1cf` | gedämpft, sitzen mit dem Grau; Fehler in Himbeerrot, damit er nicht wie „wartet“ aussieht |
+| `session-0 … 5` | `#7f95ff` `#c08cf5` `#4fc9bd` `#e391d0` `#62b6ee` `#c3cf6c` | kühl, fern von Orange, Warm und Rot; Sitzung A nicht genau das KI-Indigo |
+| Eingriffe | radius `default` (6 px), lines `subtle`, areaTint 5 / 6 / 9 %, surfaceTint 0, glow `soft`, depth `deep`, motion `calm`, font `system`, **events `focus`** | ruhig, eher Werkzeug als Bühne; laut wird nur, was auf dich wartet |
+
+Verfeinert am 2026-11-17 mit den Erfahrungen aus der Familie: `events: focus`, Fehler in Himbeerrot (vorher kaum von
+„wartet“ zu unterscheiden), Hauptknopf eine Spur tiefer, Menügrund etwas dunkler für leisen Text, Sitzung A und das
+vierte Sitzungsrosa abgesetzt. In Ruhe sieht die Vorgabe aus wie zuvor.
 
 Als Datei (alles Abgeleitete weggelassen):
 
@@ -339,7 +343,7 @@ nahe dran.
 
 | Theme | `zones` | `events` | Warum |
 |---|---|---|---|
-| CodeDeck | 0 | quiet | die Vorgabe bleibt, wie sie abgestimmt ist; `clear` wäre ein kleiner, möglicher Schritt |
+| CodeDeck | 0 | focus | ruhig wie bisher; Aufmerksamkeit ist der Kern von CodeDeck, darum kann die Vorgabe sie am deutlichsten |
 | Paper | genau gesetzt | focus | Karamell-Rahmen um cremeweißen Inhalt; laut wird nur, was auf dich wartet |
 | Elegance | genau gesetzt | focus | Lackrahmen um Anthrazit; laut nur Wartendes, in Cognac, ohne Schein |
 | Moon | genau gesetzt | focus | Nachtblau nur als Rahmen, Inhalt in Graphit, laut nur Wartendes |

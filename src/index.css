@@ -48,7 +48,7 @@
 
   /* Floating surfaces (menus, popups, tooltips) sit one step closer to you: lighter, with a
      lighter edge and a deep shadow, so they never blend into the panel below */
-  --color-overlay: var(--t-overlay, #363b42);
+  --color-overlay: var(--t-overlay, #32373e);
   --color-overlay-hover: var(--t-overlay-hover, #424850);
   --color-overlay-line: var(--t-overlay-line, #4d545c);
 
@@ -56,8 +56,8 @@
   --color-brand: var(--t-accent, #f26500);
   --color-brand-soft: var(--t-accent-soft, #ff8a3c);
   /* As a filled button: deep enough that its label reads (4.5 : 1) */
-  --color-brand-fill: var(--t-accent-fill, #c75300);
-  --color-brand-fill-hover: var(--t-accent-fill-hover, #b34a00);
+  --color-brand-fill: var(--t-accent-fill, #bd4f00);
+  --color-brand-fill-hover: var(--t-accent-fill-hover, #a94600);
   --color-on-accent: var(--t-on-accent, #ffffff);
 
   /* The assistant */
@@ -69,7 +69,7 @@
    */
   --color-changed: var(--t-wait, #e0a868); /* modified, needs attention */
   --color-added: var(--t-added, #9cc39a); /* new, untracked, fine */
-  --color-problem: var(--t-problem, #e08a80); /* deleted, conflict, failed */
+  --color-problem: var(--t-problem, #e66a78); /* deleted, conflict, failed */
   --color-moved: var(--t-moved, #8fb1cf); /* renamed, moved, copied: the same content in another place */
 }
 
@@ -81,10 +81,10 @@
    * Sessions: six tones to tell them apart wherever they show up. They keep clear of the accent
    * (your action), the warm tone (needs you) and red (a problem), which mean something.
    */
-  --color-session-0: var(--t-session-0, #818cf8);
+  --color-session-0: var(--t-session-0, #7f95ff);
   --color-session-1: var(--t-session-1, #c08cf5);
   --color-session-2: var(--t-session-2, #4fc9bd);
-  --color-session-3: var(--t-session-3, #ee8fbd);
+  --color-session-3: var(--t-session-3, #e391d0);
   --color-session-4: var(--t-session-4, #62b6ee);
   --color-session-5: var(--t-session-5, #c3cf6c);
 
@@ -106,13 +106,13 @@
 :root.inactive {
   --color-brand: color-mix(in oklch, var(--t-accent, #f26500) 45%, var(--color-slate-500));
   --color-brand-soft: color-mix(in oklch, var(--t-accent-soft, #ff8a3c) 45%, var(--color-slate-500));
-  --color-brand-fill: color-mix(in oklch, var(--t-accent-fill, #c75300) 45%, var(--color-slate-600));
+  --color-brand-fill: color-mix(in oklch, var(--t-accent-fill, #bd4f00) 45%, var(--color-slate-600));
   --color-brand-fill-hover: var(--color-brand-fill);
   --color-ai: color-mix(in oklch, var(--t-ai, #818cf8) 45%, var(--color-slate-500));
-  --color-session-0: color-mix(in oklch, var(--t-session-0, #818cf8) 45%, var(--color-slate-500));
+  --color-session-0: color-mix(in oklch, var(--t-session-0, #7f95ff) 45%, var(--color-slate-500));
   --color-session-1: color-mix(in oklch, var(--t-session-1, #c08cf5) 45%, var(--color-slate-500));
   --color-session-2: color-mix(in oklch, var(--t-session-2, #4fc9bd) 45%, var(--color-slate-500));
-  --color-session-3: color-mix(in oklch, var(--t-session-3, #ee8fbd) 45%, var(--color-slate-500));
+  --color-session-3: color-mix(in oklch, var(--t-session-3, #e391d0) 45%, var(--color-slate-500));
   --color-session-4: color-mix(in oklch, var(--t-session-4, #62b6ee) 45%, var(--color-slate-500));
   --color-session-5: color-mix(in oklch, var(--t-session-5, #c3cf6c) 45%, var(--color-slate-500));
 }
