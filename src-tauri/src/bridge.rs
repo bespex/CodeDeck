@@ -492,28 +492,33 @@ impl Bridge {
         (running, resume)
     }
 
-    /// Looks for a session's Remote Control link in its log, where the hooks have not told it yet
-    /// (a fresh session says nothing until its first prompt). The link, if there is one now.
-    pub fn discover_remote(&self, app: &AppHandle, id: &str) -> Option<String> {
+    /// Reads a session's log again and takes in what it says (its name, its Remote Control link);
+    /// the window hears of it. Whether the link is known now; `None` when there is no log.
+    pub fn refresh_from_log(&self, app: &AppHandle, id: &str) -> Option<bool> {
         let (log, harness) = {
             let inner = self.inner.locked();
             let session = inner.sessions.get(id)?;
-            if let Some(remote) = session.place.as_ref().and_then(|p| p.remote.clone()) {
-                return Some(remote);
-            }
             (inner.logs.get(id)?.clone(), harness::by_id(Some(session.harness))?)
         };
         let info = harness.read_log(&log)?;
         let root = self.current.get().root.clone();
-        let remote = {
+        let known = {
             let mut inner = self.inner.locked();
             inner.apply(id, info, harness, &root);
-            inner.sessions.get(id).and_then(|s| s.place.as_ref()).and_then(|p| p.remote.clone())
+            inner.save_identities();
+            inner.sessions.get(id).and_then(|s| s.place.as_ref()).is_some_and(|p| p.remote.is_some())
         };
-        if remote.is_some() {
-            self.tell(app, ASSISTANT_CHANGED, self.state());
+        self.tell(app, ASSISTANT_CHANGED, self.state());
+        Some(known)
+    }
+
+    /// Looks for a session's Remote Control link in its log where the hooks have not told it yet
+    /// (a fresh session says nothing until its first prompt).
+    pub fn discover_remote(&self, app: &AppHandle, id: &str) {
+        let known = self.inner.locked().sessions.get(id).and_then(|s| s.place.as_ref()).is_some_and(|p| p.remote.is_some());
+        if !known {
+            self.refresh_from_log(app, id);
         }
-        remote
     }
 
     /// Whether a session with this id is known (it reported, or its log was read).
@@ -538,6 +543,20 @@ impl Bridge {
     /// Takes in one event; the text to hand to the assistant, if any.
     pub fn handle(&self, app: &AppHandle, e: &Event) -> Option<String> {
         let harness = harness::by_id(Some(&e.harness))?;
+        // A session just started says nothing more until its first prompt, but its log soon has
+        // its name and, once Remote Control connects, its link: read it again a little later
+        if e.kind == EventKind::SessionStarted {
+            let (app, root, id) = (app.clone(), self.current.get().root.clone(), e.session.clone());
+            std::thread::spawn(move || {
+                for wait in [4, 12, 30] {
+                    std::thread::sleep(std::time::Duration::from_secs(wait));
+                    let bridge = crate::windows::bridge_for(&app, &root);
+                    if bridge.refresh_from_log(&app, &id).is_some_and(|remote| remote) {
+                        break;
+                    }
+                }
+            });
+        }
         let project = self.current.get();
         let root = &project.root;
         let repos = || self.git.repos(&project).iter().map(|r| r.top.clone()).collect();
