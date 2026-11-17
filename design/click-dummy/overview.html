@@ -143,6 +143,33 @@ const EMOJI = {
   Food: "☕ 🍎 🍋 🍕 🍩 🍪 🧁 🍇 🥕 🌶️",
   Symbols: "♻️ ⚓ 🔶 🔷 ❤️ ⚜️ ☯️ 🏁 ♾️ ⚛️",
 };
+// A few German words, so that searching in the interface's language finds something; the real list
+// would come with the translations
+const DE = { buch: "book", bücher: "book", geld: "money", rechnung: "bill", baum: "tree", wald: "forest", wetter: "weather", spiel: "game", musik: "music",
+  gesundheit: "health", laden: "shop", einkauf: "shopping", auto: "car", rakete: "rocket", haus: "house", daten: "database", datenbank: "database", karte: "map",
+  welt: "globe", ki: "ai", schule: "school", garten: "garden", essen: "food", reise: "travel", foto: "camera", sicherheit: "security", schloss: "lock",
+  werkzeug: "tool", brief: "mail", nachricht: "message", gespräch: "chat", stern: "star", herz: "heart", blume: "flower", tier: "animal", hund: "dog",
+  katze: "cat", vogel: "bird", fisch: "fish", berg: "mountain", meer: "sea", sonne: "sun", mond: "moon", feuer: "fire", wasser: "water", zeit: "time",
+  uhr: "clock", kalender: "calendar", bild: "image", text: "text", schreiben: "write", stift: "pen", ordner: "folder", datei: "file", netz: "network",
+  server: "server", wolke: "cloud", schiff: "ship", zug: "train", flugzeug: "plane", fahrrad: "bike", bau: "construction", fabrik: "factory", bank: "bank",
+  kaffee: "coffee", lernen: "learn", wissen: "knowledge", forschung: "research", labor: "lab", roboter: "robot", gehirn: "brain", rechner: "computer" };
+/** Icons for a search: whole words and word starts in names and keywords, names first. */
+function searchIcons(text) {
+  const words = text.toLowerCase().split(/\s+/).filter(Boolean).map((w) => DE[w] ?? w);
+  if (!words.length) return null;
+  const scored = [];
+  for (const name of Object.keys(LUCIDE)) {
+    const own = name.split("-"), tags = (LUCIDE_TAGS[name] ?? "").split(/[\s-]+/);
+    let score = 0;
+    for (const w of words) {
+      const s = own.includes(w) ? 100 : w.length > 2 && own.some((t) => t.startsWith(w)) ? 60 : tags.includes(w) ? 40 : tags.some((t) => t.startsWith(w) && w.length > 2) ? 20 : 0;
+      if (!s) { score = 0; break; }
+      score += s - own.length; // shorter names first among equals: "book" before "book-open-text"
+    }
+    if (score > 0) scored.push([score, name]);
+  }
+  return scored.sort((a, b) => b[0] - a[0] || a[1].localeCompare(b[1])).map(([, n]) => n);
+}
 let P, S, front, ovHidden, icon, folded, otherOpen, autoStart, toastText, freshId, lastNote, pick;
 function reset() {
   P = [
@@ -280,8 +307,8 @@ function picker() {
   let grid = "";
   if (pick.tab === "icon") {
     const all = Object.keys(LUCIDE);
-    const list = q ? all.filter((n) => n.includes(q)) : SUGGESTED;
-    grid = `<div class="glabel">${q ? `${list.length} of ${all.length} icons` : `Suggested · type to search all ${all.length} icons`}</div>` +
+    const list = searchIcons(q) ?? SUGGESTED;
+    grid = `<div class="glabel">${q ? `${list.length} of ${all.length} icons · names and keywords, also some German words` : `Suggested · type to search all ${all.length} icons by name and keyword`}</div>` +
       list.slice(0, 400).map((n) => `<button class="cell ${m.kind === "icon" && m.value === n ? "on" : ""}" data-icon-pick="${n}" title="${n}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${LUCIDE[n]}</svg></button>`).join("");
   } else if (pick.tab === "emoji") {
     grid = Object.entries(EMOJI).map(([g, list]) => `<div class="glabel">${g}</div>` + list.split(" ").map((e) => `<button class="cell ${m.kind === "emoji" && m.value === e ? "on" : ""}" data-emoji-pick="${e}">${e}</button>`).join("")).join("");
@@ -293,7 +320,7 @@ function picker() {
     <div class="prev">${markOf(p, 56, m)}<span><span class="tb" style="width:200px;background:#0b0c0e;cursor:default"><span class="ico">${markOf(p, 22, m)}<span class="st" style="background:#e0a868"></span></span><span class="lbl">${m.kind === "emoji" ? m.value + " " : ""}${p.name} ● 1 asking – CodeDeck</span></span><small>taskbar</small></span>
       <span>${markOf(p, 16, m)}<small>16 px</small></span></div>
     <div class="row" style="display:flex;gap:10px;align-items:center"><span class="segs">${[["icon", "Icons"], ["emoji", "Emoji"], ["letter", "Letter"]].map(([k, l]) => `<button data-tab-pick="${k}" class="${pick.tab === k ? "on" : ""}">${l}</button>`).join("")}</span>
-      ${pick.tab === "icon" ? `<input class="search" id="pq" placeholder="Search: rocket, book, database, leaf…" value="${pick.q}" style="flex:1">` : ""}</div>
+      ${pick.tab === "icon" ? `<input class="search" id="pq" placeholder="Search: rocket, bill, weather, Buch, Rechnung…" value="${pick.q}" style="flex:1">` : ""}</div>
     <div class="grid">${grid}</div>
     <div><div class="glabel" style="padding-left:0">Colour</div><div class="swatches">${PALETTE.map((c) => `<button class="sw ${m.color === c ? "on" : ""}" data-color-pick="${c}" style="background:${c}"></button>`).join("")}</div></div>
     <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="pcancel">Cancel</button><button class="btn pri" id="pok">Use</button></div>

@@ -74,7 +74,12 @@ Sie steht überall dort, wo der Projektname steht, und macht Projekte auf einen 
 
 - **Zeichen**, frei wählbar im Dialog „Mark for …“ (Klick auf die Marke):
   - **Icons:** alle Lucide-Icons (rund 2.000, schon im Programm, gleicher Stil wie die Oberfläche),
-    weiß auf der Projektfarbe, mit Suche über den Namen und einer Vorauswahl von etwa 70 passenden;
+    weiß auf der Projektfarbe, mit einer Vorauswahl von etwa 70 passenden. **Suche** über Namen und die
+    Schlagwörter, die Lucide zu jedem Icon pflegt (`tags.json` aus `lucide-static`, etwa 550 KB, nur zur
+    Laufzeit der Suche gebraucht): Wortanfänge statt Teilwörter (sonst findet „car“ auch „card“), Treffer im
+    Namen vor Treffern in den Schlagwörtern, kürzere Namen zuerst. Deutsche Wörter über eine Liste von
+    Übersetzungen der häufigsten Begriffe (im Dummy etwa 80). Gemessen: „bill“, „chat“, „weather“,
+    „health“ finden über den Namen nichts, über die Schlagwörter 30 bis 40 passende Icons;
   - **Emoji:** kuratierte Gruppen ohne Smileys (Technik, Natur, Tiere, Orte, Dinge, Essen, Symbole), auf
     der Projektfarbe, aufgehellt;
   - **Buchstabe:** der erste des Projektnamens. Das ist die Vorgabe für jedes neue Projekt.
