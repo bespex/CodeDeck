@@ -1,3 +1,4 @@
+import { AccountMark } from "./ProjectMark";
 import { accountLook, useAccounts } from "../accounts";
 import { useState, type DragEvent, type ReactNode } from "react";
 import {
@@ -440,7 +441,9 @@ function AccountNote({ session: s }: { session: Session }) {
   return (
     <span title={t("Account: {dir}", { dir: s.account })}>
       {" · "}
-      <span className="mr-1 inline-block size-1.5 translate-y-[-1px] rounded-full" style={{ background: look.color }} />
+      <span className="mr-1 inline-flex translate-y-[2px]">
+        <AccountMark account={look} size={12} />
+      </span>
       {look.name}
     </span>
   );

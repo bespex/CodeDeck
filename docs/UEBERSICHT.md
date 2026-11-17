@@ -152,6 +152,11 @@ Sie steht überall dort, wo der Projektname steht, und macht Projekte auf einen 
   Damit Projekt und Sitzung nicht verwechselt werden, ist die Marke etwas größer und trägt standardmäßig den
   Buchstaben fett; Alternative: Marke als abgerundetes Quadrat (Entscheidung 8).
 
+**Marken für Konten** (Nutzer 2026-11-17): Konten bekommen dieselbe Auswahl (Icon, Emoji, Buchstabe, Farbe), aber
+als **Sechseck**, damit sie nie mit einem Projekt (Kreis) oder einer Sitzung (abgerundetes Quadrat) verwechselt werden.
+Gewählt unter Einstellungen → Konten (Klick auf das Sechseck); gezeigt am Projekt in der Übersicht, im Menü der Zeile
+und an jeder Sitzung.
+
 ## Technik
 
 - **Fenster `overview`** im selben Prozess, gleiche Oberfläche mit eigenem Einstieg

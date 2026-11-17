@@ -22,6 +22,8 @@ struct Stored {
     name: Option<String>,
     color: Option<String>,
     desktop_profile: Option<String>,
+    /// Its mark: `{ kind: "icon" | "emoji" | "letter", value? }`, shown on a hexagon
+    mark: Option<serde_json::Value>,
 }
 
 /// One account as the interface shows it.
@@ -34,6 +36,8 @@ pub struct Account {
     pub dir: String,
     pub name: String,
     pub color: String,
+    /// Its mark as chosen; `null`: its first letter (shown on a hexagon, projects have circles)
+    pub mark: serde_json::Value,
     /// The desktop app's data folder for this account; `None`: the app's default
     pub desktop_profile: Option<String>,
     pub kind: AccountKind,
@@ -68,6 +72,7 @@ pub fn list() -> Vec<Account> {
                 harness: tool.id(),
                 name: set.name.unwrap_or_else(|| default_name(&connection.dir)),
                 color: set.color.unwrap_or_else(|| COLORS[index % COLORS.len()].to_string()),
+                mark: set.mark.unwrap_or(serde_json::Value::Null),
                 desktop_profile: profile,
                 kind: tool.account_kind(Path::new(&connection.dir)),
                 connected: connection.installed,
@@ -84,7 +89,7 @@ fn default_name(dir: &str) -> String {
 }
 
 /// Changes what the user set for an account: `name`, `color` or `desktopProfile` (a string, or
-/// null for the default).
+/// null for the default), or `mark` (an object, or null).
 pub fn set(dir: &str, field: &str, value: serde_json::Value) -> Result<(), String> {
     let file = file().ok_or("no config directory")?;
     let mut stored = load();
@@ -97,6 +102,7 @@ pub fn set(dir: &str, field: &str, value: serde_json::Value) -> Result<(), Strin
         "name" => entry.name = text,
         "color" => entry.color = text,
         "desktopProfile" => entry.desktop_profile = text,
+        "mark" => entry.mark = (!value.is_null()).then_some(value),
         _ => return Err(format!("{field}: no such field")),
     }
     crate::config::write(&file, &serde_json::to_vec_pretty(&stored).map_err(|e| e.to_string())?)

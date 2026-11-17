@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Copy, X } from "lucide-react";
 import { appInfo, desktopProfiles, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
 import { useAccounts } from "../accounts";
-import { MARK_COLORS } from "../marks";
+import { AccountMark, MarkPicker } from "./ProjectMark";
 import { mainHarness, useConnections } from "../assistant";
 import { closeDialog, openDialog, useDialog, type SettingsSection } from "../dialogs";
 import { lang, setLang, t } from "../i18n";
@@ -311,13 +311,17 @@ function Notifications() {
 function AccountRow({ account, profiles }: { account: Account; profiles: string[] }) {
   const [name, setName] = useState(account.name);
   const [confirm, setConfirm] = useState(false);
+  const [picking, setPicking] = useState(false);
   useEffect(() => setName(account.name), [account.name]);
   const home = (p: string) => p.replace(/^\/home\/[^/]+/, "~");
   const options = [...new Set([...profiles, ...(account.desktopProfile ? [account.desktopProfile] : [])])];
   return (
     <li className="flex flex-col gap-2 border-b border-overlay-line/60 py-3">
       <div className="flex items-center gap-2">
-        <span className="size-3 shrink-0 rounded-full" style={{ background: account.color }} />
+        {/* A hexagon: accounts never look like projects (circles) or sessions */}
+        <button type="button" title={t("Change mark and colour…")} onClick={() => setPicking(true)} className="mark-switch flex shrink-0">
+          <AccountMark account={account} size={22} />
+        </button>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -334,18 +338,6 @@ function AccountRow({ account, profiles }: { account: Account; profiles: string[
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pl-5">
-        <span className="flex items-center gap-1">
-          {MARK_COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              aria-label={c}
-              onClick={() => void setAccount(account.dir, "color", c)}
-              style={{ background: c }}
-              className={`size-4 rounded-full border-2 ${account.color === c ? "border-white" : "border-transparent"}`}
-            />
-          ))}
-        </span>
         <label className="flex items-center gap-2 text-[12px] text-slate-400">
           {t("Desktop app")}
           <select
@@ -378,6 +370,22 @@ function AccountRow({ account, profiles }: { account: Account; profiles: string[
             </button>
           ))}
       </div>
+      {picking && (
+        <MarkPicker
+          name={account.name}
+          color={account.color}
+          mark={account.mark ? { ...account.mark, color: account.color } : { kind: "letter", color: account.color }}
+          shape="hexagon"
+          note={t("Shows at the projects and sessions of this account")}
+          onCancel={() => setPicking(false)}
+          onDone={(mark) => {
+            // The colour is the account's own, the mark keeps only its sign
+            if (mark?.color && mark.color !== account.color) void setAccount(account.dir, "color", mark.color);
+            void setAccount(account.dir, "mark", mark && mark.kind !== "letter" ? { kind: mark.kind, value: mark.value } : null);
+            setPicking(false);
+          }}
+        />
+      )}
     </li>
   );
 }

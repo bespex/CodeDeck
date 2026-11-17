@@ -1519,6 +1519,8 @@ export interface Account {
   name: string;
   /** `#rrggbb` */
   color: string;
+  /** Its mark, on a hexagon; `null`: its first letter */
+  mark: ProjectMarkSpec | null;
   /** The desktop app's data folder for it; `null`: the app's default */
   desktopProfile: string | null;
   /** in use (has sessions) · not used yet · looks like a backup copy */
@@ -1527,9 +1529,9 @@ export interface Account {
 }
 
 const mockAccounts: Account[] = [
-  { harness: "claude", dir: "/home/me/.claude", name: "Work", color: "#7f95ff", desktopProfile: "/home/me/.config/claude-desktop-work", kind: "used", connected: true },
-  { harness: "claude", dir: "/home/me/.claude-private", name: "Private", color: "#4fc9bd", desktopProfile: null, kind: "used", connected: true },
-  { harness: "claude", dir: "/home/me/.claude-cleanup-2026", name: "claude-cleanup-2026", color: "#e391d0", desktopProfile: null, kind: "backup", connected: false },
+  { harness: "claude", dir: "/home/me/.claude", name: "Work", color: "#7f95ff", mark: { kind: "icon", value: "briefcase" }, desktopProfile: "/home/me/.config/claude-desktop-work", kind: "used", connected: true },
+  { harness: "claude", dir: "/home/me/.claude-private", name: "Private", color: "#4fc9bd", mark: { kind: "icon", value: "house" }, desktopProfile: null, kind: "used", connected: true },
+  { harness: "claude", dir: "/home/me/.claude-cleanup-2026", name: "claude-cleanup-2026", color: "#e391d0", mark: null, desktopProfile: null, kind: "backup", connected: false },
 ];
 const mockAccountListeners = new Set<() => void>();
 
@@ -1539,7 +1541,7 @@ export function accountsList(): Promise<Account[]> {
 }
 
 /** Changes an account's name, colour or desktop profile (`null`: back to the default). */
-export function setAccount(dir: string, field: "name" | "color" | "desktopProfile", value: string | null): Promise<void> {
+export function setAccount(dir: string, field: "name" | "color" | "desktopProfile" | "mark", value: unknown): Promise<void> {
   if (live) return invoke("set_account", { dir, field, value });
   const a = mockAccounts.find((x) => x.dir === dir);
   if (a) Object.assign(a, { [field]: value ?? (field === "name" ? dir.split("/").pop()!.replace(/^\./, "") : null) });

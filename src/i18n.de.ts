@@ -883,4 +883,6 @@ export const de: Record<string, string> = {
   "Each configuration of an AI tool is an account. Its name and colour show at projects and sessions; the desktop app's profile is the one a session opens in.": "Jede Konfiguration eines KI-Werkzeugs ist ein Konto. Name und Farbe erscheinen an Projekten und Sitzungen; das Profil der Desktop-App ist das, in dem sich eine Sitzung öffnet.",
   "No configuration found.": "Keine Konfiguration gefunden.",
   "Account: {dir}": "Konto: {dir}",
+  "Change mark and colour…": "Marke und Farbe ändern…",
+  "Shows at the projects and sessions of this account": "Erscheint an den Projekten und Sitzungen dieses Kontos",
 };

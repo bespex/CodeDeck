@@ -32,7 +32,7 @@ export function useAccounts(): Account[] {
 export const folderName = (dir: string) => dir.replace(/\/+$/, "").split("/").pop()!.replace(/^\./, "");
 
 /** Name and colour of the account a folder belongs to; the folder's name and grey when unknown. */
-export function accountLook(accounts: Account[], dir: string): { name: string; color: string } {
+export function accountLook(accounts: Account[], dir: string): { name: string; color: string; mark: Account["mark"] } {
   const a = accounts.find((x) => x.dir === dir);
-  return a ? { name: a.name, color: a.color } : { name: folderName(dir), color: "var(--color-slate-500)" };
+  return a ? { name: a.name, color: a.color, mark: a.mark } : { name: folderName(dir), color: "#6b7178", mark: null };
 }

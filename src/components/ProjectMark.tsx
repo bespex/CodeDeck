@@ -3,8 +3,13 @@ import type { ProjectMarkSpec } from "../backend";
 import { EMOJI, MARK_COLORS, markOf, searchIcons, useLucide } from "../marks";
 import { t } from "../i18n";
 
-/** A project's mark: its icon, emoji or first letter on a circle in its colour (docs/UEBERSICHT.md). */
-export function ProjectMark({ mark, color, name, size = 20 }: { mark: ProjectMarkSpec | null | undefined; color: string; name: string; size?: number }) {
+/** The shape tells what a mark stands for: a project is a circle, an account a hexagon (sessions
+ *  have rounded squares, `SessionBadge`). */
+export type MarkShape = "circle" | "hexagon";
+const HEXAGON = "polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%)";
+
+/** A project's or account's mark: its icon, emoji or first letter on its colour (docs/UEBERSICHT.md). */
+export function ProjectMark({ mark, color, name, size = 20, shape = "circle" }: { mark: ProjectMarkSpec | null | undefined; color: string; name: string; size?: number; shape?: MarkShape }) {
   const m = markOf(mark);
   const lucide = useLucide();
   const fill = m.color ?? color;
@@ -13,14 +18,15 @@ export function ProjectMark({ mark, color, name, size = 20 }: { mark: ProjectMar
     <span
       aria-hidden
       style={{
-        width: size,
         height: size,
-        // An emoji brings its own colours: a lighter circle with a ring of the colour around it
-        background: m.kind === "emoji" ? `color-mix(in srgb, ${fill} 40%, transparent)` : fill,
-        boxShadow: m.kind === "emoji" ? `inset 0 0 0 ${Math.max(1, size / 14)}px ${fill}` : undefined,
+        // An emoji brings its own colours: a lighter shape, on a circle with a ring of the colour
+        background: m.kind === "emoji" ? `color-mix(in srgb, ${fill} ${shape === "hexagon" ? 55 : 40}%, transparent)` : fill,
+        boxShadow: m.kind === "emoji" && shape === "circle" ? `inset 0 0 0 ${Math.max(1, size / 14)}px ${fill}` : undefined,
+        clipPath: shape === "hexagon" ? HEXAGON : undefined,
+        width: shape === "hexagon" ? Math.round(size * 1.12) : size,
         fontSize: Math.round(size * (m.kind === "emoji" ? 0.6 : 0.52)),
       }}
-      className="inline-flex shrink-0 items-center justify-center rounded-full leading-none font-bold text-[#0b0d10]"
+      className={`inline-flex shrink-0 items-center justify-center leading-none font-bold text-[#0b0d10] ${shape === "circle" ? "rounded-full" : ""}`}
     >
       {inner ? (
         <svg
@@ -49,7 +55,17 @@ type Tab = "icon" | "emoji" | "letter";
  * Choosing a project's mark: every Lucide icon with a search over names and keywords, emoji in
  * groups, or the first letter; and its colour. Fits the narrow overview.
  */
-export function MarkPicker(props: { name: string; color: string; mark: ProjectMarkSpec | null; onDone: (mark: ProjectMarkSpec | null) => void; onCancel: () => void }) {
+export function MarkPicker(props: {
+  name: string;
+  color: string;
+  mark: ProjectMarkSpec | null;
+  shape?: MarkShape;
+  /** What the mark is shown with; the project's places by default */
+  note?: string;
+  onDone: (mark: ProjectMarkSpec | null) => void;
+  onCancel: () => void;
+}) {
+  const shape = props.shape ?? "circle";
   const [mark, setMark] = useState<ProjectMarkSpec>(markOf(props.mark));
   const [tab, setTab] = useState<Tab>(mark.kind === "letter" ? "icon" : mark.kind);
   const [query, setQuery] = useState("");
@@ -70,13 +86,13 @@ export function MarkPicker(props: { name: string; color: string; mark: ProjectMa
     <div role="dialog" aria-label={t("Mark for {name}", { name: props.name })} onClick={props.onCancel} className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-2">
       <div onClick={(e) => e.stopPropagation()} className="surface-overlay flex max-h-full w-full max-w-[420px] flex-col gap-2.5 rounded-lg p-3">
         <div className="flex items-center gap-3">
-          <ProjectMark mark={mark} color={props.color} name={props.name} size={44} />
+          <ProjectMark mark={mark} color={props.color} name={props.name} size={44} shape={shape} />
           <div className="min-w-0">
             <p className="truncate font-semibold text-slate-100">{t("Mark for {name}", { name: props.name })}</p>
-            <p className="text-[11px] text-slate-500">{t("Shows in the overview, the window and its taskbar icon")}</p>
+            <p className="text-[11px] text-slate-500">{props.note ?? t("Shows in the overview, the window and its taskbar icon")}</p>
           </div>
           <span className="ml-auto">
-            <ProjectMark mark={mark} color={props.color} name={props.name} size={16} />
+            <ProjectMark mark={mark} color={props.color} name={props.name} size={16} shape={shape} />
           </span>
         </div>
         <div className="flex rounded-md border border-overlay-line p-0.5 text-[12px]" role="tablist">
@@ -171,4 +187,9 @@ export function MarkPicker(props: { name: string; color: string; mark: ProjectMa
       </div>
     </div>
   );
+}
+
+/** An account's mark: a hexagon, so it is never taken for a project (circle) or a session. */
+export function AccountMark({ account, size = 14 }: { account: { mark: ProjectMarkSpec | null; color: string; name: string }; size?: number }) {
+  return <ProjectMark mark={account.mark} color={account.color} name={account.name} size={size} shape="hexagon" />;
 }

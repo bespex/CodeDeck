@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, RotateCcw, Settings, Square, SquareTerminal, Star, TriangleAlert } from "lucide-react";
 import { addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, setProject, showProject, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type Session } from "../backend";
 import { accountLook, useAccounts } from "../accounts";
-import { MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
+import { AccountMark, MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
 import { DONE_SHOWN_MS, needsYou, useNow } from "../attention";
 import { SessionBadge } from "./SessionBadge";
 import { t } from "../i18n";
@@ -148,7 +148,7 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
           <p className="px-2 pt-0.5 pb-1 text-[11px] text-slate-500">{t("AI configuration its sessions run with")}</p>
           {accounts.map((a) => (
             <button key={a.dir} type="button" title={a.dir} className={item} onClick={() => (onClose(), void setProject(project.path, "account", a.dir))}>
-              <span className="size-2 rounded-full" style={{ background: a.color }} />
+              <AccountMark account={a} size={14} />
               <span className="flex-1 truncate">{a.name}</span>
               {project.account === a.dir && <Check className="size-3.5 text-slate-300" />}
             </button>
@@ -243,7 +243,9 @@ function ProjectRow({ project }: { project: OverviewProject }) {
           </span>
         )}
         {project.account && (
-          <span title={`${t("AI configuration")}: ${look(project.account).name}`} className="size-1.5 shrink-0 rounded-full" style={{ background: look(project.account).color }} />
+          <span title={`${t("AI configuration")}: ${look(project.account).name}`} className="flex shrink-0">
+            <AccountMark account={look(project.account)} size={13} />
+          </span>
         )}
         {/* Right after the name, so the status icons on the right never move */}
         <span className={`${menu ? "flex" : "invisible group-hover/row:visible"} flex`}>
