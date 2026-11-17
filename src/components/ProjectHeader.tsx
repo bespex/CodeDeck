@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AssistantState, ProjectInfo } from "../backend";
 import { AppMenu, QuickSettings } from "./HeaderBar";
 import { useProjectLook } from "../projectLook";
-import { ProjectMark } from "./ProjectMark";
+import { inkOn, ProjectMark } from "./ProjectMark";
 import { t } from "../i18n";
 
 /** Opens a directory: here, or in a new window of its own. */
@@ -41,6 +41,9 @@ export function PathBar({ project, onToggleLog, assistant }: { project: ProjectI
   const look = useProjectLook(project?.path);
   const name = crumbs[crumbs.length - 1]?.label ?? project?.root ?? "";
   // Where it lives: the folders above it, the home folder as ~
+  // The bar takes the project's colour: one look at the top left says which project this is
+  const fill = look ? (look.mark?.color ?? look.color) : null;
+  const ink = fill ? inkOn(fill) : undefined;
   const where = (project?.root ?? "").replace(/\/[^/]*\/?$/, "").replace(/^\/home\/[^/]+/, "~") || "/";
   return (
     <Tooltip
@@ -54,21 +57,21 @@ export function PathBar({ project, onToggleLog, assistant }: { project: ProjectI
       }
     >
     {/* `zone-tabs`: the row of headers across the window is one region, the controls (docs/STYLING.md, `zones`) */}
-    <header className="zone-tabs relative shrink-0 border-b border-line bg-panel">
+    <header className="zone-tabs relative shrink-0 border-b border-line bg-panel" style={fill ? { background: fill, color: ink } : undefined}>
       {/* 43 px plus the border: the same 44 px as the headers beside it, so their lines meet */}
       <div className="flex h-[43px] items-center gap-1 pr-1.5 pl-3">
         {project && (
           <span className="flex min-w-0 items-center gap-2.5" title={project.root}>
-            {look && <ProjectMark mark={look.mark} color={look.color} name={look.name} size={28} />}
+            {look && <ProjectMark mark={look.mark} color={look.color} name={look.name} size={32} shape="bare" />}
             <span className="flex min-w-0 flex-col leading-tight">
-              <span className="truncate text-[14px] font-semibold text-slate-100">{name}</span>
-              <span className="truncate font-mono text-[11px] text-slate-500">{where}</span>
+              <span className={`truncate text-[14px] font-semibold ${fill ? "" : "text-slate-100"}`}>{name}</span>
+              <span className={`truncate font-mono text-[11px] ${fill ? "opacity-70" : "text-slate-500"}`}>{where}</span>
             </span>
           </span>
         )}
         <span className="flex-1" />
-        <QuickSettings />
-        <AppMenu onToggleLog={onToggleLog} assistant={assistant} />
+        <QuickSettings onColor={!!fill} />
+        <AppMenu onToggleLog={onToggleLog} assistant={assistant} onColor={!!fill} />
       </div>
     </header>
     </Tooltip>

@@ -61,8 +61,11 @@ export function HeaderBar(props: Props) {
   );
 }
 
-export const iconButton = (on: boolean) =>
-  `relative flex items-center gap-0.5 rounded-md p-1.5 text-slate-400 hover:bg-raised hover:text-slate-100 ${on ? "bg-raised text-slate-100" : ""}`;
+export const iconButton = (on: boolean, onColor = false) =>
+  onColor
+    ? // On the project's colour: the bar's ink, a darkening for hover
+      `relative flex items-center gap-0.5 rounded-md p-1.5 text-current opacity-80 hover:bg-black/15 hover:opacity-100 ${on ? "bg-black/15 opacity-100" : ""}`
+    : `relative flex items-center gap-0.5 rounded-md p-1.5 text-slate-400 hover:bg-raised hover:text-slate-100 ${on ? "bg-raised text-slate-100" : ""}`;
 
 /** A menu hanging at the right end of the bar. */
 function Panel({ children, width = "w-[300px]" }: { children: ReactNode; width?: string }) {
@@ -94,7 +97,7 @@ const Key = ({ children }: { children: string }) => <kbd className="text-[11px] 
  * What one switches in the course of a day, without a dialog; all takes effect at once and is kept
  * for this machine. A dot on the button tells that "do not disturb" is on.
  */
-export function QuickSettings() {
+export function QuickSettings({ onColor = false }: { onColor?: boolean }) {
   const menu = usePopover<HTMLDivElement>();
   const [settings] = useAttentionSettings();
   const unusual = isQuiet(settings);
@@ -106,10 +109,10 @@ export function QuickSettings() {
         aria-expanded={menu.open}
         title={t("Quick settings")}
         onClick={() => menu.setOpen(!menu.open)}
-        className={iconButton(menu.open)}
+        className={iconButton(menu.open, onColor)}
       >
         <SlidersHorizontal className="size-4" />
-        <ChevronDown className="size-3 text-slate-500" />
+        <ChevronDown className={`size-3 ${onColor ? "opacity-70" : "text-slate-500"}`} />
         {unusual && <span className="absolute top-1 right-1 size-1.5 rounded-full bg-changed" />}
       </button>
       {menu.open && (
@@ -280,7 +283,7 @@ function AccountBlock({ project, assistant }: { project: ProjectInfo | null; ass
 }
 
 /** Everything about CodeDeck itself. */
-export function AppMenu({ onToggleLog, assistant }: { onToggleLog: () => void; assistant: AssistantState }) {
+export function AppMenu({ onToggleLog, assistant, onColor = false }: { onToggleLog: () => void; assistant: AssistantState; onColor?: boolean }) {
   const menu = usePopover<HTMLDivElement>();
   const [copied, setCopied] = useState(false);
   // What the backend knows, and what only the window knows; for a bug report or a chat
@@ -304,7 +307,7 @@ export function AppMenu({ onToggleLog, assistant }: { onToggleLog: () => void; a
   };
   return (
     <div ref={menu.ref}>
-      <button type="button" aria-haspopup="menu" aria-expanded={menu.open} title="CodeDeck" onClick={() => menu.setOpen(!menu.open)} className={iconButton(menu.open)}>
+      <button type="button" aria-haspopup="menu" aria-expanded={menu.open} title="CodeDeck" onClick={() => menu.setOpen(!menu.open)} className={iconButton(menu.open, onColor)}>
         <Ellipsis className="size-[18px]" />
       </button>
       {menu.open && (
