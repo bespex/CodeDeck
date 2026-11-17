@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CircleHelp, Eye, FileText, RotateCcw, SquarePen, ZoomIn, ZoomOut } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, CircleHelp, Eye, FileText, RotateCcw, SquarePen, ZoomIn, ZoomOut } from "lucide-react";
 import { openFile, type AssistantState, type JournalLine, type Snapshot } from "../../backend";
 import { shortId, touchedFiles, useSessionMarks } from "../../assistant";
 import type { GitView } from "../../git";
@@ -8,9 +8,20 @@ import { SessionBadge } from "../SessionBadge";
 import { LOCALE } from "../Trail";
 import { Tooltip, ToolTipBody } from "../Tooltip";
 import { plural, snapshotLabel, t } from "../../i18n";
-import { lanesOf, spanOf, ticksIn, useJournal, zoomed } from "../../timeline";
+import { dayOf, lanesOf, spanOf, ticksIn, useJournal, zoomed, type Day } from "../../timeline";
 
 const clock = (ms: number) => new Date(ms).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
+
+/** How many days back the timeline can go: the journal keeps a week. */
+const MAX_BACK = 6;
+
+/** The heading of the day: weekday and date, with „Today“ or „Yesterday“ in front for those two. */
+function dayTitle(day: Day): string {
+  const name = day.offset === 0 ? `${t("Today")}, ` : day.offset === 1 ? `${t("Yesterday")}, ` : "";
+  // Midday, so that a daylight-saving change does not move the date
+  const date = new Date(day.from + 12 * 3600_000).toLocaleDateString(LOCALE, { weekday: "long", day: "numeric", month: "long" });
+  return name + date;
+}
 
 /** A time of day, with the date when it is not today. */
 const whenOf = (ms: number, now: number) =>
@@ -116,10 +127,13 @@ function Legend() {
 /** One row per session: when it worked, when it waited for you, where its snapshots were taken. */
 function Today({ assistant, snapshots }: { assistant: AssistantState; snapshots: Snapshot[] }) {
   const marks = useSessionMarks();
-  const lines = useJournal(assistant);
   const now = useNow();
-  const lanes = lanesOf(lines, assistant.sessions, now);
-  const full = spanOf(lanes, now);
+  // Which calendar day: today, or how many days back. The journal keeps a week, so six days back at most
+  const [back, setBack] = useState(0);
+  const day = dayOf(now, back);
+  const lines = useJournal(assistant, day);
+  const lanes = lanesOf(lines, assistant.sessions, now, day);
+  const full = spanOf(lanes, now, day);
   // Zoom: a stretch of the day, or the whole of it (`null`). Ctrl + wheel zooms at the pointer, a drag moves it.
   const [zoom, setZoom] = useState<{ from: number; to: number } | null>(null);
   const span = zoom ? { ...zoom, ticks: ticksIn(zoom.from, zoom.to) } : full;
@@ -153,8 +167,24 @@ function Today({ assistant, snapshots }: { assistant: AssistantState; snapshots:
   }, [lanes.length > 0]);
   const drag = useRef<{ x: number; from: number } | null>(null);
   const nameOf = (id: string) => marks.of(id)?.title ?? t("session {id}", { id: shortId(id) });
+  // Going back or forward clears the zoom: its stretch of time belongs to the day it was made on
+  const turn = (to: number) => {
+    setBack(to);
+    setZoom(null);
+  };
   return (
-    <Section title={t("Today")} note={t("what each session did, and when")} aside={
+    <Section
+      // The buttons stay at the left edge: centred, they would move with every change of the date's length
+      title={
+        <span className="flex items-center gap-1 whitespace-nowrap">
+          <ZoomButton label={t("Previous day")} onClick={() => turn(back + 1)} disabled={back >= MAX_BACK}><ChevronLeft className="size-3.5" /></ZoomButton>
+          <ZoomButton label={t("Next day")} onClick={() => turn(back - 1)} disabled={back === 0}><ChevronRight className="size-3.5" /></ZoomButton>
+          <ZoomButton label={t("Go to today")} onClick={() => turn(0)} disabled={back === 0}><CalendarDays className="size-3.5" /></ZoomButton>
+          <span className="ml-1">{dayTitle(day)}</span>
+        </span>
+      }
+      note={t("what each session did, and when")}
+      aside={
         <>
           <Legend />
           {lanes.length > 0 && (
@@ -178,7 +208,11 @@ function Today({ assistant, snapshots }: { assistant: AssistantState; snapshots:
       }>
       {help.open && <TimelineHelp />}
       {lanes.length === 0 ? (
-        <p>{t("No session has done anything today yet. Each one that works shows up here, with the time it worked and the time it waited for you.")}</p>
+        <p>
+          {back === 0
+            ? t("No session has done anything today yet. Each one that works shows up here, with the time it worked and the time it waited for you.")
+            : t("No session did anything on this day.")}
+        </p>
       ) : (
         // No frame: the timeline is the content of the section like any other, so the spacing is the same all round
         <div
@@ -313,11 +347,11 @@ function LaneRow({ label, children }: { label: React.ReactNode; children: React.
 function Safety({ git, snapshots }: { git: GitView; snapshots: number }) {
   const ahead = git.repos.reduce((n, r) => n + r.ahead, 0);
   const remote = git.repos.some((r) => r.remotes.length > 0);
-  const row = (line: string, label: string, value: string) => (
-    <div className="flex items-center gap-2.5">
-      <span className={`w-5 shrink-0 border-t-2 ${line}`} />
-      <span className="flex-1">{label}</span>
-      <span className="font-semibold text-slate-100 tabular-nums">{value}</span>
+  // A figure: the number large, its name small beneath, the trail's colour as a line above
+  const metric = (line: string, label: string, value: string) => (
+    <div className={`flex min-w-[120px] flex-col gap-0.5 border-t-2 pt-2 ${line}`}>
+      <span className="text-[22px] leading-none font-semibold text-slate-100 tabular-nums">{value}</span>
+      <span className="text-[12px] text-slate-400">{label}</span>
     </div>
   );
   if (git.repos.length === 0) {
@@ -329,11 +363,15 @@ function Safety({ git, snapshots }: { git: GitView; snapshots: number }) {
   }
   return (
     <Section title={t("How safe is your work")}>
-      <div className="flex max-w-md flex-col gap-1.5">
-        {row("border-changed", t("Not committed"), plural(git.changed, "file"))}
-        {row("border-dashed border-changed", t("Committed, only on this machine"), remote ? plural(ahead, "commit") : "–")}
-        {row("border-slate-500", t("Snapshots to go back to"), String(snapshots))}
-        <p className="mt-1 text-[12px]">
+      {/* The figures on the left; the explanation beside them when there is room, below them when not */}
+      {/* 16px above, so that the room under the figures (to the next section's heading) is the same 24px as above them */}
+      <div className="flex flex-wrap items-start gap-x-8 gap-y-3 pt-4">
+        <div className="flex flex-wrap gap-x-6 gap-y-3">
+          {metric("border-changed", t("Not committed"), plural(git.changed, "file"))}
+          {metric("border-dashed border-changed", t("Committed, not pushed yet"), remote ? plural(ahead, "commit") : "–")}
+          {metric("border-slate-500", t("Snapshots to go back to"), String(snapshots))}
+        </div>
+        <p className="min-w-[200px] flex-1 pt-1 text-[12px]">
           {git.changed > 0
             ? t("Uncommitted work exists only in your folder and in the snapshots.")
             : ahead > 0

@@ -8,20 +8,43 @@ import { t } from "./i18n";
 
 const HOUR = 3600_000;
 
-/** What the project's journal holds for the last day; read again whenever a session reports. */
-export function useJournal(assistant: AssistantState): JournalLine[] {
+/** A calendar day, from midnight to midnight in local time; `offset` days before today. */
+export interface Day {
+  from: number;
+  to: number;
+  offset: number;
+}
+
+export function dayOf(now: number, offset = 0): Day {
+  const d = new Date(now);
+  return {
+    from: new Date(d.getFullYear(), d.getMonth(), d.getDate() - offset).getTime(),
+    to: new Date(d.getFullYear(), d.getMonth(), d.getDate() - offset + 1).getTime(),
+    offset,
+  };
+}
+
+/**
+ * What the journal holds for a day (or, without one, the last 24 hours); read again whenever a
+ * session reports.
+ */
+export function useJournal(assistant: AssistantState, day?: Day): JournalLine[] {
   const [lines, setLines] = useState<JournalLine[]>([]);
   // Every event moves `last` or `status` of its session: that is when the journal has something new
   const stamp = assistant.sessions.map((s) => `${s.id}:${s.last}:${s.status}`).join("|");
+  const from = day?.from;
+  const to = day?.to;
   useEffect(() => {
     let alive = true;
-    journalLines(Date.now() - 24 * HOUR)
-      .then((l) => alive && setLines(l))
+    // A block that began the day before still counts for this day, so the read reaches a day further back
+    const since = from !== undefined ? from - 24 * HOUR : Date.now() - 24 * HOUR;
+    journalLines(since)
+      .then((l) => alive && setLines(to !== undefined ? l.filter((x) => x.at < to) : l))
       .catch(() => {});
     return () => {
       alive = false;
     };
-  }, [stamp]);
+  }, [stamp, from, to]);
   return lines;
 }
 
@@ -48,8 +71,10 @@ export interface Lane {
  * turn. One still open runs to now while the session is working or waiting; else it ends at its
  * last event.
  */
-export function lanesOf(lines: JournalLine[], sessions: Session[], now: number): Lane[] {
+export function lanesOf(lines: JournalLine[], sessions: Session[], now: number, day?: Day): Lane[] {
   const lanes = new Map<string, Lane & { open: Block | null }>();
+  const from = day?.from ?? -Infinity;
+  const to = day?.to ?? Infinity;
   const lane = (id: string) => {
     let l = lanes.get(id);
     if (!l) lanes.set(id, (l = { session: id, blocks: [], turns: 0, last: 0, open: null }));
@@ -66,7 +91,7 @@ export function lanesOf(lines: JournalLine[], sessions: Session[], now: number):
     switch (line.kind) {
       case "prompt_submitted":
         close(l, line.at);
-        l.turns += 1;
+        if (line.at >= from) l.turns += 1;
         l.open = { from: line.at, to: line.at, phase: "working", text: line.text };
         break;
       case "waiting":
@@ -92,7 +117,11 @@ export function lanesOf(lines: JournalLine[], sessions: Session[], now: number):
     const live = sessions.find((s) => s.id === l.session)?.status;
     close(l, live === "working" || live === "waiting" ? now : l.last);
   }
-  return [...lanes.values()].filter((l) => l.blocks.length > 0).map(({ open: _open, ...l }) => l).sort((a, b) => a.blocks[0].from - b.blocks[0].from);
+  // Only what falls in the day: a block that ran over midnight is cut at the day's edges
+  return [...lanes.values()]
+    .map(({ open: _open, ...l }) => ({ ...l, blocks: l.blocks.filter((b) => b.to > from && b.from < to).map((b) => ({ ...b, from: Math.max(b.from, from), to: Math.min(b.to, to) })) }))
+    .filter((l) => l.blocks.length > 0)
+    .sort((a, b) => a.blocks[0].from - b.blocks[0].from);
 }
 
 const MIN = 60_000;
@@ -105,11 +134,16 @@ export function ticksIn(from: number, to: number): number[] {
   return ticks;
 }
 
-/** The time the timeline spans: whole hours from before the first block to just after now. */
-export function spanOf(lanes: Lane[], now: number): { from: number; to: number; ticks: number[] } {
-  const first = Math.min(now - 90 * MIN, ...lanes.map((l) => l.blocks[0].from));
+/**
+ * The time the timeline spans: from the hour of the first block of the day, to just after now for
+ * today, or to the end of the last block's hour for a day that is over.
+ */
+export function spanOf(lanes: Lane[], now: number, day?: Day): { from: number; to: number; ticks: number[] } {
+  const first = lanes.length > 0 ? Math.min(...lanes.map((l) => l.blocks[0].from)) : now - 90 * MIN;
   const from = Math.floor(first / HOUR) * HOUR;
-  const to = now + 5 * MIN;
+  const today = !day || now < day.to;
+  const last = lanes.length > 0 ? Math.max(...lanes.flatMap((l) => l.blocks.map((b) => b.to))) : now;
+  const to = today ? now + 5 * MIN : Math.max(Math.ceil(last / HOUR) * HOUR, from + HOUR);
   return { from, to, ticks: ticksIn(from, to) };
 }
 
