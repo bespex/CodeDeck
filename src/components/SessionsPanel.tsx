@@ -460,12 +460,10 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
               </ul>
             </div>
           )}
-          {/* The session's own little status bar: the model first, then where it runs. Set apart
+          {/* The session's own little status bar: where it runs (the model is on the second line above). Set apart
               by a faint dotted line, quieter than the hairlines between the sessions */}
           <div className="mt-2 flex items-start gap-2 border-t border-dotted border-line/60 pt-1.5 text-[11px] text-slate-500">
             <span className="min-w-0 flex-1 pt-0.5">
-              {s.model && <span className="font-medium text-slate-300">{s.model}</span>}
-              {s.model && " · "}
               {s.cwd === "" ? t("project root") : s.cwd}
               {` · ${t("last step {time}", { time: time(s.last) })}`}
               {s.step && head.from !== "step" && ` · ${t("step")}: ${s.step}`}
