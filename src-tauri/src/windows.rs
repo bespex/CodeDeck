@@ -175,7 +175,7 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
 /// The label of the overview: one window for every project, no project of its own.
 pub const OVERVIEW: &str = "overview";
 /// Width of the overview when it opens, in logical pixels.
-const OVERVIEW_WIDTH: f64 = 330.0;
+const OVERVIEW_WIDTH: f64 = 450.0;
 
 /// One of my projects, as the overview shows it, with its window or without.
 #[derive(serde::Serialize)]
