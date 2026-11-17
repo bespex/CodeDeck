@@ -1,0 +1,18 @@
+{
+  "id": "colorful",
+  "name": "Colorful",
+  "scheme": "light",
+  "bg": "#fdfbfa",
+  "fg": "#22182e",
+  "tint": "#b09de9",
+  "accent": "#db5b32",
+  "ai": "#795bbf",
+  "wait": "#a36000",
+  "done": "#00745d",
+  "added": "#3b7a2c",
+  "problem": "#b42f52",
+  "moved": "#0077c2",
+  "sessions": ["#6f57ab", "#007e80", "#9e4f98", "#1f6cb0", "#3b7a2c", "#7d7400"],
+  "zoneColors": { "files": "#3ebfc6", "tabs": "#e88f87", "side": "#b09de9", "bar": "#d79e59" },
+  "style": { "radius": "round", "lines": "clear", "areaTint": 14, "surfaceTint": 5, "zones": 18, "events": "loud", "glow": "soft", "depth": "soft", "motion": "lively", "font": "rounded", "glass": "soft", "gradient": "vivid", "backdrop": "none" }
+}

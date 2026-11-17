@@ -9,7 +9,7 @@ import { cssOf, derive, type Roles, type Theme } from "./palette";
 
 /** The shipped themes, in the order they are offered: the default first. */
 const files = import.meta.glob<Theme>("./themes/*.json", { eager: true, import: "default" });
-const ORDER = ["codedeck", "paper", "graphite", "signal"];
+const ORDER = ["codedeck", "paper", "colorful", "moon", "forest", "elegance", "fancy", "terminal", "contrast"];
 export const THEMES: Theme[] = Object.values(files).sort((a, b) => rank(a.id) - rank(b.id));
 function rank(id: string) {
   const i = ORDER.indexOf(id);

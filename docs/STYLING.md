@@ -1,6 +1,6 @@
 # Styling: Farbschemata zum Auswählen
 
-**Stand 2026-11-17: S.1 und S.2 gebaut** (auf Wunsch des Nutzers vorgezogen): vier Themes, Wahl in Schnelleinstellungen und
+**Stand 2026-11-17: S.1 und S.2 gebaut, Familie aus neun Themes (B7)** (auf Wunsch des Nutzers vorgezogen): vier Themes, Wahl im
 Einstellungsdialog mit Vorschau beim Überfahren, Glas, Verläufe, Hintergrundschimmer, „Reduce transparency“, Prüfung
 `npm run themes`. Noch offen: durchscheinendes Fenster (Spike, B4a), Eingriff `selection`, „dem System folgen“,
 Theme-Labor in der Vorschau (bis dahin `design/click-dummy/themes.html`), eigene Themes (C6).
@@ -10,7 +10,7 @@ Ursprünglich: Konzept für später (nach MVP 3), Entwurf vom 2026-11-17. Theme-
 
 ## Kurzfassung
 
-CodeDeck bekommt **Themes**: fertige Farbgebungen, die man in den Schnelleinstellungen auswählt und beim
+CodeDeck bekommt **Themes**: fertige Farbgebungen, die man im Einstellungsdialog auswählt und beim
 Überfahren sofort sieht. Ein Theme ist eine **kleine Datei mit Rollen statt Farben**: Man nennt Hintergrund,
 Schrift, Akzent, KI-Farbe und vier Zustandsfarben, den Rest leitet CodeDeck ab. Dazu kommen wenige
 **Eingriffe** mit festen Stufen (Ecken, Linien, Tönung der Bereiche, Leuchten, Tiefe, Bewegung, Glas,
@@ -37,23 +37,28 @@ Bedeutung behält.
 
 ## A1 Auswählen
 
-- **Schnelleinstellungen** (Kopfleiste): Zeile „Theme“ mit dem Namen des aktuellen. Ein Klick klappt die
-  Liste auf: je Theme ein Name und ein Streifen aus fünf Farbfeldern (Fläche, Schrift, Akzent, KI, Warten).
-  **Überfahren zeigt das Theme sofort im ganzen Fenster**, Klick oder Enter übernimmt, Esc oder Wegfahren
-  stellt das alte wieder her. Ausprobieren kostet nichts.
-- **Einstellungsdialog**, Abschnitt „Appearance“: dieselbe Liste als Galerie mit Mini-Vorschau, dazu
+- **Einstellungsdialog** (`Ctrl+,`), Abschnitt „General“, nur dort (Entscheidung des Nutzers 2026-11-17: nicht in den
+  Schnelleinstellungen): die Themes als Galerie mit Farbstreifen. **Zeigen auf ein Theme zeigt es sofort im ganzen
+  Fenster**, ein Klick behält es, Wegfahren stellt das alte wieder her. Später dazu
   „Follow the system (light/dark)“: dann wählt man je ein Theme für hell und für dunkel.
 - Die Wahl gilt **je Rechner** für alle Fenster (wie die Sprache) und wirkt sofort in allen.
 
 ## A2 Was mitgeliefert wird
 
-| Theme | Charakter | Hell/Dunkel |
+Neun Themes: die Vorgabe und acht mit je einem eigenen Gestaltungsgedanken (Beschreibung und Werte in B7).
+Alle bestehen dieselbe Prüfung; keines ist nur „andere Farben“.
+
+| Theme | In einem Satz | Hell/Dunkel |
 |---|---|---|
 | **CodeDeck** (Vorgabe) | ruhig, grau zuerst, Farbe nur mit Bedeutung | dunkel |
-| **Paper** | dasselbe System auf hellem Grund | hell |
-| **Graphite** | edel: fast farblos, warmer Goldakzent, weiche Ecken, kein Leuchten | dunkel |
-| **Signal** | bunt und kontraststark: getönte Flächen, kräftige Linien, Schrift ≥ 7 : 1 | dunkel |
-| später | z. B. ein verspieltes (rund, lebhaft), ein strenges Hochkontrast-Theme nach WCAG AAA | – |
+| **Paper** | Karamell und Creme nach dem Vorbild „Charamel“: warmer Rahmen, heller Inhalt, wenig Farbe | hell |
+| **Colorful** | hell und bunt: jeder Bereich hat seine Farbe, Ereignisse als leuchtende Schilder | hell |
+| **Moon** | Nachtblauer Rahmen, Inhalt in Graphit, Mondgold und Laternenlicht als Akzente | dunkel |
+| **Forest** | Rahmen in Moos, Inhalt in Rinde, Highlights in Blüten- und Fruchtfarben | dunkel |
+| **Elegance** | warmes Anthrazit im Lackrahmen, Champagnergold und Cognac, nichts leuchtet | dunkel |
+| **Fancy** | Spotlight: dunkle, ruhige Bühne, nur Ereignisse leuchten in Neon | dunkel |
+| **Terminal** | Festbreitenschrift, eckig, ANSI-Farben auf Schwarz, ruhig genug zum Arbeiten | dunkel |
+| **Contrast** | Schwarz und Weiß, kräftige Linien, keine Effekte, für schwierige Bedingungen | dunkel |
 
 ## A3 Was ein Theme nie ändert
 
@@ -90,6 +95,8 @@ Bedeutung behält.
 | `accent-soft` | Akzent als Schrift | abgeleitet | ≥ 4,5 : 1 auf `panel` |
 | `ai` | was die KI tut, Auswahl, Fokus | Pflicht | ≥ 3 : 1 auf `panel` |
 | `wait` (heute `changed`) | geändert, wartet auf dich | Pflicht | ≥ 3 : 1; deutlich anders als `accent` und `problem` |
+| `done` | eine Runde ist fertig, als Ereignis | abgeleitet (`added`) | ≥ 3 : 1; deutlich anders als `wait`, `problem`, `ai`; bei `events: loud` Schrift darauf ≥ 4,5 : 1 |
+| Zonen `zone-files` · `zone-tabs` · `zone-side` · `zone-bar` | Fläche der Bereiche mit `zones` | abgeleitet | Text darauf wie auf `panel` (4,5 bzw. 4 : 1), Zustandsfarben auf der rechten Spalte ≥ 3 : 1 |
 | `added` · `problem` · `moved` | neu · gelöscht/Fehler · verschoben | Pflicht | je ≥ 3 : 1 auf `panel` |
 | `session-0 … 5` | Farben der Sitzungen | abgeleitet aus `ai` (oder Liste) | untereinander unterscheidbar; fern von `accent`, `wait`, `problem` |
 | `area-ai` · `area-you` · `area-wait` | Grundton der Bereiche | abgeleitet | Stärke über `areaTint` (B4) |
@@ -128,7 +135,9 @@ Wenige Regler mit festen Stufen. Jeder wirkt an genau einer Stelle, die die Komp
 | `depth` | `flat` · `soft` · `deep` | Schatten der Popups und Menüs | `deep` |
 | `motion` | `calm` · `lively` | Pulsieren neuer Einträge, Übergänge (Systemeinstellung „weniger Bewegung“ gilt immer) | `calm` |
 | `selection` | `fill` · `bar` | ausgewählte Zeile als getönte Fläche oder mit Balken am Rand | `fill` |
-| `font` | `system` · `inter` · `rounded` | Schriftfamilie der Oberfläche aus einer festen Liste (nur, was installiert ist) | `system` |
+| `font` | `system` · `inter` · `rounded` · `mono` | Schriftfamilie der Oberfläche aus einer festen Liste (nur, was installiert ist) | `system` |
+| `zones` | 0 bis 20 % | jeder Bereich des Fensters bekommt seinen Ton: Dateispalte (Projekt), Reiterleiste (Deck), rechte Spalte (KI), Statusleiste (du); Farbquellen aus `zoneColors`, sonst `moved`, `tint`, `ai`, `accent`; wo Beimischen nicht reicht, setzt `zoneSurfaces` die Fläche genau. Die Zone „Reiterleiste“ umfasst die ganze obere Leiste (Pfad, Reiter, Kopf der rechten Spalte). Technisch wird in jeder Zone `--color-panel` neu belegt, die Komponenten merken nichts | 0 |
+| `events` | `quiet` · `clear` · `focus` · `loud` | wie stark Ereignisse auffallen: `clear` färbt die Worte; `focus` ist nur laut bei dem, was auf dich wartet (Frage, „wartet auf dich“, Fensterrand), alles andere wie `clear` („Runde fertig“ in `done`, „arbeitet“ in `ai`); `loud` macht gefüllte, leuchtende Schilder, tönt die Zeilen unter „Wartet auf dich“, lässt neue Einträge in ihrer Farbe aufblinken, färbt die Zähler an den Reitern und lässt den **Fensterrand leuchten**, solange etwas wartet (Frage vor fertig, auch bei inaktivem Fenster); wie breit der Schein ist, folgt `glow` | `quiet` |
 | `glass` | `none` · `soft` · `strong` | schwebende Flächen (Menüs, Popups, Tooltips) durchscheinend mit Weichzeichner dahinter: Deckkraft 100 / 86 / 72 %, Weichzeichner 0 / 10 / 18 px | `none` |
 | `gradient` | `none` · `subtle` · `vivid` | Verläufe auf dem Hauptknopf und der Markierung des aktiven Reiters (Akzent → `accent2`), Licht von oben auf Leisten und Spalten, Bereiche, die zum Rand hin auslaufen | `none` |
 | `backdrop` | `none` · `glow` · `aurora` | weicher Farbschimmer hinter dem Deck, aus `ai` und `tint`, 0 / 6 / 12 % Deckkraft; nie unter Text stärker als die Prüfung erlaubt | `none` |
@@ -257,6 +266,94 @@ Bedeutungsfarben der Vorgabe, abgedunkelt bis sie 3 : 1 auf Weiß haben, depth `
 #e0946a` (Pfirsich, damit es nicht wie das Gold aussieht), `problem #d9655f`, Sitzungen abgeleitet, radius
 `round`, glow `none`, selection `bar`, areaTint 3. Im Labor bestehen alle vier Themes die Prüfung.
 
+## B7 Die Theme-Familie
+
+Jedes Theme verfolgt eine Idee und setzt die Eingriffe dafür ein. Die Werte stehen in `src/themes/*.json`; hier
+das Warum. Alle neun bestehen `npm run themes` (55 bis 61 Regeln je Theme).
+
+**Paper: Karamell und Creme.** Vorbild ist das Thunderbird-Theme „Charamel“ (Wunsch des Nutzers 2026-11-17). Zwei
+Ebenen wie Papier auf einem Pult: der **Rahmen** in warmem Karamell (Spalten `#eee0d2`, obere Leiste und Statusleiste
+eine Stufe tiefer `#e8d6c3`, mit Licht von oben), der **Inhalt** in Cremeweiß (`#fdf9f4`), Menüs fast weiß mit weichen
+Schatten. Runde Ecken, weiche Linien in Sandbeige, Schrift Braungrau statt Schwarz (eigene Grauskala mit warmem
+Ton, damit leiser Text auch auf Karamell 4 : 1 hält). Farbe sparsam wie dort: **Orange** für die Hauptaktion,
+**Himmelblau** für Auswahl, Fokus und die KI, Git in gedeckten Tönen. Laut ist nur, was dich braucht (`events:
+focus`): „fragt“ und „wartet auf dich“ als honigfarbene Schilder; „fertig“ in Petrol als Wort.
+
+**Colorful: Farbräume.** Weißer, leicht warmer Grund, und jeder Bereich hat seine Farbe (`zones: 18`). Die Töne sind
+eine Familie: gleiche Helligkeit und Sättigung in OKLCH (L 0,74, C 0,11), nur der Farbton wechselt, darum wirken sie
+bunt und doch ruhig: Dateispalte Petrol (das Projekt), Reiterleiste Rosé (das Deck), rechte Spalte Lavendel (die KI),
+Statusleiste Aprikose (du). Die Bedeutungsfarben folgen derselben Regel eine Stufe dunkler (L 0,55): Akzent
+Koralle, KI Lavendel, „fertig“ Tannengrün, „wartet“ Honig, Fehler Himbeere. Ereignisse sind laut: gefüllte Schilder,
+getönte Zeilen, Blinken in der Farbe des Ereignisses, leuchtender Fensterrand. Runde Ecken, runde Schrift (wo
+installiert), lebhafte Bewegung. Das Deck selbst bleibt weiß: Dort wird gelesen.
+
+**Moon: Nacht, Mond und Laterne.** Blau ist der Rahmen, nicht der Inhalt (überarbeitet 2026-11-17 nach den
+Erfahrungen mit Forest: 16 % Blau in allen Flächen und Grautönen machten Blau bedeutungslos). **Nachtblau** sind nur die
+obere Leiste, die Statusleiste und die Menüs (mit leichtem Glas). **Der Inhalt ist mondbeschienenes Graphit:** Deck,
+Spalten, Knöpfe und die Grautöne der Schrift fast neutral kühl (4 % Tönung). Warmes Gegenstück ist **Mondgold** für
+deine Hauptaktion; die KI ist **Flieder** (nicht Blau, damit sie sich vom Rahmen abhebt), „fertig“ Mint, Git in
+gedämpftem Silberblau und Mint. **Laut ist nur, was dich braucht** (`events: focus`): „fragt“ und „wartet auf dich“ in
+Laternen-Pfirsich, als Schild und als Linie am Fensterrand. Kein Schimmer hinter dem Deck, runde Ecken, tiefe
+Schatten.
+
+**Forest: Moos, Rinde und Blüten.** Grün und Erde haben getrennte Aufgaben, und Grün ist knapp (Nutzer 2026-11-17:
+„insgesamt sehr grün“). **Moosgrün ist nur der Rahmen der Bedienung:** obere Leiste über alle Spalten, Statusleiste,
+Menüs und Popups. **Alles andere ist warmes, fast neutrales Braungrau** (Rinde): Deck, beide Spalten, Knöpfe und
+Hover, Linien, und auch die Grautöne der Schrift (nur 5 % Tönung, sonst wirkt alles oliv). Die rechte Spalte ist
+ruhig wie die linke (`areaTint: 3`), gegliedert über ihre Abschnitte. **Farbe kommt nur aus Blüten und Früchten, laut
+nur bei dem, was dich braucht** (`events: focus`): „fragt“ und „wartet auf dich“ als sonnenblumengelbe Schilder,
+der Fensterrand als gelbe Linie; „fertig“ in Kornblume und „arbeitet“ in Flieder als Worte; du in Kürbis, Fehler in
+Kirsche, neue Dateien in Blattgrün. Allgemeine Lehre aus Forest, Paper und Moon: **Eine Farbe trägt Bedeutung nur, wenn sie nicht überall ist.** Rahmen
+(Bedienung) und Inhalt bekommen getrennte Töne; Flächen und Grautöne bleiben nahezu neutral; Farbe gehört den
+Akzenten. Gelernt außerdem: Ein breiter gelber Schein um das Fenster färbt auf Braun alles oliv;
+darum hängt die Breite des Scheins jetzt an `glow` (`soft`: eine Linie, `bright`: ein Schein).
+
+**Elegance: zurückhaltend, maßgeschneidert.** Warmes Anthrazit als Inhalt, eingefasst von einem fast schwarzen
+**Lackrahmen** (obere Leiste und Statusleiste, `zoneSurfaces`; die Spalten bleiben ausdrücklich Anthrazit, damit
+keine Bereichsfarbe einsickert). Champagnergold als Akzent mit dezentem Goldverlauf auf dem Hauptknopf, kaum
+Bereichstönung (3 %), nichts leuchtet, Schrift Inter (wo installiert), runde Ecken, leichtes Glas. **Wartet auf dich**
+ist **Cognac** (überarbeitet 2026-11-17: das frühere Rosé war neben dem Fehlerrot kaum zu unterscheiden) und als
+einziges laut (`events: focus`): ein Schild und eine feine Linie am Fensterrand ohne Schein.
+
+**Fancy: Spotlight.** Das Gegenteil von Colorful: Die Bühne ist fast schwarz und neutral (kaum Tönung, keine Zonen,
+kein Schimmer), damit Farbe nur dort erscheint, wo etwas **geschieht**. Ereignisse als Neon-Schilder mit hellem
+Leuchten (fertig in Neongrün, Frage in Gelb, Arbeit in Cyan), der Fensterrand glüht in der Farbe des Ereignisses,
+Zähler an den Reitern in Pink, starkes Glas für Menüs, kräftiger Verlauf auf dem Hauptknopf. Wer die Ruhe von
+CodeDeck mag, aber nichts übersehen will. Entstanden aus „Signal“ (B6), das nur noch Beispiel ist.
+
+**Terminal: ein gutes Terminal-Schema.** Charakter aus Form, angenehm in der Farbe (überarbeitet 2026-11-17: Grün in
+Schrift und Flächen und überall leuchtende Schilder ermüdeten). Fast schwarzer Grund mit einem Hauch Phosphor (6 %),
+weiche, kaum grüne Schrift, Festbreitenschrift überall (`font: mono`), eckig, klare Linien, kein Schatten, kein
+Schimmer. Die Farben sind die **ANSI-Farben mit ihrer üblichen Bedeutung**: Gelb für Geändertes und Wartendes (wie
+Git), Grün für Neues, Rot für Fehler, Blau für Verschobenes, Cyan für die KI, **Magenta für dich** (wie der Prompt
+vieler Shells), Seegrün für „fertig“. Laut nur, was dich braucht (`events: focus`): ein gelbes, invertiertes Schild
+wie im Terminal und eine gelbe Linie am Fensterrand. Die Festbreitenschrift macht die Oberfläche breiter; Titel
+werden früher gekürzt. Das ist der Preis des Charakters.
+
+**Contrast: maximal lesbar.** Reines Schwarz, reines Weiß, Linien `strong`, eckig, keine Effekte (kein Glas, kein
+Verlauf, kein Schimmer, kein Leuchten, keine Schatten), alle Farben voll gesättigt; leiser Text hat noch über 8 : 1.
+Für helle Sonne auf dem Laptop, Beamer, und wer schlecht sieht. Kein Ersatz für ein amtliches WCAG-AAA-Theme, aber
+nahe dran.
+
+**Zonen und Ereignisse in der Familie.** Wie stark ein Theme sie nutzt, folgt seinem Gedanken:
+
+| Theme | `zones` | `events` | Warum |
+|---|---|---|---|
+| CodeDeck | 0 | quiet | die Vorgabe bleibt, wie sie abgestimmt ist; `clear` wäre ein kleiner, möglicher Schritt |
+| Paper | genau gesetzt | focus | Karamell-Rahmen um cremeweißen Inhalt; laut wird nur, was auf dich wartet |
+| Elegance | genau gesetzt | focus | Lackrahmen um Anthrazit; laut nur Wartendes, in Cognac, ohne Schein |
+| Moon | genau gesetzt | focus | Nachtblau nur als Rahmen, Inhalt in Graphit, laut nur Wartendes |
+| Forest | genau gesetzt | focus | Moos nur als Rahmen der Bedienung, Inhalt in warmem Braungrau, Blütenfarben nur für Wartendes laut |
+| Terminal | 0 | focus | invertiertes Schild nur für Wartendes; ANSI-Farben mit ihrer Bedeutung |
+| Contrast | 0 | loud | kräftige Signale gehören zu einem Theme für schwierige Bedingungen; ohne Leuchten |
+| Colorful | 18 | loud | Farbe ist hier der Inhalt |
+| Fancy | 0 | loud | die Bühne bleibt dunkel, damit Ereignisse allein leuchten |
+
+Was die Familie lehrt: Die schwierigste Regel ist nicht der Kontrast, sondern die **Unterscheidbarkeit**. Bei sieben
+der acht Themes fielen zuerst nur Sitzungs- oder Bedeutungsfarben durch, die sich zu ähnlich waren. Darum hält die
+Ableitung der Sitzungsfarben jetzt 40° Abstand zu Akzent, Warten und Fehler, und zwei Themes (Moon, Elegance)
+überlassen ihre Sitzungsfarben ganz der Ableitung.
+
 ---
 
 # Teil C: Technik
@@ -353,7 +450,7 @@ Farben und Stufen enthält, ist das ohne Risiko. Nicht Teil des ersten Schritts.
 | Schritt | Inhalt |
 |---|---|
 | S.1 Rollen bereinigen | C4: feste Farben auf Rollen, inaktiv abgeleitet; „CodeDeck“ sieht danach gleich aus |
-| S.2 Themes | `theme.ts`, Ableitung, Anwenden ohne Aufblitzen, Wahl in Schnelleinstellungen und Einstellungsdialog, „CodeDeck“ und „Signal“ |
+| S.2 Themes | `theme.ts`, Ableitung, Anwenden ohne Aufblitzen, Wahl im Einstellungsdialog, „CodeDeck“ und „Signal“ |
 | S.3 Labor und weitere | Theme-Labor in der Vorschau, Prüfung als Skript, „Paper“ und „Graphite“, Folgen des Systems |
 
 ## Zu entscheiden

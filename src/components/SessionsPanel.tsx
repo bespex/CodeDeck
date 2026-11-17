@@ -59,7 +59,7 @@ interface Props {
 export function SessionsPanel(props: Props) {
   return (
     <aside
-      className={`grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_auto_minmax(0,3fr)_minmax(0,2fr)] bg-panel ${
+      className={`zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_auto_minmax(0,3fr)_minmax(0,2fr)] bg-panel ${
         props.compact ? "" : "border-l border-line"
       }`}
     >
@@ -135,13 +135,15 @@ function NeedsYou({ state }: { state: AssistantState }) {
                 key={waitKey(s)}
                 onMouseEnter={() => marks.hover(s.id)}
                 onMouseLeave={() => marks.hover(null)}
-                className={`group/wait relative py-1.5 pr-1.5 pl-3 ${waitsSince(s) > OPENED_AT ? "attention-new" : ""}`}
+                // `data-event`: a theme can make the reason stand out in its colour (docs/STYLING.md, `events`)
+                data-event={asks ? "waiting" : "done"}
+                className={`event-row group/wait relative py-1.5 pr-1.5 pl-3 ${waitsSince(s) > OPENED_AT ? "attention-new" : ""}`}
               >
                 {asks && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-changed" />}
                 <div className="flex items-center gap-2">
                   <SessionBadge mark={markOf(s, marks.of(s.id))} />
                   <span className="min-w-0 flex-1 truncate font-medium text-slate-100">{titleOf(s)}</span>
-                  <span className={`flex shrink-0 items-center gap-1.5 text-[11px] ${asks ? "text-changed" : "text-slate-500"}`}>
+                  <span data-event={asks ? "waiting" : "done"} className={`event-chip flex shrink-0 items-center gap-1.5 text-[11px] ${asks ? "text-changed" : "text-slate-500"}`}>
                     <span className={`size-2 shrink-0 translate-y-px rounded-full ${asks ? "bg-changed" : "bg-slate-500"}`} />
                     {asks ? t("asks") : `${t("turn done")} · ${time(s.turnDone ?? s.last)}`}
                   </span>
@@ -308,7 +310,10 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile }: { session:
           <span className="flex items-center gap-2">
             <SessionBadge mark={mark} />
             <span className="min-w-0 truncate font-medium text-slate-100">{titleOf(s)}</span>
-            <span className={`ml-auto flex shrink-0 items-center gap-1.5 text-[11px] ${blocked ? "text-problem" : s.status === "waiting" ? "text-changed" : "text-slate-500"}`}>
+            <span
+              data-event={blocked ? "blocked" : s.status === "idle" && s.turnDone != null && s.capabilities.liveStatus ? "done" : s.status}
+              className={`event-chip ml-auto flex shrink-0 items-center gap-1.5 text-[11px] ${blocked ? "text-problem" : s.status === "waiting" ? "text-changed" : "text-slate-500"}`}
+            >
               <StatusDot status={s.status} />
               {status.words}
             </span>

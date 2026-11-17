@@ -1,0 +1,19 @@
+{
+  "id": "forest",
+  "name": "Forest",
+  "scheme": "dark",
+  "bg": "#1b1611",
+  "fg": "#f0e9dc",
+  "tint": "#706052",
+  "accent": "#f99549",
+  "ai": "#bca1ed",
+  "wait": "#f2cf3b",
+  "done": "#7eabf6",
+  "added": "#87d576",
+  "problem": "#f0555b",
+  "moved": "#c8a47a",
+  "sessions": ["#bca1ed", "#e887b6", "#5fc0dd", "#9ad95f", "#f2b48f", "#e6e0d0"],
+  "surfaces": { "base": "#1b1611", "panel": "#251f1a", "raised": "#342c26", "line": "#3d352d", "overlay": "#2d3522", "overlayHover": "#3a442d", "overlayLine": "#515d45" },
+  "zoneSurfaces": { "tabs": "#252e19", "bar": "#252e19", "files": "#251f1a", "side": "#251f1a" },
+  "style": { "radius": "round", "lines": "subtle", "areaTint": 3, "surfaceTint": 5, "zones": 10, "events": "focus", "glow": "soft", "depth": "soft", "motion": "calm", "glass": "none", "gradient": "none", "backdrop": "none" }
+}

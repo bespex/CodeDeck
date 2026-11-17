@@ -71,7 +71,8 @@ export function PathBar({ project, onOpen }: { project: ProjectInfo | null; onOp
         />
       }
     >
-    <header className="relative shrink-0 border-b border-line">
+    {/* `zone-tabs`: the row of headers across the window is one region, the controls (docs/STYLING.md, `zones`) */}
+    <header className="zone-tabs relative shrink-0 border-b border-line bg-panel">
       {/* 43 px plus the border: the same 44 px as the headers beside it, so their lines meet */}
       <div className="flex h-[43px] items-center gap-3 px-3">
         {/* The project itself, large: the project picker lives in the right column, so this is where you see what is open */}

@@ -16,6 +16,14 @@
   "moved": "#8fb1cf",
   "sessions": ["#818cf8", "#c08cf5", "#4fc9bd", "#ee8fbd", "#62b6ee", "#c3cf6c"],
   "neutral": ["#f5f6f7", "#e8eaec", "#d2d6da", "#b9bec4", "#a9afb5", "#959ca4", "#757c84", "#3a3f46", "#30343a", "#282b31", "#1b1e22"],
-  "surfaces": { "base": "#1b1e22", "panel": "#24272c", "raised": "#2e3238", "line": "#3a3f46", "overlay": "#363b42", "overlayHover": "#424850", "overlayLine": "#4d545c" },
+  "surfaces": {
+    "base": "#1b1e22",
+    "panel": "#24272c",
+    "raised": "#2e3238",
+    "line": "#3a3f46",
+    "overlay": "#363b42",
+    "overlayHover": "#424850",
+    "overlayLine": "#4d545c"
+  },
   "style": { "radius": "default", "lines": "subtle", "areaTint": 6, "glow": "soft", "depth": "deep", "motion": "calm" }
 }

@@ -128,6 +128,9 @@ export function useAttention(state: AssistantState, runs: GitRun[], project: str
   useEffect(() => {
     const parts = [asking && t("{n} asking", { n: asking }), done && t("{n} done", { n: done })].filter(Boolean);
     void setTitlePrefix(parts.length ? `● ${parts.join(" · ")} · ` : "");
+    // For themes that let the window's edge light up while something waits (docs/STYLING.md, `events`)
+    document.documentElement.classList.toggle("attn-asks", asking > 0);
+    document.documentElement.classList.toggle("attn-done", done > 0);
   }, [asking, done]);
 
   const flush = () => {

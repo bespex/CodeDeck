@@ -7,12 +7,12 @@ import { t } from "../i18n";
  * The themes to choose from. Pointing at one (or moving to it with the keyboard) shows it in the whole
  * window at once; a click keeps it, leaving the list goes back. Trying one out costs nothing.
  */
-export function ThemeChoice({ compact = false }: { compact?: boolean }) {
+export function ThemeChoice() {
   const { theme } = useTheme();
   // A list closed while one is shown on trial (Esc, a click elsewhere): back to the chosen one
   useEffect(() => () => previewTheme(null), []);
   return (
-    <div role="radiogroup" aria-label={t("Theme")} className={compact ? "flex flex-col" : "grid grid-cols-2 gap-1"} onMouseLeave={() => previewTheme(null)}>
+    <div role="radiogroup" aria-label={t("Theme")} className="grid grid-cols-2 gap-1" onMouseLeave={() => previewTheme(null)}>
       {THEMES.map((th) => {
         const r = rolesOf(th);
         const on = th.id === theme;
@@ -26,7 +26,7 @@ export function ThemeChoice({ compact = false }: { compact?: boolean }) {
             onFocus={() => previewTheme(th.id)}
             onBlur={() => previewTheme(null)}
             onClick={() => setTheme(th.id)}
-            className={`flex items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] hover:bg-overlay-hover ${on ? "text-slate-100" : "text-slate-300"} ${compact ? "" : "border border-overlay-line"}`}
+            className={`flex items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] hover:bg-overlay-hover ${on ? "text-slate-100" : "text-slate-300"} border border-overlay-line`}
           >
             {/* Ground, text, accent, assistant, waiting: what tells themes apart at a glance */}
             <span className="flex shrink-0 overflow-hidden rounded-sm border border-black/30">

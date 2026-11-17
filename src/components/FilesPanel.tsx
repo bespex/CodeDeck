@@ -143,7 +143,7 @@ export function FilesPanel(props: Props) {
   const [rootDrop, setRootDrop] = useState(false);
 
   return (
-    <aside className="flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
+    <aside className="zone-files flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
       <PathBar project={props.project} onOpen={props.onOpenProject} />
 
       <div className="px-2 pt-2">

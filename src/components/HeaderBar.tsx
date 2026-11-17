@@ -23,7 +23,6 @@ import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
 import { isCompact, toggleCompact } from "../compact";
 import { lang, setLang, t } from "../i18n";
-import { ThemeChoice } from "./ThemeChoice";
 import { AttentionChoice, isQuiet, QuietChoice } from "./AttentionChoice";
 import { HookPanel } from "./AssistantStatus";
 import { SOURCE_URL } from "./Dialogs";
@@ -56,7 +55,7 @@ export function HeaderBar(props: Props) {
         />
       }
     >
-    <header className="relative flex h-[44px] shrink-0 items-center gap-1 border-b border-line pr-1.5 pl-1.5">
+    <header className="zone-tabs relative flex h-[44px] shrink-0 items-center gap-1 border-b border-line bg-panel pr-1.5 pl-1.5">
       <ProjectMenu project={props.project} onOpen={props.onOpenProject} />
       <span className="flex-1" />
       <AssistantMenu assistant={props.assistant} />
@@ -156,10 +155,6 @@ function QuickSettings() {
                 </button>
               ))}
             </div>
-          </div>
-          <div className="px-2 pt-1 pb-1">
-            <div className="px-1 pb-0.5 text-slate-200">{t("Theme")}</div>
-            <ThemeChoice compact />
           </div>
           <div className="mt-1 border-t border-overlay-line p-1">
             <Item

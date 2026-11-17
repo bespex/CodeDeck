@@ -94,7 +94,7 @@ export function Deck({ git, selected, assistant, onResize }: Props) {
         }
       >
       <nav
-        className="flex h-11 shrink-0 items-center gap-1 border-b border-line bg-panel px-2"
+        className="zone-tabs flex h-11 shrink-0 items-center gap-1 border-b border-line bg-panel px-2"
         role="tablist"
         aria-label={t("Deck views")}
       >
@@ -127,7 +127,7 @@ export function Deck({ git, selected, assistant, onResize }: Props) {
             >
               {t(label)}
               {badge !== undefined && (
-                <span className="rounded-full bg-brand/20 px-1.5 text-[11px] font-semibold text-brand-soft">
+                <span className="count-badge rounded-full bg-brand/20 px-1.5 text-[11px] font-semibold text-brand-soft">
                   {badge}
                 </span>
               )}
