@@ -10,6 +10,8 @@ import { UsageChip } from "./UsagePanel";
 import { plural, t } from "../i18n";
 
 interface GitProps {
+  /** Files changed lately (on disk or by a session): one quiet note beside the git button */
+  recent: number;
   git: GitView;
   onRepoActions: (repo: string, at: HTMLElement, above: boolean) => void;
   logOpen: boolean;
@@ -22,7 +24,7 @@ interface GitProps {
  * is bright, with an icon and a short word; what only informs stays quiet grey and gives way first
  * when the column is narrow. Details are in the tooltips.
  */
-export function GitStatusBar({ git, onRepoActions, logOpen, onToggleLog }: GitProps) {
+export function GitStatusBar({ git, onRepoActions, logOpen, onToggleLog, recent }: GitProps) {
   const root = git.rootRepo;
   const inFolders = git.repos.filter((r) => r.path);
   const withChanges = inFolders.filter((r) => r.files.length > 0).length;
@@ -51,6 +53,12 @@ export function GitStatusBar({ git, onRepoActions, logOpen, onToggleLog }: GitPr
       )}
       {/* Git on the left, next to the branch: what is clicked there is all git */}
       <GitCommands runs={git.runs} open={logOpen} onToggle={onToggleLog} />
+      {recent > 0 && (
+        <span className="flex shrink-0 items-center gap-1.5">
+          <span className="ai-dot" />
+          {t("{n} changed recently", { n: recent })}
+        </span>
+      )}
       {inFolders.length > 0 && (
         <span
           className="min-w-0 truncate"

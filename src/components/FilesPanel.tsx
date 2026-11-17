@@ -188,13 +188,7 @@ export function FilesPanel(props: Props) {
         {contextMenu.element}
       </div>
 
-      {recentPaths.length > 0 && (
-        <footer className="flex shrink-0 items-center gap-2 border-t border-line px-3 py-2 text-[11px] text-slate-500">
-          <span className="ai-dot" />
-          {t("{n} changed recently", { n: recentPaths.length })}
-        </footer>
-      )}
-      <GitStatusBar git={props.git} onRepoActions={props.onRepoActions} logOpen={props.logOpen} onToggleLog={props.onToggleLog} />
+      <GitStatusBar recent={recentPaths.length} git={props.git} onRepoActions={props.onRepoActions} logOpen={props.logOpen} onToggleLog={props.onToggleLog} />
     </aside>
   );
 }
