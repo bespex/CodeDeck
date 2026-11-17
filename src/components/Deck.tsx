@@ -16,6 +16,8 @@ import { useAttachedCount } from "./AttachmentList";
 import { useView, type ViewId } from "../view";
 import { t } from "../i18n";
 import { Tooltip, ToolTipBody } from "./Tooltip";
+import { Splitter } from "./Splitter";
+import type { Side } from "../layout";
 
 
 /** Four views for the four questions that come up when working with an assistant; `who` is its name. */
@@ -31,9 +33,11 @@ interface Props {
   /** Selected in the file list */
   selected: string | null;
   assistant: AssistantState;
+  /** Resizes the file list: its grip also sits right of the trail, which belongs to the left side */
+  onResize: (side: Side, width: number | null, store: boolean) => void;
 }
 
-export function Deck({ git, selected, assistant }: Props) {
+export function Deck({ git, selected, assistant, onResize }: Props) {
   const [view, setView] = useView();
   const [point, setPoint] = useState<Point>({ kind: "now" });
   const [notices, setNotices] = useState(false);
@@ -151,7 +155,10 @@ export function Deck({ git, selected, assistant }: Props) {
       <div className="flex min-h-0 flex-1">
         {/* Commits and snapshots are git objects: without a repository the trail would only be empty */}
         {!lacksGit(git) && (
-          <Trail commits={commits} snapshots={shownSnapshots} onCompare={compare} repos={git.repos} point={point} onSelect={select} focusRepo={focusRepo} />
+          <>
+            <Trail commits={commits} snapshots={shownSnapshots} onCompare={compare} repos={git.repos} point={point} onSelect={select} focusRepo={focusRepo} />
+            <Splitter side="files" onResize={onResize} />
+          </>
         )}
         <section className="min-w-0 flex-1 overflow-y-auto" role="tabpanel">
           {view === "activity" && <ActivityView assistant={assistant} git={git} snapshots={snapshots} />}

@@ -1455,6 +1455,29 @@ export function setMachineSetting(key: string, value: unknown): Promise<void> {
   return Promise.resolve();
 }
 
+/** How the window of a project is divided, in pixels; a missing width means the default. */
+export interface Layout {
+  files?: number;
+  right?: number;
+}
+
+/** The division the user left the project with (`~/.config/codedeck/layouts.json`). */
+export function layoutOf(project: string): Promise<Layout | null> {
+  if (live) return invoke("layout", { project });
+  const all = JSON.parse(localStorage.getItem("codedeck.mockLayouts") ?? "{}");
+  return Promise.resolve(all[project] ?? null);
+}
+
+/** Remembers the division for the next start; `null` goes back to the default. */
+export function setLayout(project: string, value: Layout | null): Promise<void> {
+  if (live) return invoke("set_layout", { project, value });
+  const all = JSON.parse(localStorage.getItem("codedeck.mockLayouts") ?? "{}");
+  if (value === null) delete all[project];
+  else all[project] = value;
+  localStorage.setItem("codedeck.mockLayouts", JSON.stringify(all));
+  return Promise.resolve();
+}
+
 /** Calls back when another window changed a setting of this machine (language, notifications). */
 export function onSettingsChanged(callback: () => void): () => void {
   if (live) {

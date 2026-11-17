@@ -96,6 +96,18 @@ fn set_machine_setting(key: String, value: serde_json::Value, app: AppHandle) ->
     Ok(())
 }
 
+/// How the window of a project was divided when the user left it (`null`: never changed).
+#[tauri::command]
+fn layout(project: String) -> serde_json::Value {
+    config::layout(&project)
+}
+
+/// Remembers it for the next start; only this project's windows care, so no one is told.
+#[tauri::command]
+fn set_layout(project: String, value: serde_json::Value) -> Result<(), String> {
+    config::set_layout(&project, value)
+}
+
 /// What the About dialog and a bug report say about this program.
 #[derive(serde::Serialize)]
 struct AppInfo {
@@ -705,7 +717,9 @@ pub fn run() {
             open_outside,
             diagnostics,
             machine_settings,
-            set_machine_setting
+            set_machine_setting,
+            layout,
+            set_layout
         ])
         .build(tauri::generate_context!())
         .expect("error while building CodeDeck")

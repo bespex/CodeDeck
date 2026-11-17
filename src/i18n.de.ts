@@ -781,4 +781,7 @@ export const de: Record<string, string> = {
   "{who} is waiting: {message}": "{who} wartet: {message}",
   "{who} finished its turn": "{who} hat die Runde beendet",
   "{who} ended": "{who} wurde beendet",
+  "Resize the file list": "Breite der Dateiliste ändern",
+  "Resize the right column": "Breite der rechten Spalte ändern",
+  "Drag to resize · double click: default width": "Ziehen ändert die Breite · Doppelklick: Standardbreite",
 };

@@ -594,8 +594,9 @@ weil man ihm die Dateien einzeln nennt und es selbst committet.
 3. **Auf einen Blick, dann auf Wunsch.** Jede Zeile zeigt das eine, was zählt, in fester Länge.
    Einzelheiten klappen auf, stehen im Tooltip oder im schwebenden Panel. Lange Texte dürfen keine
    Übersicht sprengen.
-4. **Größen gehören dem Benutzer.** Bereiche lassen sich in der Breite und Höhe ziehen und
-   vorübergehend zuklappen; die wichtigsten auch per Tastenkürzel. Die Trennlinien bleiben haarfein
+4. **Größen gehören dem Benutzer.** Dateiliste und rechte Spalte lassen sich in der Breite ziehen
+   (Doppelklick: zurück zur Standardbreite); zuklappen lassen sie sich nicht, Tastenkürzel dafür gibt
+   es vorerst keine (Entscheidung 2026-11-17). Die Trennlinien bleiben haarfein
    und zeigen sich erst beim Überfahren, damit sie keine Unruhe ins Bild bringen. Der Inhalt passt
    sich fließend an, die Aufteilung wird je Projekt gemerkt.
 5. **Schwebend statt eingebaut**, wenn etwas selten gebraucht wird: Konten, Hinweise und Tipps

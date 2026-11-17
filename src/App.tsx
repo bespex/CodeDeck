@@ -14,6 +14,8 @@ import { RepoActions, type Anchor } from "./components/RepoActions";
 import { useAttention } from "./attention";
 import { Dialogs } from "./components/Dialogs";
 import { setCompact, toggleCompact, useCompact, useSwitching } from "./compact";
+import { useLayout } from "./layout";
+import { Splitter } from "./components/Splitter";
 
 // The preview starts with something attached, to show what that looks like
 if (!live) files.add(initialPins);
@@ -35,6 +37,8 @@ export default function App() {
   const [actions, setActions] = useState<{ repo: string; anchor: Anchor } | null>(null);
   const [logOpen, setLogOpen] = useState(false);
   const compact = useCompact();
+  // Widths of file list and right column, as the user left them in this project
+  const layout = useLayout(project?.path);
   const switching = useSwitching();
   // Ctrl+Shift+G shows and hides the git commands from anywhere, Ctrl+Shift+L switches between
   // sidebar and full window (the global shortcut for it comes from the backend)
@@ -90,7 +94,11 @@ export default function App() {
     <SessionMarksContext.Provider value={marks}>
     {/* Between the forms the content waits faded out and fades in when the window has its new size */}
     <div className={`flex h-full flex-col transition-opacity ${switching ? "opacity-0 duration-0" : "opacity-100 duration-150"}`}>
-      <div className={`grid min-h-0 flex-1 ${compact ? "grid-cols-[minmax(0,1fr)]" : "grid-cols-[minmax(220px,20%)_minmax(0,1fr)_minmax(300px,25%)]"}`}>
+      <div
+        data-columns
+        className="grid min-h-0 flex-1"
+        style={{ gridTemplateColumns: compact ? "minmax(0,1fr)" : layout.columns }}
+      >
         {/* In the sidebar file list and deck are only hidden: what is open in them stays */}
         <div className={compact ? "hidden" : "contents"}>
         <FilesPanel
@@ -106,7 +114,9 @@ export default function App() {
           onRepoActions={openActions}
           touched={touchedFiles(assistant)}
         />
-        <Deck key={`deck:${project?.path}`} git={git} selected={selected} assistant={assistant} />
+        <Splitter side="files" onResize={layout.resize} />
+        <Deck key={`deck:${project?.path}`} git={git} selected={selected} assistant={assistant} onResize={layout.resize} />
+        <Splitter side="right" onResize={layout.resize} />
         </div>
         <SessionsPanel
           assistant={assistant}

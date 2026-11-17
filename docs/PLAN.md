@@ -153,7 +153,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 | 2.3d Desktop-Meldungen stapeln sich ✅ 2026-11-17 (Praxistest steht aus; Zurückziehen erledigter Meldungen und Ablaufzeit bewusst nicht gebaut) | Jede Meldung (`attention.rs` `desktop()`, `notify-rust`) bleibt im Benachrichtigungsbereich; Cinnamon zeigt die Zahl der ungelesenen als Badge am Taskleistensymbol (13, während „Needs you“ 2 zeigt; ein Klick auf das Fenster setzt sie auf 0). Besser: eine Meldung je Sitzung ersetzen (`replaces_id`), zurückziehen, sobald der Eintrag erledigt ist, Ablaufzeit setzen. Dazu den Fenstertitel trennen: `● 2 asking · 9 done` statt einer Zahl, und die Zahl in „Needs you“ mit Tooltip erklären (2 fragen, 9 fertig in den letzten 30 Minuten) | Needs you, Fenstertitel | `attention.rs`, `attention.ts`, `SessionsPanel.tsx` | Nach mehreren Runden steht höchstens eine Meldung je Sitzung da; die Zahl in der Taskleiste passt zu „Needs you“ |
 | 2.3e Projekt ohne Git ✅ 2026-11-17 (Praxistest steht aus) | Ohne Repository gibt es weder Commits noch Snapshots: der Trail wird nicht gezeigt. Stattdessen „No git repository“ mit Knopf `git init` links in der Statusleiste (die Übersicht oben rechts nennt nur den Hinweis), dazu ein Abschnitt mit den Vorteilen bei „Notices and tips“. `git init -b main` läuft über `Git::execute` (im Log), ist keine der `ACTIONS` und nur ohne Repository möglich. Das Git-Log gehört dem Prozess: beim Projektwechsel wird es geleert, vorher zeigte ein Projekt ohne Git die Befehle des vorigen | Statusleiste, Übersicht, Glocke | `git.rs` (`init`, `clear_log`), `lib.rs` (`git_init`, `open_project`), `git.ts` (`loaded`), neu `GitInit.tsx`, `Deck.tsx`, `StatusBar.tsx`, `SidebarSummary.tsx`, `NoticesPanel.tsx` | Ein Ordner ohne Git zeigt keinen Trail; ein Klick auf `git init` macht ihn zum Repository, der Trail erscheint |
 | 2.4 Verbrauch ✅ 2026-11-17 (Praxistest bestanden 2026-11-17) | P4: erst den Spike. Ohne verlässliche Quelle entfällt die Anzeige, nicht schätzen | Activity, Statusleiste | siehe P4 | D2 ist entschieden und umgesetzt oder gestrichen |
-| 2.5 Größen ☐ | Bereiche ziehen und zuklappen, wichtigste per Tastenkürzel, Aufteilung je Projekt merken; Trennlinien haarfein | Trennlinien (im Dummy nur angedeutet) | `App.tsx`, `Deck.tsx`, `config.rs` | Aufteilung überlebt einen Neustart |
+| 2.5 Größen ✅ | Dateiliste und rechte Spalte in der Breite ziehen, Aufteilung je Projekt merken; Trennlinien haarfein (Zuklappen und Tastenkürzel gestrichen, Nutzer 2026-11-17; Praxistest bestanden) | Trennlinien (im Dummy nur angedeutet) | `App.tsx`, `Deck.tsx`, `config.rs` | Aufteilung überlebt einen Neustart |
 
 ### MVP 3: CodeDeck ersetzt das Start-Script
 
@@ -938,3 +938,9 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   Backend `Git::compare` nimmt Commits und Snapshot-Hashes. Dirq: `apps::show_patch` (`dirq - --reuse`,
   Patch über stdin), der Knopf erscheint nur, wenn `dirq` im PATH liegt. Beim Nutzer ist dirq noch nicht
   installiert, also ungetestet. Sitzungsfilter: `sessionFilter` in `Deck`, Rücksprung-Snapshots bleiben sichtbar.
+- 2.5 (2026-11-17): Breiten in `~/.config/codedeck/layouts.json` je Projektpfad (`config::layout`/`set_layout`,
+  Hook `useLayout` in `src/layout.ts`, Griff `Splitter.tsx` in 0-px-Grid-Spalten über der Panel-Rahmenlinie).
+  Grenzen wie im Dummy (Dateien 150–460, rechts 250–600), Deck mindestens 420 px: im schmalen Fenster weichen
+  die Seiten bis zu ihrem Minimum, nicht das Deck. Pfeiltasten ±16 (Umschalt ±64), Doppelklick = Standard.
+  Trail-Breite und Höhen bleiben fest. Die Dateiliste hat zwei Griffe: an ihrem Rand und rechts vom Trail
+  (Nutzer: der Trail gehört optisch nach links); beide lesen die Breite aus der Grid-Spalte.
