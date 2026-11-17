@@ -14,6 +14,7 @@ import {
   Pencil,
   Radio,
   X,
+  Hand,
   type LucideIcon,
 } from "lucide-react";
 import { DRAG_TYPE } from "./FilesPanel";
@@ -204,14 +205,24 @@ function StatusDot({ status }: { status: Session["status"] }) {
  * was last active (the end of its turn, its end, the last entry of its log). While it works or
  * asks there is none here; the fold-out says when its last step was.
  */
-function statusWords(s: Session): { words: string; timed: boolean } {
-  if (s.status === "working") return { words: t("working"), timed: false };
-  if (s.status === "waiting") return { words: t("waiting for you"), timed: false };
-  if (s.status === "ended") return { words: `${t("ended")} · ${time(s.last)}`, timed: true };
+function statusWords(s: Session): { words: string; at: number | null; tone: Tone } {
+  if (s.status === "working") return { words: t("working"), at: null, tone: "ai" };
+  if (s.status === "waiting") return { words: t("waiting for you"), at: null, tone: "wait" };
+  if (s.status === "ended") return { words: t("ended"), at: s.last, tone: "quiet" };
   // Nothing was heard from it: whether it works right now is not known
-  if (!s.capabilities.liveStatus) return { words: `${t("from its log")} · ${time(s.last)}`, timed: true };
-  return { words: `${s.turnDone != null ? t("turn done") : t("idle")} · ${time(s.turnDone ?? s.last)}`, timed: true };
+  if (!s.capabilities.liveStatus) return { words: t("from its log"), at: s.last, tone: "quiet" };
+  return s.turnDone != null ? { words: t("turn done"), at: s.turnDone, tone: "done" } : { words: t("idle"), at: s.last, tone: "quiet" };
 }
+
+/** How a state's pill is coloured: the status is what one looks for first (user, 2026-11-17). */
+type Tone = "ai" | "wait" | "done" | "quiet" | "problem";
+const PILL: Record<Tone, string> = {
+  ai: "bg-ai/15 text-ai",
+  wait: "bg-changed/20 text-changed",
+  done: "bg-added/15 text-added",
+  quiet: "bg-slate-500/15 text-slate-400",
+  problem: "bg-problem/20 text-problem",
+};
 
 /**
  * The one thing that counts right now: the step while working, the question while waiting, then
@@ -248,7 +259,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
             {current.length > 0 ? (
               <ul className="divide-y divide-line/70 border-y border-line/70">
                 {current.map((s) => (
-                  <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} />
+                  <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} />
                 ))}
               </ul>
             ) : (
@@ -269,7 +280,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
                 {showEarlier && (
                   <ul className="divide-y divide-line/70 border-y border-line/70">
                     {earlier.map((s) => (
-                      <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} />
+                      <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} />
                     ))}
                   </ul>
                 )}
@@ -291,7 +302,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
 }
 
 /** Two lines per session: who and in which state, then the one thing that counts. The rest folds out. */
-function SessionItem({ session: s, blockedUntil: reset, onShowFile }: { session: Session; blockedUntil: number | null; onShowFile: (path: string) => void }) {
+function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, toolShort }: { session: Session; blockedUntil: number | null; onShowFile: (path: string) => void; toolName: string; toolShort: string }) {
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const marks = useSessionMarks();
@@ -299,7 +310,10 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile }: { session:
   const Chevron = open ? ChevronDown : ChevronRight;
   // Its account's limit is used up: it cannot go on before the reset, whatever else it says
   const blocked = reset !== null && s.status !== "ended";
-  const status = blocked ? { words: `${t("waits for reset")} · ${resetAt(reset, Date.now(), LOCALE)}`, timed: false } : statusWords(s);
+  const status = blocked ? { words: `${t("waits for reset")} · ${resetAt(reset, Date.now(), LOCALE)}`, at: null, tone: "problem" as Tone } : statusWords(s);
+  const timed = status.at !== null;
+  // Not started by CodeDeck: it cannot be stopped or restarted from here, so it says where it comes from
+  const byHand = s.status !== "ended" && !s.place?.launched;
   const head = headline(s);
   return (
     <li
@@ -308,21 +322,35 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile }: { session:
       className={`group/session ${open ? "bg-raised/60" : "hover:bg-raised/40"} ${s.status === "ended" ? "opacity-55" : ""}`}
     >
       <div className="flex items-start">
-        <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="min-w-0 flex-1 py-1.5 pr-1 pl-3 text-left">
-          <span className="flex items-center gap-2">
-            <SessionBadge mark={mark} />
-            <span className="min-w-0 truncate font-medium text-slate-100">{titleOf(s)}</span>
-            <span
-              data-event={blocked ? "blocked" : s.status === "idle" && s.turnDone != null && s.capabilities.liveStatus ? "done" : s.status}
-              className={`event-chip ml-auto flex shrink-0 items-center gap-1.5 text-[11px] ${blocked ? "text-problem" : s.status === "waiting" ? "text-changed" : "text-slate-500"}`}
-            >
-              <StatusDot status={s.status} />
-              {status.words}
+        {/* The badge stands alone, large, across both lines; status and model are what one reads */}
+        <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-w-0 flex-1 items-center gap-2.5 py-2 pr-1 pl-3 text-left">
+          <SessionBadge mark={mark} large />
+          <span className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className="flex items-center gap-2">
+              <span className="min-w-0 truncate font-medium text-slate-100">{titleOf(s)}</span>
+              <span
+                title={timed ? t("since {time}", { time: time(status.at!) }) : undefined}
+                data-event={blocked ? "blocked" : s.status === "idle" && s.turnDone != null && s.capabilities.liveStatus ? "done" : s.status}
+                className={`event-chip ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-2 py-px text-[11px] font-medium ${PILL[status.tone]}`}
+              >
+                <StatusDot status={s.status} />
+                {status.words}
+              </span>
             </span>
-          </span>
-          <span className="mt-0.5 flex items-center gap-1 pl-[26px] text-[12px] text-slate-400">
-            <span className="min-w-0 flex-1 truncate">{head.text}</span>
-            <Chevron className="size-3.5 shrink-0 text-slate-500" />
+            <span className="flex items-center gap-1.5 text-[12px] text-slate-400">
+              {s.model && <span className="shrink-0 rounded border border-line px-1 text-[11px] font-medium text-slate-200">{s.model}</span>}
+              {byHand && (
+                <span
+                  title={`${t("by hand")} · ${toolName}: ${t("Started outside CodeDeck: it ends where it runs")}`}
+                  className="flex shrink-0 items-center gap-1 rounded border border-dashed border-slate-500/60 px-1 text-[11px] text-slate-300"
+                >
+                  <Hand className="size-3" />
+                  {toolShort}
+                </span>
+              )}
+              <span className="min-w-0 flex-1 truncate">{head.text}</span>
+              <Chevron className="size-3.5 shrink-0 text-slate-500" />
+            </span>
           </span>
         </button>
         <button
@@ -383,7 +411,7 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile }: { session:
               {s.model && <span className="font-medium text-slate-300">{s.model}</span>}
               {s.model && " · "}
               {s.cwd === "" ? t("project root") : s.cwd}
-              {!status.timed && ` · ${t("last step {time}", { time: time(s.last) })}`}
+              {` · ${t("last step {time}", { time: time(s.last) })}`}
               {s.step && head.from !== "step" && ` · ${s.step}`}
               <PlaceNote session={s} />
               <AccountNote session={s} />

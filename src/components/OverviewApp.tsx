@@ -276,7 +276,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
                 onClick={front}
                 onDoubleClick={() => void go(s, defaultDoor(s))}
                 onAuxClick={(e) => e.button === 1 && void go(s, "terminal")}
-                title={t("Double-click: go to it ({door}) · middle click: terminal", { door: defaultDoor(s) === "desktop" ? t("Desktop") : t("Terminal") })}
+                title={[s.model, !s.place?.launched && t("by hand"), t("Double-click: go to it ({door}) · middle click: terminal", { door: defaultDoor(s) === "desktop" ? t("Desktop") : t("Terminal") })].filter(Boolean).join(" · ")}
                 className="group/s flex h-7 cursor-default items-center gap-2 pr-2 pl-9 text-[12px] hover-session"
               >
                 <SessionBadge mark={markOf(s)} />

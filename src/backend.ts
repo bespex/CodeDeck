@@ -772,7 +772,7 @@ const mockAssistant: AssistantState = {
         { at: Date.now() - 12 * 60_000, labels: ["2 line comments", "1 change"] },
         { at: Date.now() - 20 * 60_000, labels: ["Start rules"] },
       ],
-      place: { pid: 48211, since: 991_204, tmux: { pane: "%3", session: "orbit-api" }, launched: null, remote: "https://claude.ai/code/session_01MockB7Kq" },
+      place: { pid: 48211, since: 991_204, tmux: { pane: "%3", session: "orbit-api" }, launched: "b7k-mock", remote: "https://claude.ai/code/session_01MockB7Kq" },
     },
     {
       id: "b07e11d4-6c3a-4f2e-8d90-1a2b3c4d5e6f",
