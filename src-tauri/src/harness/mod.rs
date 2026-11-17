@@ -14,7 +14,7 @@ use serde_json::Value;
 
 /// One coding tool, as far as CodeDeck needs it.
 pub trait Harness: Send + Sync {
-    /// Stable name for the wire and for `codeck hook --harness <id>`.
+    /// Stable name for the wire and for `codedeck hook --harness <id>`.
     fn id(&self) -> &'static str;
     /// The tool's name in texts, e.g. "Connecting adds hooks to …".
     fn name(&self) -> &'static str;
@@ -42,7 +42,7 @@ pub trait Harness: Send + Sync {
     fn connect_usage(&self, _account: &str, _on: bool) -> Result<(), String> {
         Err("this tool states no usage".to_string())
     }
-    /// What `codeck hook` prints for the tool after the windows answered: how text handed
+    /// What `codedeck hook` prints for the tool after the windows answered: how text handed
     /// over (with a prompt) or the start rules (with the start of a session) reach the session.
     fn reply(&self, event: &Event, handed: &[String]) -> Option<String>;
     /// Sessions of the last day in or around the project, from the tool's logs.
@@ -124,7 +124,7 @@ pub enum EventKind {
     SessionEnded,
 }
 
-/// One event as `codeck hook` sends it to the windows: only what CodeDeck uses, no file
+/// One event as `codedeck hook` sends it to the windows: only what CodeDeck uses, no file
 /// contents, no tool output.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Event {
@@ -164,7 +164,7 @@ pub struct Event {
     /// the tool tells
     #[serde(default)]
     pub account: Option<String>,
-    /// Where the session runs, as `codeck hook` saw it from inside the tool's process tree; every
+    /// Where the session runs, as `codedeck hook` saw it from inside the tool's process tree; every
     /// message brings all of it. The adapter leaves it empty, the transport fills it in
     #[serde(default)]
     pub place: Option<Place>,

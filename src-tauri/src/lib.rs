@@ -668,7 +668,7 @@ pub fn run() {
     let project = match Project::from_args() {
         Ok(project) => project,
         Err(message) => {
-            eprintln!("codeck: {message}");
+            eprintln!("codedeck: {message}");
             std::process::exit(2);
         }
     };
@@ -705,14 +705,14 @@ pub fn run() {
                 Ok(hub) => {
                     app.manage(hub);
                 }
-                Err(e) => eprintln!("codeck: no socket for assistants: {e}"),
+                Err(e) => eprintln!("codedeck: no socket for assistants: {e}"),
             }
             windows::open(app.handle(), project)?;
             // The overview of all projects comes along (docs/UEBERSICHT.md; to become a setting)
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 if let Err(e) = windows::toggle_overview(&handle) {
-                    eprintln!("codeck: overview: {e}");
+                    eprintln!("codedeck: overview: {e}");
                 }
             });
             updates::check_in_background(app.handle());
@@ -722,7 +722,7 @@ pub fn run() {
             std::thread::spawn(|| {
                 for harness in harness::all() {
                     for account in harness.follow_program() {
-                        eprintln!("codeck: hooks in {account} now run this program");
+                        eprintln!("codedeck: hooks in {account} now run this program");
                     }
                 }
             });

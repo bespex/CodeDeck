@@ -1,8 +1,8 @@
-//! The one socket of the CodeDeck process (D25). `codeck hook` sends the tools' events here, the
-//! status line the usage, and a second `codeck <folder>` the folder to open. Events go to every
+//! The one socket of the CodeDeck process (D25). `codedeck hook` sends the tools' events here, the
+//! status line the usage, and a second `codedeck <folder>` the folder to open. Events go to every
 //! window; each takes what concerns its project (see [`crate::bridge`]).
 //!
-//! The socket is named after the process, like before, so that `codeck hook` finds every running
+//! The socket is named after the process, like before, so that `codedeck hook` finds every running
 //! CodeDeck (an installed one and a development build side by side each get the events). Which
 //! process a second start of the same program hands its folder to is in a small file named after
 //! the program's path: a development build and the installed one do not open in each other.
@@ -116,7 +116,7 @@ pub fn hand_over(folder: &Path) -> bool {
     let _ = stream.read_to_string(&mut answer);
     let answer: serde_json::Value = serde_json::from_str(&answer).unwrap_or_default();
     if let Some(error) = answer["error"].as_str() {
-        eprintln!("codeck: {error}");
+        eprintln!("codedeck: {error}");
     }
     answer["opened"].as_bool().unwrap_or(false)
 }

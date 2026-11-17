@@ -2,7 +2,8 @@
 
 # CodeDeck
 
-**AI session radar for Linux.** Say “Codeck” – that is also the command: `codeck`.
+**AI session radar for Linux.** Your co-deck for AI sessions: you and the AI, one deck.
+The command is `codedeck`.
 
 CodeDeck runs beside your AI coding sessions: it shows what each session is doing and what it changed,
 keeps a snapshot before every turn to go back to, and attaches exactly what you choose to your next
@@ -54,11 +55,11 @@ commits behind a merge are left alone.
 
 CodeDeck does not run the assistant; Claude Code does, in its terminal or desktop app. CodeDeck
 watches alongside. **Connect** (click *Claude* in the status bar) adds hooks to a Claude Code
-configuration's `settings.json` that run `codeck hook`. Every configuration is listed and
+configuration's `settings.json` that run `codedeck hook`. Every configuration is listed and
 connected on its own: `~/.claude`, the one `$CLAUDE_CONFIG_DIR` names, and other `~/.claude-*`
 folders that are one, since a session only reports through the configuration it runs with. That passes each
-event, without file contents, to the socket every CodeDeck window keeps in
-`$XDG_RUNTIME_DIR/codedeck/`; a window only takes in what concerns its project. Nothing else in
+event, without file contents, to the socket the running CodeDeck keeps in
+`$XDG_RUNTIME_DIR/codedeck/`; each window only takes in what concerns its project. Nothing else in
 the settings changes, the file as it was is kept as `settings.json.before-codedeck`, and
 *Disconnect* takes the hooks out again. Without a CodeDeck window open the hook does nothing.
 
@@ -135,7 +136,7 @@ Tauri 2 (Rust) with React, TypeScript, Vite and Tailwind CSS.
 ```sh
 ./dev                  # start from source, opens the directory you are in
 ./dev ~/projects/foo   # open another project
-./dev --link           # once: makes `codeck-dev` available in every directory
+./dev --link           # once: makes `codedeck-dev` available in every directory
 ```
 
 `./dev` installs dependencies when needed and starts with hot reload: frontend changes appear

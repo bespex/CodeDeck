@@ -2,7 +2,7 @@
 # Start the current state of CodeDeck from source.
 #
 #   ./dev [DIR]        open DIR (default: the directory you are in) with hot reload
-#   ./dev --link       make this script available everywhere as `codeck-dev`
+#   ./dev --link       make this script available everywhere as `codedeck-dev`
 #
 # Frontend changes appear immediately; Rust changes rebuild and restart the window.
 
@@ -17,8 +17,8 @@ case "${1:-}" in
     ;;
   --link)
     mkdir -p "$HOME/.local/bin"
-    ln -sfn "$repo/dev" "$HOME/.local/bin/codeck-dev"
-    echo "Linked: $HOME/.local/bin/codeck-dev -> $repo/dev"
+    ln -sfn "$repo/dev" "$HOME/.local/bin/codedeck-dev"
+    echo "Linked: $HOME/.local/bin/codedeck-dev -> $repo/dev"
     case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) echo "Note: $HOME/.local/bin is not in your PATH." ;; esac
     exit 0
     ;;
@@ -48,5 +48,5 @@ if (exec 3<>/dev/tcp/127.0.0.1/1420) 2>/dev/null; then
 fi
 
 echo "CodeDeck (dev) -> $project"
-# First `--` ends the tauri options, second `--` ends the cargo options; the rest goes to codeck
+# First `--` ends the tauri options, second `--` ends the cargo options; the rest goes to codedeck
 exec npx tauri dev -- -- "$project"

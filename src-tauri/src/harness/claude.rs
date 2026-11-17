@@ -331,7 +331,7 @@ fn config_dirs() -> Vec<PathBuf> {
 }
 
 /// A hook command CodeDeck put there, from this or another installation. The command was
-/// `codedeck` until it became `codeck` (D24); hooks with either name are ours.
+/// `codedeck`, then `codeck` (D24), now `codedeck` again (D26); hooks with either name are ours.
 fn is_ours(command: &str) -> bool {
     let lower = command.to_lowercase();
     command.trim_end().ends_with(" hook") && (lower.contains("codedeck") || lower.contains("codeck"))
@@ -349,8 +349,8 @@ fn program_of(command: &str) -> PathBuf {
 }
 
 /// Whether a hook of ours is left over from this installation, so it may follow along without
-/// asking: its program is gone, or it is the old `codedeck` next to the running `codeck` (a
-/// build folder or an install that kept the old file). Another installation that still exists
+/// asking: its program is gone, or it is the program under its other name next to the running one
+/// (`codeck` beside `codedeck`: a build folder or an install that kept the old file or the alias). Another installation that still exists
 /// is not touched; the connection panel offers "Use this one" for that.
 fn left_over(command: &str, current: &Path) -> bool {
     left_over_program(program_of(command), current)
@@ -363,7 +363,10 @@ fn left_over_program(old: PathBuf, current: &Path) -> bool {
     if !old.is_file() {
         return true;
     }
-    old.parent() == current.parent() && old.file_name().is_some_and(|n| n == "codedeck")
+    let names = ["codedeck", "codeck"];
+    old.parent() == current.parent()
+        && old.file_name() != current.file_name()
+        && old.file_name().and_then(|n| n.to_str()).is_some_and(|n| names.contains(&n))
 }
 
 /// Points this configuration's hooks at the running program if they are left over (see
@@ -860,15 +863,15 @@ mod tests {
         for dir in ["bin", "other"] {
             std::fs::create_dir_all(tmp.join(dir)).unwrap();
         }
-        let current = tmp.join("bin/codeck");
-        for file in ["bin/codeck", "bin/codedeck", "other/codeck"] {
+        let current = tmp.join("bin/codedeck");
+        for file in ["bin/codedeck", "bin/codeck", "other/codedeck"] {
             std::fs::write(tmp.join(file), "").unwrap();
         }
         let hook = |p: &str| format!("{} hook", tmp.join(p).display());
-        assert!(!left_over(&hook("bin/codeck"), &current), "the running program");
-        assert!(left_over(&hook("bin/codedeck"), &current), "the old name next to it");
-        assert!(left_over(&hook("gone/codedeck"), &current), "a program that is gone");
-        assert!(!left_over(&hook("other/codeck"), &current), "another installation");
+        assert!(!left_over(&hook("bin/codedeck"), &current), "the running program");
+        assert!(left_over(&hook("bin/codeck"), &current), "the old name next to it");
+        assert!(left_over(&hook("gone/codeck"), &current), "a program that is gone");
+        assert!(!left_over(&hook("other/codedeck"), &current), "another installation");
         std::fs::remove_dir_all(&tmp).unwrap();
     }
 
@@ -887,13 +890,13 @@ mod tests {
         let now = || commands(&read_settings(&tmp.join("settings.json")).unwrap(), "Stop");
 
         // The old command, its program gone: moved to the running one
-        with("/nowhere/codedeck hook");
+        with("/nowhere/codeck hook");
         assert!(follow_program(&tmp, &current).unwrap());
         assert_eq!(now(), [crate::hook::command()]);
         // Already there: nothing to do
         assert!(!follow_program(&tmp, &current).unwrap());
         // Another installation that exists: left to the user
-        let other = tmp.join("other/codeck");
+        let other = tmp.join("other/codedeck");
         std::fs::write(&other, "").unwrap();
         with(&format!("{} hook", other.display()));
         assert!(!follow_program(&tmp, &current).unwrap());

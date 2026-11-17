@@ -111,7 +111,7 @@ fn now_ms() -> u64 {
 /// The app's icon as a file next to the sockets: a notification names its icon by path, and
 /// a CodeDeck started from source has none installed.
 fn icon_file() -> Option<String> {
-    let file = crate::hook::ensure_socket_dir().ok()?.join("codeck.png");
+    let file = crate::hook::ensure_socket_dir().ok()?.join("codedeck.png");
     if !file.exists() {
         std::fs::write(&file, include_bytes!("../icons/128x128.png")).ok()?;
     }

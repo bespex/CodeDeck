@@ -65,16 +65,20 @@ jobs:
           conf=src-tauri/tauri.conf.json
           version=$(jq -r .version $conf)
           name=$(jq -r .productName $conf)
-          # The package is named after the command (be spex brand rules, D24); Tauri names it
-          # after productName ("code-deck"), so it is repacked with the right name. Earlier
-          # packages were called code-deck: installing codeck replaces them.
+          # One name everywhere (D26): package, command and program are `codedeck`. Tauri names
+          # the package after productName ("code-deck"), so it is repacked with the right name.
+          # - Version with the epoch 1: the metapackage `codedeck` it replaces was 1.0.
+          # - The viewers CodeDeck opens things in are recommended (the metapackage did that).
+          # - `codeck`, the earlier name, stays as a link; the transitional package `codeck` 1.0
+          #   (bespex/packages) pulls this one in, older `codeck` and `code-deck` are replaced.
           pkg=$(jq -r .mainBinaryName $conf)
           bundle=src-tauri/target/release/bundle
           mkdir -p dist-release
           work=$(mktemp -d)
           dpkg-deb -R $bundle/deb/*.deb "$work"
-          sed -i "s/^Package: .*/Package: ${pkg}/" "$work/DEBIAN/control"
-          printf 'Replaces: code-deck\nConflicts: code-deck\nProvides: code-deck\n' >> "$work/DEBIAN/control"
+          sed -i "s/^Package: .*/Package: ${pkg}/; s/^Version: .*/Version: 1:${version}/" "$work/DEBIAN/control"
+          printf 'Recommends: marq, dirq, jayq\nReplaces: code-deck, codeck (<< 1.0)\nConflicts: code-deck, codeck (<< 1.0)\nProvides: code-deck\n' >> "$work/DEBIAN/control"
+          ln -s "$pkg" "$work/usr/bin/codeck"
           dpkg-deb --root-owner-group -b "$work" "dist-release/${pkg}_${version}_amd64.deb"
           dpkg-deb -f "dist-release/${pkg}_${version}_amd64.deb" Package Version
           image="${name}_${version}_amd64.AppImage"
@@ -107,9 +111,9 @@ jobs:
             ## Install (Ubuntu 24.04+, Linux Mint 22+, Debian 13+)
 
             ```bash
-            sudo apt install ./codeck_*_amd64.deb
+            sudo apt install ./codedeck_*_amd64.deb
             ```
 
             Or run the AppImage directly (`chmod +x CodeDeck_*_amd64.AppImage`); it offers updates itself.
-            Then start **CodeDeck** from the application menu or with `codeck <directory>`.
+            Then start **CodeDeck** from the application menu or with `codedeck <directory>`.
             Verify the downloads with `sha256sum -c SHA256SUMS`.

@@ -14,12 +14,12 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src-tauri/src/lib.rs` | Tauri-Commands (finden ihr Fenster über `windows::of`), Setup, `Locked` (Sperren ohne `unwrap`) |
 | `src-tauri/src/windows.rs` | Ein Prozess, ein Fenster je Projekt (D25): `Win` (Projekt, Git, Watch, Bridge, Titel), `open` |
 | `src-tauri/src/icon.rs` | Icon je Fenster, selbst gezeichnet: Projektfarbe (`project_color`), Statuspunkt (fragt/fertig) |
-| `src-tauri/src/hub.rs` | Der eine Socket des Prozesses: Hook-Ereignisse an alle Fenster, Nutzung, zweiter Aufruf `codeck <ordner>` (`hand_over`, Instanz-Datei je Programmpfad) |
+| `src-tauri/src/hub.rs` | Der eine Socket des Prozesses: Hook-Ereignisse an alle Fenster, Nutzung, zweiter Aufruf `codedeck <ordner>` (`hand_over`, Instanz-Datei je Programmpfad) |
 | `src-tauri/src/git.rs` | `Git`: Repos finden (`repos`, `find`), `run`/`execute` (jeder Befehl ins Log), Status, Aktionen-Whitelist `allowed` |
 | `src-tauri/src/history.rs` | Log, Diffs, `ScratchIndex`, `worktree_diff(base)` |
 | `src-tauri/src/snapshot.rs` | Sicherungspunkte unter `refs/codedeck/snapshots/` (Anfang und Ende einer Runde, `end_turn`), Diff, Zurückgehen |
 | `src-tauri/src/bridge.rs` | Je Fenster (Ereignisse mit `emit_to`): Sitzungen aus neutralen Ereignissen (`Inner::take_in`), Snapshot vor erstem Schreiben und am Ende der Runde (`Session.turn`, `Todo.ends`), Übergabe an nächsten Prompt |
-| `src-tauri/src/hook.rs` | `codeck hook [--harness <id>]`: nur Transport (Rohmeldung → Adapter → Socket jedes laufenden CodeDeck) |
+| `src-tauri/src/hook.rs` | `codedeck hook [--harness <id>]`: nur Transport (Rohmeldung → Adapter → Socket jedes laufenden CodeDeck) |
 | `src-tauri/src/place.rs` | Wo eine Sitzung läuft, vom Hook aus gesehen (`Place`: Prozess, tmux, `CODEDECK_SESSION`, Remote-Link über `Harness::remote_link`); nur beobachten, Vorarbeit für `docs/SITZUNGEN.md` |
 | `src-tauri/src/harness/mod.rs` | Trait `Harness`, `Capabilities`, neutrales `Event`, `SessionInfo`, `Connection`; `all()`/`by_id` |
 | `src-tauri/src/harness/claude.rs` | Einziger Ort für Claude-Spezifisches: Hook-Ereignisse und -Felder, `settings.json`, Konfigurationen (`config_dirs`), Log-Format |
@@ -79,8 +79,10 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 - Vorschau-Server: starten mit `setsid npx vite --port 5391 --strictPort >/dev/null 2>&1 &`, beenden mit
   `pkill -f "^node .*vite --port 5391"`. Das Muster braucht den Anker `^node`, sonst trifft `pgrep`/`pkill`
   die eigene Shell-Zeile, die denselben Text enthält.
-- Builds landen in `/shared/cargo-target` (Dev-Binary: `/shared/cargo-target/debug/codeck`).
+- Builds landen in `/shared/cargo-target` (Dev-Binary: `/shared/cargo-target/debug/codedeck`).
 - Nie das echte `~/.claude/settings.json` in Tests anfassen; `CLAUDE_CONFIG_DIR` auf ein Temp-Verzeichnis setzen.
-- Name (D24, Regeln in `bespex.github.io/brand/README.md`): im Text, in Dateien und Verzeichnissen „CodeDeck“
-  (`~/.config/codedeck`, `refs/codedeck/`, `CODEDECK_*`), der Befehl und sein Paket heißen `codeck`; `codedeck` ist das Metapaket (Programm + Viewer, in `bespex/packages`) und die führende Domain `codedeck.bespex.run`. Im Text „be spex“, nie „be-spex“.
+- Name (D26, Regeln in `bespex.github.io/brand/README.md`): ein Name überall, „CodeDeck“ im Text, `codedeck` für
+  Befehl, Programm, Paket, Schriftzug, Dateien und Verzeichnisse (`~/.config/codedeck`, `refs/codedeck/`, `CODEDECK_*`)
+  und die Domain `codedeck.bespex.run`. `codeck` gibt es nur noch als Alias und Übergangspaket, nirgends im Text. Teile
+  heißen nach dem, was sie sind (Übersicht, Projektfenster). Im Text „be spex“, nie „be-spex“.
 - Commits nur auf Wunsch, auf `main`, Englisch, Autor aus der Repo-Config, mit KI-Zeilen.

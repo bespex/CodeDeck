@@ -173,7 +173,7 @@ pub fn set_compact(window: &WebviewWindow, kept: &FullPlace, on: bool, width: f6
         }
         note = format!("full: back to {place:?}, scale {scale}, work area {area:?}; landed at {landed}");
     }
-    eprintln!("codeck: {note}");
+    eprintln!("codedeck: {note}");
     *kept.last.locked() = note;
     Ok(before)
 }
@@ -343,7 +343,7 @@ fn pressed(app: &AppHandle, shortcut: &Shortcut) {
         let app = app.clone();
         std::thread::spawn(move || {
             if let Err(e) = crate::windows::toggle_overview(&app) {
-                eprintln!("codeck: overview: {e}");
+                eprintln!("codedeck: overview: {e}");
             }
         });
         return;

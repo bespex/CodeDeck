@@ -59,11 +59,12 @@ function Modal(props: { title: string; width: string; children: ReactNode; bare?
   );
 }
 
-/** The wordmark: two colours only, the part where code and deck meet in the brand orange. */
+/** The wordmark: the name in small letters, which is also the command (D26); the "co" in the
+ *  brand orange, for you and the AI at one deck. */
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
     <span className={`font-extrabold tracking-[-0.03em] text-slate-100 ${className}`}>
-      co<span className="text-brand">de</span>ck
+      <span className="text-brand">co</span>dedeck
     </span>
   );
 }
@@ -88,22 +89,12 @@ function About() {
           <X className="size-4" />
         </button>
         <img src="/codedeck.svg" alt="" className="mb-1 size-16" />
-        {/* Like a dictionary entry: the wordmark with how it is said, then the full name it is made
-            of (the "de" Code and Deck share, in the brand orange) and what it is */}
-        {/* The pronunciation hangs beside it, so the wordmark stays in the middle */}
-        <div className="relative">
-          <Wordmark className="text-[34px] leading-none" />
-          <span className="absolute bottom-0.5 left-full ml-2 font-mono text-[12px] whitespace-nowrap text-slate-500" title={t("How codeck is said")}>
-            /ˈkoʊdɛk/
-          </span>
-        </div>
+        {/* The wordmark, what CodeDeck is, and the play on "co" as its motto (D26) */}
+        <Wordmark className="text-[34px] leading-none" />
         <p className="text-slate-400">
-          <span className="font-medium text-slate-200">
-            Co<span className="text-brand-soft">de</span>
-            <span className="text-brand-soft">De</span>ck
-          </span>{" "}
-          – {t("AI session radar for Linux")}
+          <span className="font-medium text-slate-200">CodeDeck</span> – {t("AI session radar for Linux")}
         </p>
+        <p className="text-[12px] text-slate-500 italic">{t("Your co-deck for AI sessions")}</p>
         <p className="text-[12px] text-slate-500">{t("Version {version}", { version })}</p>
         <div className="mt-1 flex gap-3">
           {link(t("Website"), HOME_URL)}

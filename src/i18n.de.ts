@@ -704,7 +704,6 @@ export const de: Record<string, string> = {
   "One folder in the project for drafts, mock-ups, throwaway scripts and test data. Sessions are told to put such things here. Git ignores it, so nothing here is committed by accident. To make a file part of the project, drag it onto a folder in the file list. Double click views a file, middle click edits it.": "Ein Ordner im Projekt für Entwürfe, Mock-ups, Wegwerf-Scripts und Testdaten. Die Sitzungen werden angewiesen, so etwas hier abzulegen. Git ignoriert ihn, nichts davon wird versehentlich committet. Um eine Datei ins Projekt zu übernehmen, ziehe sie auf einen Ordner im Dateibaum. Doppelklick zeigt eine Datei, Mittelklick bearbeitet sie.",
   "Drafts and test data of the sessions; git ignores it. Drag a file onto a folder of the file list to keep it.": "Entwürfe und Testdaten der Sitzungen; Git ignoriert ihn. Zum Behalten eine Datei auf einen Ordner im Dateibaum ziehen.",
   "The whole folder into the trash, where it can still be brought back": "Den ganzen Ordner in den Papierkorb, wo er sich zurückholen lässt",
-  "How codeck is said": "So spricht man codeck",
   "Copy diagnostics": "Diagnose kopieren",
   "{n} left elsewhere": "{n} woanders abgelegt",
   "{n} not fetched": "{n} nicht geholt",
@@ -813,4 +812,5 @@ export const de: Record<string, string> = {
   "all windows": "alle Fenster",
   "Settings (in the project window)": "Einstellungen (im Projektfenster)",
   "Settings: open a project first": "Einstellungen: zuerst ein Projekt öffnen",
+  "Your co-deck for AI sessions": "Du und die KI, ein Deck",
 };

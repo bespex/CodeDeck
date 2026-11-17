@@ -1,4 +1,4 @@
-//! The tools' side of the bridge. `codeck hook [--harness <id>]` is what a coding tool runs to
+//! The tools' side of the bridge. `codedeck hook [--harness <id>]` is what a coding tool runs to
 //! report a step: it reads the tool's raw message from stdin, has the tool's adapter (see
 //! [`crate::harness`]) translate it into a neutral event, passes that to every running CodeDeck
 //! window and waits for their answers (a window takes a snapshot before the assistant writes, so
@@ -42,7 +42,7 @@ fn unsafe_uid() -> String {
     std::fs::metadata("/proc/self").map(|m| m.uid().to_string()).unwrap_or_else(|_| "user".into())
 }
 
-/// `codeck hook`: forwards the tool's message on stdin. `args` are the ones after `hook`:
+/// `codedeck hook`: forwards the tool's message on stdin. `args` are the ones after `hook`:
 /// `--harness <id>` names the tool, without it the default one reports. Always exits successfully.
 pub fn forward(args: &[String]) -> i32 {
     let id = args.iter().position(|a| a == "--harness").map(|i| args.get(i + 1).map_or("", String::as_str));
@@ -159,7 +159,7 @@ fn ask(mut stream: UnixStream, line: &str) -> (usize, Vec<String>) {
 
 /// This program as a shell command line starts it.
 pub fn program() -> String {
-    let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "codeck".into());
+    let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "codedeck".into());
     if exe.chars().all(|c| c.is_ascii_alphanumeric() || "/._-+".contains(c)) { exe } else { quote(&exe) }
 }
 
@@ -182,7 +182,7 @@ pub fn statusline_command(then: Option<&str>) -> String {
     }
 }
 
-/// `codeck statusline [--then <command>] [--harness <id>]`: what a tool runs as its status line. It
+/// `codedeck statusline [--then <command>] [--harness <id>]`: what a tool runs as its status line. It
 /// hands the usage in what it is given to every window, then lets the user's own status line (`--then`)
 /// do what it did, with the same input and as if it had been called directly. Without one it prints
 /// the figures itself, so that the line is not empty. Never fails: a status line that goes blank

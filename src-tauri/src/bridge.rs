@@ -1,5 +1,5 @@
 //! The window's side of the bridge to coding assistants. The process listens on one socket
-//! ([`crate::hub`]); `codeck hook` (see [`crate::hook`]) sends it the tools' events, already
+//! ([`crate::hub`]); `codedeck hook` (see [`crate::hook`]) sends it the tools' events, already
 //! translated by their adapters (see [`crate::harness`]), and the hub hands each to every window.
 //! From them a window knows the sessions working in
 //! its project, what they are doing and which files they touched, takes a snapshot before a
@@ -1104,10 +1104,10 @@ mod tests {
         };
         let pane = |session: Option<&str>| Some(Tmux { pane: "%3".into(), session: session.map(String::from) });
         let link = Some("https://example.test/s1".to_string());
-        let first = Place { pid: Some(10), since: Some(1), tmux: pane(Some("codeck-p-A")), launched: None, remote: link.clone() };
+        let first = Place { pid: Some(10), since: Some(1), tmux: pane(Some("codedeck-p-A")), launched: None, remote: link.clone() };
         assert_eq!(step(r#"{"who":"a1","did":"asked","in":"/p","text":"Go"}"#, first.clone(), 10), first);
         let later = step(r#"{"who":"a1","did":"wrote","in":"/p","path":"/p/a","with":"Write"}"#, Place { tmux: pane(None), remote: None, ..first.clone() }, 20);
-        assert_eq!(later.tmux, pane(Some("codeck-p-A")));
+        assert_eq!(later.tmux, pane(Some("codedeck-p-A")));
         assert_eq!(later.remote, None);
         // Another pane is another tmux session: its name is not known yet
         let moved = step(r#"{"who":"a1","did":"done","in":"/p"}"#, Place { tmux: Some(Tmux { pane: "%9".into(), session: None }), ..first }, 30);

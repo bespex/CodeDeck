@@ -1,4 +1,4 @@
-//! Where a session runs, as `codeck hook` sees it from inside the tool's process tree: the tool's
+//! Where a session runs, as `codedeck hook` sees it from inside the tool's process tree: the tool's
 //! process, the tmux pane, whether CodeDeck started it, and (through the adapter) a link that
 //! reaches it from elsewhere. Groundwork for starting and finding sessions (`docs/SITZUNGEN.md`):
 //! nothing here starts, stops or changes anything.
@@ -108,7 +108,7 @@ mod tests {
         assert_eq!(parse_stat("garbage"), None);
     }
 
-    /// The hook runs as `tool → sh -c → codeck`: the tool is found above the shell.
+    /// The hook runs as `tool → sh -c → codedeck`: the tool is found above the shell.
     #[test]
     fn finds_the_tool_above_the_shells() {
         let proc = std::env::temp_dir().join(format!("codedeck-proc-{}", std::process::id()));
@@ -117,13 +117,13 @@ mod tests {
             std::fs::create_dir_all(&dir).unwrap();
             std::fs::write(dir.join("stat"), format!("{pid} ({comm}) S {ppid} 0 0 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 {start} 0 0")).unwrap();
         };
-        put(30, "codeck", 20, 3);
+        put(30, "codedeck", 20, 3);
         put(20, "sh", 10, 2);
         put(10, "claude", 5, 1);
         put(5, "bash", 1, 0);
         assert_eq!(tool_process(&proc, 30), Some((10, 1)));
         // Only shells up to init: no tool to name
-        put(40, "codeck", 5, 4);
+        put(40, "codedeck", 5, 4);
         assert_eq!(tool_process(&proc, 40), None);
         std::fs::remove_dir_all(&proc).unwrap();
     }
