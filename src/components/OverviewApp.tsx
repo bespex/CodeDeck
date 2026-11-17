@@ -181,7 +181,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
   // Double click: Desktop where the session is reachable there, else its terminal
   const defaultDoor = (s: Session) => (s.place?.remote ? "desktop" : "terminal");
   return (
-    <li className="relative mt-2 first:mt-0">
+    <li className="relative border-t border-line/40 py-1 first:border-t-0">
       <div
         role="button"
         tabIndex={0}
@@ -485,7 +485,7 @@ export default function OverviewApp() {
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto pb-3">
         <Waiting projects={projects} />
-        <h2 className="px-3 pt-3 pb-1 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{t("Projects")}</h2>
+        <h2 className="px-3 pt-5 pb-2 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{t("Projects")}</h2>
         {projects.length ? (
           <ul>
             {projects.map((p) => (
