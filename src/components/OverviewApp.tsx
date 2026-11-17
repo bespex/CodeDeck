@@ -181,7 +181,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
   // Double click: Desktop where the session is reachable there, else its terminal
   const defaultDoor = (s: Session) => (s.place?.remote ? "desktop" : "terminal");
   return (
-    <li className="relative">
+    <li className="relative mt-2 first:mt-0">
       <div
         role="button"
         tabIndex={0}
@@ -193,7 +193,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
         }}
         onKeyDown={(e) => e.key === "Enter" && (label ? front() : load())}
         title={label ? t("Bring its window to the front") : t("Double-click: load its window")}
-        className={`group/row flex h-8 cursor-pointer items-center gap-2 border-l-2 pr-2 pl-3 hover-project ${project.front && project.visible ? "border-ai bg-raised" : "border-transparent"}`}
+        className={`group/row flex h-9 cursor-pointer items-center gap-2 border-l-2 pr-2 pl-3 hover-project ${project.front && project.visible ? "border-ai bg-raised" : "border-transparent"}`}
       >
         {/* The mark: a click hides or shows the loaded window, a double click loads it. A ring runs
             round it on hover, so it reads as a switch */}
