@@ -664,7 +664,7 @@ function NextPrompt({ assistant, onPin }: Props) {
         </button>
       </AreaHeader>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3 pb-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3 pt-1.5 pb-3">
         {/* Who it is for comes first: the numbers below read as what goes to them */}
         {count > 0 && attaches && (
           <div className="flex flex-col gap-1 text-[12px] text-slate-400">
