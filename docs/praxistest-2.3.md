@@ -5,34 +5,34 @@ etwas nicht stimmt, unter **Befund** aufschreiben, was passiert ist, mit Uhrzeit
 
 ## 1. Zeitleiste „Heute“ (Reiter Activity)
 
-- [ ] Eine Sitzung einen Prompt bearbeiten lassen, der Dateien schreibt: In der Zeitleiste erscheint eine Spur mit
+- [x] Eine Sitzung einen Prompt bearbeiten lassen, der Dateien schreibt: In der Zeitleiste erscheint eine Spur mit
       dem Namen der Sitzung, der Block wächst bis „jetzt“ (orange Linie), solange sie arbeitet
-- [ ] Nach dem Ende der Runde endet der Block; die Zeit unter dem Namen ist die des letzten Ereignisses
-- [ ] Die Sitzung um Erlaubnis fragen lassen (z. B. `rm` einer Datei): der Block wird gelb („wartet auf dich“),
+- [x] Nach dem Ende der Runde endet der Block; die Zeit unter dem Namen ist die des letzten Ereignisses
+- [x] Die Sitzung um Erlaubnis fragen lassen (z. B. `rm` einer Datei): der Block wird gelb („wartet auf dich“),
       nach der Antwort wieder blau
-- [ ] Zeigt man auf einen Block, steht Zeit und Prompt (bzw. die Frage) im Tooltip
-- [ ] Weiße Striche sind die Anker dieser Sitzung; Zeigen nennt Zeit und Anlass
-- [ ] Zwei Sitzungen gleichzeitig: zwei Spuren, die Blöcke überlappen in der Zeit
-- [ ] CodeDeck schließen und öffnen: die Blöcke von vorhin sind noch da (kommen aus dem Journal)
+- [x] Zeigt man auf einen Block, steht Zeit und Prompt (bzw. die Frage) im Tooltip
+- [x] Weiße Striche sind die Anker dieser Sitzung; Zeigen nennt Zeit und Anlass
+- [x] Zwei Sitzungen gleichzeitig: zwei Spuren, die Blöcke überlappen in der Zeit
+- [x] CodeDeck schließen und öffnen: die Blöcke von vorhin sind noch da (kommen aus dem Journal)
 
 Befund:
 
 ## 2. Wie sicher ist deine Arbeit
 
-- [ ] „Nicht committet“ zählt die offenen Dateien, wie die Zahl am Reiter Changes
-- [ ] „Committet, nur auf diesem Rechner“ zählt die Commits, die noch nicht gepusht sind; nach dem Push 0
-- [ ] In einem Projekt ohne Remote steht „–“ und der Satz „Es gibt kein Remote…“
-- [ ] „Anker“ entspricht den Snapshots im Trail
+- [x] „Nicht committet“ zählt die offenen Dateien, wie die Zahl am Reiter Changes
+- [x] „Committet, nur auf diesem Rechner“ zählt die Commits, die noch nicht gepusht sind; nach dem Push 0
+- [x] In einem Projekt ohne Remote steht „–“ und der Satz „Es gibt kein Remote…“
+- [x] „Anker“ entspricht den Snapshots im Trail
 
 Befund:
 
 ## 3. Glocke „Hinweise und Tipps“
 
-- [ ] Die Glocke rechts in der Reiterleiste öffnet das Panel über dem Deck; Esc und × schließen es
-- [ ] „Was geschah“ nennt die letzten Ereignisse in Worten, neueste oben; mehrere Schreibvorgänge einer Sitzung
+- [x] Die Glocke rechts in der Reiterleiste öffnet das Panel über dem Deck; Esc und × schließen es
+- [x] „Was geschah“ nennt die letzten Ereignisse in Worten, neueste oben; mehrere Schreibvorgänge einer Sitzung
       hintereinander sind eine Zeile
-- [ ] „Gut zu wissen“ wechselt mit dem Reiter (zwei Tipps je Reiter)
-- [ ] „Was jedes KI-Werkzeug mit CodeDeck kann“ nennt Claude Code mit seinen Fähigkeiten
-- [ ] Auf Deutsch (Schnelleinstellungen) ist alles übersetzt
+- [x] „Gut zu wissen“ wechselt mit dem Reiter (zwei Tipps je Reiter)
+- [x] „Was jedes KI-Werkzeug mit CodeDeck kann“ nennt Claude Code mit seinen Fähigkeiten
+- [x] Auf Deutsch (Schnelleinstellungen) ist alles übersetzt
 
-Befund:
+Befund: ALle bEfudne haben wir direkt dikustiert und behoben
