@@ -355,6 +355,13 @@ export function gitAction(repo: string, args: string[]): Promise<ActionResult> {
   return new Promise((resolve) => setTimeout(() => resolve({ ok: true, output }), 400));
 }
 
+/** Makes the project folder a git repository (`git init -b main`); only for a project without one. */
+export function gitInit(): Promise<ActionResult> {
+  if (live) return invoke("git_init");
+  mockRun("git init -b main", [mockProject.name], "Initialized empty Git repository");
+  return new Promise((resolve) => setTimeout(() => resolve({ ok: true, output: "" }), 400));
+}
+
 export interface Commit {
   hash: string;
   short: string;

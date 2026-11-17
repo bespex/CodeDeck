@@ -95,7 +95,8 @@ impl Harness for Claude {
         let name = raw["hook_event_name"].as_str()?;
         let kind = EVENTS.iter().find(|(event, ..)| *event == name)?.2;
         // "Waiting for your input", a minute after a turn: no question, the turn is simply over.
-        // It also comes when the turn was cut short (interrupted, usage limit) and `Stop` never did
+        // Not a safe net for a turn cut short: after a denied permission plus Esc neither `Stop` nor
+        // this came (journal 2026-11-17, plan step 2.3c)
         let kind = if raw["notification_type"] == "idle_prompt" { EventKind::TurnDone } else { kind };
         let input = &raw["tool_input"];
         let cut = |v: &Value, n: usize| v.as_str().map(|s| s.chars().take(n).collect::<String>());

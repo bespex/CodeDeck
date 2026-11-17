@@ -27,6 +27,11 @@ const SKIP: &[&str] = &["node_modules", "target", "dist", "build", "vendor", "ve
 
 /// Git subcommands the frontend may run as actions. Everything else is refused, and the ones
 /// that remove something are held to their narrow use, see [`allowed`].
+/// Whether a subcommand changes something (is kept apart from the many that only read).
+fn changes(sub: &str) -> bool {
+    ACTIONS.contains(&sub) || sub == "init"
+}
+
 const ACTIONS: &[&str] = &["add", "commit", "pull", "push", "fetch", "restore", "rm", "clean", "rebase", "remote"];
 
 /// How many commands the log keeps.
@@ -146,6 +151,28 @@ impl Git {
         all.extend(self.reads.lock().unwrap().iter().cloned());
         all.sort_by_key(|r| r.id);
         all
+    }
+
+    /// Forgets the commands run so far: they belong to the project that was open, and the log of
+    /// the next one must not look as if git had been used there.
+    pub fn clear_log(&self) {
+        self.changes.lock().unwrap().clear();
+        self.reads.lock().unwrap().clear();
+    }
+
+    /// Makes the project folder a repository (`git init -b main`). Not one of the [`ACTIONS`]: it is
+    /// offered for a project without any repository only, never as a free-form action.
+    pub fn init(&self, report: Report, project: &Project) -> ActionResult {
+        let found = self.repos(project);
+        if !found.is_empty() {
+            return ActionResult { ok: false, output: "This project already is in a repository".to_string() };
+        }
+        let repo = Repo::new(project.root.clone(), String::new(), String::new());
+        let (ok, stdout, stderr) = self.execute(report, &repo, &["init", "-b", "main"]);
+        // The next status round must look again
+        *self.repos.lock().unwrap() = None;
+        let output = [stdout, stderr].map(|b| String::from_utf8_lossy(&b).trim_end().to_string());
+        ActionResult { ok, output: output.into_iter().filter(|o| !o.is_empty()).collect::<Vec<_>>().join("\n") }
     }
 
     /// Status of every repository in the project. `rescan` searches the folders again.
@@ -301,9 +328,9 @@ impl Git {
             ms: started.elapsed().as_millis() as u64,
             at: SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64),
             // A scratch index (own environment) changes nothing real
-            changes: env.is_empty() && ACTIONS.contains(&sub),
+            changes: env.is_empty() && changes(sub),
             output: match &output {
-                Ok(o) => log_output(env.is_empty() && ACTIONS.contains(&sub), &o.stdout, &o.stderr),
+                Ok(o) => log_output(env.is_empty() && changes(sub), &o.stdout, &o.stderr),
                 Err(e) => format!("git: {e}"),
             },
         };

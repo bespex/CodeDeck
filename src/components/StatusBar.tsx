@@ -2,6 +2,7 @@ import { Eye, GitBranch, GitFork, SquareTerminal } from "lucide-react";
 import { aheadBehind, changeSummary, type GitView } from "../git";
 import { Tooltip, TooltipHint } from "./Tooltip";
 import { RepoTooltip } from "./RepoTooltip";
+import { GitInitButton, lacksGit } from "./GitInit";
 import type { AssistantState, GitRun } from "../backend";
 import { AssistantStatus } from "./AssistantStatus";
 import { plural, t } from "../i18n";
@@ -39,6 +40,12 @@ export function StatusBar({ git, onRepoActions, logOpen, onToggleLog, assistant 
             {aheadBehind(root) && <span className="text-slate-500">{aheadBehind(root)}</span>}
           </button>
         </Tooltip>
+      )}
+      {lacksGit(git) && (
+        <>
+          <span className="shrink-0">{t("No git repository")}</span>
+          <GitInitButton git={git} className={`${CLICKABLE} text-slate-200`} />
+        </>
       )}
       {/* Git on the left, next to the branch: what is clicked there is all git */}
       <GitCommands runs={git.runs} open={logOpen} onToggle={onToggleLog} />

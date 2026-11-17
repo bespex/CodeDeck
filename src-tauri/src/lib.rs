@@ -301,6 +301,8 @@ fn open_project(
     *current.0.write().unwrap() = project.clone();
     watch.clear();
     bridge.clear(&app);
+    // The log is the process's: the next project must not inherit the commands of this one
+    app.state::<Git>().clear_log();
     recent::remember(&project.root);
     set_title(&app, &project);
     exclude_scratch(&app);
@@ -380,6 +382,28 @@ async fn pick_folder(app: AppHandle) -> Option<String> {
     .await
     .ok()
     .flatten()
+}
+
+/// Turns a project without a repository into one: `git init`, then the scratch folder is left
+/// alone like in every other project.
+#[tauri::command]
+async fn git_init(app: AppHandle) -> Result<ActionResult, String> {
+    let done = tauri::async_runtime::spawn_blocking({
+        let app = app.clone();
+        move || {
+            let project = app.state::<Arc<Current>>().get();
+            let report = |run: &GitRun| {
+                let _ = app.emit(GIT_RAN, run);
+            };
+            app.state::<Git>().init(&report, &project)
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    if done.ok {
+        exclude_scratch(&app);
+    }
+    Ok(done)
 }
 
 /// Status of every repository in the project; `rescan` looks for repositories again.
@@ -634,6 +658,7 @@ pub fn run() {
             recent_projects,
             pick_folder,
             git_status,
+            git_init,
             git_action,
             git_history,
             git_working_diff,

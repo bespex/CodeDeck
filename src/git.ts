@@ -52,17 +52,22 @@ export interface GitView {
   runs: GitRun[];
   /** Read the status again now, e.g. after an action */
   refresh: () => void;
+  /** The first status of this project is in: before that "no repository" would only be a guess */
+  loaded: boolean;
 }
 
 export function useGit(projectPath: string | undefined): GitView {
   const [repos, setRepos] = useState<RepoStatus[]>([]);
   const [runs, setRuns] = useState<GitRun[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [refresh, setRefresh] = useState<() => void>(() => () => {});
 
   useEffect(() => {
     if (!projectPath) return;
     let alive = true;
     setRepos([]);
+    setRuns([]);
+    setLoaded(false);
     // One read at a time; asks that arrive meanwhile are folded into one more read afterwards
     const busy = { current: false };
     const again: { current: boolean | null } = { current: null };
@@ -75,7 +80,10 @@ export function useGit(projectPath: string | undefined): GitView {
       busy.current = true;
       try {
         const next = await gitStatus(rescan);
-        if (alive) setRepos(next);
+        if (alive) {
+          setRepos(next);
+          setLoaded(true);
+        }
       } catch {
         // Keep showing the last known state
       } finally {
@@ -113,10 +121,10 @@ export function useGit(projectPath: string | undefined): GitView {
     };
   }, [projectPath]);
 
-  return useMemo(() => view(repos, runs, refresh), [repos, runs, refresh]);
+  return useMemo(() => ({ ...view(repos, runs, refresh), loaded }), [repos, runs, refresh, loaded]);
 }
 
-function view(repos: RepoStatus[], runs: GitRun[], refresh: () => void): GitView {
+function view(repos: RepoStatus[], runs: GitRun[], refresh: () => void): Omit<GitView, "loaded"> {
   const states = new Map<string, GitState>();
   const counts = new Map<string, number>();
   let changed = 0;

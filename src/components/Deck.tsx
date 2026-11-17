@@ -9,6 +9,7 @@ import { WorkbenchView } from "./views/WorkbenchView";
 import type { AssistantState } from "../backend";
 import { mainHarness } from "../assistant";
 import type { GitView } from "../git";
+import { lacksGit } from "./GitInit";
 import { useHistory, useSnapshots } from "../history";
 import { useMarkers } from "../markers";
 import { useAttachedCount } from "./AttachmentList";
@@ -148,7 +149,10 @@ export function Deck({ git, selected, assistant }: Props) {
       </Tooltip>
 
       <div className="flex min-h-0 flex-1">
-        <Trail commits={commits} snapshots={shownSnapshots} onCompare={compare} repos={git.repos} point={point} onSelect={select} focusRepo={focusRepo} />
+        {/* Commits and snapshots are git objects: without a repository the trail would only be empty */}
+        {!lacksGit(git) && (
+          <Trail commits={commits} snapshots={shownSnapshots} onCompare={compare} repos={git.repos} point={point} onSelect={select} focusRepo={focusRepo} />
+        )}
         <section className="min-w-0 flex-1 overflow-y-auto" role="tabpanel">
           {view === "activity" && <ActivityView assistant={assistant} git={git} snapshots={snapshots} />}
           {view === "changes" && (
@@ -173,7 +177,7 @@ export function Deck({ git, selected, assistant }: Props) {
           {view === "next" && <NextPromptView assistant={assistant} />}
         </section>
       </div>
-      {notices && <NoticesPanel assistant={assistant} view={view} onClose={() => setNotices(false)} />}
+      {notices && <NoticesPanel assistant={assistant} git={git} view={view} onClose={() => setNotices(false)} />}
     </main>
   );
 }

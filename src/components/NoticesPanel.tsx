@@ -6,6 +6,8 @@ import { LOCALE, t } from "../i18n";
 import { noticesOf, useJournal } from "../timeline";
 import { useFold } from "./blocks";
 import type { ViewId } from "../view";
+import type { GitView } from "../git";
+import { GitInitButton, lacksGit } from "./GitInit";
 
 /** Two tips for what is open: what is easy to miss in this view, not what the heading already says. */
 const tips = (view: ViewId, tool: string): string[] =>
@@ -52,7 +54,7 @@ const Heading = ({ children }: { children: string }) => (
  * What would cost space elsewhere, hanging over the right of the deck: the latest events in
  * words, two tips for the open view, and what each tool can do with CodeDeck.
  */
-export function NoticesPanel({ assistant, view, onClose }: { assistant: AssistantState; view: ViewId; onClose: () => void }) {
+export function NoticesPanel({ assistant, git, view, onClose }: { assistant: AssistantState; git: GitView; view: ViewId; onClose: () => void }) {
   const marks = useSessionMarks();
   const lines = useJournal(assistant);
   const tool = mainHarness(assistant).shortName;
@@ -60,6 +62,8 @@ export function NoticesPanel({ assistant, view, onClose }: { assistant: Assistan
   const notices = noticesOf(lines, who);
   const tools = useFold("notices.tools", true);
   const Fold = tools.open ? ChevronDown : ChevronRight;
+  const hints = useFold("notices.hints", true);
+  const HintsFold = hints.open ? ChevronDown : ChevronRight;
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", key);
@@ -77,6 +81,18 @@ export function NoticesPanel({ assistant, view, onClose }: { assistant: Assistan
         </button>
       </div>
       <div className="flex flex-col gap-1.5">
+        <button type="button" aria-expanded={hints.open} onClick={hints.toggle} className="-ml-1 flex items-center gap-1 self-start rounded px-1 text-left hover:bg-overlay-hover">
+          <HintsFold className="size-3.5 text-slate-400" />
+          <Heading>{t("Good to know here")}</Heading>
+        </button>
+        {tips(view, tool).map((text) => (
+          // Folded: one line each, the start of the text says what it is about
+          <div key={text} className={`rounded-md bg-panel px-2.5 py-2 ${hints.open ? "" : "truncate text-slate-300"}`} title={hints.open ? undefined : text}>
+            {text}
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-col gap-1.5">
         <Heading>{t("What happened")}</Heading>
         {notices.length === 0 ? (
           <p className="text-slate-400">{t("Nothing yet today.")}</p>
@@ -88,14 +104,6 @@ export function NoticesPanel({ assistant, view, onClose }: { assistant: Assistan
             </div>
           ))
         )}
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Heading>{t("Good to know here")}</Heading>
-        {tips(view, tool).map((text) => (
-          <div key={text} className="rounded-md bg-panel px-2.5 py-2">
-            {text}
-          </div>
-        ))}
       </div>
       <div className="flex flex-col gap-1.5">
         <button type="button" aria-expanded={tools.open} onClick={tools.toggle} className="-ml-1 flex items-center gap-1 self-start rounded px-1 text-left hover:bg-overlay-hover">
@@ -116,6 +124,16 @@ export function NoticesPanel({ assistant, view, onClose }: { assistant: Assistan
             </div>
           ))}
       </div>
+      {lacksGit(git) && (
+        <div className="flex flex-col gap-1.5">
+          <Heading>{t("This folder has no git repository")}</Heading>
+          <div className="flex flex-col gap-2 rounded-md bg-panel px-2.5 py-2">
+            <span>{t("With a local repository (no server, no account) CodeDeck can keep a snapshot before {tool} writes, show what changed in each turn and go back to any earlier state.", { tool })}</span>
+            <span className="text-slate-400">{t("Without one, none of that is possible: the trail, the changes per turn and Go back stay empty.")}</span>
+            <GitInitButton git={git} className="flex items-center gap-1.5 self-start rounded-md bg-raised px-2 py-1 font-medium text-slate-100 hover:bg-overlay-hover" />
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
