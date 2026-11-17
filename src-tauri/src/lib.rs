@@ -641,6 +641,12 @@ fn focus_project(label: String, view: Option<String>, app: AppHandle) -> Result<
     Ok(())
 }
 
+/// Ends CodeDeck with all its windows (from the overview's menu).
+#[tauri::command]
+fn quit(app: AppHandle) {
+    app.exit(0);
+}
+
 /// Shows or hides the overview of all projects (`Ctrl+Alt+L`).
 /// Async: building the window waits for the main thread.
 #[tauri::command]
@@ -783,7 +789,8 @@ pub fn run() {
             overview_state,
             report_summary,
             focus_project,
-            toggle_overview
+            toggle_overview,
+            quit
         ])
         .build(tauri::generate_context!())
         .expect("error while building CodeDeck")

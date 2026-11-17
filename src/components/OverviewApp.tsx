@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { AppWindow, GitBranch, Inbox, Paperclip, Plus } from "lucide-react";
-import { focusProject, onOverviewChanged, openWindow, overviewState, pickFolder, type OverviewProject, type Session } from "../backend";
+import { AppWindow, Ellipsis, GitBranch, Inbox, Paperclip, Plus, Settings } from "lucide-react";
+import { focusProject, onOverviewChanged, openWindow, overviewState, pickFolder, quit, type OverviewProject, type Session } from "../backend";
 import { DONE_SHOWN_MS, needsYou, useNow } from "../attention";
 import { SessionBadge } from "./SessionBadge";
 import { t } from "../i18n";
@@ -177,6 +177,53 @@ function Waiting({ projects }: { projects: OverviewProject[] }) {
   );
 }
 
+const toolButton = "rounded-md p-1.5 text-slate-400 hover:bg-overlay-hover hover:text-slate-100 disabled:opacity-40";
+
+/** The `⋯` menu: what is needed now and then. */
+function MoreMenu({ host }: { host: string | null }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [open]);
+  const item = "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] text-slate-200 hover:bg-overlay-hover disabled:opacity-40";
+  // Dialogs open in the project window used last: they need more room than the overview has
+  const inWindow = (view: string) => host && void focusProject(host, view);
+  return (
+    <span className="relative">
+      <button
+        type="button"
+        title={t("More")}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className={`${toolButton} ${open ? "bg-overlay-hover text-slate-100" : ""}`}
+      >
+        <Ellipsis className="size-4" />
+      </button>
+      {open && (
+        <div className="surface-overlay absolute top-9 right-0 z-20 flex w-56 flex-col rounded-lg p-1">
+          <button type="button" disabled={!host} className={item} onClick={() => inWindow("shortcuts")}>
+            {t("Keyboard shortcuts")}
+            <span className="ml-auto text-slate-500">F1</span>
+          </button>
+          <button type="button" disabled={!host} className={item} onClick={() => inWindow("about")}>
+            {t("About CodeDeck")}
+          </button>
+          <div className="my-1 h-px bg-overlay-line" />
+          <button type="button" className={item} onClick={() => void quit()}>
+            {t("Quit CodeDeck")}
+            <span className="ml-auto text-slate-500">{t("all windows")}</span>
+          </button>
+        </div>
+      )}
+    </span>
+  );
+}
+
 export default function OverviewApp() {
   const projects = useOverview();
   useEffect(() => void (document.title = "CodeDeck"), []);
@@ -184,14 +231,36 @@ export default function OverviewApp() {
     const path = await pickFolder();
     if (path) await openWindow(path);
   };
+  // Ctrl+O opens a project from here too
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        void open();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  const host = (projects.find((p) => p.front) ?? projects[0])?.label ?? null;
   return (
     <div className="flex h-screen flex-col bg-panel text-[13px]">
       <header className="flex h-10 shrink-0 items-center gap-1 border-b border-line pr-2 pl-3">
         <img src="/codedeck.svg" alt="" className="size-[18px]" />
         <span className="flex-1" />
-        <button type="button" title={t("Open a project (Ctrl+O)")} onClick={() => void open()} className="rounded-md p-1.5 text-slate-400 hover:bg-overlay-hover hover:text-slate-100">
+        <button type="button" title={t("Open a project (Ctrl+O)")} onClick={() => void open()} className={toolButton}>
           <Plus className="size-4" />
         </button>
+        <button
+          type="button"
+          title={host ? t("Settings (in the project window)") : t("Settings: open a project first")}
+          disabled={!host}
+          onClick={() => host && void focusProject(host, "settings")}
+          className={toolButton}
+        >
+          <Settings className="size-4" />
+        </button>
+        <MoreMenu host={host} />
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto pb-3">
         <Waiting projects={projects} />

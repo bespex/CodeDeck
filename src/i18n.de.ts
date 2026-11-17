@@ -808,4 +808,9 @@ export const de: Record<string, string> = {
   "done": "fertig",
   "Overview of all projects · Ctrl+Alt+L": "Übersicht aller Projekte · Strg+Alt+L",
   "Overview of all projects": "Übersicht aller Projekte",
+  "More": "Mehr",
+  "Quit CodeDeck": "CodeDeck beenden",
+  "all windows": "alle Fenster",
+  "Settings (in the project window)": "Einstellungen (im Projektfenster)",
+  "Settings: open a project first": "Einstellungen: zuerst ein Projekt öffnen",
 };

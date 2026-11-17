@@ -1455,6 +1455,12 @@ export function focusProject(label: string, view?: string): Promise<void> {
   return Promise.resolve();
 }
 
+/** Ends CodeDeck with all its windows. */
+export function quit(): Promise<void> {
+  if (live) return invoke("quit");
+  return Promise.resolve();
+}
+
 /** Shows or hides the overview (Ctrl+Alt+L). */
 export function toggleOverview(): Promise<void> {
   if (live) return invoke("toggle_overview");

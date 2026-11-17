@@ -15,6 +15,7 @@ import { RepoActions, type Anchor } from "./components/RepoActions";
 import { useAttention } from "./attention";
 import { setNewsProject } from "./news";
 import { Dialogs } from "./components/Dialogs";
+import { openDialog } from "./dialogs";
 import { setCompact, toggleCompact, useCompact, useSwitching } from "./compact";
 import { useLayout } from "./layout";
 import { Splitter } from "./components/Splitter";
@@ -59,7 +60,12 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     const stop = onWindowRequest((request) => request === "toggleCompact" && void toggleCompact());
     // The overview of all projects opens a view here (docs/UEBERSICHT.md)
-    const stopView = onOpenView((view) => openView(view as ViewId));
+    // Its dialogs too: they need more room than the overview has
+    const stopView = onOpenView((view) => {
+      if (view === "settings") openDialog({ kind: "settings", section: "general" });
+      else if (view === "about" || view === "shortcuts") openDialog({ kind: view });
+      else openView(view as ViewId);
+    });
     return () => {
       window.removeEventListener("keydown", onKey);
       stop();

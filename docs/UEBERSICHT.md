@@ -147,4 +147,4 @@ zu bauen. Die Leiste je Projekt wird mit 3.0b entfernt.
 | 5 | „Wartet auf dich“ im Projektfenster | nur das eigene Projekt (A13 entsprechend ändern) |
 | 6 | Zeitpunkt | 3.0b direkt nach 3.0, vor 3.1 |
 | 7 | Marke je Projekt | **Richtung abgestimmt (Nutzer 2026-11-17):** Kreis in der Projektfarbe mit Lucide-Icon, Emoji oder Buchstabe; überall, wo der Projektname steht; Emoji auch im Titel |
-| 8 | Form der Marke | Kreis (Wunsch des Nutzers); prüfen im Dummy, ob sie sich genug von den Sitzungsschildern unterscheidet, sonst abgerundetes Quadrat |
+| 8 | Form der Marke | Kreis (Wunsch des Nutzers). In der App sind die Schilder der Sitzungen abgerundete Quadrate (`SessionBadge`), Kreis und Quadrat unterscheiden sich also schon; im Dummy waren beide Kreise |
