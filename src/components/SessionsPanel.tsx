@@ -1,6 +1,6 @@
 import { AccountMark } from "./ProjectMark";
 import { accountLook, useAccounts } from "../accounts";
-import { useState, type DragEvent, type ReactNode } from "react";
+import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import {
   ArrowUpRight,
   AtSign,
@@ -262,7 +262,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
             {current.length > 0 ? (
               <ul className="divide-y divide-line/70 border-y border-line/70">
                 {current.map((s) => (
-                  <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} projectPath={look?.path} projectTool={mine.harness.id} />
+                  <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} projectPath={look?.path} projectTool={mine.harness.id} projectAccount={mine.account?.dir} />
                 ))}
               </ul>
             ) : (
@@ -283,7 +283,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
                 {showEarlier && (
                   <ul className="divide-y divide-line/70 border-y border-line/70">
                     {earlier.map((s) => (
-                      <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} projectPath={look?.path} projectTool={mine.harness.id} />
+                      <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} projectPath={look?.path} projectTool={mine.harness.id} projectAccount={mine.account?.dir} />
                     ))}
                   </ul>
                 )}
@@ -305,7 +305,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
 }
 
 /** Two lines per session: who and in which state, then the one thing that counts. The rest folds out. */
-function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, toolShort, projectPath, projectTool }: { session: Session; blockedUntil: number | null; onShowFile: (path: string) => void; toolName: string; toolShort: string; projectPath: string | undefined; projectTool: string }) {
+function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, toolShort, projectPath, projectTool, projectAccount }: { session: Session; blockedUntil: number | null; onShowFile: (path: string) => void; toolName: string; toolShort: string; projectPath: string | undefined; projectTool: string; projectAccount: string | undefined }) {
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const marks = useSessionMarks();
@@ -329,23 +329,67 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
       setTimeout(() => setFailed(null), 6000);
     });
   };
+  // A click folds out, a double click goes to the session: the fold waits until a second click
+  // can no longer come, so a double click leaves the row as it was
+  const pending = useRef<number | null>(null);
+  const cancelFold = () => {
+    if (pending.current !== null) clearTimeout(pending.current);
+    pending.current = null;
+  };
+  const fold = (e: React.MouseEvent) => {
+    cancelFold();
+    // Keyboard (detail 0) and ended sessions, which a double click does not open, fold at once
+    if (e.detail === 0 || s.status === "ended") return setOpen(!open);
+    if (e.detail > 1) return;
+    pending.current = window.setTimeout(() => {
+      pending.current = null;
+      setOpen((o) => !o);
+    }, 250);
+  };
   const head = headline(s);
   return (
     <li
       // On the list: what belongs to this session stands out on the trail and in the file list
       onMouseEnter={() => marks.hover(s.id)}
-      onDoubleClick={() => go(door)}
+      onDoubleClick={() => {
+        cancelFold();
+        go(door);
+      }}
       onAuxClick={(e) => e.button === 1 && go("terminal")}
       title={s.status === "ended" ? undefined : t("Double-click: go to it ({door}) · middle click: terminal", { door: door === "desktop" ? t("Desktop") : t("Terminal") })}
       className={`group/session ${open ? "bg-raised/60" : "hover:bg-raised/40"} ${s.status === "ended" ? "opacity-55" : ""}`}
     >
       <div className="flex items-start">
         {/* The badge stands alone, large, across both lines; status and model are what one reads */}
-        <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-w-0 flex-1 items-center gap-2.5 py-2 pr-1 pl-3 text-left">
+        <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={open}
+          onClick={fold}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && e.target === e.currentTarget && (e.preventDefault(), setOpen(!open))}
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 py-2 pr-3 pl-3 text-left"
+        >
           <SessionBadge mark={mark} large />
           <span className="flex min-w-0 flex-1 flex-col gap-1">
             <span className="flex items-center gap-2">
               <span className="min-w-0 truncate font-medium text-slate-100">{titleOf(s)}</span>
+              {/* Right behind the title, so the far right stays free for the state */}
+              <button
+                type="button"
+                aria-label={t("Rename session {short}", { short: mark.short })}
+                title={t("Rename")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(true);
+                  setRenaming(!renaming);
+                }}
+                onDoubleClick={(e) => e.stopPropagation()}
+                className={`shrink-0 rounded p-0.5 text-slate-500 hover:bg-overlay-hover hover:text-slate-100 focus-visible:opacity-100 ${
+                  renaming ? "opacity-100" : "opacity-0 group-hover/session:opacity-100"
+                }`}
+              >
+                <Pencil className="size-3" />
+              </button>
               <span
                 title={timed ? t("since {time}", { time: time(status.at!) }) : undefined}
                 data-event={blocked ? "blocked" : s.status === "idle" && s.turnDone != null && s.capabilities.liveStatus ? "done" : s.status}
@@ -371,21 +415,7 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
               <Chevron className="size-3.5 shrink-0 text-slate-500" />
             </span>
           </span>
-        </button>
-        <button
-          type="button"
-          aria-label={t("Rename session {short}", { short: mark.short })}
-          title={t("Rename")}
-          onClick={() => {
-            setOpen(true);
-            setRenaming(!renaming);
-          }}
-          className={`mt-1.5 mr-1.5 shrink-0 rounded p-1 text-slate-500 hover:bg-overlay-hover hover:text-slate-100 focus-visible:opacity-100 ${
-            renaming ? "opacity-100" : "opacity-0 group-hover/session:opacity-100"
-          }`}
-        >
-          <Pencil className="size-3" />
-        </button>
+        </div>
       </div>
       {failed && <p className="selectable px-3 pb-1.5 pl-[54px] text-[11px] text-problem">{failed}</p>}
       {open && renaming && <RenameForm session={s} onClose={() => setRenaming(false)} />}
@@ -432,9 +462,9 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
               {s.model && " · "}
               {s.cwd === "" ? t("project root") : s.cwd}
               {` · ${t("last step {time}", { time: time(s.last) })}`}
-              {s.step && head.from !== "step" && ` · ${s.step}`}
+              {s.step && head.from !== "step" && ` · ${t("step")}: ${s.step}`}
               <PlaceNote session={s} />
-              <AccountNote session={s} />
+              <AccountNote session={s} projectAccount={projectAccount} />
             </span>
             <button
               type="button"
@@ -482,16 +512,15 @@ function PlaceNote({ session: s }: { session: Session }) {
 }
 
 /** The account a session runs in, by the name and colour set under Settings → Accounts (3.2). */
-function AccountNote({ session: s }: { session: Session }) {
+function AccountNote({ session: s, projectAccount }: { session: Session; projectAccount: string | undefined }) {
   const accounts = useAccounts();
-  if (!s.account) return null;
+  // The project's own account is no news: only a session running with another one says so
+  if (!s.account || s.account === projectAccount) return null;
   const look = accountLook(accounts, s.account);
   return (
-    <span title={t("Account: {dir}", { dir: s.account })}>
+    <span title={t("Account: {dir}", { dir: s.account })} className="inline-flex items-center gap-1 align-middle">
       {" · "}
-      <span className="mr-1 inline-flex translate-y-[2px]">
-        <AccountMark account={look} size={12} />
-      </span>
+      <AccountMark account={look} size={12} />
       {look.name}
     </span>
   );

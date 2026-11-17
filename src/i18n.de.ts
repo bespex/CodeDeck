@@ -892,6 +892,7 @@ export const de: Record<string, string> = {
   "since {time}": "seit {time}",
   "Started outside CodeDeck: it ends where it runs": "Außerhalb von CodeDeck gestartet: Sie endet dort, wo sie läuft",
   "by hand": "von Hand",
+  "step": "Schritt",
   "Desktop App Profile": "Desktop-App-Profil",
   "Create a new profile…": "Neues Profil anlegen…",
   "Starts the desktop app with a folder of its own. Sign in there with this account; CodeDeck keeps the profile for it.": "Startet die Desktop-App mit einem eigenen Ordner. Melde dich dort mit diesem Konto an; CodeDeck merkt sich das Profil dafür.",
