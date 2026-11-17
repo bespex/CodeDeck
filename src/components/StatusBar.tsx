@@ -51,8 +51,6 @@ export function GitStatusBar({ git, onRepoActions, logOpen, onToggleLog, recent 
           <GitInitButton git={git} className={`${CLICKABLE} text-slate-200`} />
         </>
       )}
-      {/* Git on the left, next to the branch: what is clicked there is all git */}
-      <GitCommands runs={git.runs} open={logOpen} onToggle={onToggleLog} />
       {recent > 0 && (
         <span className="flex shrink-0 items-center gap-1.5">
           <span className="ai-dot" />
@@ -72,6 +70,9 @@ export function GitStatusBar({ git, onRepoActions, logOpen, onToggleLog, recent 
           {withChanges > 0 && <span className="text-changed"> · {t("{n} with changes", { n: withChanges })}</span>}
         </span>
       )}
+      {/* At the right edge, away from the branch: it opens the log of every git command */}
+      <span className="ml-auto" />
+      <GitCommands runs={git.runs} open={logOpen} onToggle={onToggleLog} />
     </footer>
   );
 }
