@@ -1,8 +1,10 @@
 import { Tooltip, ToolTipBody } from "./Tooltip";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Bug,
   Check,
+  Play,
+  Plus,
   ChevronDown,
   CircleHelp,
   Ellipsis,
@@ -14,7 +16,7 @@ import {
   SquareTerminal,
   Stethoscope,
 } from "lucide-react";
-import { appInfo, diagnostics, openUrl, setProject, stopSession, type Account, type AssistantState, type ProjectInfo } from "../backend";
+import { appInfo, diagnostics, openUrl, setProject, startSession, stopSession, type Account, type AssistantState, type ProjectInfo } from "../backend";
 import { useAccounts } from "../accounts";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
@@ -53,6 +55,7 @@ export function HeaderBar(props: Props) {
     <header className="zone-tabs relative flex h-[44px] shrink-0 items-center gap-1 border-b border-line bg-panel pr-1.5 pl-1.5">
       <AccountBlock project={props.project} assistant={props.assistant} />
       <span className="flex-1" />
+      <StartButtons project={props.project} />
     </header>
     </Tooltip>
   );
@@ -135,6 +138,36 @@ export function QuickSettings() {
         </Panel>
       )}
     </div>
+  );
+}
+
+/**
+ * Starts a session of this project, always at hand: ▶ takes up the latest conversation again in a
+ * new tmux session (nothing starts while one runs there already), ＋ begins a new conversation.
+ * Both start with the project's account and Remote Control, as in the overview.
+ */
+function StartButtons({ project }: { project: ProjectInfo | null }) {
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (!note) return;
+    const timer = setTimeout(() => setNote(null), 5000);
+    return () => clearTimeout(timer);
+  }, [note]);
+  const start = (fresh: boolean) =>
+    project &&
+    startSession(project.path, fresh)
+      .then((name) => setNote(name ? t("Started in tmux {name}", { name }) : t("A session runs there already")))
+      .catch((e) => setNote(String(e)));
+  return (
+    <>
+      <button type="button" disabled={!project} title={t("Continue the last conversation in a new session (nothing starts while one runs)")} aria-label={t("Continue session")} onClick={() => void start(false)} className={iconButton(false)}>
+        <Play className="size-4" />
+      </button>
+      <button type="button" disabled={!project} title={t("Start a new conversation")} aria-label={t("New session")} onClick={() => void start(true)} className={iconButton(false)}>
+        <Plus className="size-4" />
+      </button>
+      {note && <p className="selectable surface-overlay absolute top-full right-1.5 z-30 mt-1 max-w-[340px] rounded-md px-2.5 py-1.5 text-[12px] text-slate-200">{note}</p>}
+    </>
   );
 }
 
