@@ -150,6 +150,9 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
         .title(crate::title_of(&win))
         .inner_size(1440.0, 900.0)
         .min_inner_size(280.0, 400.0)
+        // The whole screen for the work (user, 2026-11-17): the fixed size left gaps wherever the
+        // window manager put it; un-maximized it comes back at 1440 × 900
+        .maximized(true)
         .background_color(tauri::window::Color(2, 6, 23, 255))
         .build();
     if let Err(e) = built {
