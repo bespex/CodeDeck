@@ -28,6 +28,7 @@ import { AppName, openAs } from "../apps";
 import { useSessionMarks } from "../assistant";
 import { RepoTooltip } from "./RepoTooltip";
 import { PathBar, type OpenProject } from "./ProjectHeader";
+import { GitStatusBar } from "./StatusBar";
 import { inScratch, moveIntoProject, SCRATCH_DRAG } from "../scratch";
 import { plural, T, t } from "../i18n";
 
@@ -66,6 +67,7 @@ interface Props {
   onUnpin: (path: string) => void;
   onOpenProject: OpenProject;
   onToggleLog: () => void;
+  logOpen: boolean;
   assistant: AssistantState;
   /** Open the Git actions of a repository at the given element */
   onRepoActions: (repo: string, at: HTMLElement, above: boolean) => void;
@@ -192,6 +194,7 @@ export function FilesPanel(props: Props) {
           {t("{n} changed recently", { n: recentPaths.length })}
         </footer>
       )}
+      <GitStatusBar git={props.git} onRepoActions={props.onRepoActions} logOpen={props.logOpen} onToggleLog={props.onToggleLog} />
     </aside>
   );
 }

@@ -3,7 +3,6 @@ import { FilesPanel } from "./components/FilesPanel";
 import { GitLog } from "./components/GitLog";
 import { Deck } from "./components/Deck";
 import { SessionsPanel } from "./components/SessionsPanel";
-import { StatusBar } from "./components/StatusBar";
 import { live, onOpenView, openProject, openWindow, projectInfo, toggleOverview, type Entry, type ProjectInfo } from "./backend";
 import { openView, type ViewId } from "./view";
 import { initialPins } from "./mock";
@@ -111,6 +110,7 @@ export default function App() {
           onUnpin={unpin}
           onOpenProject={open}
           onToggleLog={() => setLogOpen((o) => !o)}
+          logOpen={logOpen}
           assistant={assistant}
           onRepoActions={openActions}
           touched={touchedFiles(assistant)}
@@ -131,13 +131,6 @@ export default function App() {
           onToggleLog={() => setLogOpen((o) => !o)}
         />
       </div>
-      <StatusBar
-        git={git}
-        onRepoActions={openActions}
-        logOpen={logOpen}
-        onToggleLog={() => setLogOpen(!logOpen)}
-        assistant={assistant}
-      />
       {logOpen && <GitLog runs={git.runs} onClose={() => setLogOpen(false)} />}
       <Dialogs assistant={assistant} />
       {actions && actionsRepo && (

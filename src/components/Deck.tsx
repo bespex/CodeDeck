@@ -154,7 +154,7 @@ export function Deck({ git, selected, assistant, onResize }: Props) {
           );
         })}
         {/* The question the open view answers */}
-        <span className="mr-2 ml-auto min-w-0 truncate text-[12px] text-slate-400">
+        <span className="mr-2 ml-auto min-w-0 truncate text-[12px] text-slate-400 italic">
           {views.find((v) => v.id === view)?.question(mainHarness(assistant).shortName)}
         </span>
         <button

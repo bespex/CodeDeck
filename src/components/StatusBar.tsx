@@ -9,28 +9,26 @@ import { useProjectAccount, useProjectLook, type ProjectAccount } from "../proje
 import { UsageChip } from "./UsagePanel";
 import { plural, t } from "../i18n";
 
-interface Props {
+interface GitProps {
   git: GitView;
   onRepoActions: (repo: string, at: HTMLElement, above: boolean) => void;
   logOpen: boolean;
   onToggleLog: () => void;
-  assistant: AssistantState;
 }
 
 /**
- * One line, never two: what can be clicked is bright, with an icon and a short word (on the left
- * branch and git, on the right the coding tool); what only informs stays quiet grey and gives way first when the window is
- * narrow. Details are in the tooltips.
+ * The bar at the foot of the file column: the branch and git (user, 2026-11-17: one bar per column
+ * instead of one across the window; the middle has none). One line, never two: what can be clicked
+ * is bright, with an icon and a short word; what only informs stays quiet grey and gives way first
+ * when the column is narrow. Details are in the tooltips.
  */
-export function StatusBar({ git, onRepoActions, logOpen, onToggleLog, assistant }: Props) {
+export function GitStatusBar({ git, onRepoActions, logOpen, onToggleLog }: GitProps) {
   const root = git.rootRepo;
   const inFolders = git.repos.filter((r) => r.path);
   const withChanges = inFolders.filter((r) => r.files.length > 0).length;
-  const look = useProjectLook(root?.path);
-  const mine = useProjectAccount(assistant, look);
 
   return (
-    <footer className="zone-bar @container flex h-7 shrink-0 items-center gap-4 overflow-x-clip border-t border-line bg-panel px-3 text-[12px] whitespace-nowrap text-slate-500">
+    <footer className="zone-bar @container flex h-7 shrink-0 items-center gap-3 overflow-x-clip border-t border-line bg-panel px-3 text-[12px] whitespace-nowrap text-slate-500">
       {root && (
         <Tooltip className="flex shrink-0" content={<RepoTooltip repo={root} runs={git.runs} />}>
           <button
@@ -66,9 +64,19 @@ export function StatusBar({ git, onRepoActions, logOpen, onToggleLog, assistant 
           {withChanges > 0 && <span className="text-changed"> · {t("{n} with changes", { n: withChanges })}</span>}
         </span>
       )}
+    </footer>
+  );
+}
+
+/** The bar at the foot of the right column: the state of the project's AI account, usage first. */
+export function AssistantStatusBar({ assistant }: { assistant: AssistantState }) {
+  const look = useProjectLook(undefined);
+  const mine = useProjectAccount(assistant, look);
+  return (
+    <footer className="zone-bar flex h-7 shrink-0 items-center gap-3 overflow-x-clip border-t border-line bg-panel px-3 text-[12px] whitespace-nowrap text-slate-500">
+      <NotConnected mine={mine} />
       <span className="ml-auto" />
       <UsageChip assistant={assistant} account={mine.account?.dir} />
-      <NotConnected mine={mine} />
     </footer>
   );
 }
@@ -131,7 +139,7 @@ function NotConnected({ mine: { account, harness } }: { mine: ProjectAccount }) 
       className={`${CLICKABLE} text-changed`}
     >
       <Plug className="size-3.5" />
-      {harness.shortName} · {account.name}: {t("not connected")}
+      {account.name}: {t("not connected")}
     </button>
   );
 }
