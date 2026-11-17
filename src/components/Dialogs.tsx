@@ -135,7 +135,7 @@ function useGlobalShortcuts(): GlobalShortcut[] {
 }
 
 const shortcutAction = (s: GlobalShortcut) =>
-  s.action === "showHide" ? t("Show CodeDeck, or hide it when it is in front") : t("Sidebar or full window, from anywhere");
+  s.action === "showHide" ? t("Show CodeDeck, or hide it when it is in front") : t("Overview of all projects, from anywhere");
 
 /** Says when a global shortcut does not work; CodeDeck holds it for all its windows. */
 function ShortcutState({ shortcut }: { shortcut: GlobalShortcut }) {
@@ -162,7 +162,7 @@ function Shortcuts() {
     [`${t("Ctrl")}+,`, t("Settings")],
     ["F1", t("This overview")],
     [t("Ctrl+Shift+G"), t("Git commands CodeDeck ran")],
-    [t("Ctrl+Shift+L"), t("Switch between sidebar and full window")],
+    [t("Ctrl+Shift+L"), t("Show or hide the overview of all projects")],
     [t("Ctrl+click"), t("On a project or folder: open it in a new window. On the trail: compare with the point shown")],
     [t("Middle click"), t("On a file: edit it. On a project: open it in a new window")],
     [t("Ctrl+Enter"), t("Commit, or save a line comment")],
@@ -278,7 +278,7 @@ function General() {
             <div key={s.keys} className="flex flex-col">
               <span className="flex items-center gap-2 whitespace-nowrap">
                 <kbd className="rounded border border-overlay-line bg-base px-1.5 py-0.5 font-mono text-[11px] text-slate-200">{s.keys.replace("Ctrl", t("Ctrl"))}</kbd>
-                <span className="text-slate-300">{s.action === "showHide" ? t("show / hide") : t("sidebar / full")}</span>
+                <span className="text-slate-300">{s.action === "showHide" ? t("show / hide") : t("overview")}</span>
               </span>
               <ShortcutState shortcut={s} />
             </div>

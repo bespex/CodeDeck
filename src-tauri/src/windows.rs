@@ -24,8 +24,6 @@ pub struct Win {
     pub watch: Watch,
     /// The bridge of the project it shows: it belongs to the project, not to the window
     bridge: Mutex<Arc<Bridge>>,
-    /// Where the full window was while it is a sidebar
-    pub place: FullPlace,
     /// What follows the project's name in the title, e.g. "● 2 asking"; set by the window
     pub title_status: Mutex<String>,
     /// Whether a session asks, whether a turn is done: the dot on the window's icon
@@ -141,7 +139,6 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
         current,
         watch,
         bridge: Mutex::new(bridge.clone()),
-        place: FullPlace::default(),
         title_status: Mutex::new(String::new()),
         waiting: Mutex::new((false, false)),
         summary: Mutex::new(serde_json::Value::Null),

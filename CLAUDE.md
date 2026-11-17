@@ -52,7 +52,7 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src/components/SessionsPanel.tsx` | Rechte Spalte: „Needs you“, Sitzungen (zwei Zeilen, „Earlier“, Umbenennen, Entfernen, Hover), „Next prompt“ als Dashboard (Zahlen je Art, Tokens, für wen, Quittung, öffnet den Reiter) |
 | `src/components/SessionBadge.tsx`, `useSessionMarks` in `src/assistant.ts` | Schild einer Sitzung; Farbe/Kurzname/Schreiber je Datei für alle Komponenten |
 | `src/components/HeaderBar.tsx`, `ProjectHeader.tsx` | Kopfleiste der rechten Spalte (`docs/KOPFLEISTE.md`): `ProjectMenu`, Schnelleinstellungen, App-Menü `⋯`, Leisten-Knopf; links nur `PathBar` |
-| `src/compact.ts`, `src-tauri/src/window.rs`, `SidebarSummary.tsx` | Seitenleiste (`docs/SEITENLEISTE.md`): Form umschalten, Ort des vollen Fensters, globale Kürzel im Prozess (zuletzt benutztes Fenster aus dem Fokus) |
+| `src-tauri/src/window.rs`, `SidebarSummary.tsx` | Platzierung am rechten Rand (`set_compact`, für die Übersicht), Verbergen/Zeigen an derselben Stelle, globale Kürzel im Prozess (`Ctrl+Alt+L` Übersicht); `SidebarSummary`: Zusammenfassung oben in der rechten Spalte, meldet sie an die Übersicht. Die Leiste je Projektfenster (`docs/SEITENLEISTE.md`) ist entfallen |
 | `src/components/Dialogs.tsx`, `src/dialogs.ts` | About, Tastenkürzel (`F1`), Einstellungsdialog (`Ctrl+,`); `openDialog` von überall |
 | `src/attention.ts`, `AttentionChoice.tsx`, `src-tauri/src/attention.rs` | „Wartet auf dich“ einmal berechnet; Fenstertitel, Taskleiste, Desktop-Meldung, „Nicht stören“ |
 | `src/components/AssistantStatus.tsx` | KI-Werkzeug in der Statusleiste, `HookPanel` (verbinden); Namen und Angebote aus `mainHarness` |

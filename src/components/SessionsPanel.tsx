@@ -46,25 +46,20 @@ interface Props {
   onOpenProject: OpenProject;
   onToggleLog: () => void;
   git: GitView;
-  /** Shown as the sidebar, the right column alone (docs/SEITENLEISTE.md) */
-  compact: boolean;
 }
 
 /**
  * The right column, in three areas: what waits for you (coloured only while something does),
  * the sessions working in the project, and what goes out with your next prompt. Below the header a
- * short overview of what file list, trail and views show; the same in the full window and as the
- * sidebar.
+ * short summary of what file list, trail and views show; it also feeds the project's row in the
+ * overview of all projects (docs/UEBERSICHT.md).
  */
 export function SessionsPanel(props: Props) {
   return (
     <aside
-      className={`zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_auto_minmax(0,3fr)_minmax(0,2fr)] bg-panel ${
-        props.compact ? "" : "border-l border-line"
-      }`}
+      className="zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_auto_minmax(0,3fr)_minmax(0,2fr)] border-l border-line bg-panel"
     >
-      <HeaderBar project={props.project} onOpenProject={props.onOpenProject} assistant={props.assistant} onToggleLog={props.onToggleLog} compact={props.compact} />
-      {/* In both forms (user, 2026-11-16): the column is the same as full window and as sidebar */}
+      <HeaderBar project={props.project} onOpenProject={props.onOpenProject} assistant={props.assistant} onToggleLog={props.onToggleLog} />
       <SidebarSummary git={props.git} assistant={props.assistant} />
       <NeedsYou state={props.assistant} />
       <Sessions state={props.assistant} onShowFile={props.onShowFile} />

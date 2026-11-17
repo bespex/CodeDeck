@@ -1,6 +1,6 @@
-//! The two forms of the window (docs/SEITENLEISTE.md): the full window and the sidebar, which is
-//! the right column alone. The full window's place and size are kept while the sidebar is shown,
-//! so that it comes back as it was.
+//! Window placement and the global shortcuts. `set_compact` puts a window as a narrow column at the
+//! right edge of its monitor: the overview of all projects (docs/UEBERSICHT.md) opens there. It was
+//! the sidebar form of each project window (docs/SEITENLEISTE.md), replaced by the overview.
 
 use crate::Locked;
 use std::sync::Mutex;
@@ -36,11 +36,6 @@ pub struct FullPlace {
     last: Mutex<String>,
 }
 
-impl FullPlace {
-    pub fn last(&self) -> String {
-        self.last.locked().clone()
-    }
-}
 
 /// Ends maximized or fullscreen; waits only for the state, not for the restored geometry, so that
 /// the window is moved on while it shows at its old place as briefly as possible.
@@ -204,8 +199,6 @@ pub enum Request {
     Hide,
     /// Show and take the focus
     Front,
-    /// To the front, then switch between sidebar and full window
-    ToggleCompact,
 }
 
 /// Where the global shortcuts stand, for the settings.
@@ -303,7 +296,7 @@ pub fn obey(window: &WebviewWindow, request: Request) {
     match request {
         Request::Hide => hide(window),
         Request::Show => show(window),
-        Request::Front | Request::ToggleCompact => {
+        Request::Front => {
             show(window);
             let _ = window.set_focus();
             // Asked by the window itself, Cinnamon refuses the focus and only marks it in the
@@ -313,9 +306,6 @@ pub fn obey(window: &WebviewWindow, request: Request) {
                 std::thread::sleep(Duration::from_millis(50));
                 activate_as_pager(&title);
             });
-            if request == Request::ToggleCompact {
-                let _ = window.emit_to(window.label(), "window_request", "toggleCompact");
-            }
         }
     }
 }

@@ -202,7 +202,6 @@ fn diagnostics(window: WebviewWindow, shortcuts: State<window::Shortcuts>, all: 
     }
     let keys: Vec<String> = shortcuts.get().keys.iter().map(|k| format!("{} {}", k.keys, k.state)).collect();
     let _ = writeln!(out, "Global shortcuts: {}", if keys.is_empty() { "not registered yet".into() } else { keys.join(", ") });
-    let _ = writeln!(out, "Last switch of the form: {}", { let l = win.place.last(); if l.is_empty() { "none".to_string() } else { l } });
     let _ = writeln!(out, "Attention: {}", serde_json::to_string(&attention::load()).unwrap_or_default());
     if let Some(file) = journal::file_for(&root) {
         let _ = writeln!(out, "Journal: {}", file.display());
@@ -255,14 +254,6 @@ fn open_outside(path: String, role: Option<Role>, app: AppHandle, window: Webvie
 fn forget_found(key: String, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
     windows::of(&window)?.bridge().forget_found(&app, &key);
     Ok(())
-}
-
-/// Sidebar or full window; the width the window had before.
-/// Async, so it runs off the main thread: it waits for the desktop to restore a maximized window.
-#[tauri::command]
-async fn set_compact(on: bool, width: f64, window: tauri::WebviewWindow) -> Result<f64, String> {
-    let win = windows::of(&window)?;
-    window::set_compact(&window, &win.place, on, width).map_err(|e| e.to_string())
 }
 
 /// Where the global shortcuts stand: held by CodeDeck or by another program.
@@ -896,7 +887,6 @@ pub fn run() {
             notify_attention,
             app_info,
             open_url,
-            set_compact,
             global_shortcuts,
             fetch_outside,
             forget_found,

@@ -855,4 +855,8 @@ export const de: Record<string, string> = {
   "The first letter of the project's name. New projects start like this, each in a colour of its own.": "Der erste Buchstabe des Projektnamens. So beginnt jedes neue Projekt, jedes in einer eigenen Farbe.",
   "Colour": "Farbe",
   "Use": "Übernehmen",
+  "Overview of all projects, from anywhere": "Übersicht aller Projekte, von überall",
+  "Show or hide the overview of all projects": "Übersicht aller Projekte zeigen oder verbergen",
+  "overview": "Übersicht",
+  "Overview of all projects · Ctrl+Shift+L, from anywhere Ctrl+Alt+L": "Übersicht aller Projekte · Strg+Umschalt+L, von überall Strg+Alt+L",
 };

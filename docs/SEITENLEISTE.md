@@ -1,5 +1,9 @@
 # Kurzkonzept: CodeDeck als Seitenleiste
 
+> **Ersetzt 2026-11-17 durch `docs/UEBERSICHT.md`:** Statt einer Leiste je Projektfenster gibt es eine Übersicht für
+> alle Projekte (`Ctrl+Alt+L`). Die Leistenform der Projektfenster ist entfernt (Schritt 3.0b (e)); was hier zur
+> Platzierung am Rand und zu den Kürzeln steht, gilt für die Übersicht weiter.
+
 Stand 2026-11-16, Idee des Nutzers, Entscheidungen vom selben Tag eingearbeitet. Alle drei Schritte sind gebaut:
 C als 2.1a, A als Kopfleiste 2.1b (`docs/KOPFLEISTE.md`), B als 2.1c. Was davon abweicht, steht unter „Gebaut“ am Ende.
 

@@ -4,7 +4,7 @@ import { GitLog } from "./components/GitLog";
 import { Deck } from "./components/Deck";
 import { SessionsPanel } from "./components/SessionsPanel";
 import { StatusBar } from "./components/StatusBar";
-import { live, onOpenView, onWindowRequest, openProject, openWindow, projectInfo, type Entry, type ProjectInfo } from "./backend";
+import { live, onOpenView, openProject, openWindow, projectInfo, toggleOverview, type Entry, type ProjectInfo } from "./backend";
 import { openView, type ViewId } from "./view";
 import { initialPins } from "./mock";
 import { files, pinFromEntry } from "./files";
@@ -17,7 +17,6 @@ import { setNewsProject } from "./news";
 import { Dialogs } from "./components/Dialogs";
 import { openDialog } from "./dialogs";
 import { projectSwitched } from "./windowIcon";
-import { setCompact, toggleCompact, useCompact, useSwitching } from "./compact";
 import { useLayout } from "./layout";
 import { Splitter } from "./components/Splitter";
 
@@ -42,12 +41,10 @@ export default function App() {
   // Git actions of one repository, hanging at the element that opened them
   const [actions, setActions] = useState<{ repo: string; anchor: Anchor } | null>(null);
   const [logOpen, setLogOpen] = useState(false);
-  const compact = useCompact();
   // Widths of file list and right column, as the user left them in this project
   const layout = useLayout(project?.path);
-  const switching = useSwitching();
-  // Ctrl+Shift+G shows and hides the git commands from anywhere, Ctrl+Shift+L switches between
-  // sidebar and full window (the global shortcut for it comes from the backend)
+  // Ctrl+Shift+G shows and hides the git commands from anywhere, Ctrl+Shift+L the overview of all
+  // projects (docs/UEBERSICHT.md; it replaced the sidebar of each window)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "g") {
@@ -55,11 +52,10 @@ export default function App() {
         setLogOpen((o) => !o);
       } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "l") {
         e.preventDefault();
-        void toggleCompact();
+        void toggleOverview();
       }
     };
     window.addEventListener("keydown", onKey);
-    const stop = onWindowRequest((request) => request === "toggleCompact" && void toggleCompact());
     // The overview of all projects opens a view here (docs/UEBERSICHT.md)
     // Its dialogs too: they need more room than the overview has
     const stopView = onOpenView((view) => {
@@ -69,7 +65,6 @@ export default function App() {
     });
     return () => {
       window.removeEventListener("keydown", onKey);
-      stop();
       stopView();
     };
   }, []);
@@ -99,23 +94,12 @@ export default function App() {
   };
 
   const unpin = (id: string) => files.remove([id]);
-  // A file is shown in the file list and the deck: from the sidebar the full window comes back
-  const showFile = (path: string) => {
-    void setCompact(false);
-    setSelected(path);
-  };
+  const showFile = (path: string) => setSelected(path);
 
   return (
     <SessionMarksContext.Provider value={marks}>
-    {/* Between the forms the content waits faded out and fades in when the window has its new size */}
-    <div className={`flex h-full flex-col transition-opacity ${switching ? "opacity-0 duration-0" : "opacity-100 duration-150"}`}>
-      <div
-        data-columns
-        className="grid min-h-0 flex-1"
-        style={{ gridTemplateColumns: compact ? "minmax(0,1fr)" : layout.columns }}
-      >
-        {/* In the sidebar file list and deck are only hidden: what is open in them stays */}
-        <div className={compact ? "hidden" : "contents"}>
+    <div className="flex h-full flex-col">
+      <div data-columns className="grid min-h-0 flex-1" style={{ gridTemplateColumns: layout.columns }}>
         <FilesPanel
           key={`files:${project?.path}`}
           project={project}
@@ -132,7 +116,6 @@ export default function App() {
         <Splitter side="files" onResize={layout.resize} />
         <Deck key={`deck:${project?.path}`} git={git} selected={selected} assistant={assistant} onResize={layout.resize} />
         <Splitter side="right" onResize={layout.resize} />
-        </div>
         <SessionsPanel
           assistant={assistant}
           pins={pins}
@@ -141,7 +124,6 @@ export default function App() {
           onClear={files.clear}
           onShowFile={showFile}
           git={git}
-          compact={compact}
           project={project}
           onOpenProject={open}
           onToggleLog={() => setLogOpen((o) => !o)}

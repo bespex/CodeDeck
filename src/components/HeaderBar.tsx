@@ -9,8 +9,6 @@ import {
   Info,
   Keyboard,
   LayoutList,
-  Maximize2,
-  PanelRight,
   Settings,
   SlidersHorizontal,
   Plug,
@@ -22,7 +20,6 @@ import { appInfo, diagnostics, openUrl, openWindow, toggleOverview, type Assista
 import { mainHarness, useConnections } from "../assistant";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
-import { isCompact, toggleCompact } from "../compact";
 import { lang, setLang, t } from "../i18n";
 import { AttentionChoice, isQuiet, QuietChoice } from "./AttentionChoice";
 import { HookPanel } from "./AssistantStatus";
@@ -34,7 +31,6 @@ interface Props {
   onOpenProject: OpenProject;
   assistant: AssistantState;
   onToggleLog: () => void;
-  compact: boolean;
 }
 
 /**
@@ -64,23 +60,13 @@ export function HeaderBar(props: Props) {
       <AppMenu project={props.project} onToggleLog={props.onToggleLog} assistant={props.assistant} />
       <button
         type="button"
-        title={t("Overview of all projects · Ctrl+Alt+L")}
+        title={t("Overview of all projects · Ctrl+Shift+L, from anywhere Ctrl+Alt+L")}
         aria-label={t("Overview of all projects")}
         aria-keyshortcuts="Control+Alt+L"
         onClick={() => void toggleOverview()}
         className={iconButton(false)}
       >
         <LayoutList className="size-4" />
-      </button>
-      <button
-        type="button"
-        title={props.compact ? t("Full window · Ctrl+Shift+L") : t("Sidebar · Ctrl+Shift+L")}
-        aria-label={props.compact ? t("Full window") : t("Sidebar")}
-        aria-keyshortcuts="Control+Shift+L"
-        onClick={() => void toggleCompact()}
-        className={iconButton(false)}
-      >
-        {props.compact ? <Maximize2 className="size-4" /> : <PanelRight className="size-4" />}
       </button>
     </header>
     </Tooltip>
@@ -226,7 +212,7 @@ function AppMenu({ project, onToggleLog, assistant }: { project: ProjectInfo | n
   const copyDiagnostics = async () => {
     const count = (status: string) => assistant.sessions.filter((s) => s.status === status).length;
     const sessions = `Sessions: ${assistant.sessions.length} (working ${count("working")}, waiting ${count("waiting")}, idle ${count("idle")}, ended ${count("ended")}), heard: ${assistant.heard}`;
-    const window = `Window: ${isCompact() ? "sidebar" : "full"}, ${innerWidth}×${innerHeight}, language ${lang}, focused ${document.hasFocus()}`;
+    const window = `Window: ${innerWidth}×${innerHeight}, language ${lang}, focused ${document.hasFocus()}`;
     const found = `Found: ${assistant.found.outside.length} left elsewhere, ${assistant.found.pages.length} pages; attachments: ${assistant.attachments.length}`;
     await navigator.clipboard.writeText([(await diagnostics()).trimEnd(), sessions, window, found, `Web view: ${navigator.userAgent}`].join("\n"));
     setCopied(true);

@@ -1365,26 +1365,6 @@ export function openUrl(url: string): Promise<void> {
   return Promise.resolve();
 }
 
-/**
- * Makes the window a sidebar of the given width, or the full window again (`on` false); the width
- * the window had before. The preview has no window to resize: it only lays out the other form.
- */
-export function setWindowCompact(on: boolean, width: number): Promise<number> {
-  if (live) return invoke("set_compact", { on, width });
-  return Promise.resolve(window.innerWidth);
-}
-
-/** What a global shortcut asks of this window (docs/SEITENLEISTE.md, "Tastenkürzel"). */
-export type WindowRequest = "toggleCompact";
-
-/** Calls back when a global shortcut asks something of this window. */
-export function onWindowRequest(callback: (request: WindowRequest) => void): () => void {
-  if (live) {
-    const unlisten = listen<WindowRequest>("window_request", (e) => callback(e.payload));
-    return () => void unlisten.then((stop) => stop());
-  }
-  return () => {};
-}
 
 // ── The overview of all projects (docs/UEBERSICHT.md) ─────────────────────────
 
