@@ -2,10 +2,10 @@
 // colour and a dot for what waits. Drawn here because only the web view can draw emoji and SVG;
 // the backend sets the pixels (`set_window_icon`).
 
-import { live, myProject, onProjectChanged, setWindowIconPixels, type ProjectMarkSpec } from "./backend";
+import { live, myProject, onProjectChanged, setWindowIconPixels, type ProjectLook } from "./backend";
 import { drawWindowIcon, markOf } from "./marks";
 
-let look: { path: string; name: string; color: string; mark: ProjectMarkSpec | null } | null = null;
+let look: ProjectLook | null = null;
 let waits: "asks" | "done" | null = null;
 let drawing = Promise.resolve();
 

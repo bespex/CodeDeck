@@ -666,18 +666,23 @@ struct ProjectLook {
     name: String,
     color: String,
     mark: serde_json::Value,
+    /// The AI configuration its sessions run with, if the user chose one
+    account: Option<String>,
 }
 
 #[tauri::command]
 fn my_project(window: WebviewWindow) -> Result<ProjectLook, String> {
     let root = project_of(&window)?.root.clone();
     let [r, g, b] = icon::project_color(&root);
-    let mark = projects::list().into_iter().find(|p| p.path == root).and_then(|p| p.mark).unwrap_or(serde_json::Value::Null);
+    let listed = projects::list().into_iter().find(|p| p.path == root);
+    let account = listed.as_ref().and_then(|p| p.account.clone());
+    let mark = listed.and_then(|p| p.mark).unwrap_or(serde_json::Value::Null);
     Ok(ProjectLook {
         path: root.display().to_string(),
         name: root.file_name().map_or_else(|| "/".into(), |n| n.to_string_lossy().into_owned()),
         color: format!("#{r:02x}{g:02x}{b:02x}"),
         mark,
+        account,
     })
 }
 

@@ -11,20 +11,19 @@ import {
   LayoutList,
   Settings,
   SlidersHorizontal,
-  Plug,
   Sparkles,
   SquareTerminal,
   Stethoscope,
 } from "lucide-react";
 import { appInfo, diagnostics, openUrl, openWindow, toggleOverview, type AssistantState, type ProjectInfo } from "../backend";
-import { mainHarness, useConnections } from "../assistant";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
 import { lang, setLang, t } from "../i18n";
 import { AttentionChoice, isQuiet, QuietChoice } from "./AttentionChoice";
-import { HookPanel } from "./AssistantStatus";
 import { SOURCE_URL } from "./Dialogs";
-import { ProjectMenu, usePopover, type OpenProject } from "./ProjectHeader";
+import { usePopover, type OpenProject } from "./ProjectHeader";
+import { useProjectAccount, useProjectLook } from "../projectLook";
+import { AccountMark } from "./ProjectMark";
 
 interface Props {
   project: ProjectInfo | null;
@@ -47,15 +46,14 @@ export function HeaderBar(props: Props) {
       className="block shrink-0"
       content={
         <ToolTipBody
-          says={t("The control room beside your AI tool. At the top you see the open project, your AI tool and the settings. Below: the sessions that wait for you, all sessions of the project with what they are doing, and a summary of what goes with your next prompt.")}
-          hint={t("The buttons at the top switch the project, connect your AI tool and change settings.")}
+          says={t("The control room beside your AI tool. At the top you see the AI account of this project and the settings. Below: the sessions that wait for you, all sessions of the project with what they are doing, and a summary of what goes with your next prompt.")}
+          hint={t("The buttons at the top change settings and switch to the overview.")}
         />
       }
     >
     <header className="zone-tabs relative flex h-[44px] shrink-0 items-center gap-1 border-b border-line bg-panel pr-1.5 pl-1.5">
-      <ProjectMenu project={props.project} onOpen={props.onOpenProject} />
+      <AccountBlock project={props.project} assistant={props.assistant} />
       <span className="flex-1" />
-      <AssistantMenu assistant={props.assistant} />
       <QuickSettings />
       <AppMenu project={props.project} onToggleLog={props.onToggleLog} assistant={props.assistant} />
       <button
@@ -172,35 +170,26 @@ function QuickSettings() {
 }
 
 /**
- * Connecting the AI tool has a button of its own: nothing reaches CodeDeck until it is done, so
- * it is not a setting among others. A dot tells that it is not connected yet.
+ * The AI account of this project, large: its hexagon, its name, and below it the tool and the model
+ * the newest session answered with. A click opens where accounts are set up (Settings, AI tools).
  */
-function AssistantMenu({ assistant }: { assistant: AssistantState }) {
-  const menu = usePopover<HTMLDivElement>();
-  const hooks = useConnections();
-  const harness = mainHarness(assistant);
-  const unlinked = hooks.setups !== null && !hooks.connected;
+function AccountBlock({ project, assistant }: { project: ProjectInfo | null; assistant: AssistantState }) {
+  const look = useProjectLook(project?.path);
+  const { account, harness, model } = useProjectAccount(assistant, look);
+  const second = [harness.name, model].filter(Boolean).join(" · ");
   return (
-    <div ref={menu.ref}>
-      <button
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={menu.open}
-        title={`${harness.name}: ${hooks.connected ? t("connected") : t("not connected")}`}
-        onClick={() => menu.setOpen(!menu.open)}
-        className={`${iconButton(menu.open)} ${hooks.connected ? "" : "text-changed"}`}
-      >
-        {hooks.connected ? <Sparkles className="size-4" /> : <Plug className="size-4" />}
-        {unlinked && <span className="absolute top-1 right-1 size-1.5 rounded-full bg-changed" />}
-      </button>
-      {menu.open && (
-        <Panel width="w-[380px]">
-          <div className="max-h-[60vh] overflow-y-auto p-3 pt-0 text-[12px] text-slate-300">
-            <HookPanel hooks={hooks} harness={harness} heard={assistant.heard} />
-          </div>
-        </Panel>
-      )}
-    </div>
+    <button
+      type="button"
+      title={account ? `${account.name} · ${account.dir}` : t("No AI account known for this project yet")}
+      onClick={() => openDialog({ kind: "settings", section: "tools" })}
+      className="flex min-w-0 items-center gap-2.5 rounded-md px-1.5 py-1 text-left hover:bg-raised"
+    >
+      {account ? <AccountMark account={account} size={28} /> : <Sparkles className="size-6 text-slate-500" />}
+      <span className="flex min-w-0 flex-col leading-tight">
+        <span className="truncate text-[14px] font-semibold text-slate-100">{account?.name ?? harness.name}</span>
+        <span className="truncate text-[11px] text-slate-500">{account ? second : t("no account chosen")}</span>
+      </span>
+    </button>
   );
 }
 

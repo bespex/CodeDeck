@@ -1425,9 +1425,18 @@ export function setProject(path: string, field: "daily" | "account" | "mark", va
 }
 
 /** How this window's project looks: name, colour, mark. */
-export function myProject(): Promise<{ path: string; name: string; color: string; mark: ProjectMarkSpec | null } | null> {
+export interface ProjectLook {
+  path: string;
+  name: string;
+  color: string;
+  mark: ProjectMarkSpec | null;
+  /** The configuration folder of the AI account its sessions run with, if one was chosen */
+  account: string | null;
+}
+
+export function myProject(): Promise<ProjectLook | null> {
   if (live) return invoke("my_project");
-  return Promise.resolve(null);
+  return Promise.resolve({ path: "/home/me/projects/orbit-api", name: "orbit-api", color: "#7f95ff", mark: { kind: "icon", value: "satellite" }, account: "/home/me/.claude" });
 }
 
 /** Sets the window's icon to these RGBA pixels (`size` × `size`). */

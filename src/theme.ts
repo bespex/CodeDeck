@@ -47,11 +47,6 @@ function put(theme: Theme, keep: boolean) {
   if (keep) localStorage.setItem(CACHE, JSON.stringify({ vars, classes }));
 }
 
-/** Shows a theme without choosing it (the pointer is on it in a list); `null` goes back to the chosen one. */
-export function previewTheme(id: string | null) {
-  put(byId(id ?? chosen), false);
-}
-
 /** Chooses a theme for this machine, in every window. */
 export function setTheme(id: string) {
   chosen = byId(id).id;

@@ -1,73 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { Plug, Sparkles } from "lucide-react";
-import { live, setHarnessConnection, type AssistantState, type Connection, type HarnessInfo } from "../backend";
-import { mainHarness, useConnections, type Connections } from "../assistant";
-import { plural } from "../git";
+import { useState } from "react";
+import { live, setHarnessConnection, type Connection, type HarnessInfo } from "../backend";
+import type { Connections } from "../assistant";
 import { T, t } from "../i18n";
-import { CLICKABLE } from "./StatusBar";
-
-/**
- * The coding tool in the status bar: how many sessions work in the project and whether one waits
- * (the sessions themselves are in the right column); a click sets up the connection through which
- * CodeDeck hears of them.
- */
-export function AssistantStatus({ state }: { state: AssistantState }) {
-  const [open, setOpen] = useState(false);
-  const hooks = useConnections();
-  const harness = mainHarness(state);
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
-    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", key);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", key);
-    };
-  }, [open]);
-
-  const active = state.sessions.filter((s) => s.status !== "ended");
-  const working = active.filter((s) => s.status === "working").length;
-  const waiting = active.filter((s) => s.status === "waiting").length;
-  // The counts after the name: shown when the bar has room, always in the tooltip
-  const counts = !hooks.connected
-    ? t("not connected")
-    : active.length === 0
-      ? t("no session")
-      : [
-          plural(active.length, "session"),
-          working > 0 && t(working === 1 ? "1 working" : "{n} working", { n: working }),
-          waiting > 0 && t(waiting === 1 ? "1 waiting" : "{n} waiting", { n: waiting }),
-        ]
-          .filter(Boolean)
-          .join(" · ");
-
-  return (
-    <div ref={box} className="relative">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-        title={`${harness.name}: ${counts}`}
-        className={`${CLICKABLE} ${
-          open ? "bg-raised text-slate-50" : !hooks.connected ? "text-changed" : waiting ? "text-changed" : working ? "text-ai" : "text-slate-200"
-        }`}
-      >
-        {hooks.connected ? <Sparkles className="size-3.5" /> : <Plug className="size-3.5" />}
-        {harness.shortName}
-        {/* Not connected is said always: nothing reaches the tool until it is */}
-        <span className={`font-normal ${hooks.connected ? "text-slate-500 @max-4xl:hidden" : ""}`}>{counts}</span>
-      </button>
-      {open && (
-        <div className="surface-overlay absolute right-0 bottom-6 z-30 flex max-h-[60vh] w-[420px] flex-col overflow-y-auto rounded-lg p-3 pt-0 text-[12px] text-slate-300">
-          <HookPanel hooks={hooks} harness={harness} heard={state.heard} />
-        </div>
-      )}
-    </div>
-  );
-}
 
 /**
  * Connecting per account of the tool: several are common (each with a configuration of its

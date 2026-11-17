@@ -159,7 +159,6 @@ function Shortcuts() {
       </>,
     ]),
     [t("Ctrl+O"), t("Open a folder as project")],
-    [t("Ctrl+Shift+O"), t("Open a folder in a new window")],
     [`${t("Ctrl")}+,`, t("Settings")],
     ["F1", t("This overview")],
     [t("Ctrl+Shift+G"), t("Git commands CodeDeck ran")],

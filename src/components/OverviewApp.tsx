@@ -68,7 +68,7 @@ function RowIcon({ title, onClick, tone = "text-slate-400", children }: { title:
         onClick();
       }}
       onDoubleClick={(e) => e.stopPropagation()}
-      className={`flex size-5 items-center justify-center rounded hover:bg-overlay-hover hover:text-slate-100 ${tone}`}
+      className={`flex size-6 items-center justify-center rounded hover:bg-overlay-hover hover:text-slate-100 ${tone}`}
     >
       {children}
     </button>
@@ -214,10 +214,10 @@ function ProjectRow({ project }: { project: OverviewProject }) {
         >
           <ProjectMark project={project} />
         </button>
-        <span className={`min-w-0 truncate ${label ? "font-semibold text-slate-100" : "text-slate-400"}`}>{project.name}</span>
+        <span className={`min-w-0 truncate text-[14px] ${label ? "font-semibold text-slate-100" : "text-slate-400"}`}>{project.name}</span>
         {project.account && (
           <span title={`${t("AI configuration")}: ${look(project.account).name}`} className="flex shrink-0">
-            <AccountMark account={look(project.account)} size={13} />
+            <AccountMark account={look(project.account)} size={16} />
           </span>
         )}
         {/* Right after the name, so the status icons on the right never move */}
@@ -230,7 +230,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
                 .catch((e) => tell(String(e)))
             }
           >
-            <Play className="size-3.5" />
+            <Play className="size-4" />
           </RowIcon>
           <RowIcon
             title={t("New session")}
@@ -240,27 +240,27 @@ function ProjectRow({ project }: { project: OverviewProject }) {
                 .catch((e) => tell(String(e)))
             }
           >
-            <Plus className="size-3.5" />
+            <Plus className="size-4" />
           </RowIcon>
           <RowIcon title={t("More (also right click)")} onClick={() => setMenu((m) => !m)}>
-            <Ellipsis className="size-3.5" />
+            <Ellipsis className="size-4" />
           </RowIcon>
         </span>
         <span className="flex-1" />
         {/* What changed there: always in sight, the details in the tooltip */}
         {label && (summary.gitFailed || !!summary.uncommitted) && (
           <RowIcon title={`${t("Git")}: ${summary.git ?? "…"}`} tone={summary.gitFailed ? "text-problem" : "text-changed"} onClick={() => void focusProject(label, "changes")}>
-            <GitBranch className="size-3.5" />
+            <GitBranch className="size-4" />
           </RowIcon>
         )}
         {label && !!summary.next && (
           <RowIcon title={t("Next prompt: {n} attached", { n: summary.next })} tone="text-ai" onClick={() => void focusProject(label, "next")}>
-            <Paperclip className="size-3.5" />
+            <Paperclip className="size-4" />
           </RowIcon>
         )}
         {label && !!summary.news && (
           <RowIcon title={t("Workbench: {n} new", { n: summary.news })} tone="text-ai" onClick={() => void focusProject(label, "workbench")}>
-            <Inbox className="size-3.5" />
+            <Inbox className="size-4" />
           </RowIcon>
         )}
         {dot && <span className={`size-2 shrink-0 rounded-full ${dot}`} />}
@@ -348,7 +348,7 @@ function Waiting({ projects }: { projects: OverviewProject[] }) {
   if (!waiting.length) return null;
   return (
     <section aria-label={t("Needs you")}>
-      <h2 className="px-3 pt-3 pb-1 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{t("Needs you")}</h2>
+      <h2 className="px-3 pt-3 pb-1 text-[12px] font-semibold tracking-wider text-slate-400 uppercase">{t("Needs you")}</h2>
       <ul className="flex flex-col gap-1.5 px-2">
         {waiting.map(({ project, session: s }) => {
           const asks = needsYou(s) === "asks";
@@ -485,7 +485,7 @@ export default function OverviewApp() {
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto pb-3">
         <Waiting projects={projects} />
-        <h2 className="px-3 pt-5 pb-2 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{t("Projects")}</h2>
+        <h2 className="px-3 pt-5 pb-2 text-[12px] font-semibold tracking-wider text-slate-400 uppercase">{t("Projects")}</h2>
         {projects.length ? (
           <ul>
             {projects.map((p) => (

@@ -1,10 +1,11 @@
-import { Eye, GitBranch, GitFork, SquareTerminal } from "lucide-react";
+import { GitBranch, GitFork, Plug, SquareTerminal } from "lucide-react";
 import { aheadBehind, changeSummary, type GitView } from "../git";
 import { Tooltip, TooltipHint } from "./Tooltip";
 import { RepoTooltip } from "./RepoTooltip";
 import { GitInitButton, lacksGit } from "./GitInit";
 import type { AssistantState, GitRun } from "../backend";
-import { AssistantStatus } from "./AssistantStatus";
+import { openDialog } from "../dialogs";
+import { useProjectAccount, useProjectLook } from "../projectLook";
 import { UsageChip } from "./UsagePanel";
 import { plural, t } from "../i18n";
 
@@ -64,12 +65,8 @@ export function StatusBar({ git, onRepoActions, logOpen, onToggleLog, assistant 
         </span>
       )}
       <span className="ml-auto" />
-      <span className="flex shrink-0 items-center gap-1" title={t("Watching open folders")}>
-        <Eye className="size-3.5" />
-        <span className="@max-5xl:hidden">{t("Watching open folders")}</span>
-      </span>
       <UsageChip assistant={assistant} />
-      <AssistantStatus state={assistant} />
+      <NotConnected assistant={assistant} projectPath={git.rootRepo?.path} />
     </footer>
   );
 }
@@ -115,5 +112,26 @@ function GitCommands({ runs, open, onToggle }: { runs: GitRun[]; open: boolean; 
         git
       </button>
     </Tooltip>
+  );
+}
+
+/**
+ * Only when it matters: the AI account of this project does not report to CodeDeck, so nothing of
+ * its sessions arrives. Connected, the bar says nothing; the sessions are in the column beside.
+ */
+function NotConnected({ assistant, projectPath }: { assistant: AssistantState; projectPath: string | undefined }) {
+  const look = useProjectLook(projectPath);
+  const { account, harness } = useProjectAccount(assistant, look);
+  if (!account || account.connected) return null;
+  return (
+    <button
+      type="button"
+      title={t("{tool} does not report to CodeDeck in {account}: connect it in the settings", { tool: harness.name, account: account.name })}
+      onClick={() => openDialog({ kind: "settings", section: "tools" })}
+      className={`${CLICKABLE} text-changed`}
+    >
+      <Plug className="size-3.5" />
+      {harness.shortName} · {account.name}: {t("not connected")}
+    </button>
   );
 }
