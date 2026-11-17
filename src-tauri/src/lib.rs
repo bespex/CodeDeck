@@ -666,7 +666,7 @@ async fn show_project(path: String, app: AppHandle) -> Result<(), String> {
 fn toggle_project_window(label: String, app: AppHandle) -> Result<(), String> {
     let window = app.get_webview_window(&label).ok_or_else(|| format!("{label}: no such window"))?;
     if window.is_visible().unwrap_or(false) {
-        window.hide().map_err(|e| e.to_string())?;
+        window::obey(&window, window::Request::Hide);
     } else {
         window::obey(&window, window::Request::Front);
     }

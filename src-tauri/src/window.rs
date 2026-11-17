@@ -267,19 +267,44 @@ fn last_used(app: &AppHandle) -> Option<WebviewWindow> {
     last.and_then(|l| app.get_webview_window(&l)).or_else(|| app.webview_windows().into_values().next())
 }
 
+/// Where each window was when it was hidden. Shown again, X11 window managers sometimes place a
+/// window somewhere else (seen: about 50 pixels to the right, the frame's width); it goes back here.
+static HIDDEN_AT: std::sync::LazyLock<Mutex<std::collections::HashMap<String, PhysicalPosition<i32>>>> =
+    std::sync::LazyLock::new(|| Mutex::new(std::collections::HashMap::new()));
+
+fn hide(window: &WebviewWindow) {
+    if let Ok(at) = window.outer_position() {
+        HIDDEN_AT.locked().insert(window.label().to_string(), at);
+    }
+    let _ = window.hide();
+}
+
+/// Shows a window, at the place it had when it was hidden.
+fn show(window: &WebviewWindow) {
+    let was_hidden = !window.is_visible().unwrap_or(true);
+    let _ = window.show();
+    let _ = window.unminimize();
+    let at = HIDDEN_AT.locked().remove(window.label());
+    if let (true, Some(at)) = (was_hidden, at) {
+        let _ = window.set_position(at);
+        // The window manager may place it once more right after mapping it: set it again then
+        let window = window.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(80));
+            if window.outer_position().is_ok_and(|now| now != at) {
+                let _ = window.set_position(at);
+            }
+        });
+    }
+}
+
 /// Does what a shortcut asks of one window.
 pub fn obey(window: &WebviewWindow, request: Request) {
     match request {
-        Request::Hide => {
-            let _ = window.hide();
-        }
-        Request::Show => {
-            let _ = window.show();
-            let _ = window.unminimize();
-        }
+        Request::Hide => hide(window),
+        Request::Show => show(window),
         Request::Front | Request::ToggleCompact => {
-            let _ = window.show();
-            let _ = window.unminimize();
+            show(window);
             let _ = window.set_focus();
             // Asked by the window itself, Cinnamon refuses the focus and only marks it in the
             // taskbar; asked as a pager (what a taskbar does on a click), it grants it
