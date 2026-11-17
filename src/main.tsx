@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { lang, onLang } from "./i18n";
 import "./index.css";
+import "./theme";
 
 // The window with the focus is fully in colour; the others step back (see `.inactive` in index.css)
 const focused = () => document.documentElement.classList.toggle("inactive", !document.hasFocus());

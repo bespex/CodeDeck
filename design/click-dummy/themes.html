@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CodeDeck: themes lab, click dummy</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: #101214; font: 13px/1.4 system-ui, "Noto Sans", sans-serif; }
+  button, textarea, select { font: inherit; color: inherit; }
+  button { background: none; border: 0; cursor: pointer; padding: 0; }
+  code, .mono { font-family: ui-monospace, "JetBrains Mono", monospace; font-size: 12px; }
+  /* ---------- Not part of the product: the lab around it ---------- */
+  .lab { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 14px; background: #f0efe9; color: #2a2a2a; }
+  .lab b { font-size: 12px; }
+  .lab .grp { display: flex; align-items: center; gap: 4px; }
+  .lab button { height: 24px; padding: 0 9px; border-radius: 12px; border: 1px solid #b9b7ad; background: #fff; font-size: 12px; }
+  .lab button.on { background: #2a2a2a; color: #fff; border-color: #2a2a2a; }
+  .note { flex-shrink: 0; padding: 6px 14px; background: #fbf3e0; color: #5a4a1f; font-size: 12px; border-bottom: 1px solid #e3d6ae; }
+  .stage { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 12px; }
+  /* A desktop wallpaper behind the window, to see what a translucent window lets through */
+  .stage.desk { background: radial-gradient(40% 50% at 20% 30%, #ffd166, transparent 70%), radial-gradient(45% 55% at 70% 70%, #06d6a0, transparent 70%), radial-gradient(35% 40% at 55% 15%, #ef476f, transparent 70%), linear-gradient(135deg, #f8f9fa, #118ab2); }
+  .bench { width: 380px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; background: #f7f6f1; color: #2a2a2a; border-radius: 8px; padding: 10px; overflow: auto; }
+  .bench h4 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #6a685e; }
+  .bench textarea { flex-shrink: 0; width: 100%; height: 290px; resize: vertical; border: 1px solid #c9c7bc; border-radius: 6px; padding: 8px; font: 11.5px/1.45 ui-monospace, monospace; background: #fff; color: #222; }
+  .bench textarea.bad { border-color: #d0453a; }
+  .rep { flex-shrink: 0; width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  .rep td { padding: 2px 4px; border-bottom: 1px solid #e6e4da; vertical-align: middle; }
+  .rep .sw { width: 26px; height: 16px; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+  .ok { color: #2f7d32; font-weight: 600; } .no { color: #c0392b; font-weight: 600; }
+  .derived { display: flex; flex-wrap: wrap; gap: 3px; }
+  .derived span { width: 22px; height: 22px; border-radius: 4px; border: 1px solid #0002; }
+
+  /* ---------- The product: a small CodeDeck drawn only from the theme's variables ---------- */
+  .cd { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 8px; background: color-mix(in srgb, var(--base) var(--winA), transparent); color: var(--n300); font-family: var(--font); color-scheme: var(--scheme); position: relative; box-shadow: 0 0 0 1px var(--edge); }
+  .cd * { transition: background-color .15s, color .15s, border-color .15s; }
+  .cd .top { display: flex; align-items: center; gap: 2px; padding: 6px 10px; background: var(--panelBg); border-bottom: 1px solid var(--line); }
+  .cd .tab { padding: 5px 11px; border-radius: var(--r); color: var(--n400); display: flex; gap: 6px; align-items: center; }
+  .cd .tab:hover { background: var(--raised); color: var(--n100); }
+  .cd .tab.on { background: var(--raised); color: var(--n50); position: relative; }
+  .cd .tab.on::after { content: ""; position: absolute; left: 6px; right: 6px; bottom: 0; height: 2px; border-radius: 1px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .cd .cnt { font-size: 11px; padding: 0 5px; border-radius: 8px; background: var(--line); color: var(--n200); }
+  .cd .q { margin-left: auto; color: var(--n500); font-size: 12px; }
+  .cd .body { flex: 1; min-height: 0; display: flex; }
+  .cd .files { width: 190px; flex-shrink: 0; background: var(--panelBg); border-right: 1px solid var(--line); padding: 8px 6px; display: flex; flex-direction: column; gap: 1px; }
+  .cd .file { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: var(--r); color: var(--n300); }
+  .cd .file:hover { background: var(--raised); }
+  .cd .file .m { margin-left: auto; font-size: 11px; font-weight: 600; }
+  .cd .trail { width: 40px; flex-shrink: 0; border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 22px; padding-top: 16px; position: relative; }
+  .cd .trail::before { content: ""; position: absolute; top: 14px; bottom: 14px; left: 19px; width: 2px; background: var(--line); }
+  .cd .pt { width: 12px; height: 12px; border-radius: 50%; position: relative; background: var(--n600); }
+  .cd .pt.now { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+  .cd .pt.ai { background: var(--ai); }
+  .cd .deck { flex: 1; min-width: 0; background: radial-gradient(55% 45% at 85% 8%, color-mix(in srgb, var(--ai) var(--auroraA), transparent), transparent 70%), radial-gradient(50% 55% at 8% 95%, color-mix(in srgb, var(--tintC) var(--auroraA), transparent), transparent 70%); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
+  .cd .bar { display: flex; align-items: center; gap: 8px; }
+  .cd .title { color: var(--n50); font-weight: 600; }
+  .cd .quiet { color: var(--n500); font-size: 12px; }
+  .cd .faint { color: var(--n600); }
+  .cd .btn { height: 26px; padding: 0 10px; border-radius: var(--r); border: 1px solid var(--line); color: var(--n200); background: var(--raised); }
+  .cd .btn:hover { background: var(--overlayHover); border-color: var(--overlayLine); }
+  .cd .btn.pri { background: linear-gradient(135deg, var(--accentFill), var(--accentFill2)); border-color: transparent; color: var(--onAccent); font-weight: 600; }
+  .cd .btn.pri:hover { filter: brightness(.93); }
+  .cd .input { flex: 1; height: 26px; border-radius: var(--r); border: 1px solid var(--line); background: var(--base); padding: 0 8px; display: flex; align-items: center; color: var(--n600); }
+  .cd .box { border: 1px solid var(--line); border-radius: calc(var(--r) + 2px); background: var(--panel); overflow: hidden; }
+  .cd .row { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+  .cd .row:last-child { border-bottom: 0; }
+  .cd .row:hover { background: var(--raised); }
+  .cd .row.sel { background: color-mix(in srgb, var(--ai) 14%, var(--panel)); }
+  .cd.sel-bar .row.sel { background: var(--raised); box-shadow: inset 3px 0 0 var(--ai); }
+  .cd .st { width: 16px; text-align: center; font-size: 11px; font-weight: 700; }
+  .cd .path { font-family: ui-monospace, monospace; font-size: 12px; color: var(--n200); }
+  .cd .num { margin-left: auto; font-family: ui-monospace, monospace; font-size: 11px; }
+  .cd .chk { width: 13px; height: 13px; border: 1px solid var(--n500); border-radius: 3px; }
+  .cd .sb { width: 18px; height: 16px; border-radius: 4px; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; color: var(--base); }
+  .cd .diff { font-family: ui-monospace, monospace; font-size: 12px; }
+  .cd .diff div { padding: 1px 10px; white-space: pre; }
+  .cd .diff .a { background: color-mix(in srgb, var(--added) 14%, transparent); color: var(--n100); }
+  .cd .diff .d { background: color-mix(in srgb, var(--problem) 14%, transparent); color: var(--n100); }
+  .cd .side { width: 270px; flex-shrink: 0; background: var(--panelBg); border-left: 1px solid var(--line); display: flex; flex-direction: column; }
+  .cd .hd { display: flex; align-items: center; gap: 4px; padding: 7px 8px 7px 12px; border-bottom: 1px solid var(--line); }
+  .cd .hd .proj { color: var(--n50); font-weight: 600; flex: 1; }
+  .cd .ib { width: 26px; height: 26px; border-radius: var(--r); display: inline-flex; align-items: center; justify-content: center; color: var(--n300); }
+  .cd .ib:hover, .cd .ib.open { background: var(--raised); color: var(--n50); }
+  .cd .area { padding: 9px 12px 4px; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--n400); }
+  .cd .wait { background: linear-gradient(180deg, var(--areaWait), var(--areaWaitEnd)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  .cd .wrow { display: flex; gap: 8px; padding: 5px 12px; align-items: flex-start; border-radius: 0; }
+  .cd .wrow.new { animation: attn 1.6s ease-in-out var(--pulses); }
+  @keyframes attn { 50% { background: color-mix(in srgb, var(--wait) 30%, transparent); } }
+  .cd .badge { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--base); flex-shrink: 0; }
+  .cd .sess { padding: 6px 12px; display: flex; flex-direction: column; gap: 1px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+  .cd .sess .t { display: flex; align-items: center; gap: 8px; color: var(--n100); }
+  .cd .sess .s { padding-left: 26px; font-size: 12px; color: var(--n500); }
+  .cd .aiarea { background: linear-gradient(180deg, var(--areaAi), var(--areaAiEnd)); flex: 1; }
+  .cd .you { background: linear-gradient(0deg, var(--areaYou), var(--areaYouEnd)); border-top: 1px solid var(--line); padding-bottom: 10px; }
+  .cd .nums { display: flex; justify-content: space-around; padding: 4px 8px; }
+  .cd .nums div { display: flex; flex-direction: column; align-items: center; font-size: 10px; color: var(--n500); text-transform: uppercase; letter-spacing: .05em; }
+  .cd .nums b { font-size: 20px; color: var(--n50); }
+  .cd .nums b.z { color: var(--n600); }
+  .cd .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ai); box-shadow: 0 0 var(--glow) calc(var(--glow) / 6) color-mix(in srgb, var(--ai) 70%, transparent); display: inline-block; }
+  .cd .foot { display: flex; align-items: center; gap: 14px; padding: 0 10px; height: 26px; background: var(--panelBg); border-top: 1px solid var(--line); font-size: 12px; color: var(--n400); }
+  .cd .foot .ml { margin-left: auto; }
+  .cd .pop { position: absolute; z-index: 5; background: color-mix(in srgb, var(--overlay) var(--glassA), transparent); backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur)); border: 1px solid var(--overlayLine); border-radius: calc(var(--r) + 2px); box-shadow: var(--shadow); padding: 6px; color: var(--n200); }
+  .cd .pop .it { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: var(--r); cursor: default; }
+  .cd .pop .it:hover, .cd .pop .it.hov { background: var(--overlayHover); }
+  .cd .pop .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--n500); padding: 4px 8px 2px; }
+  .cd .strip { display: inline-flex; border-radius: 3px; overflow: hidden; border: 1px solid #0003; }
+  .cd .strip i { width: 11px; height: 14px; display: block; }
+  .cd .tip { position: absolute; z-index: 6; background: color-mix(in srgb, var(--overlay) var(--glassA), transparent); backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur)); border: 1px solid var(--overlayLine); border-radius: var(--r); box-shadow: var(--shadow); padding: 5px 8px; font-size: 12px; color: var(--n100); max-width: 220px; }
+  .cd .focus { outline: 2px solid var(--focus); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .cd .wrow.new { animation: none; } }
+</style>
+</head>
+<body>
+<div class="lab">
+  <b>Themes lab, dummy</b>
+  <span class="grp" id="quick"></span>
+  <span class="grp">Window: <button id="inact">Inactive (another window has the focus)</button></span>
+  <span class="grp"><button id="pulse">Replay "new" pulse</button></span>
+  <span class="grp">Desktop: <button id="wall">Colourful wallpaper behind</button></span>
+  <span class="grp">Setting: <button id="reduce">Reduce transparency</button></span>
+</div>
+<div class="note" id="note">In the product the theme is chosen in the quick settings (sliders icon, top right of CodeDeck): hover a theme to see it at once, click to keep it, Esc to go back. Right: the theme file and what the check says about it. Edit the file: CodeDeck below follows as you type.</div>
+<div class="stage">
+  <div class="cd" id="cd">
+    <div class="top">
+      <span class="tab">Activity</span><span class="tab on">Changes <span class="cnt">6</span></span><span class="tab">Workbench <span class="cnt">4</span></span><span class="tab">Next prompt <span class="cnt">3</span></span>
+      <span class="q">What did the assistant change?</span>
+    </div>
+    <div class="body">
+      <div class="files">
+        <div class="file">▸ src <span class="m" style="color:var(--wait)">●</span></div>
+        <div class="file">▸ tests <span class="dot" style="margin-left:auto"></span></div>
+        <div class="file">▸ docs</div>
+        <div class="file" style="padding-left:20px">rate_limit.rs <span class="m" style="color:var(--added)">A</span></div>
+        <div class="file" style="padding-left:20px">orders.rs <span class="m" style="color:var(--wait)">M</span></div>
+        <div class="file" style="padding-left:20px">legacy.rs <span class="m" style="color:var(--problem)">D</span></div>
+        <div class="file" style="padding-left:20px">http/ <span class="m" style="color:var(--moved)">R</span></div>
+        <div class="file">Cargo.toml <span class="m" style="color:var(--wait)">M</span></div>
+        <div style="flex:1"></div>
+        <div class="file faint" style="font-size:11px">3 recently changed</div>
+      </div>
+      <div class="trail"><span class="pt now" title="now"></span><span class="pt ai"></span><span class="pt"></span><span class="pt ai"></span><span class="pt"></span></div>
+      <div class="deck">
+        <div class="bar"><span class="title">orbit-api</span><span class="quiet">feature/rate-limit · 5 uncommitted changes · 1 of 5 looked at</span><span style="flex:1"></span><button class="btn">Attach</button></div>
+        <div class="bar"><span class="input">Commit message for orbit-api</span><button class="btn pri">✓ Commit</button></div>
+        <div class="box">
+          <div class="row"><span class="chk"></span><span class="st" style="color:var(--added)">A</span><span class="path">src/middleware/rate_limit.rs</span><span class="sb" style="background:var(--s1)">B</span><span class="num" style="color:var(--added)">+48</span></div>
+          <div class="row sel"><span class="chk" style="background:var(--ai);border-color:var(--ai)"></span><span class="st" style="color:var(--wait)">M</span><span class="path">src/routes/orders.rs</span><span class="sb" style="background:var(--s2)">C</span><span class="num"><span style="color:var(--added)">+3</span> <span style="color:var(--problem)">−1</span></span></div>
+          <div class="row"><span class="chk"></span><span class="st" style="color:var(--problem)">D</span><span class="path">src/legacy.rs</span><span class="num" style="color:var(--problem)">−120</span></div>
+          <div class="row"><span class="chk"></span><span class="st" style="color:var(--moved)">R</span><span class="path">src/http/ <span class="quiet">renamed from net</span></span></div>
+        </div>
+        <div class="box diff">
+          <div class="quiet" style="padding:4px 10px">src/routes/orders.rs</div>
+          <div>  fn place(order: Order) -&gt; Result {</div>
+          <div class="d">-     let limit = 100;</div>
+          <div class="a">+     let limit = client.limit()?;</div>
+          <div class="a">+     limiter.check(&amp;client, limit)?;</div>
+          <div>      submit(order)</div>
+        </div>
+        <div class="quiet">Quiet text (times, counts) · <span class="faint">decoration only</span> · <span style="color:var(--accentSoft)">accent as text</span> · <span style="color:var(--ai)">assistant</span> · <span class="btn focus" style="display:inline-flex;align-items:center;height:22px">keyboard focus</span></div>
+      </div>
+      <div class="side">
+        <div class="hd"><span class="proj">orbit-api ▾</span><button class="ib" id="qs" title="Quick settings">⚙</button><button class="ib">⋯</button></div>
+        <div class="wait"><div class="area">Needs you</div>
+          <div class="wrow new" id="wnew"><span class="badge" style="background:var(--s0)">A</span><span style="flex:1;min-width:0"><span style="color:var(--n50)">Limiter documentation</span><br><span style="color:var(--wait);font-size:12px">needs your permission: Bash</span></span></div>
+        </div>
+        <div class="aiarea">
+          <div class="area">Sessions</div>
+          <div class="sess"><div class="t"><span class="badge" style="background:var(--s1)">B</span>Per-client rate limit<span style="margin-left:auto;font-size:11px;color:var(--ai)">● working</span></div><div class="s">Edit tests/rate_limit.rs</div></div>
+          <div class="sess"><div class="t"><span class="badge" style="background:var(--s2)">C</span>Config defaults</div><div class="s">turn done 13:30</div></div>
+          <div class="sess"><div class="t"><span class="badge" style="background:var(--s3)">D</span>Pagination</div><div class="s">idle</div></div>
+          <div style="display:flex;gap:4px;padding:8px 12px"><span class="badge" style="background:var(--s4)">E</span><span class="badge" style="background:var(--s5)">F</span><span class="quiet" style="align-self:center">all six session colours</span></div>
+        </div>
+        <div class="you"><div class="area">Next prompt</div>
+          <div class="nums"><div><b>4</b>files</div><div><b class="z">0</b>changes</div><div><b>2</b>lines</div><div><b class="z">0</b>hints</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="foot"><span style="color:var(--accentSoft)">⎇ feature/rate-limit</span><span>git</span><span class="ml">5h 38 % · wk 31 %</span><span style="color:var(--ai)">Claude · 4 sessions</span></div>
+  </div>
+
+  <div class="bench">
+    <h4>Theme file <span id="state" style="text-transform:none;letter-spacing:0;font-weight:400"></span></h4>
+    <textarea id="src" spellcheck="false"></textarea>
+    <div style="display:flex;gap:6px"><button class="lb" id="revert" style="height:24px;padding:0 9px;border-radius:12px;border:1px solid #b9b7ad;background:#fff;font-size:12px">Back to the shipped file</button></div>
+    <h4>Derived <span style="text-transform:none;letter-spacing:0;font-weight:400">(neutral scale 50 → 950, surfaces, sessions)</span></h4>
+    <div class="derived" id="derived"></div>
+    <h4>Check</h4>
+    <table class="rep" id="rep"></table>
+  </div>
+</div>
+
+<script>
+/* ---------- Colour maths: OKLab, mixing, WCAG contrast (what src/theme.ts would hold) ---------- */
+const hex2rgb = (h) => { h = h.replace("#", ""); if (h.length === 3) h = [...h].map((c) => c + c).join(""); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255); };
+const rgb2hex = (c) => "#" + c.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, "0")).join("");
+const lin = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+const gam = (v) => (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055);
+function toLab(hex) {
+  const [r, g, b] = hex2rgb(hex).map(lin);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s];
+}
+function fromLab([L, a, b]) {
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3, m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3, s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  return rgb2hex([4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s].map(gam));
+}
+const mix = (x, y, t) => { const A = toLab(x), B = toLab(y); return fromLab(A.map((v, i) => v + (B[i] - v) * t)); };
+const lch = (hex) => { const [L, a, b] = toLab(hex); return [L, Math.hypot(a, b), (Math.atan2(b, a) * 180 / Math.PI + 360) % 360]; };
+const fromLch = (L, C, h) => fromLab([L, C * Math.cos(h * Math.PI / 180), C * Math.sin(h * Math.PI / 180)]);
+const lum = (hex) => { const [r, g, b] = hex2rgb(hex).map(lin); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const contrast = (x, y) => { const [a, b] = [lum(x), lum(y)].sort((p, q) => q - p); return (a + 0.05) / (b + 0.05); };
+const dist = (x, y) => { const A = toLab(x), B = toLab(y); return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]) * 100; };
+/** Moves `c` in lightness, away from `against`, until it has `ratio` against it */
+function reach(c, against, ratio) {
+  let [L, C, h] = lch(c); const up = lum(against) < 0.18;
+  for (let i = 0; i < 60 && contrast(fromLch(L, C, h), against) < ratio; i++) L += up ? 0.01 : -0.01;
+  return fromLch(L, C, h);
+}
+
+/* ---------- Shipped themes ---------- */
+const THEMES = {
+  codedeck: { id: "codedeck", name: "CodeDeck", scheme: "dark", bg: "#1b1e22", fg: "#f5f6f7", accent: "#f26500", ai: "#818cf8", wait: "#e0a868", added: "#9cc39a", problem: "#e08a80", moved: "#8fb1cf",
+    sessions: ["#818cf8", "#c08cf5", "#4fc9bd", "#ee8fbd", "#62b6ee", "#c3cf6c"], onAccent: "#ffffff",
+    style: { radius: "default", lines: "subtle", areaTint: 6, surfaceTint: 0, glow: "soft", depth: "deep", motion: "calm", selection: "fill", font: "system", glass: "none", gradient: "none", backdrop: "none", window: "opaque" } },
+  paper: { id: "paper", name: "Paper", scheme: "light", bg: "#f7f7f5", fg: "#15171a", accent: "#cf5200", ai: "#4f46e5", wait: "#866b00", added: "#2e7a33", problem: "#b8203f", moved: "#2d6aa3",
+    sessions: ["#4f46e5", "#8b3fc6", "#0e8075", "#be3d7c", "#1d72ad", "#3f7f1a"],
+    style: { radius: "default", lines: "clear", areaTint: 7, surfaceTint: 0, glow: "none", depth: "soft", motion: "calm", selection: "fill", font: "system", glass: "soft", gradient: "subtle", backdrop: "none", window: "opaque" } },
+  graphite: { id: "graphite", name: "Graphite", scheme: "dark", bg: "#141414", fg: "#ecebe8", accent: "#c9a227", ai: "#9aa6c8", wait: "#e0946a", added: "#8fae8b", problem: "#d9655f", moved: "#8ea3b5",
+    style: { radius: "round", lines: "subtle", areaTint: 3, surfaceTint: 0, glow: "none", depth: "soft", motion: "calm", selection: "bar", font: "system", glass: "soft", gradient: "subtle", backdrop: "glow", window: "opaque" } },
+  signal: { id: "signal", name: "Signal", scheme: "dark", bg: "#0b0820", fg: "#ffffff", tint: "#5b3dff", accent: "#ff7a1a", onAccent: "#0b0820", ai: "#3df5ff", wait: "#ffd400", added: "#39ff88", problem: "#ff4f6d", moved: "#6aa8ff",
+    sessions: ["#3df5ff", "#c58bff", "#00e5b0", "#ff8ae2", "#6fb3ff", "#d4ff3d"],
+    style: { radius: "default", lines: "strong", areaTint: 16, surfaceTint: 22, glow: "bright", depth: "flat", motion: "lively", selection: "fill", font: "system", glass: "strong", gradient: "vivid", backdrop: "aurora", window: "translucent" } },
+};
+const NOTES = {
+  codedeck: "The default: grey first, colour only where it means something. The values are today's from src/index.css.",
+  paper: "The same roles on a light ground. The neutral scale runs the other way by itself (50 = strongest contrast to the ground), so no component changes.",
+  graphite: "Elegant: nearly colourless, warm gold as the accent with a slight metallic gradient, soft glass, a faint glow behind the deck, round corners, a selected row shows as a bar.",
+  signal: "Colourful and high contrast: the greys get 22 % indigo, lines are strong, areas tinted 16 %, status colours saturated, text 7 : 1 and more. Dark text on the orange-to-red-orange button, glass popups, a cyan and violet backdrop, and a window the desktop shows through (8 %). The meanings stay: orange = you, cyan = the assistant, yellow = waits for you, red = a problem.",
+};
+
+/* ---------- Derivation: a file with nine colours becomes all roles ---------- */
+const STOPS = { 50: 0, 100: 0.04, 200: 0.12, 300: 0.2, 400: 0.27, 500: 0.35, 600: 0.5, 700: 0.8, 800: 0.86, 900: 0.91, 950: 1 };
+function derive(t) {
+  const s = { radius: "default", lines: "subtle", areaTint: 6, surfaceTint: 0, glow: "soft", depth: "deep", motion: "calm", selection: "fill", font: "system", ...(t.style || {}) };
+  const light = t.scheme === "light";
+  const tint = t.tint || t.ai;
+  const tone = (pos) => {
+    let c = mix(t.fg, t.bg, pos);
+    if (s.surfaceTint) { const [L] = lch(c); const [, C, h] = lch(tint); c = mix(c, fromLch(L, Math.min(C, 0.12) * (0.4 + pos * 0.6), h), s.surfaceTint / 100); }
+    return c;
+  };
+  const n = Object.fromEntries(Object.entries(STOPS).map(([k, p]) => [k, tone(p)]));
+  const lineAt = { subtle: 0.8, clear: 0.68, strong: 0.5 }[s.lines] ?? 0.8;
+  const v = {
+    base: tone(1), panel: tone(0.955), raised: tone(0.89), line: tone(lineAt),
+    overlay: light ? mix(t.bg, "#ffffff", 0.7) : tone(0.84), overlayHover: light ? tone(0.93) : tone(0.77), overlayLine: tone(Math.min(lineAt, 0.7) - (light ? 0.05 : 0)),
+  };
+  for (const [k, c] of Object.entries(n)) v["n" + k] = c;
+  const onAccent = t.onAccent || (contrast("#ffffff", t.accent) >= contrast(t.bg, t.accent) ? "#ffffff" : t.bg);
+  v.accent = t.accent; v.onAccent = onAccent;
+  v.accentFill = t.accentFill || reach(t.accent, onAccent, 4.5);
+  v.accentFillHover = mix(v.accentFill, onAccent === "#ffffff" ? "#000000" : "#ffffff", 0.1);
+  v.accentSoft = t.accentSoft || reach(t.accent, v.panel, 4.5);
+  for (const k of ["ai", "wait", "added", "problem", "moved"]) v[k] = t[k];
+  v.focus = t.focus || t.ai;
+  let ss = t.sessions;
+  if (!ss) { // six tones from the assistant's, skipping hues that mean something
+    const [L, C, h0] = lch(t.ai); const taken = [t.accent, t.wait, t.problem].map((c) => lch(c)[2]);
+    const near = (h) => taken.some((x) => Math.min(Math.abs(x - h), 360 - Math.abs(x - h)) < 28);
+    // Six hues spread round the circle from the assistant's, none near a meaning, none near each other
+    const gap = (x, h) => Math.min(Math.abs(x - h), 360 - Math.abs(x - h));
+    let hs = [];
+    for (const space of [55, 45, 36, 28]) {
+      hs = [];
+      for (let d = 0; d < 360 && hs.length < 6; d += 6) { const h = (h0 + d) % 360; if (!near(h) && hs.every((x) => gap(x, h) >= space)) hs.push(h); }
+      if (hs.length === 6) break;
+    }
+    // Enough colour to tell six apart, and every other one a little lighter
+    ss = hs.map((h, k) => fromLch(L + (k % 2 ? 0.05 : -0.02), Math.max(C, 0.12), h));
+  }
+  ss.forEach((c, i) => (v["s" + i] = c));
+  const a = s.areaTint / 100;
+  v.areaAi = mix(v.panel, t.ai, a * 0.85); v.areaYou = mix(v.panel, t.accent, a); v.areaWait = mix(v.panel, t.wait, a * 1.5);
+  v.edge = light ? "rgba(0,0,0,.14)" : "rgba(255,255,255,.13)";
+  v.r = { sharp: "2px", default: "6px", round: "11px" }[s.radius] ?? "6px";
+  v.glow = { none: "0px", soft: "6px", bright: "12px" }[s.glow] ?? "6px";
+  v.shadow = { flat: "none", soft: light ? "0 6px 18px -6px rgba(0,0,0,.18)" : "0 6px 18px -6px rgba(0,0,0,.45)", deep: light ? "0 14px 36px -6px rgba(0,0,0,.25)" : "0 14px 36px -6px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.35)" }[s.depth];
+  v.pulses = s.motion === "lively" ? "4" : "2";
+  v.font = { system: 'system-ui, "Noto Sans", sans-serif', inter: 'Inter, system-ui, sans-serif', rounded: '"Nunito", "Varela Round", system-ui, sans-serif' }[s.font] ?? "system-ui";
+  v.scheme = light ? "light" : "dark";
+  // Glass, gradients, backdrop, window (B4a)
+  const ga = { none: 100, soft: 86, strong: 72 }[s.glass ?? "none"];
+  v.glassA = ga + "%"; v.blur = { none: "0px", soft: "10px", strong: "18px" }[s.glass ?? "none"];
+  // Glass: the floating surface moves towards the ground until quiet text holds even over bright text behind it
+  if (ga < 100) for (let i = 0; i < 10 && contrast(v.n500, mix(v.overlay, v.n50, (100 - ga) / 200)) < 4; i++) v.overlay = mix(v.overlay, t.bg, 0.15);
+  const g = s.gradient ?? "none";
+  const [aL, aC, aH] = lch(t.accent);
+  // The second colour of the accent's gradient turns away from the meanings, not towards them
+  const turn = g === "vivid" ? 20 : 8;
+  const cands = [-turn, turn].map((d) => fromLch(aL + (g === "vivid" ? 0.04 : 0.02), aC, (aH + d + 360) % 360));
+  const room = (c) => Math.min(...[t.wait, t.problem, t.ai].map((m) => dist(c, m)));
+  v.accent2 = t.accent2 || (g === "none" ? t.accent : cands.sort((x, y) => room(y) - room(x))[0]);
+  v.accentFill2 = g === "none" ? v.accentFill : reach(v.accent2, onAccent, 4.5);
+  const top = { none: 0, subtle: 0.03, vivid: 0.06 }[g];
+  v.panelTop = mix(v.panel, t.fg, top);
+  const wa = s.window === "translucent" ? 92 : 100;
+  v.winA = wa + "%";
+  v.panelBg = `linear-gradient(180deg, color-mix(in srgb, ${v.panelTop} ${wa}%, transparent), color-mix(in srgb, ${v.panel} ${wa}%, transparent))`;
+  const fade = g === "none" ? 0 : g === "subtle" ? 0.5 : 1;
+  v.areaWaitEnd = mix(v.areaWait, v.panel, fade); v.areaAiEnd = mix(v.areaAi, v.panel, fade); v.areaYouEnd = mix(v.areaYou, v.panel, fade);
+  const au = { none: 0, glow: 6, aurora: 12 }[s.backdrop ?? "none"];
+  v.auroraA = au + "%"; v.tintC = tint;
+  v._glass = ga; v._window = wa; v._aurora = au;
+  return { v, s };
+}
+
+/* ---------- Check: the rules of B2 and B3 ---------- */
+function check(v, s) {
+  const r = [];
+  const pair = (label, fg, bg, need) => r.push({ label, fg, bg, ratio: contrast(fg, bg), need });
+  for (const sf of ["base", "panel", "raised", "overlay"]) pair(`strongest text on ${sf}`, v.n50, v[sf], 7);
+  pair("text (300) on panel", v.n300, v.panel, 4.5);
+  pair("quiet text (500) on panel", v.n500, v.panel, 4);
+  pair("quiet text (500) on popup", v.n500, v.overlay, 4);
+  pair("accent on panel", v.accent, v.panel, 3);
+  pair("accent as text on panel", v.accentSoft, v.panel, 4.5);
+  pair("button label on accent", v.onAccent, v.accentFill, 4.5);
+  for (const k of ["ai", "wait", "added", "problem", "moved"]) pair(`${k} on panel`, v[k], v.panel, 3);
+  if (v.accentFill2 !== v.accentFill) pair("button label on the gradient's end", v.onAccent, v.accentFill2, 4.5);
+  if (v._glass < 100) pair("quiet text on glass, bright text behind", v.n500, mix(v.overlay, v.n50, (100 - v._glass) / 200), 4);
+  if (v._aurora) pair("quiet text where the backdrop is strongest", v.n500, mix(v.base, v.ai, v._aurora / 100), 4);
+  if (v._window < 100) for (const [name, wall] of [["white", "#ffffff"], ["black", "#000000"]]) pair(`quiet text, window over ${name}`, v.n500, mix(wall, v.panel, v._window / 100), 4);
+  pair("lines against panel", v.line, v.panel, s.lines === "strong" ? 3 : 1.25);
+  const apart = [];
+  const means = { accent: v.accent, ai: v.ai, wait: v.wait, problem: v.problem };
+  const keys = Object.keys(means);
+  for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) apart.push({ label: `${keys[i]} ≠ ${keys[j]}`, a: means[keys[i]], b: means[keys[j]], d: dist(means[keys[i]], means[keys[j]]), need: 8 });
+  if (v.accent2 !== v.accent) for (const k of ["ai", "wait", "problem"]) apart.push({ label: `accent2 ≠ ${k}`, a: v.accent2, b: v[k], d: dist(v.accent2, v[k]), need: 8 });
+  let near = 99, pairS = "";
+  for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++) { const d = dist(v["s" + i], v["s" + j]); if (d < near) { near = d; pairS = `${i}/${j}`; } }
+  apart.push({ label: `sessions apart (closest ${pairS})`, a: v["s" + pairS[0]], b: v["s" + pairS[2]], d: near, need: 8 });
+  let nearM = 99, which = "";
+  for (let i = 0; i < 6; i++) for (const k of ["accent", "wait", "problem"]) { const d = dist(v["s" + i], v[k]); if (d < nearM) { nearM = d; which = `${i}~${k}`; } }
+  apart.push({ label: `sessions vs meanings (closest ${which})`, a: v["s" + which[0]], b: v[which.slice(2)], d: nearM, need: 8 });
+  return { r, apart };
+}
+
+/* ---------- Apply ---------- */
+const cd = document.getElementById("cd");
+let chosen = "codedeck", file = structuredClone(THEMES.codedeck), edited = false, inactive = false, reduce = false;
+function apply(t, preview = false) {
+  const { v, s } = derive(t);
+  let vv = v;
+  if (reduce) { vv = { ...v, glassA: "100%", blur: "0px", winA: "100%", panelBg: v.panelBg.replace(/ 92%/g, " 100%") }; }
+  if (inactive) { // derived for every theme: meaning colours mixed with the neutral 500
+    vv = { ...vv };
+    for (const k of ["accent", "accentSoft", "accentFill", "accentFillHover", "ai", "focus", "s0", "s1", "s2", "s3", "s4", "s5"]) vv[k] = mix(v[k], v.n500, 0.55);
+    vv.edge = t.scheme === "light" ? "rgba(0,0,0,.05)" : "rgba(255,255,255,.05)";
+  }
+  for (const [k, val] of Object.entries(vv)) cd.style.setProperty("--" + k, val);
+  cd.classList.toggle("sel-bar", s.selection === "bar");
+  if (!preview) report(v, s);
+}
+function report(v, s) {
+  const { r, apart } = check(v, s);
+  const sw = (fg, bg) => `<span class="sw" style="background:${bg};color:${fg}">Aa</span>`;
+  const sw2 = (a, b) => `<span class="sw" style="background:linear-gradient(90deg,${a} 50%,${b} 50%)"></span>`;
+  document.getElementById("rep").innerHTML =
+    r.map((x) => `<tr><td>${sw(x.fg, x.bg)}</td><td>${x.label}</td><td style="text-align:right">${x.ratio.toFixed(1)} : 1</td><td class="${x.ratio >= x.need ? "ok" : "no"}">${x.ratio >= x.need ? "ok" : "needs " + x.need}</td></tr>`).join("") +
+    apart.map((x) => `<tr><td>${sw2(x.a, x.b)}</td><td>${x.label}</td><td style="text-align:right">Δ ${x.d.toFixed(0)}</td><td class="${x.d >= x.need ? "ok" : "no"}">${x.d >= x.need ? "ok" : "too close"}</td></tr>`).join("");
+  const fails = r.filter((x) => x.ratio < x.need).length + apart.filter((x) => x.d < x.need).length;
+  document.getElementById("state").innerHTML = `· ${edited ? "edited" : "shipped"} · <span class="${fails ? "no" : "ok"}">${fails ? fails + " rule(s) broken: would not ship" : "passes the check"}</span>`;
+  const keys = Object.keys(STOPS).map((k) => "n" + k).concat(["base", "panel", "raised", "line", "overlay", "accentFill", "accentSoft", "areaAi", "areaYou", "areaWait", "s0", "s1", "s2", "s3", "s4", "s5"]);
+  document.getElementById("derived").innerHTML = keys.map((k) => `<span title="${k} ${v[k]}" style="background:${v[k]}"></span>`).join("");
+}
+function showFile() {
+  const minimal = { ...file };
+  document.getElementById("src").value = JSON.stringify(minimal, null, 2).replace(/\[\n\s+("#[0-9a-f]{6}",?\n\s+)+("#[0-9a-f]{6}")\n\s+\]/gi, (m) => "[" + m.match(/"#[0-9a-f]{6}"/gi).join(", ") + "]");
+  document.getElementById("src").classList.remove("bad");
+}
+function choose(id) { chosen = id; file = structuredClone(THEMES[id]); edited = false; showFile(); apply(file); quick(); document.getElementById("note").textContent = NOTES[id]; }
+
+/* ---------- Product UI: the theme list in the quick settings, with hover preview ---------- */
+let pop = null;
+function strip(t) { const { v } = derive(t); return `<span class="strip">${["panel", "n50", "accent", "ai", "wait"].map((k) => `<i style="background:${v[k]}"></i>`).join("")}</span>`; }
+function openPop() {
+  closePop();
+  pop = document.createElement("div");
+  pop.className = "pop"; pop.style.cssText = "right:12px;top:42px;width:250px";
+  pop.innerHTML = `<div class="lbl">Theme</div>` + Object.values(THEMES).map((t) => `<div class="it" data-t="${t.id}">${strip(t)}<span style="flex:1">${t.name}</span>${t.id === chosen ? "✓" : ""}</div>`).join("") +
+    `<div class="lbl" style="margin-top:4px">Language</div><div class="it">English ✓</div><div class="it">Deutsch</div><div class="lbl" style="margin-top:4px">Do not disturb</div><div class="it">Off</div>`;
+  cd.appendChild(pop);
+  document.getElementById("qs").classList.add("open");
+  pop.querySelectorAll("[data-t]").forEach((el) => {
+    el.onmouseenter = () => { apply(THEMES[el.dataset.t], true); };
+    el.onclick = () => { choose(el.dataset.t); closePop(); };
+  });
+  pop.onmouseleave = () => apply(file, true);
+}
+function closePop() { if (pop) { pop.remove(); pop = null; apply(file, true); } document.getElementById("qs").classList.remove("open"); }
+document.getElementById("qs").onclick = (e) => { e.stopPropagation(); pop ? closePop() : openPop(); };
+document.addEventListener("click", (e) => { if (pop && !pop.contains(e.target)) closePop(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePop(); });
+
+/* A tooltip, to show floating surfaces */
+const tip = document.createElement("div"); tip.className = "tip"; tip.style.cssText = "left:330px;top:300px"; tip.innerHTML = "A tooltip sits one step closer: <b>overlay</b> with a lighter edge"; cd.appendChild(tip);
+
+/* ---------- Lab controls ---------- */
+function quick() {
+  document.getElementById("quick").innerHTML = "Theme: " + Object.values(THEMES).map((t) => `<button data-q="${t.id}" class="${t.id === chosen && !edited ? "on" : ""}">${t.name}</button>`).join("");
+  document.querySelectorAll("[data-q]").forEach((b) => (b.onclick = () => choose(b.dataset.q)));
+}
+document.getElementById("src").oninput = (e) => {
+  try { const t = JSON.parse(e.target.value); for (const k of ["bg", "fg", "accent", "ai", "wait", "added", "problem", "moved"]) if (!/^#[0-9a-f]{6}$/i.test(t[k] || "")) throw new Error(k); file = t; edited = true; e.target.classList.remove("bad"); apply(file); quick(); }
+  catch (err) { e.target.classList.add("bad"); document.getElementById("state").innerHTML = `· <span class="no">not a valid theme yet (${String(err.message).slice(0, 40)})</span>`; }
+};
+document.getElementById("revert").onclick = () => choose(chosen);
+document.getElementById("inact").onclick = (e) => { inactive = !inactive; e.target.classList.toggle("on", inactive); apply(file); document.getElementById("note").textContent = inactive ? "Inactive window: accents and session colours are mixed 55 % with the neutral 500, for every theme the same rule. No second list of colours per theme." : NOTES[chosen]; };
+document.getElementById("wall").onclick = (e) => { document.querySelector(".stage").classList.toggle("desk"); e.target.classList.toggle("on"); document.getElementById("note").textContent = "A wallpaper behind the window. Only a theme with window: translucent lets it through (Signal: 8 %). The check counts quiet text over pure white and pure black, since CodeDeck cannot know the desktop."; };
+document.getElementById("reduce").onclick = (e) => { reduce = !reduce; e.target.classList.toggle("on", reduce); apply(file); document.getElementById("note").textContent = reduce ? "Reduce transparency (a setting of the user, not of the theme): glass and window become opaque, whatever the theme says. Gradients and the backdrop stay, they are no transparency." : NOTES[chosen]; };
+document.getElementById("pulse").onclick = () => { const w = document.getElementById("wnew"); w.classList.remove("new"); void w.offsetWidth; w.classList.add("new"); };
+choose("codedeck");
+// For tools/shot.mjs: the lab's functions from outside
+window.lab = { THEMES, derive, check, dist, contrast };
+</script>
+</body>
+</html>

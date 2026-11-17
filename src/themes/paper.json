@@ -1,0 +1,15 @@
+{
+  "id": "paper",
+  "name": "Paper",
+  "scheme": "light",
+  "bg": "#f7f7f5",
+  "fg": "#15171a",
+  "accent": "#cf5200",
+  "ai": "#4f46e5",
+  "wait": "#866b00",
+  "added": "#2e7a33",
+  "problem": "#b8203f",
+  "moved": "#2d6aa3",
+  "sessions": ["#4f46e5", "#8b3fc6", "#0e8075", "#be3d7c", "#1d72ad", "#3f7f1a"],
+  "style": { "radius": "default", "lines": "clear", "areaTint": 7, "glow": "none", "depth": "soft", "glass": "soft", "gradient": "subtle" }
+}

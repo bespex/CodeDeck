@@ -147,7 +147,7 @@ export function FilesPanel(props: Props) {
       <PathBar project={props.project} onOpen={props.onOpenProject} />
 
       <div className="px-2 pt-2">
-        <label className="flex items-center gap-2 rounded-md border border-line bg-base px-2 py-1.5 focus-within:border-indigo-500">
+        <label className="flex items-center gap-2 rounded-md border border-line bg-base px-2 py-1.5 focus-within:border-ai">
           <Search className="size-3.5 text-slate-500" />
           <input
             value={query}
@@ -291,7 +291,7 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
         onContextMenu={(e) => tree.menu(e, entry.path || entry.name, pathItems(entry.path, entry.isDir))}
         style={{ paddingLeft: 6 + depth * 14 }}
         className={`group relative flex h-[26px] cursor-default items-center gap-1.5 rounded-md pr-1.5 transition-opacity ${
-          dropping ? "bg-ai/20 ring-1 ring-ai" : isSelected ? "bg-indigo-500/25 text-slate-50" : "hover:bg-raised"
+          dropping ? "bg-ai/20 ring-1 ring-ai" : isSelected ? "bg-ai/25 text-slate-50" : "hover:bg-raised"
         } ${faded ? "opacity-40" : inScratch(entry.path) ? "opacity-55" : ""}`}
         title={entry.path === ".scratch" ? t("Drafts and scratch files of sessions; Git ignores it. See the Workbench view.") : undefined}
       >

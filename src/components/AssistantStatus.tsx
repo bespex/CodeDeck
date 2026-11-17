@@ -115,7 +115,7 @@ export function HookPanel({ hooks, harness, heard }: { hooks: Connections; harne
               {s.other && <span className="block truncate text-[11px] text-changed">{t("runs another CodeDeck: {other}", { other: s.other })}</span>}
             </div>
             {s.other && (
-              <button type="button" disabled={!!busy} onClick={() => change(s, true)} className={`${button} bg-brand-fill text-white hover:bg-brand-fill-hover`}>
+              <button type="button" disabled={!!busy} onClick={() => change(s, true)} className={`${button} bg-brand-fill text-on-accent hover:bg-brand-fill-hover`}>
                 {t("Use this one")}
               </button>
             )}
@@ -128,7 +128,7 @@ export function HookPanel({ hooks, harness, heard }: { hooks: Connections; harne
                 type="button"
                 disabled={!!busy || !live}
                 onClick={() => change(s, true)}
-                className={`${button} bg-brand-fill text-white hover:bg-brand-fill-hover`}
+                className={`${button} bg-brand-fill text-on-accent hover:bg-brand-fill-hover`}
               >
                 {t("Connect")}
               </button>

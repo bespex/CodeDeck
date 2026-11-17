@@ -214,7 +214,7 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
                   : t("Commit all {changes} shown above", { changes: plural(repo.files.length, "change") })
               }
               {...showing(commit)}
-              className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-white not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
+              className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-on-accent not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
             >
               <Check className="size-3.5" />
               {t("Commit")}

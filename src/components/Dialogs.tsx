@@ -4,6 +4,7 @@ import { appInfo, globalShortcuts, onShortcutsChanged, openUrl, type AppInfo, ty
 import { mainHarness, useConnections } from "../assistant";
 import { closeDialog, openDialog, useDialog, type SettingsSection } from "../dialogs";
 import { lang, setLang, t } from "../i18n";
+import { ReduceTransparency, ThemeChoice } from "./ThemeChoice";
 import { HookPanel } from "./AssistantStatus";
 import { AttentionChoice, QuietChoice } from "./AttentionChoice";
 
@@ -269,6 +270,12 @@ function General() {
             </button>
           ))}
         </div>
+      </Setting>
+      <Setting label={t("Theme")} note={t("Point at one to see it; a click keeps it. Colours keep their meaning in every theme.")} scope="machine">
+        <ThemeChoice />
+      </Setting>
+      <Setting label={t("Transparency")} note={t("Menus and popups of some themes let a blurred picture of what is behind them through.")} scope="machine">
+        <ReduceTransparency />
       </Setting>
       <Setting
         label={t("Global shortcuts")}

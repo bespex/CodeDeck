@@ -1,129 +1,197 @@
 @import "tailwindcss";
 
+/*
+ * Colours and a few steps come from the theme (src/theme.ts, docs/STYLING.md): it sets `--t-…` on
+ * <html>. Every role below falls back to the default theme "CodeDeck", so the page looks right before
+ * any script ran and in a theme that does not set a role. Components use only the roles.
+ */
 @theme {
-  --font-sans: system-ui, "Inter", "Noto Sans", "Ubuntu", sans-serif;
+  --font-sans: var(--t-font, system-ui, "Inter", "Noto Sans", "Ubuntu", sans-serif);
   --font-mono: ui-monospace, "JetBrains Mono", "Fira Code", "DejaVu Sans Mono", monospace;
 
+  /* Corners follow the theme's `radius` step */
+  --radius-xs: calc(0.125rem * var(--t-radius, 1));
+  --radius-sm: calc(0.25rem * var(--t-radius, 1));
+  --radius-md: calc(0.375rem * var(--t-radius, 1));
+  --radius-lg: calc(0.5rem * var(--t-radius, 1));
+  --radius-xl: calc(0.75rem * var(--t-radius, 1));
+
   /*
-   * Colours come from the logo: its grey tile, its indigo layers and its orange top layer.
+   * In "CodeDeck" the colours come from the logo: its grey tile, its indigo layers and its orange top layer.
    *   grey    surfaces and text - the app is grey first, not blue
    *   indigo  selection, focus and everything the assistant does
    *   orange  the accent: where you are and the one main action
    */
 
-  /* The grey of the logo tile (#3a3f46 to #1b1e22) as the neutral scale; replaces Tailwind's bluish slate */
-  --color-slate-50: #f5f6f7;
-  --color-slate-100: #e8eaec;
-  --color-slate-200: #d2d6da;
-  --color-slate-300: #b9bec4;
-  --color-slate-400: #a9afb5;
-  /* Quiet text (times, counts, notes): still at least 4 : 1 on every surface, popups included */
-  --color-slate-500: #959ca4;
-  /* Decoration only (separators, prompt signs, placeholders), never information */
-  --color-slate-600: #757c84;
-  --color-slate-700: #3a3f46;
-  --color-slate-800: #30343a;
-  --color-slate-900: #282b31;
-  --color-slate-950: #1b1e22;
+  /*
+   * The neutral scale, read as steps of contrast: 50 is the strongest against the ground, 950 the
+   * ground itself. So a light theme turns it round and the components stay as they are.
+   * 500 is quiet text (times, counts, notes), at least 4 : 1 on every surface; 600 is decoration only.
+   */
+  --color-slate-50: var(--t-n50, #f5f6f7);
+  --color-slate-100: var(--t-n100, #e8eaec);
+  --color-slate-200: var(--t-n200, #d2d6da);
+  --color-slate-300: var(--t-n300, #b9bec4);
+  --color-slate-400: var(--t-n400, #a9afb5);
+  --color-slate-500: var(--t-n500, #959ca4);
+  --color-slate-600: var(--t-n600, #757c84);
+  --color-slate-700: var(--t-n700, #3a3f46);
+  --color-slate-800: var(--t-n800, #30343a);
+  --color-slate-900: var(--t-n900, #282b31);
+  --color-slate-950: var(--t-n950, #1b1e22);
 
   /* Surfaces, darkest in the middle: the deck is the stage, the side columns stand in front of it */
-  --color-base: #1b1e22;
-  --color-panel: #24272c;
-  --color-raised: #2e3238;
-  --color-line: #3a3f46;
+  --color-base: var(--t-base, #1b1e22);
+  --color-panel: var(--t-panel, #24272c);
+  --color-raised: var(--t-raised, #2e3238);
+  --color-line: var(--t-line, #3a3f46);
 
   /* Floating surfaces (menus, popups, tooltips) sit one step closer to you: lighter, with a
      lighter edge and a deep shadow, so they never blend into the panel below */
-  --color-overlay: #363b42;
-  --color-overlay-hover: #424850;
-  --color-overlay-line: #4d545c;
+  --color-overlay: var(--t-overlay, #363b42);
+  --color-overlay-hover: var(--t-overlay-hover, #424850);
+  --color-overlay-line: var(--t-overlay-line, #4d545c);
 
-  /* Accent: the orange of the logo's top layer */
-  --color-brand: #f26500;
-  --color-brand-soft: #ff8a3c;
-  /* Orange as a filled button under white text: deeper, so the label reads (4.5 : 1) */
-  --color-brand-fill: #c75300;
-  --color-brand-fill-hover: #b34a00;
+  /* Accent: you, and your one main action */
+  --color-brand: var(--t-accent, #f26500);
+  --color-brand-soft: var(--t-accent-soft, #ff8a3c);
+  /* As a filled button: deep enough that its label reads (4.5 : 1) */
+  --color-brand-fill: var(--t-accent-fill, #c75300);
+  --color-brand-fill-hover: var(--t-accent-fill-hover, #b34a00);
+  --color-on-accent: var(--t-on-accent, #ffffff);
 
-  /* The assistant: the indigo of the logo's middle layer */
-  --color-ai: #818cf8;
+  /* The assistant */
+  --color-ai: var(--t-ai, #818cf8);
 
   /*
-   * Status: three muted tones that sit with the greys - Git state, warnings, errors.
-   * Together with the accent and the assistant's indigo they are all the colour there is;
-   * a status shows as a symbol in its tone, the label beside it stays neutral.
+   * Status: Git state, warnings, errors. Together with the accent and the assistant's colour they are
+   * all the colour there is; a status shows as a symbol in its tone, the label beside it stays neutral.
    */
-  --color-changed: #e0a868; /* modified, needs attention: a calm relative of the accent */
-  --color-added: #9cc39a; /* new, untracked, fine */
-  --color-problem: #e08a80; /* deleted, conflict, failed */
-  --color-moved: #8fb1cf; /* renamed, moved, copied: the same content in another place */
+  --color-changed: var(--t-wait, #e0a868); /* modified, needs attention */
+  --color-added: var(--t-added, #9cc39a); /* new, untracked, fine */
+  --color-problem: var(--t-problem, #e08a80); /* deleted, conflict, failed */
+  --color-moved: var(--t-moved, #8fb1cf); /* renamed, moved, copied: the same content in another place */
 }
 
 /* Not in the theme above: Tailwind drops theme variables no utility uses, and these are used inline */
 :root {
-  /* Native controls (select lists, checkboxes, scrollbars) are drawn dark, as the rest */
-  color-scheme: dark;
+  /* Native controls (select lists, checkboxes, scrollbars) follow the theme */
+  color-scheme: var(--t-scheme, dark);
   /*
-   * Sessions: one of six cool tones each, to tell them apart wherever they show up. They start
-   * with the assistant's indigo and keep clear of orange (your action), the warm tone (needs
-   * you) and red (a problem), which mean something.
+   * Sessions: six tones to tell them apart wherever they show up. They keep clear of the accent
+   * (your action), the warm tone (needs you) and red (a problem), which mean something.
    */
-  --color-session-0: #818cf8;
-  --color-session-1: #c08cf5;
-  --color-session-2: #4fc9bd;
-  --color-session-3: #ee8fbd;
-  --color-session-4: #62b6ee;
-  --color-session-5: #c3cf6c;
+  --color-session-0: var(--t-session-0, #818cf8);
+  --color-session-1: var(--t-session-1, #c08cf5);
+  --color-session-2: var(--t-session-2, #4fc9bd);
+  --color-session-3: var(--t-session-3, #ee8fbd);
+  --color-session-4: var(--t-session-4, #62b6ee);
+  --color-session-5: var(--t-session-5, #c3cf6c);
 
   /*
    * Areas: a quiet ground tone each, and the tone means something. Grey is the project (files,
-   * trail, deck), indigo is the assistant (its sessions), orange is your action (what you hand over).
+   * trail, deck), the assistant's colour its sessions, the accent your action (what you hand over).
+   * How strong: the theme's `areaTint` (6 % in "CodeDeck": 5 / 6 / 9 %).
    */
-  --color-area-ai: color-mix(in srgb, var(--color-ai) 5%, var(--color-panel));
-  --color-area-you: color-mix(in srgb, var(--color-brand) 6%, var(--color-panel));
+  --color-area-ai: color-mix(in srgb, var(--color-ai) calc(var(--t-area, 6%) * 0.85), var(--color-panel));
+  --color-area-you: color-mix(in srgb, var(--color-brand) var(--t-area, 6%), var(--color-panel));
   /* The warm tone of "waits for you": there only while something waits */
-  --color-area-wait: color-mix(in srgb, var(--color-changed) 9%, var(--color-panel));
+  --color-area-wait: color-mix(in srgb, var(--color-changed) calc(var(--t-area, 6%) * 1.5), var(--color-panel));
 }
 
 /*
- * While another window has the focus, CodeDeck steps back: the accents lose their colour and
- * the edge dims. Whichever CodeDeck window is active is the one that is fully in colour.
+ * While another window has the focus, CodeDeck steps back: the accents lose their colour and the edge
+ * dims. Derived the same way for every theme: each colour with meaning half mixed with quiet grey.
  */
 :root.inactive {
-  --color-brand: #a07a5e;
-  --color-brand-soft: #b08a6e;
-  --color-brand-fill: #6e5a4c;
-  --color-brand-fill-hover: #6e5a4c;
-  --color-ai: #8a8eb8;
-  --color-session-0: #8a8eb8;
-  --color-session-1: #a391b8;
-  --color-session-2: #7fa8a4;
-  --color-session-3: #b593a4;
-  --color-session-4: #86a3b6;
-  --color-session-5: #a9ad8a;
+  --color-brand: color-mix(in oklch, var(--t-accent, #f26500) 45%, var(--color-slate-500));
+  --color-brand-soft: color-mix(in oklch, var(--t-accent-soft, #ff8a3c) 45%, var(--color-slate-500));
+  --color-brand-fill: color-mix(in oklch, var(--t-accent-fill, #c75300) 45%, var(--color-slate-600));
+  --color-brand-fill-hover: var(--color-brand-fill);
+  --color-ai: color-mix(in oklch, var(--t-ai, #818cf8) 45%, var(--color-slate-500));
+  --color-session-0: color-mix(in oklch, var(--t-session-0, #818cf8) 45%, var(--color-slate-500));
+  --color-session-1: color-mix(in oklch, var(--t-session-1, #c08cf5) 45%, var(--color-slate-500));
+  --color-session-2: color-mix(in oklch, var(--t-session-2, #4fc9bd) 45%, var(--color-slate-500));
+  --color-session-3: color-mix(in oklch, var(--t-session-3, #ee8fbd) 45%, var(--color-slate-500));
+  --color-session-4: color-mix(in oklch, var(--t-session-4, #62b6ee) 45%, var(--color-slate-500));
+  --color-session-5: color-mix(in oklch, var(--t-session-5, #c3cf6c) 45%, var(--color-slate-500));
 }
 
-/* A fine light edge around the whole window: on a dark desktop it keeps the window apart from
-   the dark ones next to it (the same idea as the hairline of dark windows on macOS) */
+/* A fine edge around the whole window: on a dark desktop it keeps the window apart from the dark
+   ones next to it (the same idea as the hairline of dark windows on macOS) */
 body::after {
   content: "";
   position: fixed;
   inset: 0;
   z-index: 100;
   pointer-events: none;
-  border: 1px solid rgb(255 255 255 / 0.13);
+  border: 1px solid var(--t-edge, rgb(255 255 255 / 0.13));
   transition: border-color 150ms;
 }
 :root.inactive body::after {
-  border-color: rgb(255 255 255 / 0.05);
+  border-color: var(--t-edge-quiet, rgb(255 255 255 / 0.05));
 }
 
 @utility surface-overlay {
-  background: var(--color-overlay);
+  background: color-mix(in srgb, var(--color-overlay) var(--t-glass, 100%), transparent);
   border: 1px solid var(--color-overlay-line);
-  box-shadow:
-    0 14px 36px -6px rgb(0 0 0 / 0.6),
-    0 2px 6px rgb(0 0 0 / 0.35);
+  box-shadow: var(--t-shadow, 0 14px 36px -6px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.35));
+}
+
+/* Plain `rounded` is a fixed value in Tailwind; outside its layers this rule wins, so it follows the
+   theme's corners as the others do */
+.rounded {
+  border-radius: var(--radius-sm);
+}
+
+/* The areas as utilities, so that a theme with gradients can let them run out (below) */
+@utility area-ai {
+  background-color: var(--color-area-ai);
+}
+@utility area-you {
+  background-color: var(--color-area-you);
+}
+@utility area-wait {
+  background-color: var(--color-area-wait);
+}
+
+/*
+ * Steps of the theme that switch rules on (classes on <html>, set by src/theme.ts). None of them
+ * carries meaning; the gradients that do (the trail's zones, background jobs in Activity) are the
+ * content's and stay as they are.
+ */
+/* Glass: floating surfaces let a blurred picture of what is behind them through */
+.theme-glass .surface-overlay {
+  backdrop-filter: blur(var(--t-glass-blur, 10px));
+}
+/* Gradients: the main button from the accent to its second tone, light from above on the panels,
+   the areas running out, the mark of the open tab */
+.theme-gradient .bg-brand-fill {
+  background-image: linear-gradient(135deg, var(--color-brand-fill), var(--t-accent-fill-2, var(--color-brand-fill)));
+}
+.theme-gradient .bg-brand-fill:hover {
+  background-image: none;
+}
+.theme-gradient .bg-panel {
+  background-image: linear-gradient(180deg, var(--t-panel-top, var(--color-panel)), transparent 70%);
+}
+.theme-gradient .area-ai,
+.theme-gradient .area-you,
+.theme-gradient .area-wait {
+  background-image: linear-gradient(180deg, transparent 40%, var(--color-panel));
+}
+.theme-gradient [role="tab"][aria-selected="true"] {
+  box-shadow: none;
+  background-image: linear-gradient(90deg, var(--color-brand), var(--t-accent-2, var(--color-brand)));
+  background-size: 100% 2px;
+  background-position: bottom;
+  background-repeat: no-repeat;
+}
+/* Backdrop: a soft glow of the assistant's colour and the theme's tint behind the deck, mood only */
+.theme-backdrop .deck-stage {
+  background-image:
+    radial-gradient(55% 45% at 85% 8%, color-mix(in srgb, var(--color-ai) var(--t-backdrop, 0%), transparent), transparent 70%),
+    radial-gradient(50% 55% at 8% 95%, color-mix(in srgb, var(--t-tint, var(--color-ai)) var(--t-backdrop, 0%), transparent), transparent 70%);
 }
 
 html,
@@ -161,7 +229,7 @@ body {
   height: 6px;
   border-radius: 9999px;
   background: var(--dot, var(--color-ai));
-  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--dot, var(--color-ai)) 70%, transparent);
+  box-shadow: 0 0 var(--t-glow, 6px) 1px color-mix(in srgb, var(--dot, var(--color-ai)) 70%, transparent);
   animation: ai-pulse 2.4s ease-in-out infinite;
 }
 
@@ -189,5 +257,5 @@ body {
   }
 }
 .attention-new {
-  animation: attention-new 1.1s ease-in-out 3;
+  animation: attention-new 1.1s ease-in-out var(--t-pulses, 3);
 }

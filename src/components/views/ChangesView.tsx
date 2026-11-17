@@ -714,7 +714,7 @@ function CommitLine({ repo, onDone }: { repo: RepoStatus; onDone: () => void }) 
           <button
             type="submit"
             aria-disabled={!ready}
-            className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-white not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
+            className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-on-accent not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
           >
             <Check className="size-3.5" />
             {t("Commit")}
@@ -977,7 +977,7 @@ function SnapshotChanges(props: {
                 type="button"
                 disabled={changed === 0 || running}
                 onClick={() => setAsking(true)}
-                className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-white not-disabled:hover:bg-brand-fill-hover disabled:opacity-40"
+                className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-on-accent not-disabled:hover:bg-brand-fill-hover disabled:opacity-40"
               >
                 <Undo2 className="size-3.5" />
                 {t("Go back to here")}
@@ -999,7 +999,7 @@ function SnapshotChanges(props: {
                 type="button"
                 disabled={running}
                 onClick={goBack}
-                className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-white not-disabled:hover:bg-brand-fill-hover disabled:opacity-40"
+                className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-on-accent not-disabled:hover:bg-brand-fill-hover disabled:opacity-40"
               >
                 <Undo2 className="size-3.5" />
                 {running ? t("Going back…") : t("Go back")}
@@ -1190,7 +1190,7 @@ function MessageEditor(props: {
           aria-disabled={!ready}
           onClick={save}
           title={t("Ctrl+Enter")}
-          className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-0.5 font-medium text-white not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
+          className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-0.5 font-medium text-on-accent not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
         >
           <Check className="size-3.5" />
           {t("Change message")}

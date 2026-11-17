@@ -31,7 +31,7 @@ export function Splitter({ side, onResize }: Props) {
         type="button"
         aria-label={side === "files" ? t("Resize the file list") : t("Resize the right column")}
         title={t("Drag to resize · double click: default width")}
-        className="absolute inset-y-0 -left-[3px] w-[7px] cursor-col-resize touch-none bg-clip-content px-[2px] outline-none hover:bg-indigo-400/60 focus-visible:bg-indigo-400/60"
+        className="absolute inset-y-0 -left-[3px] w-[7px] cursor-col-resize touch-none bg-clip-content px-[2px] outline-none hover:bg-ai/60 focus-visible:bg-ai/60"
         onPointerDown={(e) => {
           if (e.button !== 0) return;
           e.currentTarget.setPointerCapture(e.pointerId);

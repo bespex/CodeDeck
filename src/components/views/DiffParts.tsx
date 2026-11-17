@@ -208,7 +208,7 @@ function HunkRows({ hunk, notePath, notes }: { hunk: FileDiff["hunks"][number]; 
                     aria-label={t("Comment line {n} for the next prompt", { n: at })}
                     title={t("Comment this line for the next prompt")}
                     onClick={() => setDraft(at!)}
-                    className="absolute inset-y-0 right-0 hidden w-7 items-center justify-center rounded-sm bg-brand-fill text-white group-hover/line:flex hover:bg-brand-fill-hover focus-visible:flex"
+                    className="absolute inset-y-0 right-0 hidden w-7 items-center justify-center rounded-sm bg-brand-fill text-on-accent group-hover/line:flex hover:bg-brand-fill-hover focus-visible:flex"
                   >
                     <MessageSquarePlus className="size-3.5" />
                   </button>
@@ -225,7 +225,7 @@ function HunkRows({ hunk, notePath, notes }: { hunk: FileDiff["hunks"][number]; 
             </tr>
             {said.map((note) => (
               <tr key={`n${note.id}`}>
-                <td colSpan={3} className="bg-[var(--color-area-you)] px-3 py-1.5 font-sans text-[12px] leading-[18px]">
+                <td colSpan={3} className="area-you px-3 py-1.5 font-sans text-[12px] leading-[18px]">
                   <div className="flex max-w-3xl items-start gap-2 border-l-2 border-brand pl-2">
                     <p className="min-w-0 flex-1 whitespace-pre-wrap text-slate-100">{note.text}</p>
                     <span className="shrink-0 text-[11px] text-brand-soft">{t("attached")}</span>
@@ -244,7 +244,7 @@ function HunkRows({ hunk, notePath, notes }: { hunk: FileDiff["hunks"][number]; 
             ))}
             {notePath !== undefined && at !== undefined && draft === at && (
               <tr>
-                <td colSpan={3} className="bg-[var(--color-area-you)] px-3 py-2 font-sans text-[12px]">
+                <td colSpan={3} className="area-you px-3 py-2 font-sans text-[12px]">
                   <NoteForm
                     onCancel={() => setDraft(null)}
                     onAdd={(text) => {
@@ -293,7 +293,7 @@ function NoteForm({ onAdd, onCancel }: { onAdd: (text: string) => void; onCancel
           aria-disabled={!ready}
           title={t("Ctrl+Enter")}
           onClick={() => ready && onAdd(text)}
-          className="rounded-md bg-brand-fill px-2.5 py-0.5 font-medium text-white not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
+          className="rounded-md bg-brand-fill px-2.5 py-0.5 font-medium text-on-accent not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
         >
           {t("Attach to next prompt")}
         </button>
@@ -326,7 +326,7 @@ export function LookedAt({ checked, onChange, name }: { checked: boolean; onChan
       onClick={(e) => e.stopPropagation()}
       aria-label={t("Looked at {name}", { name })}
       title={t("Tick it when you have looked at it. The tick goes away when the file changes again.")}
-      className="size-3.5 shrink-0 cursor-pointer accent-ai [color-scheme:dark]"
+      className="size-3.5 shrink-0 cursor-pointer accent-ai"
     />
   );
 }

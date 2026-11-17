@@ -75,7 +75,7 @@ function Connect({ account, onDone }: { account: Connection; onDone: (c: Connect
           )}
           <span className="text-[12px] text-slate-400">{t("Remove puts it back as it was.")}</span>
           <div className="flex gap-2">
-            <button type="button" disabled={busy} onClick={go} className={`${button} bg-brand-fill text-white hover:bg-brand-fill-hover`}>
+            <button type="button" disabled={busy} onClick={go} className={`${button} bg-brand-fill text-on-accent hover:bg-brand-fill-hover`}>
               {t("Set up")}
             </button>
             <button type="button" disabled={busy} onClick={() => setConfirming(false)} className={`${button} border border-line hover:bg-raised`}>

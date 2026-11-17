@@ -127,7 +127,7 @@ function ContextMenu({ menu, onMore, onClose }: { menu: MenuState; onMore: (menu
     >
       <div className="shrink-0 truncate px-3 pt-0.5 pb-1 font-mono text-[11px] text-slate-500">{menu.title}</div>
       {menu.search && (
-        <label className="mx-2 mb-1 flex shrink-0 items-center gap-2 rounded-md border border-line bg-base px-2 py-1 focus-within:border-indigo-500">
+        <label className="mx-2 mb-1 flex shrink-0 items-center gap-2 rounded-md border border-line bg-base px-2 py-1 focus-within:border-ai">
           <Search className="size-3.5 shrink-0 text-slate-500" />
           <input
             ref={input}

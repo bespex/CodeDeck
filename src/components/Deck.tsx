@@ -82,7 +82,7 @@ export function Deck({ git, selected, assistant, onResize }: Props) {
 
 
   return (
-    <main className="relative flex min-h-0 min-w-0 flex-col bg-base">
+    <main className="deck-stage relative flex min-h-0 min-w-0 flex-col bg-base">
       <Tooltip
         area
         className="block shrink-0"

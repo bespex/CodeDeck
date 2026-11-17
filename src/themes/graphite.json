@@ -1,0 +1,14 @@
+{
+  "id": "graphite",
+  "name": "Graphite",
+  "scheme": "dark",
+  "bg": "#141414",
+  "fg": "#ecebe8",
+  "accent": "#c9a227",
+  "ai": "#9aa6c8",
+  "wait": "#e0946a",
+  "added": "#8fae8b",
+  "problem": "#d9655f",
+  "moved": "#8ea3b5",
+  "style": { "radius": "round", "lines": "subtle", "areaTint": 3, "glow": "none", "depth": "soft", "glass": "soft", "gradient": "subtle", "backdrop": "glow" }
+}

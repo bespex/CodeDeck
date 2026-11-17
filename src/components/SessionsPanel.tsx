@@ -111,7 +111,7 @@ function NeedsYou({ state }: { state: AssistantState }) {
   const waiting = useWaiting(state);
 
   return (
-    <section className={`flex max-h-[40vh] min-h-0 flex-col border-b border-line ${waiting.length > 0 ? "bg-[var(--color-area-wait)]" : ""}`}>
+    <section className={`flex max-h-[40vh] min-h-0 flex-col border-b border-line ${waiting.length > 0 ? "area-wait" : ""}`}>
       <AreaHeader
         title={t("Needs you")}
         count={waiting.length}
@@ -235,7 +235,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
   const [showEarlier, setShowEarlier] = useState(false);
   const Fold = showEarlier ? ChevronDown : ChevronRight;
   return (
-    <section className="flex min-h-0 flex-col border-b border-line bg-[var(--color-area-ai)]">
+    <section className="flex min-h-0 flex-col border-b border-line area-ai">
       <AreaHeader title={t("Sessions")} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {state.sessions.length > 0 ? (
@@ -415,7 +415,7 @@ function PlaceNote({ session: s }: { session: Session }) {
             type="button"
             title={t("Reachable from another device or the browser right now. Opens {link}", { link: place.remote })}
             onClick={() => openUrl(place.remote!)}
-            className="inline-flex items-center gap-0.5 text-teal-300/80 hover:text-teal-200"
+            className="inline-flex items-center gap-0.5 text-ai hover:text-slate-100"
           >
             <Radio className="size-3" /> {t("reachable from anywhere")}
           </button>
@@ -429,7 +429,7 @@ function PlaceNote({ session: s }: { session: Session }) {
 function RenameForm({ session: s, onClose }: { session: Session; onClose: () => void }) {
   const [title, setTitle] = useState(s.title ?? "");
   const [short, setShort] = useState(s.short);
-  const field = "min-w-0 rounded border border-line bg-base px-1.5 py-0.5 text-slate-100 outline-none focus:border-indigo-500";
+  const field = "min-w-0 rounded border border-line bg-base px-1.5 py-0.5 text-slate-100 outline-none focus:border-ai";
   const button = "rounded px-2 py-0.5 text-[11px]";
   return (
     <form
@@ -445,7 +445,7 @@ function RenameForm({ session: s, onClose }: { session: Session; onClose: () => 
         <input aria-label={t("Short name")} placeholder="A" maxLength={4} value={short} onChange={(e) => setShort(e.target.value)} className={`${field} w-14 text-center`} />
       </div>
       <div className="flex items-center gap-1.5">
-        <button type="submit" className={`${button} bg-brand-fill text-white hover:bg-brand-fill-hover`}>
+        <button type="submit" className={`${button} bg-brand-fill text-on-accent hover:bg-brand-fill-hover`}>
           {t("Save")}
         </button>
         <button type="button" onClick={onClose} className={`${button} text-slate-400 hover:bg-overlay-hover hover:text-slate-100`}>
@@ -508,7 +508,7 @@ function NextPrompt({ assistant, onPin }: Props) {
 
   return (
     <section
-      className={`flex min-h-0 flex-col bg-[var(--color-area-you)] transition-shadow ${over ? "shadow-[inset_0_0_0_1px_var(--color-ai)]" : ""}`}
+      className={`flex min-h-0 flex-col area-you transition-shadow ${over ? "shadow-[inset_0_0_0_1px_var(--color-ai)]" : ""}`}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes(DRAG_TYPE)) {
           e.preventDefault();

@@ -196,6 +196,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
   Spalte verkleinern (kein eigenes Design), zweites Kürzel blendet CodeDeck ein und aus; Projektmenü wandert nach
   rechts oben; Benachrichtigungen bei Statusänderungen. Kurzkonzept mit drei Schritten (A Kopf rechts, B Leiste,
   C Aufmerksamkeit) in `docs/SEITENLEISTE.md`. Alle drei gebaut: C als 2.1a, A als Kopfleiste 2.1b, B als 2.1c. Schritt A ist als **Kopfleiste** ausgearbeitet (Projekt, Schnelleinstellungen, App-Menü, About, Einstellungsdialog; auch für die Startseite): `docs/KOPFLEISTE.md`, Entwurf zur Abstimmung (2026-11-16).
+- **Themes** (Wunsch des Nutzers, 2026-11-17): vorbereitete Farbgebungen zum Auswählen, Rollen und Eingriffe, Vorgabe „CodeDeck“ und Beispiel „Signal“. Konzept `docs/STYLING.md` (Schritte S.1 bis S.3), Labor `design/click-dummy/themes.html`. Nach MVP 3; S.1 (Rollen bereinigen, ohne sichtbare Änderung) jederzeit dazwischen.
 - **Einstellungsseite** (Wunsch des Nutzers, 2026-11-15): z. B. wie lange eine fertige Runde unter „Needs you“
   steht, ab wann Sitzungen unter „Earlier“ einklappen.
 
@@ -415,6 +416,8 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   (mit Inhalten, nur für Tests).
 
 ## Notizen
+
+- Themes S.1/S.2 (2026-11-17, vorgezogen auf Wunsch des Nutzers, `docs/STYLING.md`): `palette.ts` leitet aus wenigen Farben alle Rollen ab und prüft sie (dieselbe Datei läuft in `npm run themes` unter Node mit `--experimental-strip-types`), `theme.ts` setzt `--t-…` auf `<html>`, `index.css` hat für jede Rolle „CodeDeck“ als Rückfall. Vier Themes (CodeDeck mit allen heutigen Werten, Paper, Graphite, Signal). Inaktives Fenster jetzt abgeleitet (`color-mix` in OKLCH), nicht mehr von Hand. Fallen: Inline-Skripte verbietet die CSP, darum `public/theme-early.js`; Tailwinds `rounded` ist ein fester Wert und wird außerhalb der Ebenen überschrieben; ein Häkchenfeld erzwang `color-scheme: dark`. Nicht gebaut: durchscheinendes Fenster (Spike), `selection`, „dem System folgen“. Praxistest offen.
 
 - Vorarbeit MVP 3 (2026-11-17, vor 3.0): Der Hook meldet je Nachricht `Place` (Prozess des Werkzeugs samt Startzeit, tmux-Pane und -Name, `CODEDECK_SESSION`, Remote-Link aus `CLAUDE_CODE_BRIDGE_SESSION_ID`), die Brücke hält es an der Sitzung, die Details zeigen es. Nur Beobachtung, keine Entscheidung aus `docs/SITZUNGEN.md` vorweggenommen. Praxistest offen: Sitzung in tmux mit `--remote-control` zeigt Name und Link; der tmux-Name kommt nur bei Start, Prompt und Rundenende (kostet einen Prozess).
 
