@@ -872,8 +872,18 @@ fn pending_session(project: String, name: String, end: bool) -> Result<(), Strin
 #[tauri::command]
 fn open_session(project: String, session: String, door: String, app: AppHandle) -> Result<(), String> {
     let bridge = windows::bridge_for(&app, Path::new(&project));
+    // A fresh session has not told its link yet: its log may have it already
+    if door != "terminal" {
+        bridge.discover_remote(&app, &session);
+    }
     let (harness, account, place) = bridge.session_place(&session).ok_or("this session is not known (any more)")?;
     let place = place.ok_or("this session has not said where it runs yet")?;
+    // `auto` (a double click): the desktop app where the session is reachable there, else its terminal
+    let door = match door.as_str() {
+        "auto" if place.remote.is_some() => "desktop".to_string(),
+        "auto" => "terminal".to_string(),
+        _ => door,
+    };
     match door.as_str() {
         "terminal" => doors::terminal(&place),
         "desktop" => {

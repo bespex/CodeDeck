@@ -179,7 +179,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
   // A session that runs with another configuration than the project's
   const wrongAccount = (s: Session) => !!project.account && !!s.account && s.account !== project.account;
   const pending = usePending(project.path, 5000);
-  const go = (s: Session, door: "desktop" | "terminal") => openSession(project.path, s.id, door).catch((e) => tell(String(e)));
+  const go = (s: Session, door: "desktop" | "terminal" | "auto") => openSession(project.path, s.id, door).catch((e) => tell(String(e)));
   // Double click: Desktop where the session is reachable there, else its terminal
   const defaultDoor = (s: Session) => (s.place?.remote ? "desktop" : "terminal");
   return (
@@ -299,7 +299,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
               <li
                 key={s.id}
                 onClick={front}
-                onDoubleClick={() => void go(s, defaultDoor(s))}
+                onDoubleClick={() => void go(s, "auto")}
                 onAuxClick={(e) => e.button === 1 && void go(s, "terminal")}
                 title={[s.model, !s.place?.launched && t("by hand"), t("Double-click: go to it ({door}) · middle click: terminal", { door: defaultDoor(s) === "desktop" ? t("Desktop") : t("Terminal") })].filter(Boolean).join(" · ")}
                 className="group/s flex h-7 cursor-default items-center gap-2 pr-2 pl-9 text-[12px] hover-session"

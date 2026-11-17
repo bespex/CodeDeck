@@ -492,6 +492,30 @@ impl Bridge {
         (running, resume)
     }
 
+    /// Looks for a session's Remote Control link in its log, where the hooks have not told it yet
+    /// (a fresh session says nothing until its first prompt). The link, if there is one now.
+    pub fn discover_remote(&self, app: &AppHandle, id: &str) -> Option<String> {
+        let (log, harness) = {
+            let inner = self.inner.locked();
+            let session = inner.sessions.get(id)?;
+            if let Some(remote) = session.place.as_ref().and_then(|p| p.remote.clone()) {
+                return Some(remote);
+            }
+            (inner.logs.get(id)?.clone(), harness::by_id(Some(session.harness))?)
+        };
+        let info = harness.read_log(&log)?;
+        let root = self.current.get().root.clone();
+        let remote = {
+            let mut inner = self.inner.locked();
+            inner.apply(id, info, harness, &root);
+            inner.sessions.get(id).and_then(|s| s.place.as_ref()).and_then(|p| p.remote.clone())
+        };
+        if remote.is_some() {
+            self.tell(app, ASSISTANT_CHANGED, self.state());
+        }
+        remote
+    }
+
     /// Whether a session with this id is known (it reported, or its log was read).
     pub fn knows(&self, id: &str) -> bool {
         self.inner.locked().sessions.contains_key(id)
@@ -745,6 +769,13 @@ impl Inner {
             session.title = session.log_title.clone();
         }
         session.model = seen.model.or(session.model.take());
+        // The hooks give the link only from the first prompt on; the log has it at once
+        if let Some(remote) = seen.remote {
+            let place = session.place.get_or_insert_with(Place::default);
+            if place.remote.is_none() {
+                place.remote = Some(remote);
+            }
+        }
         if session.prompt.is_none() {
             session.prompt = seen.prompt.as_deref().map(shorten);
         }

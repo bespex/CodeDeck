@@ -377,7 +377,7 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
   // terminal), a middle click always to its terminal
   const [failed, setFailed] = useState<string | null>(null);
   const door = s.place?.remote ? "desktop" : "terminal";
-  const go = (to: "desktop" | "terminal") => {
+  const go = (to: "desktop" | "terminal" | "auto") => {
     if (!projectPath || s.status === "ended") return;
     setFailed(null);
     openSession(projectPath, s.id, to).catch((e) => {
@@ -409,7 +409,7 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
       onMouseEnter={() => marks.hover(s.id)}
       onDoubleClick={() => {
         cancelFold();
-        go(door);
+        go("auto");
       }}
       onAuxClick={(e) => e.button === 1 && go("terminal")}
       title={s.status === "ended" ? undefined : t("Double-click: go to it ({door}) · middle click: terminal", { door: door === "desktop" ? t("Desktop") : t("Terminal") })}

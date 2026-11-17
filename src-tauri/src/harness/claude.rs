@@ -760,6 +760,12 @@ fn parse<'a>(lines: impl Iterator<Item = &'a str>) -> SessionInfo {
         }
         match entry["type"].as_str().unwrap_or_default() {
             "ai-title" => seen.title = str_of("aiTitle").or(seen.title.take()),
+            // Written when Remote Control connects, before any prompt; the latest one counts
+            "system" if entry["subtype"] == "bridge_status" => {
+                if let Some(url) = str_of("url").filter(|u| u.starts_with("https://claude.ai/code/session_")) {
+                    seen.remote = Some(url);
+                }
+            }
             "custom-title" => custom = str_of("customTitle").or(custom.take()),
             "last-prompt" => seen.prompt = str_of("lastPrompt").map(|p| plain_prompt(&p)).or(seen.prompt.take()),
             "user" => {
@@ -1035,6 +1041,11 @@ mod tests {
         // Named by the user: that name wins, wherever the generated title stands
         let named = [r#"{"type":"custom-title","customTitle":"Limiter","sessionId":"s1"}"#, log[3]];
         assert_eq!(parse(named.into_iter()).title.as_deref(), Some("Limiter"));
+
+        // The Remote Control link, from the line written when it connected (before any prompt)
+        let connected = [r#"{"type":"system","subtype":"bridge_status","content":"/remote-control is active","url":"https://claude.ai/code/session_01Abc","sessionId":"s1"}"#];
+        assert_eq!(parse(connected.into_iter()).remote.as_deref(), Some("https://claude.ai/code/session_01Abc"));
+        assert_eq!(parse(log.into_iter()).remote, None);
     }
 
     /// Against the real logs of this machine: `cargo test real_logs -- --ignored --nocapture`

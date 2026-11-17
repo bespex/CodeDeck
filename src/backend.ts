@@ -1614,7 +1614,8 @@ export function stopSession(project: string, session: string, restart: boolean):
 }
 
 /** Goes into a session: in the tool's desktop app, or in a terminal. */
-export function openSession(project: string, session: string, door: "desktop" | "terminal"): Promise<void> {
+/** Goes into a session: its desktop app, its terminal, or `auto` (the desktop app where it is reachable there, its log asked too; else the terminal). */
+export function openSession(project: string, session: string, door: "desktop" | "terminal" | "auto"): Promise<void> {
   if (live) return invoke("open_session", { project, session, door });
   return Promise.resolve();
 }

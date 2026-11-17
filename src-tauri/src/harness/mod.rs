@@ -278,6 +278,9 @@ pub struct SessionInfo {
     pub writes: Vec<(PathBuf, u64)>,
     /// What the assistant said last since the latest prompt
     pub report: Option<String>,
+    /// The link that reaches it from elsewhere, as the log noted it when Remote Control connected:
+    /// known before the first prompt, unlike the hooks' (they say nothing until then)
+    pub remote: Option<String>,
 }
 
 /// Whether one account's tool reports to CodeDeck.
