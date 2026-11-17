@@ -137,6 +137,24 @@ pub struct Event {
     /// so it needs no start rules again
     #[serde(default)]
     pub resumed: bool,
+    /// With the end of a turn, when the tool says it: what still runs in the background (a shell,
+    /// a helper, a monitor); empty if nothing does. The turn is over, but the session may start the
+    /// next one by itself when one of them ends
+    #[serde(default)]
+    pub background: Option<Vec<Background>>,
+    /// With a prompt the tool made itself: the background task whose end it announces
+    #[serde(default)]
+    pub task_ended: Option<String>,
+}
+
+/// Something that goes on after the turn that started it.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Background {
+    pub id: String,
+    /// In the tool's words: `shell`, `subagent`, `monitor`, …
+    pub kind: String,
+    /// What it is, shortened
+    pub text: String,
 }
 
 /// What a log tells about its session.

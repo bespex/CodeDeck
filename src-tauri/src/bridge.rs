@@ -320,6 +320,8 @@ impl Bridge {
                 log: Some(log.display().to_string()),
                 writes: Vec::new(),
                 resumed: false,
+                background: None,
+                task_ended: None,
             };
             self.handle(app, &end);
         }

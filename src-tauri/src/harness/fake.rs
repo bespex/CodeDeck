@@ -60,6 +60,10 @@ impl Harness for Fake {
             log: None,
             writes: raw["out"].as_array().into_iter().flatten().filter_map(|v| v.as_str().map(String::from)).collect(),
             resumed: raw["again"] == true,
+            background: raw["tasks"].as_array().map(|ids| {
+                ids.iter().filter_map(|v| v.as_str()).map(|id| super::Background { id: id.into(), kind: "shell".into(), text: id.into() }).collect()
+            }),
+            task_ended: text("ended"),
         })
     }
 

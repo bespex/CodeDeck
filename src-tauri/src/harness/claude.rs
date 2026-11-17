@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use serde_json::{Value, json};
 
-use super::{Attach, Capabilities, Connection, Event, EventKind, Harness, SessionInfo};
+use super::{Attach, Background, Capabilities, Connection, Event, EventKind, Harness, SessionInfo};
 
 pub struct Claude;
 
@@ -115,6 +115,9 @@ impl Harness for Claude {
             // `startup`, `resume`, `clear`, `compact`: after clearing or compacting what it was
             // told is gone, so only a resumed session still has the rules
             resumed: kind == EventKind::SessionStarted && raw["source"] == "resume",
+            // Only `Stop` says it; "waiting for your input" a minute later knows nothing of it
+            background: (name == "Stop").then(|| running_tasks(raw)),
+            task_ended: raw["prompt"].as_str().and_then(task_ended_by),
         })
     }
 
@@ -182,6 +185,32 @@ fn interrupted_after(log: &Path, since: u64) -> bool {
         return said.starts_with("[Request interrupted by user") && at > since;
     }
     false
+}
+
+/// What still runs when a turn ends: `Stop` lists it as `background_tasks`. Idle sessions
+/// (`idle_prompt`) list none, they came after `Stop` already said it.
+fn running_tasks(raw: &Value) -> Vec<Background> {
+    raw["background_tasks"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|t| t["status"] == "running")
+        .filter_map(|t| {
+            let text = t["description"].as_str().or(t["command"].as_str()).unwrap_or_default();
+            Some(Background {
+                id: t["id"].as_str()?.to_string(),
+                kind: t["type"].as_str().unwrap_or("task").to_string(),
+                text: text.chars().take(120).collect(),
+            })
+        })
+        .collect()
+}
+
+/// The prompt Claude Code makes when a background task ends names it: `<task-id>…</task-id>`.
+fn task_ended_by(prompt: &str) -> Option<String> {
+    let text = prompt.trim_start().strip_prefix("<task-notification>")?;
+    let id = text.split("<task-id>").nth(1)?.split("</task-id>").next()?.trim();
+    (!id.is_empty()).then(|| id.to_string())
 }
 
 /// What the user asked, as a turn is named after it. Claude Code also hands notices of its own in
@@ -782,5 +811,29 @@ mod tests {
         // No log, no answer
         let _ = std::fs::remove_file(&file);
         assert!(!interrupted_after(&file, before));
+    }
+
+    #[test]
+    fn knows_what_still_runs_when_a_turn_ends() {
+        let stop = json!({
+            "session_id": "s1", "hook_event_name": "Stop", "last_assistant_message": "Started the build.",
+            "background_tasks": [
+                { "id": "bw7r", "type": "shell", "status": "running", "description": "Build the deb", "command": "npx tauri build" },
+                { "id": "old1", "type": "shell", "status": "completed", "description": "Earlier" },
+            ],
+        });
+        let end = Claude.translate(&stop).unwrap();
+        assert_eq!(end.kind, EventKind::TurnDone);
+        let tasks = end.background.unwrap();
+        assert_eq!((tasks.len(), tasks[0].id.as_str(), tasks[0].kind.as_str(), tasks[0].text.as_str()), (1, "bw7r", "shell", "Build the deb"));
+        // A Stop with nothing running says so; "waiting for your input" says nothing about it
+        assert_eq!(Claude.translate(&json!({ "session_id": "s1", "hook_event_name": "Stop" })).unwrap().background, Some(Vec::new()));
+        let idle = json!({ "session_id": "s1", "hook_event_name": "Notification", "notification_type": "idle_prompt" });
+        assert_eq!(Claude.translate(&idle).unwrap().background, None);
+        // The prompt Claude Code makes when a task ends names it
+        let notice = json!({ "session_id": "s1", "hook_event_name": "UserPromptSubmit", "prompt": "<task-notification>\n<task-id>bw7r</task-id>\n<status>completed</status>" });
+        assert_eq!(Claude.translate(&notice).unwrap().task_ended.as_deref(), Some("bw7r"));
+        let typed = json!({ "session_id": "s1", "hook_event_name": "UserPromptSubmit", "prompt": "what is <task-id>?" });
+        assert_eq!(Claude.translate(&typed).unwrap().task_ended, None);
     }
 }

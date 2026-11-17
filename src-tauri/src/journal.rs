@@ -13,7 +13,7 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::harness::Event;
+use crate::harness::{Background, Event};
 
 /// Lines older than this go.
 const KEPT_MS: u64 = 7 * 24 * 3600_000;
@@ -38,6 +38,12 @@ pub struct Line {
     pub tool: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub text: Option<String>,
+    /// With `turn_done` when the tool says it: what still runs in the background
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub background: Option<Vec<Background>>,
+    /// With a prompt the tool made itself: the background task whose end it announces
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub task_ended: Option<String>,
 }
 
 impl Line {
@@ -45,11 +51,11 @@ impl Line {
         let file = e.file.as_deref().map(|f| Path::new(f).strip_prefix(root).map_or_else(|_| f.to_string(), |p| p.to_string_lossy().into_owned()));
         let kind = serde_json::to_value(e.kind).ok().and_then(|v| v.as_str().map(String::from)).unwrap_or_default();
         let text = e.prompt.as_deref().or(e.message.as_deref()).map(|t| t.chars().take(TEXT_MAX).collect());
-        Line { at, kind, harness: Some(e.harness.clone()), session: Some(e.session.clone()), file, tool: e.tool.clone(), text }
+        Line { at, kind, harness: Some(e.harness.clone()), session: Some(e.session.clone()), file, tool: e.tool.clone(), text, background: e.background.clone(), task_ended: e.task_ended.clone() }
     }
 
     pub fn opened(at: u64) -> Self {
-        Line { at, kind: "opened".into(), harness: None, session: None, file: None, tool: None, text: None }
+        Line { at, kind: "opened".into(), harness: None, session: None, file: None, tool: None, text: None, background: None, task_ended: None }
     }
 }
 

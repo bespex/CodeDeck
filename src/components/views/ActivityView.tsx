@@ -118,6 +118,7 @@ function Legend() {
     <span className="flex flex-wrap items-center gap-x-3 text-[11px] text-slate-400">
       <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-3.5 bg-ai/80" />{t("working")}</span>
       <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-3.5 border border-changed bg-changed/15" />{t("waiting for you")}</span>
+      <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-3.5" style={FADE_STYLE} />{t("in the background")}</span>
       <span className="flex items-center gap-1.5"><span className="inline-block border-x-[3px] border-b-[5px] border-x-transparent border-b-slate-500" />{t("snapshot before a turn")}</span>
       <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-px bg-brand/70" />{t("now")}</span>
     </span>
@@ -289,13 +290,38 @@ function Today({ assistant, snapshots }: { assistant: AssistantState; snapshots:
                       className="block size-full"
                       content={
                         <ToolTipBody
-                          label={b.phase === "working" ? t("Working") : t("Waiting for you")}
-                          says={`${clock(b.from)}–${b.to >= now - 60_000 && status !== "idle" ? t("now") : clock(b.to)}${b.text ? ` · ${b.text}` : ""}`}
+                          label={
+                            b.phase === "working"
+                              ? t("Working")
+                              : b.phase === "waiting"
+                                ? t("Waiting for you")
+                                : b.end === "known"
+                                  ? t("Running in the background")
+                                  : t("Running in the background, end not known")
+                          }
+                          says={
+                            b.phase === "background" && b.end === "unknown"
+                              ? `${clock(b.from)}– · ${b.text ?? ""}`
+                              : `${clock(b.from)}–${b.to >= now - 60_000 && status !== "idle" ? t("now") : clock(b.to)}${b.text ? ` · ${b.text}` : ""}`
+                          }
+                          hint={
+                            b.phase !== "background"
+                              ? undefined
+                              : b.end === "known"
+                                ? t("The turn was over, but a job it started was still running. When the job ended, the session began a new turn by itself.")
+                                : t("The turn is over, but a job it started is still running. When it ends, the session begins a new turn by itself. CodeDeck is not told when, so the bar fades out.")
+                          }
                         />
                       }
                     >
                       {/* Working is filled, waiting a frame: you are on, nothing happens */}
-                      <span className={`block size-full ${b.phase === "working" ? "bg-ai/80" : "border border-changed bg-changed/15"}`} />
+                      <span
+                        className={`block size-full ${
+                          b.phase === "working" ? "bg-ai/80" : b.phase === "waiting" ? "border border-changed bg-changed/15" : b.end === "known" ? "bg-ai/30" : ""
+                        }`}
+                        // An end nobody announced fades out instead of stopping: no edge that says more than is known
+                        style={b.phase === "background" && b.end === "unknown" ? FADE_STYLE : undefined}
+                      />
                     </Tooltip>
                   </div>
                 ))}
@@ -385,6 +411,9 @@ function Safety({ git, snapshots }: { git: GitView; snapshots: number }) {
   );
 }
 
+/** A stretch of unknown end: full at its start, gone after a while. */
+const FADE_STYLE = { background: "linear-gradient(to right, color-mix(in srgb, var(--color-ai) 70%, transparent), transparent)" };
+const SWATCH_BACKGROUND = <span className="inline-block h-2 w-5" style={FADE_STYLE} />;
 const SWATCH_WORKING = <span className="inline-block h-2 w-5 bg-ai/80" />;
 const SWATCH_WAITING = <span className="inline-block h-2 w-5 border border-changed bg-changed/15" />;
 const SWATCH_ANCHOR = <span className="inline-block border-x-4 border-b-[6px] border-x-transparent border-b-slate-500" />;
@@ -427,6 +456,7 @@ function TimelineHelp() {
       <p className="pt-1 font-semibold text-slate-100">{t("The signs")}</p>
       {sign(SWATCH_WORKING, t("Working"), t("The session is busy with a turn."))}
       {sign(SWATCH_WAITING, t("Waiting for you"), t("It asked you something or needs your permission."))}
+      {sign(SWATCH_BACKGROUND, t("Running in the background"), t("The turn is over, but something it started goes on (a build, a helper) and may wake the session. A hard end: it announced that it finished. A fading one: nothing says when."))}
       {sign(SWATCH_GAP, t("Gap"), t("Nothing runs: it waits for your next prompt."))}
       {sign(SWATCH_ANCHOR, t("Snapshot before a turn"), t("The point you can go back to. In the trail it is ⚓, the one at the end of a turn ⚑, the one before going back ↶."))}
       {sign(SWATCH_NOW, t("Now"), t("The current time."))}

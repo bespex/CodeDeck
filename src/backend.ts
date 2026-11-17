@@ -1357,6 +1357,10 @@ export interface JournalLine {
   tool?: string;
   /** The prompt or the message, shortened */
   text?: string;
+  /** With `turn_done`, when the tool says it: what still runs in the background */
+  background?: { id: string; kind: string; text: string }[];
+  /** With a prompt the tool made itself: the background task whose end it announces */
+  taskEnded?: string;
 }
 
 /** What happened in the project since `since` (Unix milliseconds), oldest first. */
@@ -1370,12 +1374,14 @@ export function journalLines(since: number): Promise<JournalLine[]> {
     { at: min(180), kind: "session_started", session: c },
     { at: min(178), kind: "prompt_submitted", session: c, text: "Add defaults to the config loader" },
     { at: min(176), kind: "after_write", session: c, file: "src/config.rs", tool: "Edit" },
-    { at: min(172), kind: "turn_done", session: c },
+    { at: min(172), kind: "turn_done", session: c, background: [{ id: "c1", kind: "shell", text: "npm run dev" }] },
     { at: min(95), kind: "prompt_submitted", session: a, text: "Refresh the API docs for the limiter" },
     { at: min(92), kind: "after_write", session: a, file: "docs/api.md", tool: "Write" },
     { at: min(88), kind: "waiting", session: a, text: "Claude needs your permission to use Bash" },
     { at: min(80), kind: "after_write", session: a, file: "docs/limits.md", tool: "Write" },
-    { at: min(74), kind: "turn_done", session: a },
+    { at: min(74), kind: "turn_done", session: a, background: [{ id: "b1", kind: "shell", text: "Build the deb" }] },
+    { at: min(61), kind: "prompt_submitted", session: a, text: "Background task finished", taskEnded: "b1" },
+    { at: min(59), kind: "turn_done", session: a },
     { at: min(40), kind: "prompt_submitted", session: b, text: "Per-client rate limit for orders" },
     { at: min(36), kind: "after_write", session: b, file: "src/middleware/rate_limit.rs", tool: "Edit" },
     { at: min(35), kind: "after_write", session: b, file: "src/routes/orders.rs", tool: "Edit" },

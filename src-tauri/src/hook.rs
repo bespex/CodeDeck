@@ -107,11 +107,24 @@ fn trace(event: &Event, outcome: &str) {
     }
 }
 
-/// Debug aid for checking what a tool really sends: with `CODEDECK_HOOK_LOG=<file>` in the
-/// environment of the session, every raw message is appended there as one line. Off by default,
-/// because the raw message holds more than CodeDeck keeps (file contents, commands).
+/// Debug aid for checking what a tool really sends: every raw message is appended as one line to
+/// the file named by `CODEDECK_HOOK_LOG` in the environment of the session, or, for a session that
+/// is already running (its environment cannot change), by the first line of
+/// `~/.local/state/codedeck/hook-log` (honouring `XDG_STATE_HOME`). Off by default, because the raw
+/// message holds more than CodeDeck keeps (file contents, commands).
 fn record_raw(input: &str) {
-    let Some(path) = std::env::var_os("CODEDECK_HOOK_LOG").filter(|p| !p.is_empty()) else { return };
+    let path = std::env::var_os("CODEDECK_HOOK_LOG")
+        .filter(|p| !p.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| {
+            let state = std::env::var_os("XDG_STATE_HOME")
+                .filter(|p| !p.is_empty())
+                .map(PathBuf::from)
+                .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/state")))?;
+            let text = std::fs::read_to_string(state.join("codedeck/hook-log")).ok()?;
+            text.lines().next().map(str::trim).filter(|l| !l.is_empty()).map(PathBuf::from)
+        });
+    let Some(path) = path else { return };
     if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
         let _ = writeln!(file, "{}", input.replace('\n', " "));
     }

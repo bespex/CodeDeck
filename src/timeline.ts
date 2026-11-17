@@ -51,11 +51,22 @@ export function useJournal(assistant: AssistantState, day?: Day): JournalLine[] 
 export interface Block {
   from: number;
   to: number;
-  /** Working, or waiting for the user (an answer, a permission) */
-  phase: "working" | "waiting";
-  /** The prompt, or what it waits for */
+  /**
+   * Working, waiting for the user (an answer, a permission), or after the turn: something it
+   * started goes on in the background. That one is shown apart, because the session is not working.
+   */
+  phase: "working" | "waiting" | "background";
+  /** The prompt, or what it waits for, or what runs in the background */
   text?: string;
+  /**
+   * Only for `background`: whether the end of what ran was announced (a hard end) or not (it
+   * fades out over `FADE_MS`: nothing says when, or whether, it ended)
+   */
+  end?: "known" | "unknown";
 }
+
+/** How long a background stretch of unknown end is drawn, fading out. */
+export const FADE_MS = 12 * 60_000;
 
 export interface Lane {
   session: string;
@@ -72,25 +83,39 @@ export interface Lane {
  * last event.
  */
 export function lanesOf(lines: JournalLine[], sessions: Session[], now: number, day?: Day): Lane[] {
-  const lanes = new Map<string, Lane & { open: Block | null }>();
+  const lanes = new Map<string, Lane & { open: Block | null; bg: { from: number; tasks: Map<string, string> } | null }>();
   const from = day?.from ?? -Infinity;
   const to = day?.to ?? Infinity;
   const lane = (id: string) => {
     let l = lanes.get(id);
-    if (!l) lanes.set(id, (l = { session: id, blocks: [], turns: 0, last: 0, open: null }));
+    if (!l) lanes.set(id, (l = { session: id, blocks: [], turns: 0, last: 0, open: null, bg: null }));
     return l;
   };
   const close = (l: ReturnType<typeof lane>, at: number) => {
     if (l.open) l.blocks.push({ ...l.open, to: Math.max(at, l.open.from) });
     l.open = null;
   };
+  // What a turn left running: drawn from the end of the turn to when its end was announced, else
+  // for a while into the future, but never over what the session did meanwhile
+  const settle = (l: ReturnType<typeof lane>, at: number, known: boolean) => {
+    if (!l.bg) return;
+    const to = known ? at : Math.min(l.bg.from + FADE_MS, at);
+    l.blocks.push({ from: l.bg.from, to: Math.max(to, l.bg.from), phase: "background", end: known ? "known" : "unknown", text: [...l.bg.tasks.values()].join(", ") });
+    l.bg = null;
+  };
   for (const line of lines) {
     if (!line.session) continue;
     const l = lane(line.session);
     l.last = line.at;
+    if (l.bg && ["waiting", "before_write", "after_write"].includes(line.kind) && !l.open) settle(l, line.at, false);
     switch (line.kind) {
       case "prompt_submitted":
         close(l, line.at);
+        if (l.bg) {
+          // The prompt a tool makes when a background task ends names the task: the last one ending it for sure
+          const ended = line.taskEnded !== undefined && l.bg.tasks.delete(line.taskEnded);
+          settle(l, line.at, ended && l.bg.tasks.size === 0);
+        }
         if (line.at >= from) l.turns += 1;
         l.open = { from: line.at, to: line.at, phase: "working", text: line.text };
         break;
@@ -108,12 +133,18 @@ export function lanesOf(lines: JournalLine[], sessions: Session[], now: number, 
         } else if (!l.open) l.open = { from: line.at, to: line.at, phase: "working" };
         break;
       case "turn_done":
+        close(l, line.at);
+        // Only `Stop` says what runs on; the "waiting for input" a minute later says nothing, and changes nothing
+        if (line.background?.length) l.bg = { from: line.at, tasks: new Map(line.background.map((b) => [b.id, b.text])) };
+        break;
       case "session_ended":
         close(l, line.at);
+        settle(l, line.at, false);
         break;
     }
   }
   for (const l of lanes.values()) {
+    settle(l, now, false);
     const live = sessions.find((s) => s.id === l.session)?.status;
     close(l, live === "working" || live === "waiting" ? now : l.last);
   }
