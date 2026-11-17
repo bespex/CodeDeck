@@ -492,14 +492,18 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
                 </button>
               </>
             )}
-            <button
-              type="button"
-              title={t("Takes it off this list. It comes back by itself when the session takes its next step")}
-              onClick={() => forgetSession(s.id)}
-              className="flex shrink-0 items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-slate-300 hover:border-overlay-line hover:bg-overlay-hover hover:text-slate-100"
-            >
-              <X className="size-3" /> {t("Remove from list")}
-            </button>
+            {/* Only what is over: a session that still runs must stay in sight, or one could never
+                find it again to write its next prompt (user, 2026-11-17) */}
+            {(s.status === "ended" || s.alive === false) && (
+              <button
+                type="button"
+                title={t("Takes it off this list. It comes back by itself when the session takes its next step")}
+                onClick={() => forgetSession(s.id)}
+                className="flex shrink-0 items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-slate-300 hover:border-overlay-line hover:bg-overlay-hover hover:text-slate-100"
+              >
+                <X className="size-3" /> {t("Remove from list")}
+              </button>
+            )}
           </div>
         </div>
       )}

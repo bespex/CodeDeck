@@ -286,7 +286,6 @@ function ProjectRow({ project }: { project: OverviewProject }) {
                     <TriangleAlert className="size-3.5 shrink-0 text-changed" />
                   </span>
                 )}
-                <span className={`shrink-0 text-[11px] ${status.className}`}>{status.word}</span>
                 <span className="hidden items-center group-hover/s:flex">
                   {/* Sessions in tmux can be stopped and restarted from here; not while they work */}
                   {s.place?.tmux?.session && s.status !== "working" && (
@@ -308,6 +307,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
                     <SquareTerminal className="size-3.5" />
                   </RowIcon>
                 </span>
+                <span className={`shrink-0 text-[11px] ${status.className}`}>{status.word}</span>
               </li>
             );
           })}
