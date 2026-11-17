@@ -106,11 +106,11 @@ impl Git {
     }
 
     fn head(&self, report: Report, repo: &Repo) -> Option<String> {
-        self.run(report, repo, &["rev-parse", "--verify", "--quiet", "HEAD"]).ok().map(text)
+        self.verify(report, repo, "HEAD")
     }
 
     fn tree_of(&self, report: Report, repo: &Repo, commit: &str) -> Option<String> {
-        self.run(report, repo, &["rev-parse", "--verify", "--quiet", &format!("{commit}^{{tree}}")]).ok().map(text)
+        self.verify(report, repo, &format!("{commit}^{{tree}}"))
     }
 
     /// Writes the commit and its ref. The message: the label, then the report if there is one,

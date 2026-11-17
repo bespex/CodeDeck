@@ -153,7 +153,7 @@ impl Git {
             args.extend(["--", &repo.prefix]);
         }
         // A repository without commits has no history yet; that is no error
-        if self.run(report, repo, &["rev-parse", "--verify", "--quiet", "HEAD"]).is_err() {
+        if self.verify(report, repo, "HEAD").is_none() {
             return log;
         }
         let out = match self.run(report, repo, &args) {
@@ -193,7 +193,7 @@ impl Git {
     /// together, untracked files included as new files.
     pub fn working_diff(&self, report: Report, project: &Project, repo: &str) -> Result<Patch, String> {
         let repo = self.find(project, repo).ok_or_else(|| format!("{repo}: no repository here"))?;
-        let has_head = self.run(report, &repo, &["rev-parse", "--verify", "--quiet", "HEAD"]).is_ok();
+        let has_head = self.verify(report, &repo, "HEAD").is_some();
         self.worktree_diff(report, &repo, if has_head { "HEAD" } else { EMPTY_TREE })
     }
 
@@ -235,7 +235,7 @@ impl Git {
         let text = String::from_utf8_lossy(&self.run(report, &repo, &diff)?).into_owned();
 
         let parent = format!("{hash}^");
-        let has_parent = self.run(report, &repo, &["rev-parse", "--verify", "--quiet", &parent]).is_ok();
+        let has_parent = self.verify(report, &repo, &parent).is_some();
         let before = self.dirs(report, &repo, if has_parent { &parent } else { EMPTY_TREE })?;
         let after = self.dirs(report, &repo, hash)?;
         let (new_dirs, gone_dirs) = dir_changes(&changes, |d| before.contains(d), |d| after.contains(d));
@@ -251,7 +251,7 @@ impl Git {
         for hash in [from, to] {
             let commit = format!("{hash}^{{commit}}");
             let hex = hash.len() >= 7 && hash.chars().all(|c| c.is_ascii_hexdigit());
-            if !hex || self.run(report, &repo, &["rev-parse", "--verify", "--quiet", &commit]).is_err() {
+            if !hex || self.verify(report, &repo, &commit).is_none() {
                 return Err(format!("{hash}: not a commit of this repository"));
             }
         }

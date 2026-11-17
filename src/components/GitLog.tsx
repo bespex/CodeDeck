@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Search, SquareTerminal, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, Search, SquareTerminal, X } from "lucide-react";
 import type { GitRun } from "../backend";
 import { LOCALE } from "./Trail";
 import { t } from "../i18n";
@@ -15,6 +15,25 @@ interface Group {
 
 /** The same read in several repos within this time is one row (e.g. the history of all repos). */
 const ROUND_MS = 2000;
+
+/** A run as plain text, the way a terminal would have shown it. */
+function runText(run: GitRun): string {
+  const time = new Date(run.at).toLocaleTimeString(LOCALE);
+  const end = run.code === null ? "did not run to the end" : `exit code ${run.code}`;
+  return `[${time}] ${run.repo}\n$ ${run.command}\n${run.output.trimEnd()}${run.output.trim() ? "\n" : ""}(${end} · ${run.ms} ms)`;
+}
+
+/** Copies and says so on the button for a moment. */
+function useCopy(): [boolean, (text: string) => void] {
+  const [done, setDone] = useState(false);
+  const copy = (text: string) => {
+    void navigator.clipboard.writeText(text).then(() => {
+      setDone(true);
+      setTimeout(() => setDone(false), 1200);
+    });
+  };
+  return [done, copy];
+}
 
 function group(runs: GitRun[]): Group[] {
   const groups: Group[] = [];
@@ -64,6 +83,7 @@ export function GitLog({ runs, onClose }: { runs: GitRun[]; onClose: () => void 
     return group(shown);
   }, [runs, show, query]);
   const actions = runs.filter((r) => r.changes).length;
+  const [copiedAll, copyAll] = useCopy();
 
   // Stays at the bottom while new commands arrive, unless one scrolled up to read
   const list = useRef<HTMLDivElement>(null);
@@ -134,6 +154,16 @@ export function GitLog({ runs, onClose }: { runs: GitRun[]; onClose: () => void 
         </label>
         <button
           type="button"
+          disabled={groups.length === 0}
+          onClick={() => copyAll(groups.flatMap((g) => g.runs).map(runText).join("\n\n"))}
+          title={t("Copy what is shown, commands and output, as text")}
+          className="flex items-center gap-1 rounded px-1.5 py-1 text-[12px] text-slate-400 hover:bg-overlay-hover hover:text-slate-100 disabled:opacity-40"
+        >
+          {copiedAll ? <Check className="size-3.5 text-added" /> : <Copy className="size-3.5" />}
+          {copiedAll ? t("Copied") : t("Copy")}
+        </button>
+        <button
+          type="button"
           onClick={onClose}
           title={t("Close (Esc)")}
           aria-label={t("Close")}
@@ -170,6 +200,7 @@ function Entry({ group, open, onToggle }: { group: Group; open: boolean; onToggl
   const ms = Math.max(...group.runs.map((r) => r.ms));
   const Chevron = open ? ChevronDown : ChevronRight;
   const repos = group.runs.length > 1 ? `${group.runs.length} repos` : first.repo;
+  const [copied, copy] = useCopy();
 
   return (
     <div className={open ? "bg-base/40" : ""}>
@@ -222,8 +253,19 @@ function Entry({ group, open, onToggle }: { group: Group; open: boolean; onToggl
               >
                 {run.output.trimEnd() || <span className="font-sans text-slate-500 italic">{t("No output")}</span>}
               </pre>
-              <div className="mt-0.5 font-sans text-[11px] text-slate-500">
-                {run.code === null ? t("did not run to the end") : t("exit code {code}", { code: run.code })} · {run.ms} ms
+              <div className="mt-0.5 flex items-center gap-2 font-sans text-[11px] text-slate-500">
+                <span>
+                  {run.code === null ? t("did not run to the end") : t("exit code {code}", { code: run.code })} · {run.ms} ms
+                </span>
+                <button
+                  type="button"
+                  onClick={() => copy(runText(run))}
+                  title={t("Copy command and output")}
+                  className="flex items-center gap-1 rounded px-1 text-slate-500 hover:bg-overlay-hover hover:text-slate-200"
+                >
+                  {copied ? <Check className="size-3 text-added" /> : <Copy className="size-3" />}
+                  {copied ? t("Copied") : t("Copy")}
+                </button>
               </div>
             </div>
           ))}

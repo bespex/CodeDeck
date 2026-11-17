@@ -260,7 +260,7 @@ Remote-Link `https://claude.ai/code/<id>`. Das neutrale Ereignis bekommt ein Fel
 pub struct Place { pid: Option<u32>, tmux: Option<String>, launched: bool, remote: Option<String> }
 ```
 
-**Gebaut (Vorarbeit, 2026-11-17):** `place.rs`, `Event.place`, `Harness::remote_link`, `Session.place`; die Details einer Sitzung zeigen tmux-Name und „von überall erreichbar“. Noch ohne Praxistest.
+**Gebaut (Vorarbeit, 2026-11-17):** `place.rs`, `Event.place`, `Harness::remote_link`, `Session.place`; die Details einer Sitzung zeigen tmux-Name und „von überall erreichbar“. Praxistest bestanden (2026-11-17).
 
 Für Sitzungen, die seit dem Start von CodeDeck noch nichts gemeldet haben, liest `tmux list-panes -a -F
 '#{session_name} #{pane_pid} #{@codedeck}'` einmal den Stand.

@@ -268,6 +268,16 @@ impl Git {
         }
     }
 
+    /// Asks whether a revision exists, and what it names. "No" is an answer, not a failure: in a
+    /// repository without commits `HEAD` does not exist yet, and a red line in the log would look
+    /// like something went wrong.
+    pub(crate) fn verify(&self, report: Report, repo: &Repo, rev: &str) -> Option<String> {
+        match self.execute_logged(report, repo, &["rev-parse", "--verify", "--quiet", rev], &[], Logged::Question) {
+            (true, out, _) => Some(String::from_utf8_lossy(&out).trim().to_string()),
+            _ => None,
+        }
+    }
+
     /// Runs one git command in a repository and reports it: success, stdout, stderr.
     pub(crate) fn execute(&self, report: Report, repo: &Repo, args: &[&str]) -> (bool, Vec<u8>, Vec<u8>) {
         self.execute_with(report, repo, args, &[])
@@ -323,7 +333,7 @@ impl Git {
                 .map(|(k, v)| format!("{k}={} ", quote(v)))
                 .chain(std::iter::once(format!("git {}", args.iter().map(|a| quote(a)).collect::<Vec<_>>().join(" "))))
                 .collect(),
-            ok,
+            ok: ok || (logged == Logged::Question && output.as_ref().is_ok_and(|o| o.status.code() == Some(1))),
             code: output.as_ref().ok().and_then(|o| o.status.code()),
             ms: started.elapsed().as_millis() as u64,
             at: SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64),
@@ -381,6 +391,8 @@ enum Logged {
     Always,
     /// Routine reads that run all the time, like the status round: only when they fail
     OnFailure,
+    /// A yes/no question (`rev-parse --verify --quiet`): exit code 1 means "no" and is logged as ok
+    Question,
 }
 
 /// Lines of an action's output kept in the log; the rest is counted.
@@ -739,6 +751,29 @@ mod tests {
         let _ = fs::remove_dir_all(&base);
         assert_eq!(repos[0].files.len(), 0);
         assert!(runs.lock().unwrap().contains(&"git commit -m 'first: it'\\''s here'".to_string()));
+    }
+
+    #[test]
+    fn no_commit_yet_is_an_answer_not_a_failure() {
+        let dir = std::env::temp_dir().join(format!("codedeck-verify-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        Command::new("git").args(["init", "-q", "-b", "main"]).current_dir(&dir).output().unwrap();
+        let repo = Repo { top: dir.clone(), path: String::new(), prefix: String::new(), worktree_of: None };
+        let runs = Mutex::new(Vec::new());
+        let report = |run: &GitRun| runs.lock().unwrap().push(run.ok);
+        let g = Git::new();
+        let head = g.verify(&report, &repo, "HEAD");
+        // Outside any repository git fails with 128: that stays a failure
+        let outside = std::env::temp_dir().join(format!("codedeck-verify-out-{}", std::process::id()));
+        fs::create_dir_all(&outside).unwrap();
+        let elsewhere = Repo { top: outside.clone(), ..repo.clone() };
+        let broken = g.verify(&report, &elsewhere, "HEAD");
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&outside);
+        assert_eq!(head, None);
+        assert_eq!(broken, None);
+        // "No HEAD yet" is logged as ok; a real error still is not
+        assert_eq!(*runs.lock().unwrap(), [true, false]);
     }
 
     #[test]

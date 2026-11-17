@@ -98,6 +98,8 @@ export const de: Record<string, string> = {
   "Preview": "Vorschau",
   "Copy the files to paste into {tool}": "Dateien kopieren, um sie in {tool} einzufügen",
   "Copy": "Kopieren",
+  "Copy command and output": "Befehl und Ausgabe kopieren",
+  "Copy what is shown, commands and output, as text": "Das Angezeigte kopieren, Befehle und Ausgabe als Text",
   "Remove all files": "Alle Dateien entfernen",
   "Goes out with the next prompt of": "Geht mit dem nächsten Prompt von",
   "Not connected: nothing reaches {tool} (status bar).": "Nicht verbunden: bei {tool} kommt nichts an (Statusleiste).",

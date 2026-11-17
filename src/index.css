@@ -301,8 +301,9 @@ body {
   overflow: hidden;
 }
 
-/* Text that should stay selectable */
+/* Text that should stay selectable (WebKitGTK may still want the prefix) */
 .selectable {
+  -webkit-user-select: text;
   user-select: text;
 }
 
