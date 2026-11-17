@@ -154,13 +154,6 @@ impl Git {
         all
     }
 
-    /// Forgets the commands run so far: they belong to the project that was open, and the log of
-    /// the next one must not look as if git had been used there.
-    pub fn clear_log(&self) {
-        self.changes.locked().clear();
-        self.reads.locked().clear();
-    }
-
     /// Makes the project folder a repository (`git init -b main`). Not one of the [`ACTIONS`]: it is
     /// offered for a project without any repository only, never as a free-form action.
     pub fn init(&self, report: Report, project: &Project) -> ActionResult {

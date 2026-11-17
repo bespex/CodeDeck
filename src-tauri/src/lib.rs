@@ -228,14 +228,14 @@ fn open_url(url: String, app: AppHandle) -> Result<(), String> {
 /// Copies a file a session left outside the project into the scratch folder.
 #[tauri::command]
 fn fetch_outside(path: String, app: AppHandle, window: WebviewWindow) -> Result<String, String> {
-    windows::of(&window)?.bridge.fetch_outside(&app, &path)
+    windows::of(&window)?.bridge().fetch_outside(&app, &path)
 }
 
 /// Opens a file left outside the project in its program, or shows it in the file manager. Only
 /// files CodeDeck noted as left outside: nothing else outside the project is reached this way.
 #[tauri::command]
 fn open_outside(path: String, role: Option<Role>, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
-    if !windows::of(&window)?.bridge.is_found(&path) {
+    if !windows::of(&window)?.bridge().is_found(&path) {
         return Err(format!("{path}: not a file left outside"));
     }
     let full = PathBuf::from(&path);
@@ -249,7 +249,7 @@ fn open_outside(path: String, role: Option<Role>, app: AppHandle, window: Webvie
 /// Forgets a file left outside or a published page.
 #[tauri::command]
 fn forget_found(key: String, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
-    windows::of(&window)?.bridge.forget_found(&app, &key);
+    windows::of(&window)?.bridge().forget_found(&app, &key);
     Ok(())
 }
 
@@ -346,11 +346,12 @@ fn show_in_file_manager(path: &str, app: AppHandle, window: WebviewWindow) -> Re
 fn open_project(path: &str, app: AppHandle, window: WebviewWindow) -> Result<ProjectInfo, String> {
     let win = windows::of(&window)?;
     let project = Arc::new(Project::open(Path::new(path))?);
-    win.current.set(project.clone());
+    let old = win.current.get().root.clone();
     win.watch.clear();
-    win.bridge.clear(&app);
-    // The log is the window's: the next project must not inherit the commands of this one
-    win.git.clear_log();
+    // The sessions belong to the project: the window takes the new project's bridge
+    win.switch_to(&app, project.clone());
+    projects::add(&project.root);
+    windows::forget_bridge(&app, &old);
     recent::remember(&project.root);
     set_title(&app, &win);
     exclude_scratch(&app, &win);
@@ -363,7 +364,7 @@ pub(crate) fn exclude_scratch(app: &AppHandle, win: &Arc<Win>) {
     std::thread::spawn(move || {
         let project = win.current.get();
         let report = reporter(&app, &win.label);
-        win.git.exclude_scratch(&report, &project);
+        win.git().exclude_scratch(&report, &project);
     });
 }
 
@@ -436,7 +437,7 @@ async fn pick_folder(app: AppHandle, window: WebviewWindow) -> Option<String> {
 #[tauri::command]
 async fn git_init(app: AppHandle, window: WebviewWindow) -> Result<ActionResult, String> {
     let win = windows::of(&window)?;
-    let done = blocking(app.clone(), win.clone(), |win, project, report| win.git.init(report, &project)).await?;
+    let done = blocking(app.clone(), win.clone(), |win, project, report| win.git().init(report, &project)).await?;
     if done.ok {
         exclude_scratch(&app, &win);
     }
@@ -448,7 +449,7 @@ async fn git_init(app: AppHandle, window: WebviewWindow) -> Result<ActionResult,
 #[tauri::command]
 async fn git_status(rescan: bool, app: AppHandle, window: WebviewWindow) -> Result<Vec<RepoStatus>, String> {
     blocking(app, windows::of(&window)?, move |win, project, report| {
-        let (statuses, git_dirs) = win.git.status(report, &project, rescan);
+        let (statuses, git_dirs) = win.git().status(report, &project, rescan);
         git_dirs.iter().for_each(|dir| win.watch.add(dir));
         statuses
     })
@@ -459,25 +460,25 @@ async fn git_status(rescan: bool, app: AppHandle, window: WebviewWindow) -> Resu
 /// (add, commit, pull, push, fetch) are allowed.
 #[tauri::command]
 async fn git_action(repo: String, args: Vec<String>, app: AppHandle, window: WebviewWindow) -> Result<ActionResult, String> {
-    blocking(app, windows::of(&window)?, move |win, project, report| win.git.action(report, &project, &repo, &args)).await
+    blocking(app, windows::of(&window)?, move |win, project, report| win.git().action(report, &project, &repo, &args)).await
 }
 
 /// The latest commits of the given repositories (project-relative paths).
 #[tauri::command]
 async fn git_history(repos: Vec<String>, app: AppHandle, window: WebviewWindow) -> Result<Vec<RepoLog>, String> {
-    blocking(app, windows::of(&window)?, move |win, project, report| win.git.history(report, &project, &repos)).await
+    blocking(app, windows::of(&window)?, move |win, project, report| win.git().history(report, &project, &repos)).await
 }
 
 /// Uncommitted changes of one repository as a patch, untracked files included.
 #[tauri::command]
 async fn git_working_diff(repo: String, app: AppHandle, window: WebviewWindow) -> Result<Patch, String> {
-    blocking(app, windows::of(&window)?, move |win, project, report| win.git.working_diff(report, &project, &repo)).await?
+    blocking(app, windows::of(&window)?, move |win, project, report| win.git().working_diff(report, &project, &repo)).await?
 }
 
 /// What one commit changed, as a patch.
 #[tauri::command]
 async fn git_commit_diff(repo: String, hash: String, app: AppHandle, window: WebviewWindow) -> Result<Patch, String> {
-    blocking(app, windows::of(&window)?, move |win, project, report| win.git.commit_diff(report, &project, &repo, &hash)).await?
+    blocking(app, windows::of(&window)?, move |win, project, report| win.git().commit_diff(report, &project, &repo, &hash)).await?
 }
 
 /// Runs git work off the main thread, with the window's project and a reporter for its commands.
@@ -498,7 +499,7 @@ async fn blocking<T: Send + 'static>(
 /// What changed from one commit (or snapshot) to another, as a patch.
 #[tauri::command]
 async fn git_compare(repo: String, from: String, to: String, app: AppHandle, window: WebviewWindow) -> Result<Patch, String> {
-    blocking(app, windows::of(&window)?, move |win, project, report| win.git.compare(report, &project, &repo, &from, &to)).await?
+    blocking(app, windows::of(&window)?, move |win, project, report| win.git().compare(report, &project, &repo, &from, &to)).await?
 }
 
 /// Whether Dirq, the diff viewer, is installed.
@@ -528,45 +529,45 @@ fn show_markdown(text: String) -> Result<(), String> {
 /// Snapshots of the working tree taken before an assistant wrote, newest first.
 #[tauri::command]
 async fn git_snapshots(repos: Vec<String>, app: AppHandle, window: WebviewWindow) -> Result<Vec<Snapshot>, String> {
-    blocking(app, windows::of(&window)?, move |win, project, report| win.git.snapshots(report, &project, &repos)).await
+    blocking(app, windows::of(&window)?, move |win, project, report| win.git().snapshots(report, &project, &repos)).await
 }
 
 /// What changed since a snapshot, as a patch.
 #[tauri::command]
 async fn git_snapshot_diff(repo: String, hash: String, app: AppHandle, window: WebviewWindow) -> Result<Patch, String> {
-    blocking(app, windows::of(&window)?, move |win, project, report| win.git.snapshot_diff(report, &project, &repo, &hash)).await?
+    blocking(app, windows::of(&window)?, move |win, project, report| win.git().snapshot_diff(report, &project, &repo, &hash)).await?
 }
 
 /// Puts the working tree back as it was in a snapshot; the present is kept as one before.
 #[tauri::command]
 async fn git_restore_snapshot(repo: String, hash: String, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
-    blocking(app, windows::of(&window)?, move |win, project, report| win.git.restore_snapshot(report, &project, &repo, &hash)).await?
+    blocking(app, windows::of(&window)?, move |win, project, report| win.git().restore_snapshot(report, &project, &repo, &hash)).await?
 }
 
 /// The `@ai` markers in the project's documents.
 #[tauri::command]
 async fn find_markers(app: AppHandle, window: WebviewWindow) -> Result<Vec<Marker>, String> {
-    blocking(app, windows::of(&window)?, move |win, project, report| win.git.markers(report, &project)).await
+    blocking(app, windows::of(&window)?, move |win, project, report| win.git().markers(report, &project)).await
 }
 
 /// The assistant sessions in this project, as far as their hooks told.
 #[tauri::command]
 fn assistant_state(window: WebviewWindow) -> Result<AssistantState, String> {
-    Ok(windows::of(&window)?.bridge.state())
+    Ok(windows::of(&window)?.bridge().state())
 }
 
 /// One part (`key`) of the attachments to the next prompt in this project; `None` removes that
 /// part. `rev` is the interface's count of its changes to the part, returned with the receipt.
 #[tauri::command]
 fn attach(key: String, text: Option<String>, label: Option<String>, rev: Option<u64>, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
-    windows::of(&window)?.bridge.attach(&app, key, text.map(|t| (t, label.unwrap_or_default(), rev.unwrap_or_default())));
+    windows::of(&window)?.bridge().attach(&app, key, text.map(|t| (t, label.unwrap_or_default(), rev.unwrap_or_default())));
     Ok(())
 }
 
 /// The session the attachments are meant for; `None`: whichever session in the project prompts first.
 #[tauri::command]
 fn attach_for(session: Option<String>, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
-    windows::of(&window)?.bridge.set_target(&app, session);
+    windows::of(&window)?.bridge().set_target(&app, session);
     Ok(())
 }
 
@@ -579,14 +580,14 @@ fn start_rules() -> &'static str {
 /// The user's title and short name for a session; an empty title brings the tool's back.
 #[tauri::command]
 fn rename_session(id: String, title: Option<String>, short: Option<String>, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
-    windows::of(&window)?.bridge.rename(&app, &id, title.as_deref(), short.as_deref());
+    windows::of(&window)?.bridge().rename(&app, &id, title.as_deref(), short.as_deref());
     Ok(())
 }
 
 /// Takes a session off the list of this project until it reports again.
 #[tauri::command]
 fn forget_session(id: String, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
-    windows::of(&window)?.bridge.forget(&app, &id);
+    windows::of(&window)?.bridge().forget(&app, &id);
     Ok(())
 }
 
@@ -636,6 +637,8 @@ fn report_summary(summary: serde_json::Value, app: AppHandle, window: WebviewWin
 fn add_project(path: String, app: AppHandle) -> Result<(), String> {
     let project = Project::open(Path::new(&path))?;
     projects::add(&project.root);
+    // From now on it hears its sessions, before any window opens
+    windows::bridge_for(&app, &project.root);
     windows::overview_changed(&app);
     Ok(())
 }
@@ -644,6 +647,7 @@ fn add_project(path: String, app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 fn remove_project(path: String, app: AppHandle) -> Result<(), String> {
     projects::remove(Path::new(&path))?;
+    windows::forget_bridge(&app, Path::new(&path));
     windows::overview_changed(&app);
     Ok(())
 }
@@ -689,7 +693,7 @@ async fn toggle_overview(app: AppHandle) -> Result<(), String> {
 /// The git commands run so far, oldest first.
 #[tauri::command]
 fn git_log(window: WebviewWindow) -> Result<Vec<GitRun>, String> {
-    Ok(windows::of(&window)?.git.log())
+    Ok(windows::of(&window)?.git().log())
 }
 
 /// Event sent after every git command; payload [`GitRun`].
@@ -711,6 +715,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(Windows::default())
+        .manage(windows::Bridges::default())
         .manage(window::Shortcuts::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -725,7 +730,7 @@ pub fn run() {
                 }
             }
             tauri::WindowEvent::Destroyed => {
-                window.app_handle().state::<Windows>().remove(window.label());
+                window.app_handle().state::<Windows>().remove(window.app_handle(), window.label());
                 windows::overview_changed(window.app_handle());
             }
             _ => {}
@@ -739,6 +744,8 @@ pub fn run() {
                 }
                 Err(e) => eprintln!("codedeck: no socket for assistants: {e}"),
             }
+            // Every project on my list hears its sessions, window or not
+            windows::listen_to_my_projects(app.handle());
             windows::open(app.handle(), project)?;
             // The overview of all projects comes along (docs/UEBERSICHT.md; to become a setting)
             let handle = app.handle().clone();

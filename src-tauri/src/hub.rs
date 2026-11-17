@@ -18,7 +18,6 @@ use serde_json::json;
 use tauri::{AppHandle, Manager};
 
 use crate::harness::Event;
-use crate::windows::Windows;
 
 /// A second start of this program asks the running one to open a folder.
 #[derive(Serialize, Deserialize)]
@@ -72,7 +71,7 @@ fn serve(app: &AppHandle, mut stream: UnixStream) {
     if (&mut stream).take(256 * 1024).read_to_string(&mut text).is_err() {
         return;
     }
-    let windows = app.state::<Windows>().all();
+    let bridges = app.state::<crate::windows::Bridges>().all();
     if let Ok(Open { open }) = serde_json::from_str::<Open>(&text) {
         let reply = match crate::project::Project::open(&open).and_then(|p| crate::windows::open(app, p)) {
             Ok(_) => json!({ "opened": true }),
@@ -83,19 +82,19 @@ fn serve(app: &AppHandle, mut stream: UnixStream) {
     }
     // The usage a tool's status line states
     if let Ok(message) = serde_json::from_str::<crate::usage::Message>(&text) {
-        windows.iter().for_each(|w| w.bridge.take_usage(app, message.usage.clone()));
+        bridges.iter().for_each(|b| b.take_usage(app, message.usage.clone()));
         return;
     }
     let Ok(event) = serde_json::from_str::<Event>(&text) else { return };
-    // Every window at once: one taking a snapshot does not hold up the others
+    // Every project at once: one taking a snapshot does not hold up the others
     let contexts: Vec<String> = std::thread::scope(|scope| {
-        let asked: Vec<_> = windows.iter().map(|w| scope.spawn(|| w.bridge.handle(app, &event))).collect();
+        let asked: Vec<_> = bridges.iter().map(|b| scope.spawn(|| b.handle(app, &event))).collect();
         asked.into_iter().filter_map(|h| h.join().ok().flatten()).collect()
     });
     // Two windows on one project both give the start rules: once is enough
     let mut seen = std::collections::HashSet::new();
     let contexts: Vec<String> = contexts.into_iter().filter(|t| seen.insert(t.clone())).collect();
-    let _ = stream.write_all(json!({ "contexts": contexts, "windows": windows.len() }).to_string().as_bytes());
+    let _ = stream.write_all(json!({ "contexts": contexts, "windows": bridges.len() }).to_string().as_bytes());
 }
 
 /// Hands the folder to a CodeDeck already running from this same program; whether one took it.

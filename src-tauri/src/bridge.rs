@@ -1,7 +1,8 @@
-//! The window's side of the bridge to coding assistants. The process listens on one socket
+//! A project's side of the bridge to coding assistants. The process listens on one socket
 //! ([`crate::hub`]); `codedeck hook` (see [`crate::hook`]) sends it the tools' events, already
-//! translated by their adapters (see [`crate::harness`]), and the hub hands each to every window.
-//! From them a window knows the sessions working in
+//! translated by their adapters (see [`crate::harness`]), and the hub hands each to the bridge of
+//! every project on my list, with a window or without (docs/UEBERSICHT.md). From them it knows the
+//! sessions working in
 //! its project, what they are doing and which files they touched, takes a snapshot before a
 //! session's first write in a turn, and can hand a task to the next prompt. No tool is named
 //! here: what a session can do is in its [`Capabilities`].
@@ -255,9 +256,9 @@ pub struct Bridge {
     inner: Mutex<Inner>,
     /// One snapshot at a time: two sessions writing at once must not race on one repository
     snapshotting: Mutex<()>,
-    /// The window this bridge belongs to: its events go there only
-    label: String,
-    /// The window's project and git view
+    /// The window showing this project, if one does: its events go there
+    label: Mutex<Option<String>>,
+    /// The project, fixed for the bridge's life, and git for it
     current: Arc<Current>,
     git: Arc<Git>,
     /// What happened in the project, kept for a week
@@ -265,11 +266,12 @@ pub struct Bridge {
 }
 
 impl Bridge {
-    /// The bridge of one window; it hears from the hub from now on.
-    pub fn new(app: &AppHandle, label: String, current: Arc<Current>, git: Arc<Git>) -> Arc<Self> {
+    /// The bridge of one project; it hears from the hub from now on, window or not.
+    pub fn new(app: &AppHandle, current: Arc<Current>) -> Arc<Self> {
         let mut inner = Inner::default();
         inner.usage = crate::usage::Store::load();
-        let bridge = Arc::new(Self { inner: Mutex::new(inner), snapshotting: Mutex::new(()), label, current, git, journal: Journal::default() });
+        let git = Arc::new(Git::new());
+        let bridge = Arc::new(Self { inner: Mutex::new(inner), snapshotting: Mutex::new(()), label: Mutex::new(None), current, git, journal: Journal::default() });
         bridge.journal.write(&bridge.current.get().root, &journal::Line::opened(now_ms()), now_ms());
         bridge.load_recent(app);
         // Holds the bridge only weakly: when its window is gone, the loop ends
@@ -282,9 +284,22 @@ impl Bridge {
         bridge
     }
 
-    /// Sends this window an event about its project.
+    /// The project's git, with the log of the commands run for it.
+    pub fn git(&self) -> Arc<Git> {
+        self.git.clone()
+    }
+
+    /// The window that shows the project from now on, or none; it gets the state at once.
+    pub fn show_in(&self, app: &AppHandle, label: Option<String>) {
+        *self.label.locked() = label;
+        self.tell(app, ASSISTANT_CHANGED, self.state());
+    }
+
+    /// Sends the project's window, if it has one, an event about the project.
     fn tell<S: Serialize + Clone>(&self, app: &AppHandle, event: &str, payload: S) {
-        let _ = app.emit_to(self.label.as_str(), event, payload);
+        if let Some(label) = self.label.locked().clone() {
+            let _ = app.emit_to(label.as_str(), event, payload);
+        }
         // The overview shows every project's sessions
         if event == ASSISTANT_CHANGED {
             crate::windows::overview_changed(app);
@@ -348,23 +363,6 @@ impl Bridge {
             ruled: inner.ruled.clone(),
             found: inner.found.view(),
         }
-    }
-
-    /// A new project: what was known about the old one does not apply.
-    pub fn clear(self: &Arc<Self>, app: &AppHandle) {
-        {
-            let mut inner = self.inner.locked();
-            inner.sessions.clear();
-            inner.turn.clear();
-            inner.attachments.clear();
-            inner.delivered = None;
-            (inner.target, inner.target_lost, inner.ruled) = (None, None, None);
-            inner.looked_up.clear();
-            inner.logs.clear();
-        }
-        self.journal.write(&self.current.get().root, &journal::Line::opened(now_ms()), now_ms());
-        self.tell(app, ASSISTANT_CHANGED, self.state());
-        self.load_recent(app);
     }
 
     /// Sessions of the last day from the tools' logs, read in the background: the ones that

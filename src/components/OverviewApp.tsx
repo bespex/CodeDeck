@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { AppWindow, Ellipsis, GitBranch, Inbox, Paperclip, Plus, Settings, X } from "lucide-react";
+import { Ellipsis, GitBranch, Inbox, Paperclip, Plus, Settings, X } from "lucide-react";
 import { addProject, closeProjectWindow, focusProject, onOverviewChanged, overviewState, pickFolder, quit, removeProject, showProject, type OverviewProject, type Session } from "../backend";
 import { DONE_SHOWN_MS, needsYou, useNow } from "../attention";
 import { SessionBadge } from "./SessionBadge";
@@ -98,9 +98,20 @@ function ProjectRow({ project }: { project: OverviewProject }) {
         title={label ? t("Bring its window to the front") : t("Open its window")}
         className={`group/row flex cursor-pointer items-center gap-2 border-l-2 py-1.5 pr-2 pl-3 hover:bg-overlay-hover ${project.front ? "border-ai bg-raised" : "border-transparent"}`}
       >
-        <span className={label ? "" : "opacity-60"}>
+        {/* The project's mark switches its window: open it, or close it (the project stays here).
+            On hover a ring runs round it, so it says it can be clicked */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleWindow();
+          }}
+          title={label ? t("Close its window (the project stays here)") : t("Open its window")}
+          aria-label={label ? t("Close its window") : t("Open its window")}
+          className={`mark-switch shrink-0 rounded-full ${label ? "" : "opacity-60 hover:opacity-100"}`}
+        >
           <ProjectMark project={project} />
-        </span>
+        </button>
         <span className={`min-w-0 flex-1 truncate ${label ? "font-semibold text-slate-100" : "text-slate-400"}`}>{project.name}</span>
         <span className="hidden items-center group-hover/row:flex">
           {label && (
@@ -124,18 +135,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
             </HoverIcon>
           )}
         </span>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleWindow();
-          }}
-          title={label ? t("Close its window (the project stays here)") : t("Open its window")}
-          aria-label={label ? t("Close its window") : t("Open its window")}
-          className={`shrink-0 rounded p-0.5 hover:bg-overlay-hover ${label ? "text-slate-300 hover:text-slate-100" : "text-slate-600 hover:text-slate-200"}`}
-        >
-          <AppWindow className="size-3.5" />
-        </button>
+
         {dot && <span className={`size-2 shrink-0 rounded-full group-hover/row:hidden ${dot}`} />}
       </div>
       {sessions.length > 0 && (

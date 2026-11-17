@@ -21,10 +21,9 @@ pub struct Win {
     pub label: String,
     /// The project it shows; it can be switched
     pub current: Arc<Current>,
-    /// Git for the project, with the log of the commands run for this window
-    pub git: Arc<Git>,
     pub watch: Watch,
-    pub bridge: Arc<Bridge>,
+    /// The bridge of the project it shows: it belongs to the project, not to the window
+    bridge: Mutex<Arc<Bridge>>,
     /// Where the full window was while it is a sidebar
     pub place: FullPlace,
     /// What follows the project's name in the title, e.g. "● 2 asking"; set by the window
@@ -33,6 +32,65 @@ pub struct Win {
     pub waiting: Mutex<(bool, bool)>,
     /// What the window reports about its project for the overview (git, next prompt, workbench)
     pub summary: Mutex<serde_json::Value>,
+}
+
+impl Win {
+    pub fn bridge(&self) -> Arc<Bridge> {
+        self.bridge.locked().clone()
+    }
+
+    /// Git of the project it shows, with the log of the commands run for that project.
+    pub fn git(&self) -> Arc<Git> {
+        self.bridge().git()
+    }
+
+    /// Shows another project: leaves the bridge of the old one, takes the new one's.
+    pub fn switch_to(&self, app: &AppHandle, project: Arc<Project>) {
+        self.bridge().show_in(app, None);
+        let bridge = bridge_for(app, &project.root);
+        self.current.set(project);
+        *self.bridge.locked() = bridge.clone();
+        bridge.show_in(app, Some(self.label.clone()));
+    }
+}
+
+// ── One bridge per project (docs/UEBERSICHT.md, step b) ──────────────────────
+
+/// The bridges of my projects and of every project with a window: they hear their sessions and
+/// keep the snapshots whether a window is open or not.
+#[derive(Default)]
+pub struct Bridges(Mutex<HashMap<std::path::PathBuf, Arc<Bridge>>>);
+
+impl Bridges {
+    pub fn all(&self) -> Vec<Arc<Bridge>> {
+        self.0.locked().values().cloned().collect()
+    }
+}
+
+/// The bridge of a project, made the first time it is asked for.
+pub fn bridge_for(app: &AppHandle, root: &Path) -> Arc<Bridge> {
+    let bridges = app.state::<Bridges>();
+    if let Some(bridge) = bridges.0.locked().get(root) {
+        return bridge.clone();
+    }
+    // Made outside the lock: it starts reading the tools' logs in the background
+    let made = Bridge::new(app, Arc::new(Current(RwLock::new(Arc::new(Project { root: root.to_path_buf() })))));
+    bridges.0.locked().entry(root.to_path_buf()).or_insert(made).clone()
+}
+
+/// A bridge for each project on my list, at the start.
+pub fn listen_to_my_projects(app: &AppHandle) {
+    for project in crate::projects::list() {
+        bridge_for(app, &project.path);
+    }
+}
+
+/// Lets a project go that is neither on my list nor shown in a window.
+pub fn forget_bridge(app: &AppHandle, root: &Path) {
+    let shown = app.state::<Windows>().all().iter().any(|w| w.current.get().root == root);
+    if !shown && !crate::projects::list().iter().any(|p| p.path == root) {
+        app.state::<Bridges>().0.locked().remove(root);
+    }
 }
 
 #[derive(Default)]
@@ -46,9 +104,13 @@ impl Windows {
         self.all.locked().values().cloned().collect()
     }
 
-    /// Forgets a closed window: its watcher, bridge and git view go with it.
-    pub fn remove(&self, label: &str) {
-        self.all.locked().remove(label);
+    /// Forgets a closed window and its watcher; its project's bridge goes on without it.
+    pub fn remove(&self, app: &AppHandle, label: &str) {
+        let gone = self.all.locked().remove(label);
+        if let Some(win) = gone {
+            win.bridge().show_in(app, None);
+            forget_bridge(app, &win.current.get().root);
+        }
     }
 
     fn get(&self, label: &str) -> Option<Arc<Win>> {
@@ -69,16 +131,14 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
     crate::recent::remember(&project.root);
     // A project with a window is one of mine (docs/UEBERSICHT.md, "Meine Projekte")
     crate::projects::add(&project.root);
+    let bridge = bridge_for(app, &project.root);
     let current = Arc::new(Current(RwLock::new(Arc::new(project))));
-    let git = Arc::new(Git::new());
     let watch = Watch::start(app.clone(), label.clone(), current.clone()).map_err(|e| e.to_string())?;
-    let bridge = Bridge::new(app, label.clone(), current.clone(), git.clone());
     let win = Arc::new(Win {
         label: label.clone(),
         current,
-        git,
         watch,
-        bridge,
+        bridge: Mutex::new(bridge.clone()),
         place: FullPlace::default(),
         title_status: Mutex::new(String::new()),
         waiting: Mutex::new((false, false)),
@@ -93,9 +153,10 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
         .background_color(tauri::window::Color(2, 6, 23, 255))
         .build();
     if let Err(e) = built {
-        windows.remove(&label);
+        windows.all.locked().remove(&label);
         return Err(e.to_string());
     }
+    bridge.show_in(app, Some(label.clone()));
     crate::set_title(app, &win);
     crate::window::shown(app);
     crate::exclude_scratch(app, &win);
@@ -143,7 +204,7 @@ pub fn overview_state(app: &AppHandle) -> Vec<OverviewProject> {
             name: root.file_name().map_or_else(|| "/".into(), |n| n.to_string_lossy().into_owned()),
             path: root.display().to_string(),
             color: format!("#{r:02x}{g:02x}{b:02x}"),
-            state: win.map(|w| w.bridge.state()),
+            state: Some(bridge_for(app, root).state()),
             summary: win.map_or(serde_json::Value::Null, |w| w.summary.locked().clone()),
             front: win.is_some_and(|w| last.as_deref() == Some(w.label.as_str())),
             listed,
