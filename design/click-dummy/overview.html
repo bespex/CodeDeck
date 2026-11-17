@@ -110,6 +110,43 @@
   .ico .bar2 { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; border-radius: 0 0 6px 6px; }
   .ico .st { position: absolute; right: -3px; top: -3px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid #0b0c0e; }
   .ico .cnt { position: absolute; right: -6px; bottom: -4px; min-width: 14px; height: 14px; border-radius: 7px; background: #c0504d; color: #fff; font-size: 9px; text-align: center; line-height: 14px; padding: 0 3px; }
+  /* Calm list: details only on hover */
+  .tbar { display: flex; align-items: center; gap: 2px; padding: 6px 8px 6px 12px; border-bottom: 1px solid #30343a; position: sticky; top: 0; background: #1f2226; z-index: 2; }
+  .tbar .sp { flex: 1; }
+  .ti { width: 28px; height: 28px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: #b4b9be; position: relative; }
+  .ti:hover, .ti.open { background: #30343a; color: #fff; }
+  .ti svg { width: 16px; height: 16px; }
+  .ti .cnt2 { position: absolute; right: 1px; top: 1px; font-size: 9px; min-width: 13px; height: 13px; line-height: 13px; border-radius: 7px; background: #4f46e5; color: #fff; text-align: center; padding: 0 2px; }
+  .menu2 { position: absolute; z-index: 20; top: 40px; width: 270px; padding: 6px; border-radius: 8px; background: #2b2f35; border: 1px solid #4d545c; box-shadow: 0 10px 30px #000a; display: flex; flex-direction: column; gap: 2px; }
+  .menu2 .mi { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; font-size: 12px; color: #d2d6da; cursor: pointer; }
+  .menu2 .mi:hover { background: #3a3f46; }
+  .menu2 .mi small { margin-left: auto; color: #8d949b; }
+  .menu2 .sep { height: 1px; background: #3a3f46; margin: 4px 0; }
+  .menu2 input.search { margin-bottom: 4px; }
+  .sec { padding: 12px 12px 4px; font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #a9afb5; display: flex; }
+  .sec span { margin-left: auto; }
+  .pj { position: relative; padding: 2px 0; }
+  .pr { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 12px; cursor: pointer; user-select: none; border-left: 2px solid transparent; }
+  .pr:hover { background: #262a30; }
+  .pr.front { border-left-color: #818cf8; background: #23272d; }
+  .pr .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f0f1f2; font-weight: 600; }
+  .pj.closed .pr .nm { color: #a9afb5; font-weight: 500; }
+  .pj.closed .pr .mark { opacity: .6; }
+  .winmark { color: #8d949b; display: inline-flex; }
+  .winmark svg { width: 13px; height: 13px; }
+  .hov { display: none; align-items: center; gap: 1px; }
+  .pr:hover .hov, .sr:hover .hov { display: inline-flex; }
+  .rest { display: inline-flex; align-items: center; }
+  .pr:hover .rest, .sr:hover .rest { display: none; }
+  .hi { width: 24px; height: 24px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; color: #b4b9be; position: relative; }
+  .hi:hover { background: #3a3f46; color: #fff; }
+  .hi svg { width: 14px; height: 14px; }
+  .hi.warn { color: #e66a78; }
+  .sr { display: flex; align-items: center; gap: 8px; padding: 3px 10px 3px 38px; font-size: 12px; user-select: none; cursor: default; min-height: 28px; }
+  .sr:hover { background: #262a30; }
+  .sr .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #dfe2e5; }
+  .sr .w { font-size: 11px; }
+  .quiet { color: #6b7178; font-size: 11px; }
   .toast { position: absolute; z-index: 30; left: 50%; bottom: 56px; transform: translateX(-50%); padding: 8px 14px; border-radius: 16px; background: #f0efe9; color: #2a2a2a; font-size: 12px; }
   .empty { padding: 20px; color: #6b7178; font-size: 12px; }
 </style>
@@ -188,7 +225,8 @@ function reset() {
     { id: "s1", proj: "docs-site", short: "A", color: 3, title: "Heading styles", status: "working", why: "running the build", remote: true, daily: true },
   ];
   front = "orbit-api"; ovHidden = false; pick = null; icon ??= "own"; folded = new Set(); otherOpen = false; autoStart = false; toastText = null; freshId = null;
-  note("One overview at the right edge for every project, always there, also with no project open. Click a project's header: its window comes to the front. Double-click a session: to it (Desktop, else terminal). The taskbar below shows the windows with the project's name first.");
+  menu = null;
+  note("Calm by default: what waits, the projects with their sessions and status, which windows are open (▭). Everything else appears on hover (git, next prompt, workbench, doors) or sits behind the four icons at the top. Click a project: its window. Double-click a session: to it.");
 }
 function note(t) { lastNote = t; document.getElementById("note").innerHTML = t; }
 const projOf = (n) => P.find((p) => p.name === n);
@@ -224,44 +262,82 @@ function render() {
   bind();
 }
 
+const ICONS = {
+  play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  gear: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  win: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/>',
+  git: '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/>',
+  mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  bench: '<path d="M2 20h20"/><path d="M5 20V8h14v12"/><path d="M9 12h6"/>',
+  desktop: '<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
+  term: '<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
+  remote: '<path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" x2="12.01" y1="20" y2="20"/>',
+};
+const svg = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
+let menu = null;
+
 function overview() {
   const needs = S.filter((s) => s.status === "waiting" || s.status === "done").sort((a, b) => (a.status === "waiting" ? 0 : 1) - (b.status === "waiting" ? 0 : 1));
-  const open = P.filter((p) => p.open), today = P.filter((p) => p.daily && !p.open), other = P.filter((p) => !p.daily && !p.open);
-  const toStart = today.filter((p) => !live(p.name).length).length;
+  // One list: open windows first, then running sessions, then the rest of today's list
+  const rank = (p) => (p.open ? 0 : live(p.name).length ? 1 : 2);
+  const shown = P.filter((p) => p.open || live(p.name).length || p.daily).sort((a, b) => rank(a) - rank(b));
+  const toStart = P.filter((p) => p.daily && !live(p.name).length).length;
   return `
-    <div class="head"><span class="logo"></span><b style="color:#f5f6f7">CodeDeck</b><span style="flex:1"></span>
-      <button class="ib" title="Open folder… (Ctrl+O)" id="openf">📂</button><button class="ib" title="Settings (Ctrl+,)">⚙</button><button class="ib" title="About, Quit">⋯</button></div>
-    ${needs.length ? `<div class="area">Needs you <span class="ml" style="color:${needs.some((s) => s.status === "waiting") ? "#e0a868" : "#a9afb5"}">${needs.length}</span></div>` + needs.map((s) => `
-      <div class="card ${s.status === "waiting" ? "asks" : ""} ${s.id === freshId ? "fresh" : ""}" data-s="${s.id}" title="Double-click: go to it · middle click: terminal">${badge(s)}
-        <span style="flex:1;min-width:0"><b style="color:#f5f6f7">${s.title}</b> <span class="chip" data-front="${s.proj}">${markOf(projOf(s.proj), 12)} ${s.proj}</span><br><span class="${s.status === "waiting" ? "waiting" : "done"}" style="font-size:12px">${s.why}</span></span></div>`).join("") : ""}
-    <div class="area">Open projects <span class="ml">${open.length}</span></div>
-    ${open.length ? open.map(block).join("") : `<div class="empty">No project open. Open one from Today, Other projects or with 📂; the overview stays as your radar.</div>`}
-    ${today.length ? `<div class="area">Today <span class="ml"><label class="auto" title="Start today's projects whenever CodeDeck starts"><input type="checkbox" id="auto" ${autoStart ? "checked" : ""}>at start</label>
-      <button class="plus" id="all" ${toStart ? "" : "disabled"}>▶ All${toStart ? ` (${toStart})` : ""}</button></span></div>` + today.map(prow).join("") : ""}
-    <div class="area" style="cursor:pointer" id="other">${otherOpen ? "▾" : "▸"} Other projects <span class="ml">${other.length}</span></div>
-    ${otherOpen ? other.map(prow).join("") : ""}
-    <div class="foot"><span>${S.filter((s) => s.remote && s.status !== "ended").length} in background</span><span class="remote">⌔ ${S.filter((s) => s.remote).length} reachable</span><span class="ml" title="Usage this week">78 % week</span></div>`;
-}
-function block(p) {
-  const f = folded.has(p.name), a = asks(p.name), d = dones(p.name);
-  const dot = a ? "#e0a868" : d ? "#6cc58e" : "transparent";
-  return `<div class="proj ${p.name === front ? "front" : ""}">
-    <div class="ph" data-front="${p.name}" title="Bring the window to the front">
-      <span class="chev" data-fold="${p.name}" title="${f ? "Unfold" : "Fold"}">${f ? "▸" : "▾"}</span>${markOf(p)}
-      <span class="name">${p.daily ? "★ " : ""}${p.name}</span>
-      ${f ? `<span class="dot" style="background:${dot}"></span>` : `<span class="stat ${p.git.includes("failed") ? "bad" : ""}">${p.git}</span>
-      ${p.next ? `<span class="stat"><span class="n" data-tab="Next prompt" data-p="${p.name}" title="Open Next prompt there">✉ ${p.next}</span></span>` : ""}
-      ${p.news ? `<span class="stat"><span class="n" data-tab="Workbench" data-p="${p.name}" title="Open the Workbench there">${p.news} new</span></span>` : ""}`}
+    <div class="tbar"><span class="logo" style="margin-right:6px"></span>
+      <span class="sp"></span>
+      <button class="ti ${menu === "start" ? "open" : ""}" id="mstart" title="${toStart ? `Start today's list: ${toStart} without a session` : "Today's list: all running"}">${svg("play")}${toStart ? `<span class="cnt2">${toStart}</span>` : ""}</button>
+      <button class="ti ${menu === "open" ? "open" : ""}" id="mopen" title="Open a project (Ctrl+O)">${svg("plus")}</button>
+      <button class="ti" title="Settings (Ctrl+,)">${svg("gear")}</button>
+      <button class="ti ${menu === "more" ? "open" : ""}" id="mmore" title="More">${svg("more")}</button>
     </div>
-    ${f ? "" : live(p.name).map((s) => `<div class="srow" data-s="${s.id}" title="Double-click: go to it (Desktop, else terminal) · middle click: terminal · click: its details in the project window">${badge(s)}<span class="t">${s.title}</span><span class="${s.status}">${stLabel(s)}</span>${s.remote ? `<span class="remote" title="Reachable from anywhere">⌔</span>` : s.term ? `<span title="Started by hand in a terminal">⌨</span>` : ""}</div>`).join("") || `<div class="srow" style="color:#6b7178">no session</div>`}
+    ${menuHtml(toStart)}
+    ${needs.length ? `<div class="sec">Needs you</div>` + needs.map((s) => `
+      <div class="card ${s.status === "waiting" ? "asks" : ""} ${s.id === freshId ? "fresh" : ""}" data-s="${s.id}" title="Double-click: go to it · middle click: terminal">${markOf(projOf(s.proj), 20).replace('data-pick=', 'data-front-mark=')}
+        <span style="flex:1;min-width:0"><b style="color:#f5f6f7">${s.title}</b><br><span class="${s.status === "waiting" ? "waiting" : "done"}" style="font-size:12px">${s.why}</span></span>${badge(s)}</div>`).join("") : ""}
+    <div class="sec">Projects</div>
+    ${shown.map(projectRow).join("")}`;
+}
+function projectRow(p) {
+  const a = asks(p.name), d = dones(p.name), sessions = live(p.name);
+  const bad = p.git?.includes("failed");
+  const dot = a ? "#e0a868" : d ? "#6cc58e" : bad ? "#e66a78" : null;
+  const idleDaily = p.daily && !sessions.length;
+  const hov = [
+    p.open ? `<span class="hi ${bad ? "warn" : ""}" data-tab="Changes" data-p="${p.name}" title="Git: ${p.git}">${svg("git")}</span>` : "",
+    p.open && p.next ? `<span class="hi" data-tab="Next prompt" data-p="${p.name}" title="Next prompt: ${p.next} attached">${svg("mail")}</span>` : "",
+    p.open && p.news ? `<span class="hi" data-tab="Workbench" data-p="${p.name}" title="Workbench: ${p.news} new">${svg("bench")}</span>` : "",
+    idleDaily ? `<span class="hi" data-start="${p.name}" title="Start its session in the background (no window opens)">${svg("play")}</span>` : "",
+  ].join("");
+  return `<div class="pj ${p.open ? "" : "closed"}">
+    <div class="pr ${p.name === front && p.open ? "front" : ""}" data-front="${p.name}" title="${p.open ? "Click: bring its window to the front" : "Click: open it in a window"}">${markOf(p, 22)}
+      <span class="nm">${p.name}</span>
+      ${p.open ? `<span class="winmark" title="Its window is open">${svg("win")}</span>` : ""}
+      <span class="hov">${hov}</span>
+      <span class="rest">${dot ? `<span class="dot" style="background:${dot}"></span>` : idleDaily ? `<span class="quiet">${p.last ? "▶ continues" : "not running"}</span>` : ""}</span>
+    </div>
+    ${sessions.map((s) => `<div class="sr" data-s="${s.id}" title="Double-click: go to it (Desktop, else terminal) · middle click: terminal · click: details in the project window">${badge(s)}<span class="t">${s.title}</span>
+      <span class="rest"><span class="w ${s.status}">${stLabel(s)}</span></span>
+      <span class="hov"><span class="w ${s.status}" style="margin-right:4px">${stLabel(s)}</span>${s.remote ? `<span class="hi" data-door="desktop" data-sid="${s.id}" title="Open in Claude Desktop">${svg("desktop")}</span>` : ""}<span class="hi" data-door="terminal" data-sid="${s.id}" title="Open in a terminal">${svg("term")}</span></span></div>`).join("")}
   </div>`;
 }
-function prow(p) {
-  const m = live(p.name)[0];
-  const st = m ? `<span class="${m.status}">${stLabel(m)}</span> · ${m.why}` : p.daily ? (p.last ? `not running · ▶ continues “${p.last}”` : "not running") : p.seen;
-  return `<div class="prow" data-p="${p.name}">${markOf(p, 22)}
-    <span style="flex:1;min-width:0"><span class="pname" data-openp="${p.name}" title="Open ${p.name} in a window">${p.name}</span><small>${st}</small></span>
-    ${!m && p.daily ? `<button class="play" data-start="${p.name}" title="Start its session in the background; no window opens">▶</button>` : m?.remote ? `<span class="remote">⌔</span>` : ""}</div>`;
+function menuHtml(toStart) {
+  if (menu === "start") return `<div class="menu2" style="right:70px">
+      <div class="mi" id="startall">${svg("play").replace("<svg", '<svg width="14" height="14"')} Start today's list <small>${toStart ? `${toStart} to start` : "all running"}</small></div>
+      <label class="mi"><input type="checkbox" id="auto" ${autoStart ? "checked" : ""}> Start it whenever CodeDeck starts</label>
+      <div class="sep"></div><div class="mi">Edit today's list… <small>★ on any project</small></div></div>`;
+  if (menu === "open") {
+    const others = P.filter((p) => !p.open);
+    return `<div class="menu2" style="right:40px"><input class="search" placeholder="Find a project or folder…">
+      ${others.map((p) => `<div class="mi" data-openp="${p.name}">${markOf(p, 16).replace('data-pick=', 'data-x=')} ${p.name}<small>${live(p.name).length ? "running" : p.daily ? "★ today" : p.seen ?? ""}</small></div>`).join("")}
+      <div class="sep"></div><div class="mi">Open folder…<small>Ctrl+O</small></div></div>`;
+  }
+  if (menu === "more") return `<div class="menu2" style="right:8px">
+      <div class="mi">Usage <small>78 % of the week</small></div>
+      <div class="mi">In the background <small>${S.filter((s) => s.remote).length} sessions, all reachable</small></div>
+      <div class="sep"></div><div class="mi">Keyboard shortcuts <small>F1</small></div><div class="mi">About CodeDeck</div><div class="mi">Quit</div></div>`;
+  return "";
 }
 function taskbar() {
   const open = P.filter((p) => p.open);
@@ -294,10 +370,13 @@ function bind() {
   q(".win").forEach((el) => (el.onmousedown = () => { if (front !== el.dataset.win) { front = el.dataset.win; render(); } }));
   q(".ov [data-pick], .win [data-pick]").forEach((el) => (el.onclick = (e) => { e.stopPropagation(); const p = projOf(el.dataset.pick); pick = { name: p.name, ...p.mark, tab: p.mark.kind === "letter" ? "icon" : p.mark.kind, q: "" }; render(); }));
   bindPick();
-  const all = document.getElementById("all"); if (all) all.onclick = () => { P.filter((p) => p.daily && !p.open && !live(p.name).length).forEach((p, i) => setTimeout(() => start(p, true), i * 400)); note("Starts every project of today's list that has no session yet, one after the other. No window opens."); };
+  const tog = (id, k) => { const b = document.getElementById(id); if (b) b.onclick = (e) => { e.stopPropagation(); menu = menu === k ? null : k; render(); }; };
+  tog("mstart", "start"); tog("mopen", "open"); tog("mmore", "more");
+  const all = document.getElementById("startall"); if (all) all.onclick = () => { menu = null; P.filter((p) => p.daily && !live(p.name).length).forEach((p, i) => setTimeout(() => start(p, true), i * 400)); note("Starts every project of today's list that has no session yet, one after the other. No window opens."); render(); };
+  q("[data-door]").forEach((el) => (el.onclick = (e) => { e.stopPropagation(); go(el.dataset.sid, el.dataset.door); }));
+  q("[data-front-mark]").forEach((el) => (el.onclick = (e) => { e.stopPropagation(); toFront(el.dataset.frontMark); }));
   const auto = document.getElementById("auto"); if (auto) auto.onchange = () => { autoStart = auto.checked; note(autoStart ? "Today's projects start by themselves whenever CodeDeck starts." : "No start by itself any more; ▶ All stays."); };
-  document.getElementById("other").onclick = () => { otherOpen = !otherOpen; render(); };
-  document.getElementById("openf").onclick = () => note("A folder picker; the project opens in a new window and gets its own block here.");
+  document.getElementById("ov").onclick = (e) => { if (menu && !e.target.closest(".menu2, .ti")) { menu = null; render(); } };
   document.getElementById("tbov").onclick = () => { ovHidden = !ovHidden; render(); };
 }
 function picker() {
@@ -354,6 +433,7 @@ function go(id, door) {
   render(); setTimeout(() => { toastText = null; render(); }, 1800);
 }
 function openProject(name) {
+  menu = null;
   const p = projOf(name); p.open = true; p.git ??= "clean"; p.next ??= 0; p.news ??= 0; p.z = 3; front = name;
   note(`${name} opens in a window of its own and gets a block under Open projects.`); render();
 }

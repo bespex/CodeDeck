@@ -15,28 +15,42 @@ Projekte zugleich, immer verfügbar, auch ganz ohne offenes Projekt. Sie beantwo
 *Wartet jemand auf mich, egal wo? Was läuft in meinen Projekten? Was starte ich?* Für alles Weitere führt
 ein Klick in das Fenster des Projekts. Projektfenster gibt es nur noch als volles Fenster.
 
+## Gestaltungsgrundsätze (Nutzer, 2026-11-17)
+
+Die Übersicht ist der Ort für alles, was man projektübergreifend oder ohne ein bestimmtes Projekt schnell
+tun will. Damit dort viel Platz findet, ohne unübersichtlich zu werden:
+
+1. **Auf einen Blick, ohne zu suchen:** was auf mich wartet; welche Projekte und Sitzungen gerade laufen
+   und in welchem Zustand; welche Projektfenster offen sind. Nur das steht dauerhaft sichtbar da.
+2. **Ein Klick für das Häufige:** zur Sitzung (Desktop, sonst Terminal), Projektfenster nach vorn, Frage
+   beantworten, Projekt der Tagesliste starten, Projekt öffnen.
+3. **Gelegentliches nimmt keinen Platz weg:** Werkzeugleiste aus Icons oben, Aktionen, die erst beim
+   Überfahren einer Zeile erscheinen, Menüs hinter einem Icon, Tooltips statt Text. Dazu gehören Git-Zustand,
+   Nächster Prompt, Werkbank, Verbrauch, „im Hintergrund“, alle Projekte, Einstellungen.
+4. **Ruhig, bis etwas ist:** keine Zahlen oder Chips im Ruhezustand. Ein Punkt oder ein Wort erscheint erst,
+   wenn es etwas bedeutet (Frage, Runde fertig, Git-Fehler), in den Farben, die überall gelten.
+5. **Wenige Abschnitte:** „Wartet auf dich“ (nur wenn etwas wartet) und eine Liste der Projekte. Was weder
+   offen ist noch läuft noch auf der Tagesliste steht, erscheint nur über die Werkzeugleiste.
+
 ## Aufbau
 
 Von oben nach unten:
 
 | Bereich | Inhalt |
 |---|---|
-| **Kopf** | CodeDeck, „Open folder…“, Einstellungen, App-Menü `⋯` (About, Quit) |
-| **Wartet auf dich** | Karten aller Projekte wie heute (`docs/STYLING.md` B4b), jede mit Projektname. Doppelklick führt zur Sitzung (Desktop, sonst Terminal; Mittelklick Terminal), Klick auf den Namen holt das Projektfenster |
-| **Offene Projekte** | Ein Block je Projektfenster, siehe unten |
-| **Today** | Projekte der Tagesliste ohne offenes Fenster: Status ihrer Sitzung, ▶, „▶ All“, „at start“ (A12) |
-| **Other projects** | Die letzten Projekte, zugeklappt; zeigt laufende Sitzungen dort (auch von Hand gestartete) |
-| **Fuß** | „3 in background · 3 reachable from anywhere“, Verbrauch als kleine Zahl (öffnet das Popup aus 2.4) |
+| **Werkzeugleiste** | nur Icons: ▶ Tagesliste starten (mit Menü: „beim Start von CodeDeck“, Liste bearbeiten), ＋ Projekt öffnen (Suche über alle Projekte und Ordner), Einstellungen, `⋯` (Verbrauch, im Hintergrund, About, Quit) |
+| **Wartet auf dich** | nur wenn etwas wartet: Karten wie heute (`docs/STYLING.md` B4b) mit der Marke des Projekts. Doppelklick führt zur Sitzung (Desktop, sonst Terminal; Mittelklick Terminal), Klick auf die Marke holt das Projektfenster |
+| **Projekte** | eine Liste: zuerst die mit offenem Fenster, dann die mit laufender Sitzung, dann die übrigen der Tagesliste |
 
-**Block eines offenen Projekts:**
+**Zeile eines Projekts:** Marke, Name; ein kleines Fenster-Symbol, wenn sein Fenster offen ist (Projekte ohne
+Fenster sind leicht zurückgenommen); rechts nur ein Statuspunkt, wenn etwas ist (bernstein fragt, grün fertig,
+rot Git-Fehler). Beim Überfahren erscheinen Icons für Git, Nächster Prompt und Werkbank (Tooltip mit dem
+Zustand, Klick öffnet den Reiter im Projektfenster) und ▶ für ein Projekt der Tagesliste ohne Sitzung. Klick
+auf die Zeile holt das Fenster nach vorn bzw. öffnet das Projekt.
 
-- Kopfzeile: Farbe oder Emoji des Projekts (dieselbe Marke wie im Fenster-Icon), Name, rechts knapp der
-  Zustand: Git (`3 uncommitted · ↑2`, rot bei Fehler), Zahl im Nächsten Prompt, „2 new“ aus der Werkbank.
-  Klick holt das Fenster nach vorn, Klick auf eine Zahl öffnet dort den passenden Reiter.
-- Darunter die Sitzungen, **einzeilig**: Schild, Titel, Status, Symbol für Zuhause und Bogen. Doppelklick und
-  Mittelklick wie oben, Klick öffnet die Details der Sitzung im Projektfenster.
-- Zuklappbar; zugeklappt bleibt die Kopfzeile mit einem Statuspunkt.
-- Ein Projekt der Tagesliste trägt einen Stern; ohne Fenster steht es unter „Today“.
+**Darunter die Sitzungen**, einzeilig: Schild, Titel, Status als farbiges Wort. Beim Überfahren erscheinen
+rechts die Türen (Desktop, Terminal) statt des Zuhause-Symbols. Doppelklick und Mittelklick wie oben, Klick
+öffnet die Details der Sitzung im Projektfenster. Ein Projekt ohne laufende Sitzung hat keine Sitzungszeilen.
 
 ## Bedienung
 
