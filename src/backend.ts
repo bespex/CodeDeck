@@ -1440,10 +1440,16 @@ export function setProject(path: string, field: "daily" | "account" | "mark", va
   return Promise.resolve();
 }
 
-/** This window's project as my list keeps it (its mark). */
-export function myProject(): Promise<{ path: string; daily: boolean; account: string | null; mark: ProjectMarkSpec | null } | null> {
+/** How this window's project looks: name, colour, mark. */
+export function myProject(): Promise<{ path: string; name: string; color: string; mark: ProjectMarkSpec | null } | null> {
   if (live) return invoke("my_project");
   return Promise.resolve(null);
+}
+
+/** Sets the window's icon to these RGBA pixels (`size` × `size`). */
+export function setWindowIconPixels(rgba: number[], size: number): Promise<void> {
+  if (live) return invoke("set_window_icon", { rgba, size });
+  return Promise.resolve();
 }
 
 /** One of my projects changed (its mark, its account): the payload is its path. */

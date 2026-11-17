@@ -3,6 +3,7 @@
 // desktop notification. Which events count and how they are shown is the user's choice
 // (`AttentionSettings`, in the project menu).
 
+import { setWindowWaits } from "./windowIcon";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   attentionSettings,
@@ -129,6 +130,8 @@ export function useAttention(state: AssistantState, runs: GitRun[], project: str
     const parts = [asking && t("{n} asking", { n: asking }), done && t("{n} done", { n: done })].filter(Boolean);
     // After the project's name: cut short in the taskbar, the name still shows (user, 2026-11-17)
     void setTitleStatus(parts.length ? `● ${parts.join(" · ")}` : "", asking, done);
+    // The taskbar icon: the project's mark with a dot for what waits
+    setWindowWaits(asking ? "asks" : done ? "done" : null);
     // For themes that let the window's edge light up while something waits (docs/STYLING.md, `events`)
     document.documentElement.classList.toggle("attn-asks", asking > 0);
     document.documentElement.classList.toggle("attn-done", done > 0);

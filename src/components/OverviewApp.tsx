@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Plus, Settings, SquareTerminal, Star, TriangleAlert } from "lucide-react";
 import { addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, setProject, showProject, toggleProjectWindow, type OverviewProject, type Session } from "../backend";
 import { useConnections } from "../assistant";
+import { MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
 import { DONE_SHOWN_MS, needsYou, useNow } from "../attention";
 import { SessionBadge } from "./SessionBadge";
 import { t } from "../i18n";
@@ -47,18 +48,13 @@ function statusOf(s: Session): { word: string; className: string } {
   return { word: t("idle"), className: "text-slate-500" };
 }
 
-/** The project's mark: its first letter on its colour, until marks can be chosen. */
+/** The project's mark, as chosen in the picker; its first letter on its colour until then. */
 function ProjectMark({ project, size = 20 }: { project: OverviewProject; size?: number }) {
-  return (
-    <span
-      aria-hidden
-      style={{ width: size, height: size, background: project.color, fontSize: Math.round(size * 0.52) }}
-      className="inline-flex shrink-0 items-center justify-center rounded-full font-bold text-[#0b0d10]"
-    >
-      {project.name.charAt(0).toUpperCase()}
-    </span>
-  );
+  return <SharedMark mark={project.mark} color={project.color} name={project.name} size={size} />;
 }
+
+/** Opens the picker for a project's mark, from its row menu. */
+let pickListener: ((project: OverviewProject) => void) | null = null;
 
 /** A small icon button in a project's row: what changed there, or an action. Never taller than the
  *  row, so nothing moves when one appears. */
@@ -136,6 +132,10 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
       {project.listed && (
         <>
           <div className="my-1 h-px bg-overlay-line" />
+          <button type="button" className={item} onClick={() => (onClose(), pickListener?.(project))}>
+            <ProjectMark project={project} size={14} />
+            {t("Change mark…")}
+          </button>
           <button type="button" className={item} onClick={() => (onClose(), void removeProject(project.path))}>
             {t("Take off my list (nothing on disk changes)")}
           </button>
@@ -204,9 +204,20 @@ function ProjectRow({ project }: { project: OverviewProject }) {
           <ProjectMark project={project} />
         </button>
         <span className={`min-w-0 truncate ${label ? "font-semibold text-slate-100" : "text-slate-400"}`}>{project.name}</span>
+        {project.daily && (
+          <span title={t("On today's list")}>
+            <Star className="size-3 shrink-0 fill-current text-changed" />
+          </span>
+        )}
         {project.account && (
           <span title={`${t("AI configuration")}: ${accountName(project.account)}`} className="size-1.5 shrink-0 rounded-full" style={{ background: accountColor(project.account) }} />
         )}
+        {/* Right after the name, so the status icons on the right never move */}
+        <span className={`${menu ? "flex" : "invisible group-hover/row:visible"} flex`}>
+          <RowIcon title={t("More (also right click)")} onClick={() => setMenu((m) => !m)}>
+            <Ellipsis className="size-3.5" />
+          </RowIcon>
+        </span>
         <span className="flex-1" />
         {/* What changed there: always in sight, the details in the tooltip */}
         {label && (summary.gitFailed || !!summary.uncommitted) && (
@@ -224,11 +235,6 @@ function ProjectRow({ project }: { project: OverviewProject }) {
             <Inbox className="size-3.5" />
           </RowIcon>
         )}
-        <span className={`${menu ? "flex" : "hidden group-hover/row:flex"}`}>
-          <RowIcon title={t("More (also right click)")} onClick={() => setMenu((m) => !m)}>
-            <Ellipsis className="size-3.5" />
-          </RowIcon>
-        </span>
         {dot && <span className={`size-2 shrink-0 rounded-full ${dot}`} />}
       </div>
       {menu && <RowMenu project={project} onClose={closeMenu} />}
@@ -380,6 +386,11 @@ function MoreMenu({ host }: { host: string | null }) {
 
 export default function OverviewApp() {
   const projects = useOverview();
+  const [picking, setPicking] = useState<OverviewProject | null>(null);
+  useEffect(() => {
+    pickListener = setPicking;
+    return () => void (pickListener = null);
+  }, []);
   useEffect(() => void (document.title = "CodeDeck"), []);
   // ＋ takes a project into my list; its window stays closed until it is needed
   const open = async () => {
@@ -431,6 +442,18 @@ export default function OverviewApp() {
         )}
       </main>
       <Told />
+      {picking && (
+        <MarkPicker
+          name={picking.name}
+          color={picking.color}
+          mark={picking.mark}
+          onCancel={() => setPicking(null)}
+          onDone={(mark) => {
+            void setProject(picking.path, "mark", mark);
+            setPicking(null);
+          }}
+        />
+      )}
     </div>
   );
 }

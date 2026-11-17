@@ -16,6 +16,7 @@ import { useAttention } from "./attention";
 import { setNewsProject } from "./news";
 import { Dialogs } from "./components/Dialogs";
 import { openDialog } from "./dialogs";
+import { projectSwitched } from "./windowIcon";
 import { setCompact, toggleCompact, useCompact, useSwitching } from "./compact";
 import { useLayout } from "./layout";
 import { Splitter } from "./components/Splitter";
@@ -90,6 +91,7 @@ export default function App() {
   const open = async (path: string, newWindow: boolean) => {
     if (newWindow) return openWindow(path);
     const next = await openProject(path);
+    projectSwitched();
     clearAttachments();
     setSelected(null);
     setActions(null);

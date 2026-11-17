@@ -87,8 +87,11 @@ pub(crate) fn title_of(win: &Win) -> String {
 pub(crate) fn set_title(app: &AppHandle, win: &Win) {
     if let Some(window) = app.get_webview_window(&win.label) {
         let _ = window.set_title(&title_of(win));
-        let (asks, done) = *win.waiting.locked();
-        let _ = window.set_icon(icon::render(icon::project_color(&win.current.get().root), asks, done));
+        // Until the window draws its own icon (its mark), the plain one in its colour
+        if !*win.drawn_icon.locked() {
+            let (asks, done) = *win.waiting.locked();
+            let _ = window.set_icon(icon::render(icon::project_color(&win.current.get().root), asks, done));
+        }
     }
 }
 
@@ -663,11 +666,37 @@ fn set_project(path: String, field: String, value: serde_json::Value, app: AppHa
     Ok(())
 }
 
-/// One of my projects as the list keeps it (for its window: the mark).
+/// How this window's project looks: its name, colour and mark (for the window's icon).
+#[derive(serde::Serialize)]
+struct ProjectLook {
+    path: String,
+    name: String,
+    color: String,
+    mark: serde_json::Value,
+}
+
 #[tauri::command]
-fn my_project(window: WebviewWindow) -> Result<Option<projects::Listed>, String> {
+fn my_project(window: WebviewWindow) -> Result<ProjectLook, String> {
     let root = project_of(&window)?.root.clone();
-    Ok(projects::list().into_iter().find(|p| p.path == root))
+    let [r, g, b] = icon::project_color(&root);
+    let mark = projects::list().into_iter().find(|p| p.path == root).and_then(|p| p.mark).unwrap_or(serde_json::Value::Null);
+    Ok(ProjectLook {
+        path: root.display().to_string(),
+        name: root.file_name().map_or_else(|| "/".into(), |n| n.to_string_lossy().into_owned()),
+        color: format!("#{r:02x}{g:02x}{b:02x}"),
+        mark,
+    })
+}
+
+/// The window's icon as the window drew it (its project's mark and what waits), RGBA pixels.
+#[tauri::command]
+fn set_window_icon(rgba: Vec<u8>, size: u32, window: WebviewWindow) -> Result<(), String> {
+    if rgba.len() != (size * size * 4) as usize {
+        return Err("the pixels do not match the size".into());
+    }
+    let win = windows::of(&window)?;
+    *win.drawn_icon.locked() = true;
+    window.set_icon(tauri::image::Image::new_owned(rgba, size, size)).map_err(|e| e.to_string())
 }
 
 /// Opens the window of one of my projects, or brings it to the front.
@@ -885,6 +914,7 @@ pub fn run() {
             add_project,
             set_project,
             my_project,
+            set_window_icon,
             open_session,
             remove_project,
             show_project,

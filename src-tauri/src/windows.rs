@@ -32,6 +32,8 @@ pub struct Win {
     pub waiting: Mutex<(bool, bool)>,
     /// What the window reports about its project for the overview (git, next prompt, workbench)
     pub summary: Mutex<serde_json::Value>,
+    /// The window draws its icon itself (the project's mark): no plain icon over it any more
+    pub drawn_icon: Mutex<bool>,
 }
 
 impl Win {
@@ -143,6 +145,7 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
         title_status: Mutex::new(String::new()),
         waiting: Mutex::new((false, false)),
         summary: Mutex::new(serde_json::Value::Null),
+        drawn_icon: Mutex::new(false),
     });
     // Known before the page loads: it asks for its project at once
     windows.all.locked().insert(label.clone(), win.clone());
