@@ -41,9 +41,9 @@ pub fn start(root: &Path, harness: &dyn Harness, account: Option<&str>, resume: 
     command.args(["--", &shell, "-lc", &line]);
     run(&mut command)?;
     // Which session it is, kept with the tmux session: it outlives a restart of CodeDeck (B10)
-    let _ = run(Command::new("tmux").args(["set-option", "-t", &format!("={name}"), "@codedeck", &id]));
+    let _ = run(Command::new("tmux").args(["set-option", "-t", &format!("={name}:"), "@codedeck", &id]));
     // And for which project, so that "does one run there?" can ask tmux itself
-    let _ = run(Command::new("tmux").args(["set-option", "-t", &format!("={name}"), "@codedeck-project", &root.display().to_string()]));
+    let _ = run(Command::new("tmux").args(["set-option", "-t", &format!("={name}:"), "@codedeck-project", &root.display().to_string()]));
     Ok((id, name))
 }
 
@@ -52,28 +52,37 @@ pub fn stop(name: &str) -> Result<(), String> {
     run(Command::new("tmux").args(["kill-session", "-t", &format!("={name}")]))
 }
 
-/// The tmux sessions CodeDeck started for a project that still run, with the session id each carries. They count even before the
-/// tool inside has reported: it may wait for a question (e.g. whether to trust the folder) and say
-/// nothing until it is answered. Older ones without the project option are told by their name.
+/// The tmux sessions CodeDeck started for a project that still run, with the session id each
+/// carries. They count even before the tool inside has reported: it may wait for a question (e.g.
+/// whether to trust the folder) and say nothing until it is answered. What marks one as ours is the
+/// id CodeDeck put into its environment (`CODEDECK_SESSION`); which project it is for is told by the
+/// tmux option set at the start, or, for older ones, by the name.
 pub fn started_for(root: &Path) -> Vec<(String, String)> {
-    let Ok(out) = Command::new("tmux").args(["list-sessions", "-F", "#{session_name}\t#{@codedeck}\t#{@codedeck-project}"]).output() else {
+    let Ok(out) = Command::new("tmux").args(["list-panes", "-a", "-F", "#{session_name}\t#{pane_pid}\t#{@codedeck-project}"]).output() else {
         return Vec::new();
     };
     let base = format!("codedeck-{}", safe(&root.file_name().map_or_else(|| "project".into(), |n| n.to_string_lossy().into_owned())));
-    String::from_utf8_lossy(&out.stdout)
-        .lines()
-        .filter_map(|line| {
-            let mut f = line.split('\t');
-            let (name, ours, project) = (f.next()?, f.next().unwrap_or(""), f.next().unwrap_or(""));
-            let mine = if project.is_empty() {
-                !ours.is_empty() && (name == base || name.strip_prefix(&format!("{base}-")).is_some_and(|n| n.chars().all(|c| c.is_ascii_digit())))
-            } else {
-                Path::new(project) == root
-            };
-            // The session id CodeDeck gave it: the tool reports under that id once it runs
-            mine.then(|| (name.to_string(), ours.to_string()))
-        })
-        .collect()
+    let mut found: Vec<(String, String)> = Vec::new();
+    for line in String::from_utf8_lossy(&out.stdout).lines() {
+        let mut f = line.split('\t');
+        let (Some(name), Some(pid)) = (f.next(), f.next().and_then(|p| p.parse::<u32>().ok())) else { continue };
+        let project = f.next().unwrap_or("");
+        let mine = if project.is_empty() {
+            name == base || name.strip_prefix(&format!("{base}-")).is_some_and(|n| n.chars().all(|c| c.is_ascii_digit()))
+        } else {
+            Path::new(project) == root
+        };
+        // The pane's process was `exec`ed into the tool: its environment carries the id
+        let id = std::fs::read(format!("/proc/{pid}/environ")).ok().and_then(|env| {
+            env.split(|b| *b == 0).filter_map(|kv| std::str::from_utf8(kv).ok()).find_map(|kv| kv.strip_prefix(&format!("{LAUNCHED}=")).map(String::from))
+        });
+        if let (true, Some(id)) = (mine, id) {
+            if !found.iter().any(|(n, _)| n == name) {
+                found.push((name.to_string(), id));
+            }
+        }
+    }
+    found
 }
 
 /// Whether a tmux session of this name exists.
