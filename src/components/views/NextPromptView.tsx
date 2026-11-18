@@ -34,7 +34,7 @@ export function NextPromptView({ assistant }: { assistant: AssistantState }) {
             <AttachTarget state={assistant} className="max-w-72" />
             <TargetLost state={assistant} />
             <span className="ml-auto flex shrink-0 items-center gap-1.5">
-              <span className="size-1.5 rounded-full bg-changed" /> {t("Waiting for your next prompt")}
+              <span className="size-1.5 rounded-full bg-changed" /> {assistant.held ? t("Waiting until you choose who gets it") : t("Waiting for your next prompt")}
             </span>
           </>
         ) : delivered ? (

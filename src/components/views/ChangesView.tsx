@@ -17,10 +17,10 @@ import {
   type Snapshot,
 } from "../../backend";
 import { mainHarness, shortId, useSessionMarks } from "../../assistant";
-import { reviewKey, toggleReviewed, useReviewed } from "../../reviewed";
+import { changedSinceViewed, reviewKey, reviewSlot, toggleReviewed, useReviewed } from "../../reviewed";
 import { turnsOf, useTurnWriters, type Turn } from "../../turns";
 import { NoteSessionContext } from "../../notes";
-import { ChangeScopeContext, EMPTY_TREE, short, type ChangeScope } from "../../changes";
+import { ChangeScopeContext, EMPTY_TREE, short, useChangeScope, type ChangeScope } from "../../changes";
 import { Section, Toolbar } from "../blocks";
 import { SessionBadge } from "../SessionBadge";
 import { changeSummary, commitSteps, commandLine, plural, rewordSteps, stateMeaning, stateSymbol, type GitView, type Steps } from "../../git";
@@ -29,7 +29,7 @@ import { toProject, useGitRun, type Done, type TrailCommit } from "../../history
 import { LOCALE, type Point } from "../Trail";
 import { stateColor } from "../FilesPanel";
 import { Tooltip, TooltipHint } from "../Tooltip";
-import { AttachChange, AttachedAtRest, Commands, DiffBody, FileTools, inUntrackedDir, LineCounts, LookedAt, useDirq, useOpenOnClicks, You, type Working } from "./DiffParts";
+import { AttachChange, AttachedAtRest, Commands, DiffBody, FileTools, inUntrackedDir, LineCounts, useDirq, Viewed, ChangedSinceViewed, You, type Working } from "./DiffParts";
 import { StructureTree } from "./StructureTree";
 import { known, snapshotLabel, t } from "../../i18n";
 
@@ -520,12 +520,12 @@ function TurnChanges(props: {
 const inRepo = (repo: RepoStatus) => (repo.path ? ` in ${repo.name}` : "");
 const inRepoShown = (repo: RepoStatus) => (repo.path ? ` ${t("in {repo}", { repo: repo.name })}` : "");
 
-/** How many of the files shown are ticked as looked at. */
+/** How many of the files shown are marked as viewed. */
 function LookedCount({ repo, files }: { repo: RepoStatus; files: FileDiff[] }) {
   const reviewed = useReviewed();
   if (files.length === 0) return null;
   const done = files.filter((f) => reviewed(reviewKey(repo.path, f.path, f))).length;
-  return <span className={done === files.length ? "text-added" : "text-slate-500"}>{t("{done} of {all} looked at", { done, all: files.length })}</span>;
+  return <span className={done === files.length ? "text-added" : "text-slate-500"}>{t("{done} of {all} viewed", { done, all: files.length })}</span>;
 }
 
 function ModeSwitch({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }) {
@@ -642,7 +642,7 @@ function RepoChanges(props: {
           </span>
         )}
       </header>
-      <CommitLine repo={repo} onDone={git.refresh} />
+      <CommitLine repo={repo} files={files} onDone={git.refresh} />
       {error && <p className="selectable mt-2 text-problem">{error}</p>}
       {patch && mode === "structure" && (
         <div className="mt-3">
@@ -673,13 +673,17 @@ function RepoChanges(props: {
 }
 
 /** Message, Commit button, and the command line showing what it runs and what it said. */
-function CommitLine({ repo, onDone }: { repo: RepoStatus; onDone: () => void }) {
+function CommitLine({ repo, files, onDone }: { repo: RepoStatus; files: FileDiff[]; onDone: () => void }) {
+  const reviewed = useReviewed();
   const [message, setMessage] = useState("");
   const [focus, setFocus] = useState(false);
   const { run, running, done } = useGitRun(repo.path, onDone);
   const steps = commitSteps(repo, message);
   const staged = repo.files.filter((f) => f.staged).length;
   const ready = message.trim().length > 0 && !running;
+  // Viewing never decides what is committed; so say how much of it went unseen
+  const going = staged > 0 ? files.filter((f) => repo.files.find((s) => s.path === toProject(repo, f.path))?.staged) : files;
+  const unviewed = going.filter((f) => !reviewed(reviewKey(repo.path, f.path, f))).length;
 
   return (
     <div className="rounded-lg border border-line bg-panel">
@@ -699,6 +703,9 @@ function CommitLine({ repo, onDone }: { repo: RepoStatus; onDone: () => void }) 
           disabled={running}
           className="selectable min-w-0 flex-1 rounded-md border border-line bg-base px-2 py-1 text-slate-200 outline-none placeholder:text-slate-600 focus:border-brand"
         />
+        {unviewed > 0 && message.trim() && (
+          <span className="self-center text-[11px] whitespace-nowrap text-changed">{t("{n} not viewed", { n: unviewed })}</span>
+        )}
         <Tooltip
           content={
             <>
@@ -706,6 +713,7 @@ function CommitLine({ repo, onDone }: { repo: RepoStatus; onDone: () => void }) 
                 {staged > 0
                   ? t("Commits the {files} staged; the rest stays uncommitted", { files: plural(staged, "file") })
                   : t("Commits all {files} changed", { files: plural(repo.files.length, "file") })}
+                {unviewed > 0 && ` · ${t("{n} of them not viewed", { n: unviewed })}`}
               </span>
               <Commands steps={steps} />
             </>
@@ -1200,29 +1208,22 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
   const size = diffSize(file);
   const lookedKey = reviewKey(repo.path, file.path, file);
   const looked = useReviewed()(lookedKey);
-  // Looked at already: it opens closed
+  const slot = reviewSlot(useChangeScope(), lookedKey);
+  // Viewed already: it opens closed
   const [open, setOpen] = useState(size <= LONG_DIFF && !looked);
   const state = working?.status?.state ?? file.status;
   const slash = file.path.lastIndexOf("/");
   const Chevron = open ? ChevronDown : ChevronRight;
-  // As in the file tree: double click views it, middle click edits it; a deleted file is not there to open
+  // A deleted file is not there to open
   const projectPath = file.status === "D" ? null : toProject(repo, file.path);
-  const clicks = useOpenOnClicks(projectPath, () => setOpen((o) => !o));
 
   return (
     <article id={id} className="scroll-mt-2 overflow-hidden rounded-lg border border-line bg-panel">
       <header className="group flex h-8 items-center gap-2 pr-2 pl-2">
-        <LookedAt
-          checked={looked}
-          name={file.path}
-          onChange={() => {
-            toggleReviewed(lookedKey);
-            if (!looked) setOpen(false);
-          }}
-        />
         <button
           type="button"
-          {...clicks}
+          // A click only folds, at once: viewing and editing are in the row's tools (no double click to wait for)
+          onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
@@ -1238,6 +1239,7 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
             <span className="text-slate-500">{file.path.slice(0, slash + 1)}</span>
             <span className={looked ? "text-slate-400" : "text-slate-100"}>{file.path.slice(slash + 1)}</span>
           </span>
+          <ChangedSinceViewed show={changedSinceViewed(lookedKey, slot)} />
           <LineCounts added={file.added} removed={file.removed} />
           {working?.status?.staged && <span className="shrink-0 text-[11px] text-slate-500">{t("staged")}</span>}
         </button>
@@ -1245,6 +1247,14 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
         <FileTools path={file.path} projectPath={projectPath} patch={file.patch} added={file.status === "A"} from={file.from} working={working} />
         {who}
         <AttachedAtRest path={file.path} added={file.status === "A"} />
+        <Viewed
+          viewed={looked}
+          name={file.path}
+          onChange={() => {
+            toggleReviewed(lookedKey, slot);
+            if (!looked) setOpen(false);
+          }}
+        />
       </header>
       {open && <DiffBody file={file} notePath={file.status === "D" ? undefined : toProject(repo, file.path)} />}
       {!open && size > LONG_DIFF && (

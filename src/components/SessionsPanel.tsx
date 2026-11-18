@@ -48,7 +48,7 @@ import { needsYou, OPENED_AT, putAside, useNow, useWaiting, waitKey, waitsSince 
 import { files, filesText, type Pin } from "../files";
 import { formatTokens, useAttachedKinds } from "./AttachmentList";
 import { openView } from "../view";
-import { AttachTarget, TargetLost } from "./AttachTarget";
+import { AttachTarget, ChooseTarget, TargetLost } from "./AttachTarget";
 import { plural } from "../git";
 import { LOCALE } from "./Trail";
 import { blockedUntil, resetAt } from "../usage";
@@ -69,19 +69,19 @@ interface Props {
 }
 
 /**
- * The right column, in three areas: what waits for you (coloured only while something does),
- * the sessions working in the project, and what goes out with your next prompt. Below the header a
+ * The right column, in two areas: the sessions working in the project (those that wait for you
+ * first, as their own group, coloured only while something does) and what goes out with your
+ * next prompt. Below the header a
  * short summary of what file list, trail and views show; it also feeds the project's row in the
  * overview of all projects (docs/UEBERSICHT.md).
  */
 export function SessionsPanel(props: Props) {
   return (
     <aside
-      className="zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_auto_minmax(0,1fr)_fit-content(40%)_auto] border-l border-line bg-panel"
+      className="zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_minmax(0,1fr)_fit-content(40%)_auto] border-l border-line bg-panel"
     >
       <HeaderBar project={props.project} onOpenProject={props.onOpenProject} assistant={props.assistant} onToggleLog={props.onToggleLog} />
       <SidebarSummary git={props.git} assistant={props.assistant} />
-      <NeedsYou state={props.assistant} />
       <Sessions state={props.assistant} onShowFile={props.onShowFile} />
       <NextPrompt {...props} />
       <AssistantStatusBar assistant={props.assistant} />
@@ -119,78 +119,6 @@ function AreaHeader({ title, count, hint, asks, children }: { title: string; cou
 /** A session that reports but has been idle this long is no longer one you are busy with. To become a setting. */
 const EARLIER_AFTER_MS = 6 * 3600_000;
 
-/**
- * The sessions that ask something or finished their turn (see `attention.ts`). A finished turn can be
- * put aside and leaves by itself after a while; it comes back with the session's next turn. What
- * came while the window was open lights up for a moment.
- */
-function NeedsYou({ state }: { state: AssistantState }) {
-  const marks = useSessionMarks();
-  const waiting = useWaiting(state);
-
-  return (
-    // No tinted area (amber on grey turns brown): the cards below carry the colour (user, 2026-11-17)
-    <section className="flex max-h-[40vh] min-h-0 flex-col border-b border-line">
-      <AreaHeader
-        title={t("Needs you")}
-        count={waiting.length}
-        asks={waiting.some((s) => needsYou(s) === "asks")}
-        hint={t("{asking} asking, {done} finished within the last 30 minutes", {
-          asking: waiting.filter((s) => needsYou(s) === "asks").length,
-          done: waiting.filter((s) => needsYou(s) === "done").length,
-        })}
-      />
-      {waiting.length === 0 ? (
-        <p className="px-3 pb-2.5 text-[12px] text-slate-500">{t("Nothing. No session waits for you.")}</p>
-      ) : (
-        // Rows like the sessions below, not cards: calmer, and the same reading. What stands out is
-        // what counts: the area's tint and count, a question's edge and words in amber, and a new
-        // entry pulsing a few times
-        // Room around the cards, most below: they end where "Sessions" begins
-        <ul className="flex min-h-0 flex-col gap-2 overflow-y-auto px-2.5 pt-1 pb-3.5">
-          {waiting.map((s) => {
-            const asks = needsYou(s) === "asks";
-            return (
-              <li
-                // A new reason is a new item: it lights up once when it comes
-                key={waitKey(s)}
-                onMouseEnter={() => marks.hover(s.id)}
-                onMouseLeave={() => marks.hover(null)}
-                // `data-event`: a theme can make the reason stand out in its colour (docs/STYLING.md, `events`)
-                data-event={asks ? "waiting" : "done"}
-                className={`event-row wait-card group/wait relative rounded-md bg-raised py-1.5 pr-1.5 pl-2.5 ${asks ? "wait-card-asks" : ""} ${waitsSince(s) > OPENED_AT ? "attention-new" : ""}`}
-              >
-                <div className="flex items-center gap-2">
-                  <SessionBadge mark={markOf(s, marks.of(s.id))} />
-                  <span className="min-w-0 flex-1 truncate font-medium text-slate-100">{titleOf(s)}</span>
-                  <span data-event={asks ? "waiting" : "done"} className={`event-chip flex shrink-0 items-center gap-1.5 text-[11px] ${asks ? "text-changed" : "text-slate-500"}`}>
-                    <span className={`size-2 shrink-0 translate-y-px rounded-full ${asks ? "bg-changed" : "bg-slate-500"}`} />
-                    {asks ? t("asks") : `${t("turn done")} · ${time(s.turnDone ?? s.last)}`}
-                  </span>
-                  {!asks && (
-                    <button
-                      type="button"
-                      title={t("Put aside until its next turn")}
-                      aria-label={t("Put {name} aside", { name: titleOf(s) })}
-                      onClick={() => putAside(s)}
-                      className="shrink-0 rounded p-0.5 text-slate-500 opacity-0 group-hover/wait:opacity-100 hover:bg-overlay-hover hover:text-slate-100 focus-visible:opacity-100"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  )}
-                </div>
-                <p className={`mt-0.5 line-clamp-2 pl-[26px] text-[12px] ${asks ? "text-changed" : "text-slate-400"}`}>
-                  {asks ? (s.message ?? t("Waits for your answer")) : t("Waits for your next prompt")}
-                </p>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
-  );
-}
-
 /* ── Sessions ──────────────────────────────────────────────────────────────── */
 
 const STATUS_COLOR: Record<Session["status"], string> = {
@@ -225,7 +153,7 @@ function StatusDot({ status }: { status: Session["status"] }) {
  */
 function statusWords(s: Session): { words: string; at: number | null; tone: Tone } {
   if (s.status === "working") return { words: t("working"), at: null, tone: "ai" };
-  if (s.status === "waiting") return { words: t("waiting for you"), at: null, tone: "wait" };
+  if (s.status === "waiting") return { words: t("asks"), at: null, tone: "wait" };
   if (s.status === "ended") return { words: t("ended"), at: s.last, tone: "quiet" };
   // Nothing was heard from it: whether it works right now is not known
   if (!s.capabilities.liveStatus) return { words: t("from its log"), at: s.last, tone: "quiet" };
@@ -269,11 +197,37 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
   const [showEarlier, setShowEarlier] = useState(false);
   const Fold = showEarlier ? ChevronDown : ChevronRight;
   const pending = usePending(look?.path, state.sessions.map((s) => s.id));
+  // Those that ask or finished their turn (see `attention.ts`) head the list, each once: a list of
+  // their own above repeated every one of them below
+  const waiting = useWaiting(state);
+  const waits = new Set(waiting.map((s) => s.id));
+  const item = (s: Session, wait?: "asks" | "done") => (
+    <SessionItem key={wait ? waitKey(s) : s.id} session={s} wait={wait} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} projectPath={look?.path} projectTool={mine.harness.id} projectAccount={mine.account?.dir} aimed={state.attachments.length > 0 && state.target === s.id} />
+  );
+  const rest = current.filter((s) => !waits.has(s.id));
   return (
-    // No tint of its own (user, 2026-11-17): it stood out more than "Needs you"; a theme with zones colours the column
+    // No tint of its own (user, 2026-11-17); a theme with zones colours the column. One scrolling
+    // list for both groups: the sessions get the room, not two boxes of fixed share
     <section className="flex min-h-0 flex-col border-b border-line">
-      <AreaHeader title={t("Sessions")} />
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {waiting.length > 0 && (
+          <>
+            <AreaHeader
+              title={t("Needs you")}
+              count={waiting.length}
+              asks={waiting.some((s) => needsYou(s) === "asks")}
+              hint={t("{asking} asking, {done} finished within the last 30 minutes", {
+                asking: waiting.filter((s) => needsYou(s) === "asks").length,
+                done: waiting.filter((s) => needsYou(s) === "done").length,
+              })}
+            />
+            {/* Cards, raised, amber edged while a session asks; what came while the window was open lights up once */}
+            <ul className="flex flex-col gap-2 px-2 pb-2" onMouseLeave={() => marks.hover(null)}>
+              {waiting.map((s) => item(s, needsYou(s) ?? undefined))}
+            </ul>
+          </>
+        )}
+        <AreaHeader title={t("Sessions")} />
         {pending.length > 0 && (
           <ul className="divide-y divide-line/70 border-y border-line/70">
             {pending.map((p) => (
@@ -284,14 +238,12 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
         {state.sessions.length > 0 ? (
           // Left as a whole: between two sessions the highlight stays, so nothing flickers on the way
           <div onMouseLeave={() => marks.hover(null)}>
-            {current.length > 0 ? (
-              <ul className="divide-y divide-line/70 border-y border-line/70">
-                {current.map((s) => (
-                  <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} projectPath={look?.path} projectTool={mine.harness.id} projectAccount={mine.account?.dir} />
-                ))}
-              </ul>
-            ) : (
+            {rest.length > 0 ? (
+              <ul className="divide-y divide-line/70 border-y border-line/70">{rest.map((s) => item(s))}</ul>
+            ) : waiting.length === 0 ? (
               <p className="px-3 pb-2 text-[12px] text-slate-500">{t("No session is at work here right now.")}</p>
+            ) : (
+              <p className="px-3 pb-2 text-[12px] text-slate-500">{t("No other session is at work here right now.")}</p>
             )}
             {earlier.length > 0 && (
               <>
@@ -307,9 +259,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
                 </button>
                 {showEarlier && (
                   <ul className="divide-y divide-line/70 border-y border-line/70">
-                    {earlier.map((s) => (
-                      <SessionItem key={s.id} session={s} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} projectPath={look?.path} projectTool={mine.harness.id} projectAccount={mine.account?.dir} />
-                    ))}
+                    {earlier.filter((s) => !waits.has(s.id)).map((s) => item(s))}
                   </ul>
                 )}
               </>
@@ -348,7 +298,7 @@ function PendingItem({ pending, projectPath }: { pending: Pending; projectPath: 
           <span className="min-w-0 truncate font-medium text-slate-100">{t("Starting…")}</span>
           {/* At first it starts; a tool silent for long most likely asks something */}
           <span className={`ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-2 py-px text-[11px] font-medium ${pending.waits ? PILL.wait : PILL.quiet}`}>
-            {pending.waits ? t("waits in tmux") : t("starting")}
+            {pending.waits ? t("may be asking") : t("starting")}
           </span>
         </span>
         <span className="truncate text-[12px] text-slate-400">
@@ -374,7 +324,39 @@ function PendingItem({ pending, projectPath }: { pending: Pending; projectPath: 
 }
 
 /** Two lines per session: who and in which state, then the one thing that counts. The rest folds out. */
-function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, toolShort, projectPath, projectTool, projectAccount }: { session: Session; blockedUntil: number | null; onShowFile: (path: string) => void; toolName: string; toolShort: string; projectPath: string | undefined; projectTool: string; projectAccount: string | undefined }) {
+/**
+ * In the closed card: the attachments are meant for this session, or when it last got some. So
+ * whether they arrived where they should needs no unfolding.
+ */
+function Receipt({ session: s, aimed }: { session: Session; aimed: boolean }) {
+  if (aimed) {
+    return (
+      <span title={t("Your attachments go with its next prompt")} className="flex h-[18px] shrink-0 items-center gap-1 rounded border border-brand/50 px-1 leading-none text-brand-soft">
+        <Paperclip className="size-3 shrink-0" />
+        {t("next prompt")}
+      </span>
+    );
+  }
+  // The start rules are not attachments: what counts is what the user attached
+  const last = s.received.find((r) => r.labels.some((l) => l !== "Start rules"));
+  if (!last) return null;
+  return (
+    <span
+      title={t("Got your attachments at {time}: {what}", { time: time(last.at), what: last.labels.filter(Boolean).map(known).join(", ") })}
+      className="flex shrink-0 items-center gap-0.5 text-slate-400 tabular-nums"
+    >
+      <Paperclip className="size-3 shrink-0" />
+      <Check className="-ml-0.5 size-3 shrink-0 text-added" />
+      {time(last.at)}
+    </span>
+  );
+}
+
+/**
+ * One session. `wait`: it waits for you (asks, or finished its turn) and stands under "Needs you"
+ * as a raised card; a finished turn can be put aside there until its next turn.
+ */
+function SessionItem({ session: s, wait, blockedUntil: reset, onShowFile, toolName, toolShort, projectPath, projectTool, projectAccount, aimed }: { session: Session; wait?: "asks" | "done"; blockedUntil: number | null; onShowFile: (path: string) => void; toolName: string; toolShort: string; projectPath: string | undefined; projectTool: string; projectAccount: string | undefined; aimed: boolean }) {
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const marks = useSessionMarks();
@@ -455,7 +437,15 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
       }}
       onAuxClick={(e) => e.button === 1 && go("terminal")}
       title={s.status === "ended" ? undefined : t("Double-click: go to it ({door}) · middle click: terminal", { door: door === "desktop" ? t("Desktop") : t("Terminal") })}
-      className={`group/session ${open ? "bg-raised/60" : "hover:bg-raised/40"} ${s.status === "ended" ? "opacity-55" : ""}`}
+      // `data-event`: a theme can make the reason stand out in its colour (docs/STYLING.md, `events`)
+      data-event={wait === "asks" ? "waiting" : wait}
+      className={`group/session ${
+        wait
+          ? `event-row wait-card overflow-hidden rounded-md bg-raised ${wait === "asks" ? "wait-card-asks" : ""} ${waitsSince(s) > OPENED_AT ? "attention-new" : ""}`
+          : open
+            ? "bg-raised/60"
+            : "hover:bg-raised/40"
+      } ${s.status === "ended" ? "opacity-55" : ""}`}
     >
       <div className="flex items-start">
         {/* The badge stands alone, large, across both lines; status and model are what one reads */}
@@ -499,6 +489,7 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
                 </span>
               )}
               <Place session={s} />
+              <Receipt session={s} aimed={aimed} />
               <span className="flex-1" />
               <HoverTools show="group-hover/session:flex group-has-[:focus-visible]/session:flex" open={!!menu.element}>
                 {s.status !== "ended" && (
@@ -513,6 +504,12 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
                     <ToolGap />
                     <Tool icon={RotateCcw} label={t("Restart: same conversation, fresh process")} says={commands?.stop && commands.start ? `${commands.stop}\n${commands.start}` : undefined} onClick={() => void stopSession(projectPath!, s.id, true).catch((e) => setFailed(String(e)))} />
                     <Tool icon={Power} danger label={t("Stop (the conversation is kept and can be continued)")} says={commands?.stop} onClick={() => void stopSession(projectPath!, s.id, false).catch((e) => setFailed(String(e)))} />
+                  </>
+                )}
+                {wait === "done" && (
+                  <>
+                    <ToolGap />
+                    <Tool icon={X} label={t("Put aside until its next turn")} onClick={() => putAside(s)} />
                   </>
                 )}
                 {s.status !== "ended" && <ToolGap />}
@@ -706,13 +703,13 @@ function NextPrompt({ assistant, onPin }: Props) {
   const attaches = capabilities.attach === "withNextPrompt";
   const pins = files.use();
   const { delivered } = assistant;
-  // Each number carries the icon of the place where such things are attached, so it says where
+  // Each count carries the icon of the place where such things are attached, so it says where
   // they come from; the tooltip says it in words
   const tiles: [number, string, LucideIcon, string][] = [
-    [kinds.files, t("Files"), Paperclip, t("Files, folders and passages: the paperclip in the file list")],
-    [kinds.changes, t("Changes"), GitCompareArrows, t("Changes of a turn, commit or file: the paperclip in Changes")],
-    [kinds.comments, t("Lines"), MessageSquare, t("Comments on diff lines: the speech bubble at a line in Changes")],
-    [kinds.hints, t("Hints"), AtSign, t("@ai hints from your files: the paperclip in the Workbench")],
+    [kinds.files, "file", Paperclip, t("Files, folders and passages: the paperclip in the file list")],
+    [kinds.changes, "change", GitCompareArrows, t("Changes of a turn, commit or file: the paperclip in Changes")],
+    [kinds.comments, "line comment", MessageSquare, t("Comments on diff lines: the speech bubble at a line in Changes")],
+    [kinds.hints, "hint", AtSign, t("@ai hints from your files: the paperclip in the Workbench")],
   ];
 
   const onDrop = (e: DragEvent) => {
@@ -756,9 +753,10 @@ function NextPrompt({ assistant, onPin }: Props) {
         </button>
       </AreaHeader>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3 pt-1.5 pb-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 pt-0.5 pb-2.5">
         {/* Who it is for comes first: the numbers below read as what goes to them */}
-        {count > 0 && attaches && (
+        {count > 0 && attaches && assistant.held && <ChooseTarget state={assistant} />}
+        {count > 0 && attaches && !assistant.held && (
           <div className="flex flex-col gap-1 text-[12px] text-slate-400">
             <div className="flex min-w-0 items-center gap-1.5">
               <span className="shrink-0">{t("For")}</span>
@@ -773,23 +771,25 @@ function NextPrompt({ assistant, onPin }: Props) {
           </div>
         )}
 
-        <div className="grid grid-cols-4 gap-1">
-          {tiles.map(([n, label, Icon, hint]) => (
-            <Tooltip key={label} className="flex min-w-0" content={<span>{hint}</span>}>
-              <button
-                type="button"
-                onClick={() => openView("next")}
-                className={`flex w-full min-w-0 flex-col items-center rounded-md py-1.5 hover:bg-raised/70 ${n ? "" : "opacity-40"}`}
-              >
-                <span className="flex items-center gap-1 text-[22px] leading-none font-semibold text-slate-100 tabular-nums">
-                  <Icon className="size-3.5 text-slate-500" />
-                  {n}
-                </span>
-                <span className="mt-1 max-w-full truncate px-0.5 text-[10px] tracking-wider text-slate-400 uppercase">{label}</span>
-              </button>
-            </Tooltip>
-          ))}
-        </div>
+        {/* What is attached, one narrow line: only the kinds there are. The sum stands at the tab already */}
+        {count > 0 && (
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
+            {tiles
+              .filter(([n]) => n > 0)
+              .map(([n, noun, Icon, hint]) => (
+                <Tooltip key={noun} className="flex min-w-0" content={<span>{hint}</span>}>
+                  <button
+                    type="button"
+                    onClick={() => openView("next")}
+                    className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px] text-slate-400 hover:bg-raised/70 hover:text-slate-200"
+                  >
+                    <Icon className="size-3.5 text-slate-500" />
+                    <span className="text-slate-200">{plural(n, noun)}</span>
+                  </button>
+                </Tooltip>
+              ))}
+          </div>
+        )}
 
         {kinds.files > 0 && (
           <div>
@@ -809,7 +809,8 @@ function NextPrompt({ assistant, onPin }: Props) {
           </div>
         )}
 
-        {count === 0 && delivered && (
+        {/* Nothing attached: one line, the receipt of what went out last, else how to attach */}
+        {count === 0 && delivered && !over && (
           <p className="flex items-start gap-1.5 text-[12px] text-slate-300">
             <Check className="mt-0.5 size-3.5 shrink-0 text-added" />
             <span className="min-w-0">
@@ -826,7 +827,7 @@ function NextPrompt({ assistant, onPin }: Props) {
             </span>
           </p>
         )}
-        {count === 0 && (
+        {count === 0 && (!delivered || over) && (
           <p className="text-[12px] text-slate-500">
             {over ? t("Drop to attach it") : t("Nothing attached. Drag files here; the other ways are in the Next prompt view.")}
           </p>

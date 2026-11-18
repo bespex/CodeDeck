@@ -295,7 +295,7 @@ eine Stufe tiefer `#e8d6c3`, mit Licht von oben), der **Inhalt** in Cremeweiß (
 Schatten. Runde Ecken, weiche Linien in Sandbeige, Schrift Braungrau statt Schwarz (eigene Grauskala mit warmem
 Ton, damit leiser Text auch auf Karamell 4 : 1 hält). Farbe sparsam wie dort: **Orange** für die Hauptaktion,
 **Himmelblau** für Auswahl, Fokus und die KI, Git in gedeckten Tönen. Laut ist nur, was dich braucht (`events:
-focus`): „fragt“ und „wartet auf dich“ als honigfarbene Schilder; „fertig“ in Petrol als Wort.
+focus`): „fragt“ als honigfarbene Schilder; „fertig“ in Petrol als Wort.
 
 **Colorful: Farbräume.** Weißer, leicht warmer Grund, und jeder Bereich hat seine Farbe (`zones: 18`). Die Töne sind
 eine Familie: gleiche Helligkeit und Sättigung in OKLCH (L 0,74, C 0,11), nur der Farbton wechselt, darum wirken sie
@@ -310,7 +310,7 @@ Erfahrungen mit Forest: 16 % Blau in allen Flächen und Grautönen machten Blau 
 obere Leiste, die Statusleiste und die Menüs (mit leichtem Glas). **Der Inhalt ist mondbeschienenes Graphit:** Deck,
 Spalten, Knöpfe und die Grautöne der Schrift fast neutral kühl (4 % Tönung). Warmes Gegenstück ist **Mondgold** für
 deine Hauptaktion; die KI ist **Flieder** (nicht Blau, damit sie sich vom Rahmen abhebt), „fertig“ Mint, Git in
-gedämpftem Silberblau und Mint. **Laut ist nur, was dich braucht** (`events: focus`): „fragt“ und „wartet auf dich“ in
+gedämpftem Silberblau und Mint. **Laut ist nur, was dich braucht** (`events: focus`): „fragt“ in
 Laternen-Pfirsich, als Schild und als Linie am Fensterrand. Kein Schimmer hinter dem Deck, runde Ecken, tiefe
 Schatten.
 
@@ -319,7 +319,7 @@ Schatten.
 Menüs und Popups. **Alles andere ist warmes, fast neutrales Braungrau** (Rinde): Deck, beide Spalten, Knöpfe und
 Hover, Linien, und auch die Grautöne der Schrift (nur 5 % Tönung, sonst wirkt alles oliv). Die rechte Spalte ist
 ruhig wie die linke (`areaTint: 3`), gegliedert über ihre Abschnitte. **Farbe kommt nur aus Blüten und Früchten, laut
-nur bei dem, was dich braucht** (`events: focus`): „fragt“ und „wartet auf dich“ als sonnenblumengelbe Schilder,
+nur bei dem, was dich braucht** (`events: focus`): „fragt“ als sonnenblumengelbe Schilder,
 der Fensterrand als gelbe Linie; „fertig“ in Kornblume und „arbeitet“ in Flieder als Worte; du in Kürbis, Fehler in
 Kirsche, neue Dateien in Blattgrün. Allgemeine Lehre aus Forest, Paper und Moon: **Eine Farbe trägt Bedeutung nur, wenn sie nicht überall ist.** Rahmen
 (Bedienung) und Inhalt bekommen getrennte Töne; Flächen und Grautöne bleiben nahezu neutral; Farbe gehört den

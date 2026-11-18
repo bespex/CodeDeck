@@ -43,7 +43,7 @@ export const NoteSessionContext = createContext<string | null>(null);
 export function addNote(path: string, line: number, code: string, text: string, session?: string | null) {
   const state = lastState();
   const s = state?.sessions.find((x) => x.id === session);
-  if (s && state?.attachments.length === 0 && !state.target && s.status !== "ended" && s.capabilities.attach === "withNextPrompt") {
+  if (s && state?.attachments.length === 0 && !state.target && !state.any && s.status !== "ended" && s.capabilities.attach === "withNextPrompt") {
     void attachFor(s.id);
   }
   notes.add([{ id: nextId++, path, line, code, text: text.trim() }]);

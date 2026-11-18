@@ -71,7 +71,7 @@ Befund:
 
 - [ ] Übersicht, ▶ an einem Projekt: Die Zeile „Wird gestartet …“ steht sofort da (nicht erst nach Sekunden), mit
       „startet“; meldet sich die Sitzung, wird sie zur normalen Sitzungszeile
-- [ ] Eine Sitzung, die eine Frage stellt (Ordner noch nicht vertraut): nach etwa 20 s „wartet in tmux“
+- [ ] Eine Sitzung, die eine Frage stellt (Ordner noch nicht vertraut): nach etwa 20 s „fragt vielleicht“
 - [ ] Projektfenster, Sitzung in tmux aufklappen: Zeile „Gestartet mit“ zeigt `claude …`, der Tooltip den ganzen
       tmux-Befehl; Kopieren-Symbol daneben, der kopierte Befehl startet von Hand dieselbe Sitzung
 - [ ] Sitzungskarte überfahren: Werkzeugleiste rechts in der dritten Zeile (Desktop, Terminal | Neu starten,

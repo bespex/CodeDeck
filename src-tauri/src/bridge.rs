@@ -178,10 +178,15 @@ pub struct AssistantState {
     preview: Option<String>,
     /// The attachments that went out last, until the next one is queued
     delivered: Option<Delivery>,
-    /// The session the attachments are meant for; `None`: whichever prompts first in the project
+    /// The session the attachments are meant for; `None`: see `any` and `held`
     target: Option<String>,
-    /// The session the attachments were meant for until it ended or left the list; it now goes
-    /// to any session, and the interface says so
+    /// Chosen on purpose: whichever session prompts first in the project gets them
+    any: bool,
+    /// Attachments wait and reach no one: nothing is chosen and more than one session could
+    /// take them. The interface asks who gets them
+    held: bool,
+    /// The session the attachments were meant for until it ended or left the list; nothing is
+    /// chosen now, and the interface says so
     target_lost: Option<String>,
     /// The session that got the start rules last
     ruled: Option<Ruled>,
@@ -235,6 +240,8 @@ struct Inner {
     attachments: Vec<Attachment>,
     delivered: Option<Delivery>,
     target: Option<String>,
+    /// Whichever session prompts first gets the attachments, chosen on purpose
+    any: bool,
     target_lost: Option<String>,
     ruled: Option<Ruled>,
     /// Sessions whose log was read since their turn ended
@@ -364,6 +371,8 @@ impl Bridge {
             preview: joined(&inner.attachments),
             delivered: inner.delivered.clone(),
             target: inner.target.clone(),
+            any: inner.any,
+            held: !inner.attachments.is_empty() && inner.target.is_none() && !inner.any && inner.receivers().len() > 1,
             target_lost: inner.target_lost.clone(),
             ruled: inner.ruled.clone(),
             found: inner.found.view(),
@@ -426,16 +435,18 @@ impl Bridge {
             set_part(&mut inner.attachments, key, part);
             // Nothing left to deliver: nothing to aim at either
             if inner.attachments.is_empty() {
-                (inner.target, inner.target_lost) = (None, None);
+                inner.unaim();
             }
         }
         self.tell(app, ASSISTANT_CHANGED, self.state());
     }
 
-    /// The session the attachments are meant for; `None`: whichever prompts first in the project.
-    pub fn set_target(&self, app: &AppHandle, session: Option<String>) {
+    /// The session the attachments are meant for; with `None`, `any` says whether whichever
+    /// prompts first gets them, or nothing is chosen.
+    pub fn set_target(&self, app: &AppHandle, session: Option<String>, any: bool) {
         {
             let mut inner = self.inner.locked();
+            inner.any = any && session.is_none();
             inner.target = session;
             inner.target_lost = None;
         }
@@ -856,11 +867,37 @@ impl Inner {
         self.lose_target(id);
     }
 
-    /// The session is gone: attachments meant for it go to any session now.
+    /// The session is gone: nothing is chosen now. With one session left that one gets the
+    /// attachments; with more they wait until the user says who (not the first to prompt).
     fn lose_target(&mut self, id: &str) {
         if self.target.as_deref() == Some(id) {
             self.target = None;
             self.target_lost = Some(id.to_string());
+        }
+    }
+
+    /// Nothing aimed at any more: after the attachments went out, or when none are left.
+    fn unaim(&mut self) {
+        (self.target, self.any, self.target_lost) = (None, false, None);
+    }
+
+    /// Sessions that could take the attachments: running, and their tool adds them to the prompt.
+    fn receivers(&self) -> Vec<&str> {
+        self.sessions
+            .values()
+            .filter(|s| s.status != "ended" && s.capabilities.attach == harness::Attach::WithNextPrompt)
+            .filter(|s| s.place.as_ref().and_then(crate::place::alive) != Some(false))
+            .map(|s| s.id.as_str())
+            .collect()
+    }
+
+    /// Whether this session's prompt takes the attachments: the one chosen, anyone when chosen
+    /// so, and without a choice only when it is the one session that could. With more, which
+    /// one prompts first would be chance.
+    fn meant_for(&self, id: &str) -> bool {
+        match &self.target {
+            Some(t) => t == id,
+            None => self.any || self.receivers().iter().all(|r| *r == id),
         }
     }
 
@@ -988,13 +1025,13 @@ impl Inner {
         if e.kind == EventKind::PromptSubmitted {
             // Only a tool that adds the text to the prompt takes it, and only the session it is
             // meant for; otherwise it keeps waiting
-            let meant = self.target.as_ref().is_none_or(|t| *t == e.session);
+            let meant = self.meant_for(&e.session);
             if capabilities.attach == harness::Attach::WithNextPrompt && meant {
                 let labels: Vec<String> = self.attachments.iter().map(|h| h.label.clone()).collect();
                 let parts: Vec<Sent> = self.attachments.iter().map(|h| Sent { key: h.key.clone(), rev: h.rev }).collect();
                 if let Some(text) = take_parts(&mut self.attachments) {
                     context = Some(text);
-                    (self.target, self.target_lost) = (None, None);
+                    self.unaim();
                     if let Some(s) = self.sessions.get_mut(&e.session) {
                         s.got(now, labels.clone());
                     }
@@ -1480,7 +1517,7 @@ mod tests {
         assert_eq!(step(&mut inner, r#"{"who":"b2","did":"started","in":"/p"}"#, &Silent), None);
     }
 
-    /// Attachments meant for one session wait for that one; when it ends, any session gets them.
+    /// Attachments meant for one session wait for that one; when it ends, the one left gets them.
     #[test]
     fn hands_over_to_the_session_it_is_meant_for() {
         let root = Path::new("/p");
@@ -1505,6 +1542,7 @@ mod tests {
         inner.target = Some("b2".into());
         step(&mut inner, r#"{"who":"b2","did":"left","in":"/p"}"#);
         assert_eq!((inner.target.as_deref(), inner.target_lost.as_deref()), (None, Some("b2")));
+        // a1 is the only one left that could take it
         assert_eq!(step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Go"}"#).as_deref(), Some("again"));
         assert!(inner.target_lost.is_none());
 
@@ -1513,6 +1551,37 @@ mod tests {
         inner.target = Some("a1".into());
         inner.forget("a1");
         assert_eq!((inner.target.as_deref(), inner.target_lost.as_deref()), (None, Some("a1")));
+    }
+
+    /// Without a choice the attachments go out only where that is no chance: with one session
+    /// that could take them. With two they wait, until one is chosen or "any session" is.
+    #[test]
+    fn waits_when_several_could_take_it() {
+        let root = Path::new("/p");
+        let mut inner = Inner::default();
+        let step = |inner: &mut Inner, raw: &str| {
+            let event = Fake.translate(&serde_json::from_str(raw).unwrap()).unwrap();
+            inner.take_in(&event, &Prompting, root, Vec::new, 5).unwrap().context
+        };
+        step(&mut inner, r#"{"who":"a1","did":"started","in":"/p"}"#);
+        set_part(&mut inner.attachments, "notes".into(), Some(("one".into(), "1 line comment".into(), 1)));
+        assert_eq!(step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Go"}"#).as_deref(), Some("one"));
+
+        step(&mut inner, r#"{"who":"b2","did":"started","in":"/p"}"#);
+        set_part(&mut inner.attachments, "notes".into(), Some(("two".into(), "1 line comment".into(), 1)));
+        assert_eq!(step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Go"}"#), None);
+        assert_eq!(step(&mut inner, r#"{"who":"b2","did":"asked","in":"/p","text":"Go"}"#), None);
+        assert_eq!(inner.attachments.len(), 1);
+
+        // "Any session", chosen on purpose: the first to prompt; afterwards nothing is chosen again
+        inner.any = true;
+        assert_eq!(step(&mut inner, r#"{"who":"b2","did":"asked","in":"/p","text":"Go"}"#).as_deref(), Some("two"));
+        assert!(!inner.any && inner.target.is_none());
+
+        // An ended session does not count: the one left gets it
+        step(&mut inner, r#"{"who":"b2","did":"left","in":"/p"}"#);
+        set_part(&mut inner.attachments, "notes".into(), Some(("three".into(), "1 line comment".into(), 1)));
+        assert_eq!(step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Go"}"#).as_deref(), Some("three"));
     }
 
     #[test]

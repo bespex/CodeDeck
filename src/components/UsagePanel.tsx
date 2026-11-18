@@ -124,7 +124,8 @@ export function UsageCards({ assistant, onlySetUp = false }: { assistant: Assist
           <span className="min-w-0 truncate font-semibold text-slate-100" title={c.dir}>
             {accountName(c.dir)}
           </span>
-          {c.usage && (
+          {/* Taken off in the status bar's pop-up; Activity only shows the figures */}
+          {c.usage && !onlySetUp && (
             <button type="button" onClick={() => void disconnect(c)} className="ml-auto text-[11px] text-slate-500 hover:text-slate-200">
               {t("Remove")}
             </button>

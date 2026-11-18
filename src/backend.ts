@@ -684,9 +684,13 @@ export interface AssistantState {
   preview: string | null;
   /** The attachments that went out last (which session took them, when, which parts at which revision), until the next is attached */
   delivered: { session: string; at: number; labels: string[]; parts: { key: string; rev: number }[] } | null;
-  /** The session the attachments are meant for; `null`: whichever session in the project prompts first */
+  /** The session the attachments are meant for; `null`: see `any` and `held` */
   target: string | null;
-  /** The session it was meant for until that one ended or left the list: it now goes to any session */
+  /** Chosen on purpose: whichever session in the project prompts first gets them */
+  any: boolean;
+  /** The attachments wait and reach no one: nothing is chosen and more than one session could take them */
+  held: boolean;
+  /** The session it was meant for until that one ended or left the list: nothing is chosen now */
   targetLost: string | null;
   /** The session that got the start rules last, and when */
   ruled: { session: string; at: number } | null;
@@ -853,6 +857,8 @@ const mockAssistant: AssistantState = {
   preview: null,
   delivered: null,
   target: null,
+  any: false,
+  held: false,
   targetLost: null,
   ruled: { session: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a", at: Date.now() - 20 * 60_000 },
   found: {
@@ -915,8 +921,16 @@ function mockChanged() {
   }
   const list = mockAssistant.attachments;
   mockAssistant.preview = list.length ? list.map((a) => a.text).join("\n\n") : null;
-  if (list.length === 0) Object.assign(mockAssistant, { target: null, targetLost: null });
+  if (list.length === 0) Object.assign(mockAssistant, { target: null, any: false, targetLost: null });
+  mockAssistant.held = mockHeld();
   mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+}
+
+/** As the backend decides it: nothing chosen, and more than one running session could take the attachments. */
+function mockHeld(): boolean {
+  const a = mockAssistant;
+  const receivers = a.sessions.filter((s) => s.status !== "ended" && s.capabilities.attach === "withNextPrompt" && s.alive !== false);
+  return a.attachments.length > 0 && !a.target && !a.any && receivers.length > 1;
 }
 
 /** One part of the attachments to the next prompt; `null` removes that part. */
@@ -938,9 +952,9 @@ export function attach(key: string, text: string | null, label?: string, rev = 0
  * the prompt is being sent.
  */
 export function mockSendPrompt(hold = false) {
-  const s = mockAssistant.sessions[0];
+  const s = mockAssistant.sessions.find((x) => x.id === mockAssistant.target) ?? mockAssistant.sessions[0];
   const list = mockAssistant.attachments;
-  if (!list.length) return;
+  if (!list.length || mockAssistant.held) return;
   const at = Date.now();
   const labels = list.map((a) => a.label);
   mockAssistant.delivered = { session: s.id, at, labels, parts: list.map((a) => ({ key: a.key, rev: a.rev })) };
@@ -961,11 +975,14 @@ function mockAsk() {
 }
 if (!live) (window as unknown as { mockAsk: () => void }).mockAsk = mockAsk;
 
-/** The session the attachments are meant for; `null`: whichever session in the project prompts first. */
-export function attachFor(session: string | null): Promise<void> {
-  if (live) return invoke("attach_for", { session });
-  Object.assign(mockAssistant, { target: session, targetLost: null });
-  mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+/**
+ * The session the attachments are meant for. Without one, `any` makes it whichever session in the
+ * project prompts first; otherwise nothing is chosen (with several sessions they wait).
+ */
+export function attachFor(session: string | null, any = false): Promise<void> {
+  if (live) return invoke("attach_for", { session, any });
+  Object.assign(mockAssistant, { target: session, any: any && !session, targetLost: null });
+  mockChanged();
   return Promise.resolve();
 }
 

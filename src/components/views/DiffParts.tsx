@@ -1,8 +1,8 @@
 // Pieces both ways of showing a change use: the commands an action runs, the actions on one
 // uncommitted file, and a file's diff.
 
-import { Fragment, useContext, useEffect, useRef, useState } from "react";
-import { Columns2, Eye, MessageSquarePlus, Paperclip, SquarePen, Trash2, Undo2, X } from "lucide-react";
+import { Fragment, useContext, useEffect, useState } from "react";
+import { Circle, CircleCheck, Columns2, Eye, MessageSquarePlus, Paperclip, SquarePen, Trash2, Undo2, X } from "lucide-react";
 import { AppName, openAs } from "../../apps";
 import { hasDiffViewer, showPatch, type FileStatus, type RepoStatus } from "../../backend";
 import { commandLine, type Steps } from "../../git";
@@ -46,38 +46,6 @@ export function inUntrackedDir(repo: RepoStatus, path: string): FileStatus | und
  * @param path repository-relative
  * @param from repository-relative old path of a rename
  */
-/**
- * The clicks on a changed file, as in the file tree: a double click views it, a middle click edits
- * it, a click folds its diff. The fold waits until a second click can no longer come, so a double
- * click leaves the diff as it was. `path` is project-relative; `null` (a deleted file) only folds.
- */
-export function useOpenOnClicks(path: string | null, fold: () => void) {
-  const pending = useRef<number | null>(null);
-  const cancel = () => {
-    if (pending.current !== null) clearTimeout(pending.current);
-    pending.current = null;
-  };
-  return {
-    onClick: (e: React.MouseEvent) => {
-      cancel();
-      // The keyboard (detail 0) folds at once, and so does a file that cannot be opened
-      if (e.detail === 0 || path === null) return fold();
-      if (e.detail > 1) return;
-      pending.current = window.setTimeout(() => {
-        pending.current = null;
-        fold();
-      }, 250);
-    },
-    onDoubleClick: () => {
-      cancel();
-      if (path !== null) openAs(path, "view");
-    },
-    // Middle button: edit. Its press would otherwise start the scrolling mode
-    onMouseDown: (e: React.MouseEvent) => e.button === 1 && path !== null && e.preventDefault(),
-    onAuxClick: (e: React.MouseEvent) => e.button === 1 && path !== null && openAs(path, "edit"),
-  };
-}
-
 let dirqInstalled: Promise<boolean> | null = null;
 
 /** Whether Dirq, the side-by-side diff viewer of be spex (Qiew), is installed; asked once. */
@@ -142,8 +110,8 @@ export function FileTools(props: { path: string; projectPath: string | null; pat
       <HoverTools show={props.show}>
         {opens && (
           <>
-            <Tool icon={Eye} label={t("View")} says={<T text="Opens it in {app}" app={<AppName path={projectPath} role="view" />} />} hint={t("Also: double-click the file")} onClick={() => openAs(projectPath, "view")} />
-            <Tool icon={SquarePen} label={t("Edit")} says={<T text="Opens it in {app}" app={<AppName path={projectPath} role="edit" />} />} hint={t("Also: middle-click the file")} onClick={() => openAs(projectPath, "edit")} />
+            <Tool icon={Eye} label={t("View")} says={<T text="Opens it in {app}" app={<AppName path={projectPath} role="view" />} />} onClick={() => openAs(projectPath, "view")} />
+            <Tool icon={SquarePen} label={t("Edit")} says={<T text="Opens it in {app}" app={<AppName path={projectPath} role="edit" />} />} onClick={() => openAs(projectPath, "edit")} />
             {dirq && patch && <Tool icon={Columns2} label={t("Its diff in Dirq")} says={t("Its diff in Dirq, old and new side by side")} onClick={() => void showPatch(patch).catch((e) => console.error(e))} />}
           </>
         )}
@@ -361,22 +329,46 @@ export function LineCounts({ added, removed }: { added: number | null; removed: 
 }
 
 /**
- * "Looked at": a tick per file, kept with the change as it is shown.
- *
- * @param name what the file is called, for screen readers
+ * Marks a file's change as viewed, on the right of its row and with a word: a box on the left
+ * would read as "goes into the commit", which it does not. After a later change it says so.
  */
-export function LookedAt({ checked, onChange, name }: { checked: boolean; onChange: () => void; name: string }) {
+export function Viewed({ viewed, onChange, name }: { viewed: boolean; onChange: () => void; name: string }) {
+  const Icon = viewed ? CircleCheck : Circle;
   return (
-    <input
-      type="checkbox"
-      checked={checked}
-      onChange={onChange}
-      onClick={(e) => e.stopPropagation()}
-      aria-label={t("Looked at {name}", { name })}
-      title={t("Tick it when you have looked at it. The tick goes away when the file changes again.")}
-      className="size-3.5 shrink-0 cursor-pointer accent-ai"
-    />
+    <Tooltip
+      className="flex"
+      content={
+        <span>
+          {viewed
+            ? t("You marked it as viewed; it stays closed. The mark goes away when the file changes again.")
+            : t("Mark it as viewed once you have looked at it: it closes and the count goes up. Only for you; it does not decide what goes into a commit.")}
+        </span>
+      }
+    >
+      <button
+        type="button"
+        aria-pressed={viewed}
+        aria-label={t("Viewed: {name}", { name })}
+        onClick={(e) => {
+          e.stopPropagation();
+          onChange();
+        }}
+        onDoubleClick={(e) => e.stopPropagation()}
+        onAuxClick={(e) => e.stopPropagation()}
+        className={`flex h-5 items-center gap-1 rounded-md border px-1.5 text-[11px] ${
+          viewed ? "border-transparent bg-raised text-slate-300 hover:text-slate-100" : "border-line text-slate-500 hover:border-slate-500 hover:text-slate-200"
+        }`}
+      >
+        <Icon className={`size-3 ${viewed ? "text-added" : ""}`} />
+        {t("Viewed")}
+      </button>
+    </Tooltip>
   );
+}
+
+/** A file marked as viewed changed afterwards: said before its numbers, which show how much. */
+export function ChangedSinceViewed({ show }: { show: boolean }) {
+  return show ? <span className="shrink-0 text-[11px] text-changed">{t("changed since viewed")}</span> : null;
 }
 
 /**

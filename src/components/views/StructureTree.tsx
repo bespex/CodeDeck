@@ -31,8 +31,9 @@ import {
 } from "../../structure";
 import { Tooltip, TooltipHint } from "../Tooltip";
 import { pathItems, useContextMenu } from "../ContextMenu";
-import { reviewKey, toggleReviewed, useReviewed } from "../../reviewed";
-import { AttachedAtRest, DiffBody, FileTools, inUntrackedDir, LineCounts, LookedAt, useOpenOnClicks, type Working } from "./DiffParts";
+import { changedSinceViewed, reviewKey, reviewSlot, toggleReviewed, useReviewed } from "../../reviewed";
+import { useChangeScope } from "../../changes";
+import { AttachedAtRest, DiffBody, FileTools, inUntrackedDir, LineCounts, Viewed, ChangedSinceViewed, type Working } from "./DiffParts";
 import { plural, t } from "../../i18n";
 
 /** A new folder with more files than this opens collapsed. */
@@ -139,7 +140,7 @@ interface Ctx {
   open: Set<string>;
   toggle: (key: string, open: boolean) => void;
   who?: (path: string) => ReactNode;
-  /** Whether the change with this key is ticked as looked at */
+  /** Whether the change with this key is marked as viewed */
   reviewed: (key: string) => boolean;
   working?: (path: string) => Working;
   menu: ReturnType<typeof useContextMenu>["open"];
@@ -290,9 +291,10 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
   const look = fileLook(file);
   const lookedKey = reviewKey(ctx.repo.path, file.path, ctx.diffs.get(file.path), `${c.status}:${c.added}:${c.removed}`);
   const looked = ctx.reviewed(lookedKey);
-  // As in the file tree: double click views it, middle click edits it; a deleted file is not there to open
+  const slot = reviewSlot(useChangeScope(), lookedKey);
+  // A deleted file is not there to open
   const projectPath = file.kind === "deleted" ? null : toProject(ctx.repo, file.path);
-  const clicks = useOpenOnClicks(projectPath, () => ctx.toggle(key, !isOpen));
+
   const notes = [
     file.withFolder ? null : file.renamed ? t("was {name}", { name: nameOf(c.from!) }) : c.status === "R" ? movedNote(dirOf(c.from!), dirOf(c.path), nameOf(c.from!), file.name) : null,
     c.status === "C" ? t("copy of {from}", { from: c.from ?? "" }) : null,
@@ -306,21 +308,13 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
       <div
         className={`group flex h-7 w-full cursor-pointer items-center gap-1.5 pr-2 hover:bg-raised ${isOpen ? "bg-raised/60" : ""}`}
         style={{ paddingLeft: 8 + depth * 16 }}
-        {...clicks}
+        // A click only folds, at once: viewing and editing are in the row's tools (no double click to wait for)
+        onClick={() => ctx.toggle(key, !isOpen)}
         onContextMenu={(e) => {
           const path = toProject(ctx.repo, file.path);
           ctx.menu(e, path, pathItems(path, false, file.kind === "deleted"));
         }}
       >
-        <LookedAt
-          checked={looked}
-          name={file.name}
-          onChange={() => {
-            toggleReviewed(lookedKey);
-            // Looked at: its diff has done its job
-            if (!looked) ctx.toggle(key, false);
-          }}
-        />
         <Hint text={look.says}>
           <look.icon className={`size-4 shrink-0 ${look.color}`} />
         </Hint>
@@ -343,8 +337,18 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
         {/* On hover, left of what always shows: the numbers and the paperclip of an attached change */}
         <span className="ml-auto flex shrink-0 items-center gap-2">
           <FileTools path={file.path} projectPath={projectPath} patch={ctx.diffs.get(file.path)?.patch} added={file.kind === "added"} from={c.from ?? undefined} working={working} />
+          <ChangedSinceViewed show={changedSinceViewed(lookedKey, slot)} />
           <LineCounts added={c.added} removed={c.removed} />
           <AttachedAtRest path={file.path} added={file.kind === "added"} />
+          <Viewed
+            viewed={looked}
+            name={file.name}
+            onChange={() => {
+              toggleReviewed(lookedKey, slot);
+              // Viewed: its diff has done its job
+              if (!looked) ctx.toggle(key, false);
+            }}
+          />
         </span>
       </div>
       {isOpen && (

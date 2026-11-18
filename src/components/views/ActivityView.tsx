@@ -127,7 +127,7 @@ function Legend() {
   return (
     <span className="flex flex-wrap items-center gap-x-3 text-[11px] text-slate-400">
       <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-3.5 bg-ai/80" />{t("working")}</span>
-      <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-3.5 border border-changed bg-changed/15" />{t("waiting for you")}</span>
+      <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-3.5 border border-changed bg-changed/15" />{t("asks")}</span>
       <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-3.5" style={FADE_STYLE} />{t("in the background")}</span>
       <span className="flex items-center gap-1.5"><span className="inline-block border-x-[3px] border-b-[5px] border-x-transparent border-b-slate-500" />{t("snapshot before a turn")}</span>
       <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-px bg-brand/70" />{t("now")}</span>

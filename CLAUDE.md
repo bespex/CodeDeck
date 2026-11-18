@@ -40,13 +40,13 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src/i18n.ts`, `src/i18n.de.ts` | Sprache der Oberfläche (Englisch/Deutsch): `t`, `T`, `plural`, `snapshotLabel`; Sprache in den Rechner-Einstellungen (Umschalter in den Schnelleinstellungen); deutsches Wörterbuch |
 | `src/git.ts`, `src/history.ts`, `src/assistant.ts` | React-Hooks: Git-Status, Trail/Snapshots, Sitzungen |
 | `src/components/Trail.tsx` | Zeitleiste (Zonen, Remote-Chip, Snapshots) |
-| `src/components/views/ChangesView.tsx`, `DiffParts.tsx` | Diffs für jetzt / Runde / Commit / Snapshot / Vergleich; Kurzbericht der Runde; Zeile kommentieren, Datei abhaken; Datei öffnen wie im Dateibaum (`useOpenOnClicks`, `OpenButtons`), ihr Diff in Dirq; kein Vormerken (Stage) |
+| `src/components/views/ChangesView.tsx`, `DiffParts.tsx` | Diffs für jetzt / Runde / Commit / Snapshot / Vergleich; Kurzbericht der Runde; Zeile kommentieren, Datei als angesehen markieren (`Viewed`); Klick klappt nur auf, Ansehen/Bearbeiten/Dirq über die Werkzeuge der Zeile (`FileTools`), kein Doppel- oder Mittelklick; kein Vormerken (Stage) |
 | `src/components/Deck.tsx` | Vier Reiter mit ihrer Frage (Activity, Changes, Workbench, Next prompt), öffnet in Changes |
 | `src/components/RowTools.tsx` | Werkzeuge einer Zeile beim Überfahren, überall gleich: `HoverTools` (gerahmt, links vor dem Dauerhaften), `Tool`, `ToolGap`, `AtRest` (z. B. angehängt in Ruhe) |
 | `src/components/blocks.tsx` | Die fünf Erscheinungsformen: `Toolbar`, `Section`, `Rows`/`Row`, `Document`, `Decision` (neue Ansichten bauen damit) |
 | `src/components/views/NextPromptView.tsx` | Reiter Nächster Prompt: alle Anhänge je Art mit Herkunft, genauer Text, Startregeln immer sichtbar |
 | `src/components/AttachmentList.tsx` | `AttachmentSections` (die Liste im Reiter), `useAttachedCount`/`useAttachedKinds` (Zahlen für Reiter und Dashboard rechts) |
-| `src/components/AttachTarget.tsx` | Für wen die Anhänge sind („any session“ oder eine bestimmte) |
+| `src/components/AttachTarget.tsx` | Für wen die Anhänge sind (eine bestimmte, „any session“ als bewusste Wahl, ohne Wahl nur die einzige); `ChooseTarget` fragt, wenn mehrere in Frage kommen |
 | `src/components/views/ActivityView.tsx`, `src/timeline.ts` | Zeitleiste der Sitzungen („Heute“) aus dem Journal (`lanesOf`, `spanOf`), „Wie sicher ist deine Arbeit“, zuletzt geschriebene Dokumente |
 | `src/components/NoticesPanel.tsx` | Glocke in der Reiterleiste: letzte Ereignisse (`noticesOf`), Tipps je Reiter, Fähigkeiten je KI-Werkzeug |
 | `src/components/views/WorkbenchView.tsx`, `HintsTile.tsx`, `FoundTiles.tsx`, `src/scratch.ts` | Reiter Werkbank in Kacheln: woanders Abgelegtes und veröffentlichte Seiten (`FoundTiles`), Scratch-Ordner (Ziehen in den Dateibaum, `SCRATCH_DRAG`, `moveIntoProject`) und `@ai`-Hinweise mit Büroklammer |
@@ -54,20 +54,20 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src/components/OverviewApp.tsx` | Übersicht aller Projekte (`docs/UEBERSICHT.md`, Fenster `overview`, `?view=overview`): Wartet auf dich, Projektliste mit Sitzungen, Werkzeugleiste; Daten aus `overview_state`, Zusammenfassung je Projekt aus `SidebarSummary` (`reportSummary`) |
 | `src/groups.ts` | Gruppen der Übersicht aus den Ordnern der Projekte (`sectionsOf`, `nameIn`), Zugeklapptes je Rechner |
 | `src/view.ts` | Welcher Reiter offen ist (`useView`, `openView`), damit die rechte Spalte in einen Reiter springen kann |
-| `src/components/SessionsPanel.tsx` | Rechte Spalte: „Needs you“, Sitzungen (zwei Zeilen, „Earlier“, Umbenennen, Entfernen, Hover), „Next prompt“ als Dashboard (Zahlen je Art, Tokens, für wen, Quittung, öffnet den Reiter) |
+| `src/components/SessionsPanel.tsx` | Rechte Spalte: eine Sitzungsliste, oben die Gruppe „Needs you“ (dieselben Karten, erhaben, `wait`), darunter „Sessions“ und „Earlier“ (Umbenennen, Entfernen, Hover, Quittung in der Karte); „Next prompt“ nach Bedarf (leer eine Zeile; sonst für wen bzw. „Wer soll es bekommen?“, Arten in einer Zeile, Tokens) |
 | `src/components/SessionBadge.tsx`, `useSessionMarks` in `src/assistant.ts` | Schild einer Sitzung; Farbe/Kurzname/Schreiber je Datei für alle Komponenten |
 | `src/components/HeaderBar.tsx`, `ProjectHeader.tsx` | Kopfleiste der rechten Spalte (`docs/KOPFLEISTE.md`): `ProjectMenu`, Schnelleinstellungen, App-Menü `⋯`, Leisten-Knopf; links nur `PathBar` |
 | `src-tauri/src/autostart.rs` | Bei der Anmeldung (3.5): Eintrag in `~/.config/autostart/` startet `codedeck --tray` (kein Fenster, Übersicht verborgen) |
 | `src-tauri/src/tray.rs` | Tray-Symbol wie in Maillet (`ksni`, StatusNotifierItem, auch Wayland): Linksklick Übersicht zeigen/verbergen, Menü, Beenden; Titel der Übersicht in der Sprache der Oberfläche |
 | `src-tauri/src/icon.rs` `mark_waiting`, `src/marks.ts` `markWaiting` | Markierung wie in allen be spex-Apps: Pille mit Zahl (fragt) oben rechts, Punkt (fertig) unten rechts; beide pixelgleich |
-| `src-tauri/src/window.rs`, `SidebarSummary.tsx` | Platzierung am rechten Rand (`set_compact`, für die Übersicht), Verbergen/Zeigen an derselben Stelle, globale Kürzel im Prozess (`Ctrl+Alt+L` Übersicht); `SidebarSummary`: Zusammenfassung oben in der rechten Spalte, meldet sie an die Übersicht. Die Leiste je Projektfenster (`docs/SEITENLEISTE.md`) ist entfallen |
+| `src-tauri/src/window.rs`, `SidebarSummary.tsx` | Platzierung am rechten Rand (`set_compact`, für die Übersicht), Verbergen/Zeigen an derselben Stelle, globale Kürzel im Prozess (`Ctrl+Alt+L` Übersicht); `SidebarSummary`: eine Zeile oben in der rechten Spalte (nur, was kein Reiter sagt), meldet die Zusammenfassung an die Übersicht. Die Leiste je Projektfenster (`docs/SEITENLEISTE.md`) ist entfallen |
 | `src/components/Dialogs.tsx`, `src/dialogs.ts` | About, Tastenkürzel (`F1`), Einstellungsdialog (`Ctrl+,`); `openDialog` von überall |
 | `src/attention.ts`, `AttentionChoice.tsx`, `src-tauri/src/attention.rs` | „Wartet auf dich“ einmal berechnet; Fenstertitel, Taskleiste, Desktop-Meldung, „Nicht stören“ |
 | `src/components/AssistantStatus.tsx` | KI-Werkzeug in der Statusleiste, `HookPanel` (verbinden); Namen und Angebote aus `mainHarness` |
 | `src/attachments.ts` | Gemeinsamer Baustein jedes Anhangsteils (`createPart`: Einträge mit Revision, Quittung, Abgleich), `useAttachments` einmal in `App`, `attachmentCount` |
 | `src/files.ts`, `src/markers.ts` | Angehängte Dateien (Pin = Anhang); Marker laden, als Anhang, „erledigt“ erkennen |
 | `src/changes.ts` | Änderungen als Anhang (Git-Befehl statt Diff, neue Dateien als Pfad), `ChangeScopeContext` je Diff-Ansicht |
-| `src/turns.ts`, `src/notes.ts`, `src/reviewed.ts` | Runden aus Snapshots und laufenden Sitzungen, wer welche Datei geändert hat; Zeilenkommentare als Teil der Übergabe; „looked at“ je Datei |
+| `src/turns.ts`, `src/notes.ts`, `src/reviewed.ts` | Runden aus Snapshots und laufenden Sitzungen, wer welche Datei geändert hat; Zeilenkommentare als Teil der Übergabe; „Viewed“ je Datei mit Stand beim Ansehen („seit dem Ansehen geändert“) |
 | `src/mock.ts` | Beispieldaten für die Vorschau |
 | `design/click-dummy/` | Zielbild als Click-Dummy (Vorlage für `PLAN.md` „Zielbild“; README dort lesen, nicht die ganze `Main.dc.html`) |
 

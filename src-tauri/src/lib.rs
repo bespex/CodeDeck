@@ -563,10 +563,11 @@ fn attach(key: String, text: Option<String>, label: Option<String>, rev: Option<
     Ok(())
 }
 
-/// The session the attachments are meant for; `None`: whichever session in the project prompts first.
+/// The session the attachments are meant for. Without one, `any` makes it whichever session in
+/// the project prompts first; otherwise nothing is chosen.
 #[tauri::command]
-fn attach_for(session: Option<String>, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
-    windows::of(&window)?.bridge().set_target(&app, session);
+fn attach_for(session: Option<String>, any: Option<bool>, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+    windows::of(&window)?.bridge().set_target(&app, session, any.unwrap_or(false));
     Ok(())
 }
 

@@ -1,5 +1,5 @@
 import { Tooltip, ToolTipBody } from "./Tooltip";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   Bug,
   Check,
@@ -68,8 +68,24 @@ export const iconButton = (on: boolean, onColor = false) =>
     : `relative flex items-center gap-0.5 rounded-md p-1.5 text-slate-400 hover:bg-raised hover:text-slate-100 ${on ? "bg-raised text-slate-100" : ""}`;
 
 /** A menu hanging at the right end of the bar. */
+/** A menu under its button, right-aligned with it. Where that would leave the window (a button near
+ *  the left edge, e.g. in the project bar top left), it moves right just as far as needed. */
 function Panel({ children, width = "w-[300px]" }: { children: ReactNode; width?: string }) {
-  return <div role="menu" className={`surface-overlay absolute top-full right-1.5 z-30 mt-1 overflow-hidden rounded-lg text-[13px] ${width}`}>{children}</div>;
+  const box = useRef<HTMLDivElement>(null);
+  const [shift, setShift] = useState(0);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    // Measured where it stands now; the shift moves it back inside, 4 px from the edge
+    const left = r.left - shift;
+    setShift(left < 4 ? 4 - left : 0);
+  }, []);
+  return (
+    <div ref={box} role="menu" style={shift ? { transform: `translateX(${shift}px)` } : undefined} className={`surface-overlay absolute top-full right-1.5 z-30 mt-1 overflow-hidden rounded-lg text-[13px] ${width}`}>
+      {children}
+    </div>
+  );
 }
 
 const Heading = ({ children }: { children: ReactNode }) => (

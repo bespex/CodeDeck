@@ -510,7 +510,7 @@ function ProjectRow({ project, name, drag }: { project: OverviewProject; name: s
                 <ToolGap />
                 <Tool icon={Power} label={t("End this session (nothing is lost; it never began)")} onClick={() => void pendingSession(project.path, p.name, true).catch((e) => tell(String(e)))} />
               </HoverTools>
-              <span className={`shrink-0 text-[11px] ${p.waits ? "text-changed" : "text-slate-400"}`}>{p.waits ? t("waits in tmux") : t("starting")}</span>
+              <span className={`shrink-0 text-[11px] ${p.waits ? "text-changed" : "text-slate-400"}`}>{p.waits ? t("may be asking") : t("starting")}</span>
             </li>
           ))}
           {sessions.map((s) => {
