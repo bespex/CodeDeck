@@ -6,6 +6,7 @@ import { usePending } from "../pending";
 import { AccountMark, MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
 import { DONE_SHOWN_MS, needsYou, useNow } from "../attention";
 import { SessionBadge } from "./SessionBadge";
+import { HoverTools, Tool, ToolGap } from "./RowTools";
 import { plural, t } from "../i18n";
 import { loadCollapsed, nameIn, saveCollapsed, sectionsOf } from "../groups";
 
@@ -321,12 +322,10 @@ function GroupSection({ group, projects, first, folded, onFold, children }: { gr
             <span className="min-w-0 truncate">{group}</span>
             <span className="font-normal text-slate-400">{projects.length}</span>
           </button>
-          {/* On hover, left of the marks: its place is kept, so the marks never move */}
-          <span className={menu ? "visible" : "invisible group-hover/g:visible"}>
-            <RowIcon title={t("For all projects in {group}", { group })} onClick={() => setMenu(true)}>
-              <Ellipsis className="size-4" />
-            </RowIcon>
-          </span>
+          {/* On hover, left of the marks, which never move */}
+          <HoverTools show="group-hover/g:flex" open={menu}>
+            <Tool icon={Ellipsis} label={t("For all projects in {group}", { group })} hint={t("Also: right click")} onClick={() => setMenu(true)} />
+          </HoverTools>
           {folded && (asks > 0 || done) && (
             <span className="ml-1.5 flex items-center gap-1.5">
               {asks > 0 && (
@@ -438,31 +437,28 @@ function ProjectRow({ project, name, drag }: { project: OverviewProject; name: s
           </span>
         )}
         {/* Right after the name, so the status icons on the right never move */}
-        <span className={`${menu ? "flex" : "invisible group-hover/row:visible"} flex`}>
-          <RowIcon
-            title={t("Start session (continues the last one)")}
+        <HoverTools show="group-hover/row:flex" open={menu}>
+          <Tool
+            icon={Play}
+            label={t("Start session (continues the last one)")}
             onClick={() =>
               void startSession(project.path, false)
                 .then((name) => tell(name ? t("Started in tmux {name}", { name }) : t("A session runs there already")))
                 .catch((e) => tell(String(e)))
             }
-          >
-            <Play className="size-4" />
-          </RowIcon>
-          <RowIcon
-            title={t("New session")}
+          />
+          <Tool
+            icon={Plus}
+            label={t("New session")}
             onClick={() =>
               void startSession(project.path, true)
                 .then((name) => name && tell(t("Started in tmux {name}", { name })))
                 .catch((e) => tell(String(e)))
             }
-          >
-            <Plus className="size-4" />
-          </RowIcon>
-          <RowIcon title={t("More (also right click)")} onClick={() => setMenu((m) => !m)}>
-            <Ellipsis className="size-4" />
-          </RowIcon>
-        </span>
+          />
+          <ToolGap />
+          <Tool icon={Ellipsis} label={t("More (also right click)")} onClick={() => setMenu((m) => !m)} />
+        </HoverTools>
         <span className="flex-1" />
         {/* What changed there: always in sight, the details in the tooltip */}
         {label && (summary.gitFailed || !!summary.uncommitted) && (
@@ -497,15 +493,11 @@ function ProjectRow({ project, name, drag }: { project: OverviewProject; name: s
                 <Loader className="size-3 animate-spin [animation-duration:2.5s]" />
               </span>
               <span className="min-w-0 flex-1 truncate text-slate-400">{t("Starting…")}</span>
-              <span className="hidden items-center group-hover/s:flex">
-                <RowIcon title={t("Open it in a terminal, answer, and leave with Ctrl+B, D")} onClick={() => void pendingSession(project.path, p.name, false).catch((e) => tell(String(e)))}>
-                  <SquareTerminal className="size-3.5" />
-                </RowIcon>
-                <span className="mx-1 h-3.5 w-px bg-line" />
-                <RowIcon title={t("End this session (nothing is lost; it never began)")} onClick={() => void pendingSession(project.path, p.name, true).catch((e) => tell(String(e)))}>
-                  <Power className="size-3.5" />
-                </RowIcon>
-              </span>
+              <HoverTools show="group-hover/s:flex">
+                <Tool icon={SquareTerminal} label={t("Open it in a terminal, answer, and leave with Ctrl+B, D")} onClick={() => void pendingSession(project.path, p.name, false).catch((e) => tell(String(e)))} />
+                <ToolGap />
+                <Tool icon={Power} label={t("End this session (nothing is lost; it never began)")} onClick={() => void pendingSession(project.path, p.name, true).catch((e) => tell(String(e)))} />
+              </HoverTools>
               <span className="shrink-0 text-[11px] text-changed">{t("waits in tmux")}</span>
             </li>
           ))}
@@ -527,29 +519,19 @@ function ProjectRow({ project, name, drag }: { project: OverviewProject; name: s
                     <TriangleAlert className="size-3.5 shrink-0 text-changed" />
                   </span>
                 )}
-                <span className="hidden items-center group-hover/s:flex">
+                <HoverTools show="group-hover/s:flex">
                   {/* Ways into it first, then what changes its process, apart */}
-                  {s.place?.remote && (
-                    <RowIcon title={t("Open in the desktop app")} onClick={() => void go(s, "desktop")}>
-                      <Monitor className="size-3.5" />
-                    </RowIcon>
-                  )}
-                  <RowIcon title={t("Open in a terminal")} onClick={() => void go(s, "terminal")}>
-                    <SquareTerminal className="size-3.5" />
-                  </RowIcon>
+                  {s.place?.remote && <Tool icon={Monitor} label={t("Open in the desktop app")} hint={defaultDoor(s) === "desktop" ? t("Also: double-click the session") : undefined} onClick={() => void go(s, "desktop")} />}
+                  <Tool icon={SquareTerminal} label={t("Open in a terminal")} hint={t("Also: middle-click the session")} onClick={() => void go(s, "terminal")} />
                   {/* Sessions in tmux can be stopped and restarted from here; not while they work */}
                   {s.place?.tmux?.session && s.status !== "working" && (
                     <>
-                      <span className="mx-1 h-3.5 w-px bg-line" />
-                      <RowIcon title={t("Restart: same conversation, fresh process")} onClick={() => void stopSession(project.path, s.id, true).catch((e) => tell(String(e)))}>
-                        <RotateCcw className="size-3.5" />
-                      </RowIcon>
-                      <RowIcon title={t("Stop (the conversation is kept and can be continued)")} onClick={() => void stopSession(project.path, s.id, false).catch((e) => tell(String(e)))}>
-                        <Power className="size-3.5" />
-                      </RowIcon>
+                      <ToolGap />
+                      <Tool icon={RotateCcw} label={t("Restart: same conversation, fresh process")} onClick={() => void stopSession(project.path, s.id, true).catch((e) => tell(String(e)))} />
+                      <Tool icon={Power} label={t("Stop (the conversation is kept and can be continued)")} onClick={() => void stopSession(project.path, s.id, false).catch((e) => tell(String(e)))} />
                     </>
                   )}
-                </span>
+                </HoverTools>
                 <span className={`shrink-0 text-[11px] ${status.className}`}>{status.word}</span>
               </li>
             );

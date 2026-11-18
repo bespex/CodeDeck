@@ -22,7 +22,8 @@ import {
 import { onFsChanged, openPath, readDir, showInFileManager, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
 import type { AssistantState, GitState } from "../backend";
 import { aheadBehind, stateMeaning, stateSymbol, type GitView } from "../git";
-import { Tooltip, ToolTipBody } from "./Tooltip";
+import { Tooltip } from "./Tooltip";
+import { AtRest, HoverTools, Tool, ToolGap } from "./RowTools";
 import { pathItems, useContextMenu } from "./ContextMenu";
 import { AppName, openAs } from "../apps";
 import { useSessionMarks } from "../assistant";
@@ -327,9 +328,9 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
             </span>
           )}
           {/* At rest only an attached entry shows its paperclip; on hover it is the toolbar's last tool */}
-          <span className="grid w-5 place-items-center group-hover:hidden group-has-[:focus-visible]:hidden">
-            {isPinned && <Paperclip className="size-3.5 text-brand-soft" />}
-          </span>
+          <AtRest show={isPinned}>
+            <Paperclip className="size-3.5 text-brand-soft" />
+          </AtRest>
         </span>
       </div>
       {isOpen && <Rows dir={entry.path} depth={depth + 1} tree={tree} />}
@@ -349,12 +350,7 @@ function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinn
     tree.onOpenProject(`${tree.project!.path}/${entry.path}`, newWindow).catch(() => {});
   };
   return (
-    <span
-      onClick={(e) => e.stopPropagation()}
-      onDoubleClick={(e) => e.stopPropagation()}
-      onAuxClick={(e) => e.stopPropagation()}
-      className="hidden h-[22px] items-center gap-0.5 rounded-md border border-overlay-line bg-raised px-1 group-hover:flex group-has-[:focus-visible]:flex"
-    >
+    <HoverTools>
       {!entry.isDir && (
         <>
           <Tool
@@ -371,7 +367,7 @@ function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinn
             hint={t("Also: middle-click the file")}
             onClick={() => openAs(entry.path, "edit")}
           />
-          <Gap />
+          <ToolGap />
         </>
       )}
       <Tool
@@ -382,7 +378,7 @@ function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinn
       />
       {entry.isDir && tree.project && (
         <>
-          <Gap />
+          <ToolGap />
           <Tool
             icon={FolderInput}
             label={t("Open as project")}
@@ -392,7 +388,7 @@ function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinn
           />
         </>
       )}
-      <Gap />
+      <ToolGap />
       <Tool
         icon={Paperclip}
         label={pinned ? t("Remove from next prompt") : t("Attach to next prompt")}
@@ -400,41 +396,10 @@ function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinn
         active={pinned}
         onClick={() => (pinned ? tree.onUnpin(entry.path) : tree.onPin(entry))}
       />
-    </span>
+    </HoverTools>
   );
 }
 
-function Tool(props: {
-  icon: typeof Paperclip;
-  label: string;
-  says: React.ReactNode;
-  /** How else to reach it, in its own quiet line */
-  hint?: string;
-  active?: boolean;
-  onClick: (e: React.MouseEvent) => void;
-  onAuxClick?: (e: React.MouseEvent) => void;
-}) {
-  return (
-    <Tooltip
-      className="flex"
-      content={<ToolTipBody label={props.label} says={props.says} hint={props.hint} />}
-    >
-      <button
-        type="button"
-        aria-label={props.label}
-        onClick={props.onClick}
-        onAuxClick={props.onAuxClick}
-        className={`grid size-5 place-items-center rounded hover:bg-slate-700 hover:text-slate-100 ${
-          props.active ? "text-brand-soft" : "text-slate-400"
-        }`}
-      >
-        <props.icon className="size-3.5" />
-      </button>
-    </Tooltip>
-  );
-}
-
-const Gap = () => <span className="mx-0.5 h-3.5 w-px bg-slate-600" />;
 
 /**
  * On the row of a repository's folder: its branch, tinted when there are uncommitted changes.

@@ -3,7 +3,6 @@ import { Anchor, ArrowRight, Check, ChevronDown, ChevronRight, Code, ExternalLin
 import {
   gitCommitDiff,
   gitCompare,
-  hasDiffViewer,
   hasMarkdownViewer,
   showMarkdown,
   showPatch,
@@ -30,7 +29,7 @@ import { toProject, useGitRun, type Done, type TrailCommit } from "../../history
 import { LOCALE, type Point } from "../Trail";
 import { stateColor } from "../FilesPanel";
 import { Tooltip, TooltipHint } from "../Tooltip";
-import { AttachChange, Commands, DiffBody, FileButtons, inUntrackedDir, LineCounts, LookedAt, You, type Working } from "./DiffParts";
+import { AttachChange, AttachedAtRest, Commands, DiffBody, FileTools, inUntrackedDir, LineCounts, LookedAt, useDirq, useOpenOnClicks, You, type Working } from "./DiffParts";
 import { StructureTree } from "./StructureTree";
 import { known, snapshotLabel, t } from "../../i18n";
 
@@ -637,8 +636,9 @@ function RepoChanges(props: {
           <LookedCount repo={repo} files={files} />
         </span>
         {files.length > 0 && (
-          <span className="ml-auto self-center">
+          <span className="ml-auto flex items-center gap-2 self-center">
             <AttachChange />
+            <DirqButton patch={patch} />
           </span>
         )}
       </header>
@@ -1097,16 +1097,10 @@ function CompareChanges(props: {
   );
 }
 
-let dirqInstalled: Promise<boolean> | null = null;
-
 /** Opens the patch in Dirq, side by side; only offered when Dirq is installed. */
 function DirqButton({ patch }: { patch: Patch | null }) {
-  const [installed, setInstalled] = useState(false);
+  const installed = useDirq();
   const [failed, setFailed] = useState<string | null>(null);
-  useEffect(() => {
-    dirqInstalled ??= hasDiffViewer().catch(() => false);
-    dirqInstalled.then(setInstalled);
-  }, []);
   if (!installed || !patch || !patch.text) return null;
   return (
     <Tooltip
@@ -1211,6 +1205,9 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
   const state = working?.status?.state ?? file.status;
   const slash = file.path.lastIndexOf("/");
   const Chevron = open ? ChevronDown : ChevronRight;
+  // As in the file tree: double click views it, middle click edits it; a deleted file is not there to open
+  const projectPath = file.status === "D" ? null : toProject(repo, file.path);
+  const clicks = useOpenOnClicks(projectPath, () => setOpen((o) => !o));
 
   return (
     <article id={id} className="scroll-mt-2 overflow-hidden rounded-lg border border-line bg-panel">
@@ -1225,7 +1222,7 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
         />
         <button
           type="button"
-          onClick={() => setOpen(!open)}
+          {...clicks}
           aria-expanded={open}
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
@@ -1244,9 +1241,10 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
           <LineCounts added={file.added} removed={file.removed} />
           {working?.status?.staged && <span className="shrink-0 text-[11px] text-slate-500">{t("staged")}</span>}
         </button>
-        <AttachChange path={file.path} added={file.status === "A"} />
+        {/* On hover, left of what always shows (who changed it, the paperclip of an attached change) */}
+        <FileTools path={file.path} projectPath={projectPath} patch={file.patch} added={file.status === "A"} from={file.from} working={working} />
         {who}
-        {working && <FileButtons path={file.path} from={file.from} added={file.status === "A"} working={working} />}
+        <AttachedAtRest path={file.path} added={file.status === "A"} />
       </header>
       {open && <DiffBody file={file} notePath={file.status === "D" ? undefined : toProject(repo, file.path)} />}
       {!open && size > LONG_DIFF && (

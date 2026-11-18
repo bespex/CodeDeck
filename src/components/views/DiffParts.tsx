@@ -1,9 +1,10 @@
 // Pieces both ways of showing a change use: the commands an action runs, the actions on one
 // uncommitted file, and a file's diff.
 
-import { Fragment, useContext, useState } from "react";
-import { MessageSquarePlus, Minus, Paperclip, Plus, Trash2, Undo2, X } from "lucide-react";
-import type { FileStatus, RepoStatus } from "../../backend";
+import { Fragment, useContext, useEffect, useRef, useState } from "react";
+import { Columns2, Eye, MessageSquarePlus, Paperclip, SquarePen, Trash2, Undo2, X } from "lucide-react";
+import { AppName, openAs } from "../../apps";
+import { hasDiffViewer, showPatch, type FileStatus, type RepoStatus } from "../../backend";
 import { commandLine, type Steps } from "../../git";
 import type { FileDiff } from "../../diff";
 import { fileActions, useGitRun } from "../../history";
@@ -12,6 +13,7 @@ import { useAttachEnabled } from "../../attachments";
 import { useSessionMarks } from "../../assistant";
 import { changeRef, changes, useChangeScope, type ChangeScope } from "../../changes";
 import { Tooltip, TooltipHint } from "../Tooltip";
+import { AtRest, HoverTools, Tool, ToolGap } from "../RowTools";
 import { T, t } from "../../i18n";
 
 export function Commands({ steps }: { steps: Steps }) {
@@ -44,24 +46,74 @@ export function inUntrackedDir(repo: RepoStatus, path: string): FileStatus | und
  * @param path repository-relative
  * @param from repository-relative old path of a rename
  */
-export function FileButtons({ path, from, added, working }: { path: string; from?: string; added: boolean; working: Working }) {
-  const { repo, status } = working;
-  const actions = fileActions(repo, status, path, from);
-  const { run, running, done } = useGitRun(repo.path, working.onDone);
+/**
+ * The clicks on a changed file, as in the file tree: a double click views it, a middle click edits
+ * it, a click folds its diff. The fold waits until a second click can no longer come, so a double
+ * click leaves the diff as it was. `path` is project-relative; `null` (a deleted file) only folds.
+ */
+export function useOpenOnClicks(path: string | null, fold: () => void) {
+  const pending = useRef<number | null>(null);
+  const cancel = () => {
+    if (pending.current !== null) clearTimeout(pending.current);
+    pending.current = null;
+  };
+  return {
+    onClick: (e: React.MouseEvent) => {
+      cancel();
+      // The keyboard (detail 0) folds at once, and so does a file that cannot be opened
+      if (e.detail === 0 || path === null) return fold();
+      if (e.detail > 1) return;
+      pending.current = window.setTimeout(() => {
+        pending.current = null;
+        fold();
+      }, 250);
+    },
+    onDoubleClick: () => {
+      cancel();
+      if (path !== null) openAs(path, "view");
+    },
+    // Middle button: edit. Its press would otherwise start the scrolling mode
+    onMouseDown: (e: React.MouseEvent) => e.button === 1 && path !== null && e.preventDefault(),
+    onAuxClick: (e: React.MouseEvent) => e.button === 1 && path !== null && openAs(path, "edit"),
+  };
+}
+
+let dirqInstalled: Promise<boolean> | null = null;
+
+/** Whether Dirq, the side-by-side diff viewer of be spex (Qiew), is installed; asked once. */
+export function useDirq(): boolean {
+  const [installed, setInstalled] = useState(false);
+  useEffect(() => {
+    dirqInstalled ??= hasDiffViewer().catch(() => false);
+    void dirqInstalled.then(setInstalled);
+  }, []);
+  return installed;
+}
+
+/**
+ * The tools of a changed file, in the box every list uses (`RowTools`): view, edit and its diff in
+ * Dirq; attach it to the next prompt; discard it. `path` is repository-relative, `projectPath` the
+ * project-relative one to open (`null`: deleted, nothing to open); `working` only for uncommitted
+ * changes, which can be discarded. Discarding asks first, in place of the box, and stays in sight.
+ */
+export function FileTools(props: { path: string; projectPath: string | null; patch?: string; added: boolean; from?: string; working?: Working; show?: string }) {
+  const { path, projectPath, patch, added, from, working } = props;
+  const dirq = useDirq();
+  const attach = useAttachRef(path, added);
+  const actions = working ? fileActions(working.repo, working.status, path, from) : null;
+  const { run, running, done } = useGitRun(working?.repo.path ?? "", working?.onDone ?? (() => {}));
   const [confirm, setConfirm] = useState(false);
   const failed = done.find((d) => !d.ok);
-  const toggle = status?.staged
-    ? actions.unstage && { steps: actions.unstage, label: t("Unstage"), icon: Minus, says: t("Takes it out of the next commit; the change stays") }
-    : actions.stage && { steps: actions.stage, label: t("Stage"), icon: Plus, says: t("Marks it for the next commit") };
+  // No "stage" here (user, 2026-11-18): the commit takes everything, which is what one sees; staging
+  // comes back when it is really needed. What was staged elsewhere still shows, and still counts
 
-  if (confirm && actions.discard) {
+  if (confirm && actions?.discard) {
     return (
-      <span className="flex shrink-0 items-center gap-1.5 text-[12px]">
+      <span className="flex shrink-0 items-center gap-1.5 text-[12px]" onClick={(e) => e.stopPropagation()}>
         <span className="text-problem">{actions.discardMeans && t(actions.discardMeans)}. {t("Cannot be undone.")}</span>
         <button
           type="button"
-          onClick={async (e) => {
-            e.stopPropagation();
+          onClick={async () => {
             setConfirm(false);
             await run(actions.discard!);
           }}
@@ -69,68 +121,64 @@ export function FileButtons({ path, from, added, working }: { path: string; from
         >
           {t("Discard")}
         </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setConfirm(false);
-          }}
-          className="rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised"
-        >
+        <button type="button" onClick={() => setConfirm(false)} className="rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised">
           {t("Keep")}
         </button>
       </span>
     );
   }
-
+  const opens = projectPath !== null;
+  const kinds = [opens, !!attach, !!actions?.discard];
+  // A divider only between kinds that are there
+  const gapBefore = (i: number) => kinds.slice(0, i).some(Boolean) && kinds[i];
+  if (!kinds.some(Boolean)) return null;
   return (
-    <span className="flex shrink-0 items-center gap-1">
+    <>
       {failed && (
         <Tooltip content={<><span className="text-problem">{t("{command} failed", { command: failed.command })}</span><span className="font-mono text-[11px]">{failed.output}</span></>}>
-          <span className="text-[11px] text-problem">{t("failed")}</span>
+          <span className="shrink-0 text-[11px] text-problem">{t("failed")}</span>
         </Tooltip>
       )}
-      {toggle && (
-        <Tooltip content={<><span>{toggle.says}</span><Commands steps={toggle.steps} /></>}>
-          <button
-            type="button"
-            disabled={running}
-            onClick={(e) => {
-              e.stopPropagation();
-              run(toggle.steps);
-            }}
-            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-raised hover:text-slate-100 focus-visible:opacity-100"
-          >
-            <toggle.icon className="size-3.5" />
-            {toggle.label}
-          </button>
-        </Tooltip>
-      )}
-      {actions.discard && (
-        <Tooltip
-          content={
-            <>
-              <span>{actions.discardMeans && t(actions.discardMeans)}</span>
-              <Commands steps={actions.discard} />
-              <TooltipHint>{t("Asks before it runs: this cannot be undone")}</TooltipHint>
-            </>
-          }
-        >
-          <button
-            type="button"
-            disabled={running}
-            onClick={(e) => {
-              e.stopPropagation();
-              setConfirm(true);
-            }}
-            aria-label={t("Discard changes to {path}", { path })}
-            className="rounded-md p-1 text-slate-500 opacity-0 group-hover:opacity-100 hover:bg-raised hover:text-problem focus-visible:opacity-100"
-          >
-            {added && !from ? <Trash2 className="size-3.5" /> : <Undo2 className="size-3.5" />}
-          </button>
-        </Tooltip>
-      )}
-    </span>
+      <HoverTools show={props.show}>
+        {opens && (
+          <>
+            <Tool icon={Eye} label={t("View")} says={<T text="Opens it in {app}" app={<AppName path={projectPath} role="view" />} />} hint={t("Also: double-click the file")} onClick={() => openAs(projectPath, "view")} />
+            <Tool icon={SquarePen} label={t("Edit")} says={<T text="Opens it in {app}" app={<AppName path={projectPath} role="edit" />} />} hint={t("Also: middle-click the file")} onClick={() => openAs(projectPath, "edit")} />
+            {dirq && patch && <Tool icon={Columns2} label={t("Its diff in Dirq")} says={t("Its diff in Dirq, old and new side by side")} onClick={() => void showPatch(patch).catch((e) => console.error(e))} />}
+          </>
+        )}
+        {attach && (
+          <>
+            {gapBefore(1) && <ToolGap />}
+            <Tool icon={Paperclip} label={attach.label} says={attach.says} hint={attach.hint} active={attach.on} onClick={attach.toggle} />
+          </>
+        )}
+        {actions?.discard && (
+          <>
+            {gapBefore(2) && <ToolGap />}
+            <Tool
+              icon={added && !from ? Trash2 : Undo2}
+              label={t("Discard changes to {path}", { path })}
+              says={<><span>{actions.discardMeans && t(actions.discardMeans)}</span><Commands steps={actions.discard} /></>}
+              hint={t("Asks before it runs: this cannot be undone")}
+              danger
+              disabled={running}
+              onClick={() => setConfirm(true)}
+            />
+          </>
+        )}
+      </HoverTools>
+    </>
+  );
+}
+
+/** A file's change attached to the next prompt: its paperclip at rest, where the box ends on hover. */
+export function AttachedAtRest({ path, added, hide }: { path: string; added: boolean; hide?: string }) {
+  const attach = useAttachRef(path, added);
+  return (
+    <AtRest show={!!attach?.on} hide={hide}>
+      <Paperclip className="size-3.5 text-brand-soft" />
+    </AtRest>
   );
 }
 
@@ -335,6 +383,27 @@ export function LookedAt({ checked, onChange, name }: { checked: boolean; onChan
  * Attaches the change shown (the scope around, or the one given) to the next prompt, or one file
  * of it: as the git command that shows it. Only where the tool takes attachments.
  */
+/** Whether a change can be attached here and whether it is: `null` where attaching is not offered. */
+function useAttachRef(path?: string, added?: boolean, given?: ChangeScope) {
+  const around = useChangeScope();
+  const attached = changes.use();
+  const offered = useAttachEnabled();
+  const scope = given ?? around;
+  if (!scope || !offered) return null;
+  const ref = changeRef(scope, path, added);
+  const on = attached.some((c) => c.id === ref.id);
+  const what = path ? t("this file's change") : t("this change");
+  return {
+    ref,
+    on,
+    what,
+    toggle: () => changes.toggle([ref]),
+    label: on ? t("Remove {what} from the next prompt", { what }) : t("Attach {what} to the next prompt", { what }),
+    says: on ? t("Attached to your next prompt; click to remove it") : t("Attach {what} to your next prompt", { what }),
+    hint: ref.command ? t("As the command that shows it, not the diff itself: {command}", { command: ref.command }) : t("A new file: attached as its path, to be read"),
+  };
+}
+
 export function AttachChange({ path, added, scope: given }: { path?: string; added?: boolean; scope?: ChangeScope }) {
   const around = useChangeScope();
   const attached = changes.use();

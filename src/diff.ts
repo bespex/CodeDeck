@@ -25,6 +25,8 @@ export interface FileDiff {
   hunks: Hunk[];
   added: number;
   removed: number;
+  /** Its own part of the patch, from its `diff --git` line on: to show it elsewhere (Dirq) */
+  patch?: string;
 }
 
 const ESCAPES: Record<string, number> = { n: 10, t: 9, '"': 34, "\\": 92 };
@@ -59,9 +61,13 @@ export function parsePatch(text: string): FileDiff[] {
   let hunk: Hunk | undefined;
   let oldLine = 0;
   let newLine = 0;
+  const lines = text.split("\n");
+  // Where each file's part begins
+  const starts: number[] = [];
 
-  for (const line of text.split("\n")) {
+  for (const [index, line] of lines.entries()) {
     if (line.startsWith("diff --git ")) {
+      starts.push(index);
       // Fallback path from the header; `+++`/`rename to` lines below are more reliable
       const header = line.slice("diff --git ".length);
       const split = header.lastIndexOf(" b/");
@@ -117,6 +123,7 @@ export function parsePatch(text: string): FileDiff[] {
       hunk.lines.push({ kind: "note", text: body.trim() });
     }
   }
+  files.forEach((f, i) => (f.patch = `${lines.slice(starts[i], starts[i + 1] ?? lines.length).join("\n").replace(/\n*$/, "")}\n`));
   return files;
 }
 
