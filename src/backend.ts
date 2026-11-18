@@ -1538,6 +1538,12 @@ export function addProject(path: string): Promise<void> {
   return Promise.resolve();
 }
 
+/** Puts every folder inside a folder on my list: how many were new, how many there already. */
+export function addProjectsIn(path: string): Promise<[number, number]> {
+  if (live) return invoke("add_projects_in", { path });
+  return Promise.resolve([2, 1]);
+}
+
 /** Takes a project off my list; nothing on disk changes. */
 export function removeProject(path: string): Promise<void> {
   if (live) return invoke("remove_project", { path });

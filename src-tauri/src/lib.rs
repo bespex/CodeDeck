@@ -641,6 +641,25 @@ fn add_project(path: String, app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Puts every folder inside `path` on my list (from the overview's `⋯`): how many were new, and how
+/// many were there already.
+#[tauri::command]
+fn add_projects_in(path: String, app: AppHandle) -> Result<(usize, usize), String> {
+    let (mut added, mut known) = (0, 0);
+    for folder in projects::subfolders(Path::new(&path))? {
+        let Ok(project) = Project::open(&folder) else { continue };
+        if projects::add(&project.root) {
+            added += 1;
+            // From now on it hears its sessions, before any window opens
+            windows::bridge_for(&app, &project.root);
+        } else {
+            known += 1;
+        }
+    }
+    windows::overview_changed(&app);
+    Ok((added, known))
+}
+
 /// Takes a project off my list; its window, if open, stays.
 #[tauri::command]
 fn remove_project(path: String, app: AppHandle) -> Result<(), String> {
@@ -1117,6 +1136,7 @@ pub fn run() {
             start_today,
             stop_session,
             remove_project,
+            add_projects_in,
             reorder_projects,
             sort_projects,
             show_project,

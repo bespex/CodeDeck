@@ -37,6 +37,20 @@ pub fn add(root: &Path) -> bool {
     file().is_some_and(|f| add_in(&f, root))
 }
 
+/// The folders right inside `dir` that can be projects: no hidden ones (`.git`, `.cache`), sorted
+/// by name, so they are taken into the list in the order one reads them.
+pub fn subfolders(dir: &Path) -> Result<Vec<PathBuf>, String> {
+    let entries = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let mut found: Vec<PathBuf> = entries
+        .flatten()
+        .filter(|e| !e.file_name().to_string_lossy().starts_with('.'))
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .collect();
+    found.sort_by_key(|p| p.file_name().map(|n| n.to_string_lossy().to_lowercase()));
+    Ok(found)
+}
+
 /// Takes a project off the list. Nothing on disk changes; its sessions go on.
 pub fn remove(root: &Path) -> Result<(), String> {
     remove_in(&file().ok_or("no config directory")?, root)
@@ -165,6 +179,19 @@ mod tests {
         // An older file without the new fields still reads
         std::fs::write(&file, r#"[{"path":"/p/c"}]"#).unwrap();
         assert_eq!(load(&file)[0].path, PathBuf::from("/p/c"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn every_visible_folder_inside_can_be_a_project() {
+        let dir = std::env::temp_dir().join(format!("codedeck-subfolders-{}", std::process::id()));
+        for d in ["beta", "Alpha", ".hidden", "gamma/inner"] {
+            std::fs::create_dir_all(dir.join(d)).unwrap();
+        }
+        std::fs::write(dir.join("notes.txt"), "a file, no project").unwrap();
+        let names: Vec<String> = subfolders(&dir).unwrap().iter().map(|p| p.file_name().unwrap().to_string_lossy().into_owned()).collect();
+        assert_eq!(names, ["Alpha", "beta", "gamma"], "only the first level, no hidden folder, no file");
+        assert!(subfolders(&dir.join("missing")).is_err());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

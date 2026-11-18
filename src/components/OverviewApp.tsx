@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AppWindow, ChevronRight, Eye, EyeOff, ListX, Loader, Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
-import { pendingSession, addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
+import { pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
 import { accountLook, useAccounts } from "../accounts";
 import { usePending } from "../pending";
 import { AccountMark, MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
 import { DONE_SHOWN_MS, needsYou, useNow } from "../attention";
 import { SessionBadge } from "./SessionBadge";
-import { t } from "../i18n";
+import { plural, t } from "../i18n";
 
 // The overview of all projects (docs/UEBERSICHT.md): one window for every project, always there.
 // Calm by default: what waits, the projects with their sessions and status, which windows are
@@ -122,8 +122,16 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
   const item = `${plain} text-slate-200`;
   const label = project.label;
   const line = <div className="my-1 h-px bg-overlay-line" />;
+  // Below the row where there is room, else above it: at the end of a long list it would leave the window
+  const box = useRef<HTMLDivElement>(null);
+  const [above, setAbove] = useState(false);
+  useLayoutEffect(() => {
+    const menu = box.current?.getBoundingClientRect();
+    const row = box.current?.parentElement?.getBoundingClientRect();
+    if (menu && row) setAbove(menu.bottom > window.innerHeight && row.top - menu.height > 0);
+  }, []);
   return (
-    <div onClick={(e) => e.stopPropagation()} className="surface-overlay absolute top-8 right-2 z-30 flex w-64 flex-col rounded-lg p-1">
+    <div ref={box} onClick={(e) => e.stopPropagation()} className={`surface-overlay absolute ${above ? "bottom-[calc(100%-0.75rem)]" : "top-8"} right-2 z-30 flex w-64 flex-col rounded-lg p-1`}>
       <button type="button" className={item} onClick={() => (onClose(), label ? void toggleProjectWindow(label) : void showProject(project.path))}>
         <MenuIcon>{!label ? <AppWindow className="size-3.5" /> : project.visible ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}</MenuIcon>
         <span className="flex-1">{label ? (project.visible ? t("Hide its window") : t("Show its window")) : t("Open")}</span>
@@ -193,12 +201,25 @@ function MenuIcon({ children }: { children: ReactNode }) {
 let tellListener: ((text: string | null) => void) | null = null;
 const tell = (text: string) => tellListener?.(text);
 
+/** The dragged project's head, hanging at the pointer. */
+function DragGhost({ project, at }: { project: OverviewProject | undefined; at: { left: number; top: number; width: number } }) {
+  if (!project) return null;
+  return (
+    <div style={{ left: at.left, top: at.top, width: at.width }} className="surface-overlay pointer-events-none fixed z-50 flex h-9 items-center gap-2 rounded-md pr-2 pl-3 shadow-lg select-none">
+      <ProjectMark project={project} />
+      <span className="min-w-0 truncate text-[14px] font-semibold text-slate-100">{project.name}</span>
+    </div>
+  );
+}
+
 /** How a row of my projects takes part in dragging: its head is what is grabbed, the line shows
  *  where it would land. Pointer events, not HTML drag and drop: under WebKitGTK `draggable` left the
  *  row's menu unable to open the mark picker a second time. */
 interface RowDrag {
   onPointerDown: (e: React.PointerEvent) => void;
   line: DropLine;
+  /** This row is the one being dragged: its place stays, faint, while its ghost follows the pointer */
+  dragged: boolean;
 }
 
 function ProjectRow({ project, drag }: { project: OverviewProject; drag?: RowDrag }) {
@@ -226,7 +247,7 @@ function ProjectRow({ project, drag }: { project: OverviewProject; drag?: RowDra
   // Double click: Desktop where the session is reachable there, else its terminal
   const defaultDoor = (s: Session) => (s.place?.remote ? "desktop" : "terminal");
   return (
-    <li data-project={drag ? project.path : undefined} className="relative border-t border-line/40 py-1 first:border-t-0">
+    <li data-project={drag ? project.path : undefined} className={`relative border-t border-line/40 py-1 first:border-t-0 ${drag?.dragged ? "opacity-35" : ""}`}>
       {/* Where the dragged project would land */}
       {drag?.line && <span className={`pointer-events-none absolute right-2 left-2 z-10 h-0.5 rounded-full bg-ai ${drag.line === "before" ? "-top-px" : "-bottom-px"}`} />}
       <div
@@ -241,7 +262,7 @@ function ProjectRow({ project, drag }: { project: OverviewProject; drag?: RowDra
         }}
         onKeyDown={(e) => e.key === "Enter" && (label ? front() : load())}
         title={label ? t("Bring its window to the front") : t("Double-click: load its window")}
-        className={`group/row flex h-9 cursor-pointer items-center gap-2 border-l-2 pr-2 pl-3 hover-project ${project.front && project.visible ? "border-ai bg-raised" : "border-transparent"}`}
+        className={`group/row flex h-9 cursor-pointer items-center gap-2 border-l-2 pr-2 pl-3 select-none hover-project ${project.front && project.visible ? "border-ai bg-raised" : "border-transparent"}`}
       >
         {/* The mark: a click hides or shows the loaded window, a double click loads it. A ring runs
             round it on hover, so it reads as a switch */}
@@ -459,6 +480,19 @@ const SORTS: [ProjectSort, string][] = [
   ["daily", "Today's list to the top (nothing else moves)"],
 ];
 
+/** Puts every folder inside a chosen one on my list, and says how many. */
+async function addAllIn() {
+  const path = await pickFolder();
+  if (!path) return;
+  try {
+    const [added, known] = await addProjectsIn(path);
+    const parts = [t("Added: {projects}", { projects: plural(added, "project") }), known ? t("on the list already: {n}", { n: known }) : ""];
+    tell(parts.filter(Boolean).join(" · "));
+  } catch (e) {
+    tell(String(e));
+  }
+}
+
 /** The `⋯` menu: what is needed now and then. */
 function MoreMenu({ host }: { host: string | null }) {
   const [open, setOpen] = useState(false);
@@ -487,7 +521,7 @@ function MoreMenu({ host }: { host: string | null }) {
         <Ellipsis className="size-4" />
       </button>
       {open && (
-        <div className="surface-overlay absolute top-9 right-0 z-20 flex w-56 flex-col rounded-lg p-1">
+        <div className="surface-overlay absolute top-9 right-0 z-20 flex w-64 flex-col rounded-lg p-1">
           <button type="button" disabled={!host} title={host ? undefined : t("Settings: open a project first")} className={item} onClick={() => inWindow("settings")}>
             {t("Settings")}
           </button>
@@ -511,6 +545,9 @@ function MoreMenu({ host }: { host: string | null }) {
                 {t(label)}
               </button>
             ))}
+          <button type="button" className={item} title={t("Choose a folder: every folder in it goes on the list")} onClick={() => void addAllIn()}>
+            {t("All projects in a folder…")}
+          </button>
           <div className="my-1 h-px bg-overlay-line" />
           <button type="button" disabled={!host} className={item} onClick={() => inWindow("shortcuts")}>
             {t("Keyboard shortcuts")}
@@ -532,16 +569,21 @@ function MoreMenu({ host }: { host: string | null }) {
 export default function OverviewApp() {
   const [projects, setProjects] = useOverview();
   // Dragging a project: which one, and where it would land
-  const [drag, setDrag] = useState<{ from: string; over: { path: string; line: "before" | "after" } | null } | null>(null);
+  // The ghost: the dragged row's head hangs at the pointer, at the height it was grabbed
+  const [drag, setDrag] = useState<{ from: string; over: { path: string; line: "before" | "after" } | null; ghost: { left: number; top: number; width: number } } | null>(null);
   const mine = projects.filter((p) => p.listed).map((p) => p.path);
   const dragOf = (p: OverviewProject): RowDrag | undefined => {
     // Only my projects have a place in the list; the others stand below it as they come
     if (!p.listed) return undefined;
     const shown = drag?.over?.path === p.path && moved(mine, drag.from, p.path, drag.over.line);
-    return { line: shown ? drag!.over!.line : null, onPointerDown: (e) => e.button === 0 && follow(p.path, e.clientX, e.clientY) };
+    return {
+      line: shown ? drag!.over!.line : null,
+      dragged: drag?.from === p.path,
+      onPointerDown: (e) => e.button === 0 && follow(p.path, e.clientX, e.clientY, e.currentTarget.getBoundingClientRect()),
+    };
   };
   // A press becomes a drag once the pointer has moved a little; until then it is a click
-  const follow = (from: string, x0: number, y0: number) => {
+  const follow = (from: string, x0: number, y0: number, head: DOMRect) => {
     const order = mine;
     let active = false;
     let over: { path: string; line: "before" | "after" } | null = null;
@@ -551,6 +593,8 @@ export default function OverviewApp() {
         active = true;
         document.body.style.cursor = "grabbing";
         document.body.style.userSelect = "none";
+        // A selection begun with the press would otherwise grow over every row the pointer passes
+        window.getSelection()?.removeAllRanges();
       }
       // The row under the pointer; above the first or below the last, that one
       const rows = [...document.querySelectorAll<HTMLElement>("li[data-project]")];
@@ -558,7 +602,7 @@ export default function OverviewApp() {
       const at = boxes.findIndex((b) => e.clientY >= b.top && e.clientY < b.bottom);
       const i = at >= 0 ? at : boxes.length && e.clientY < boxes[0].top ? 0 : rows.length - 1;
       if (i >= 0) over = { path: rows[i].dataset.project!, line: e.clientY < boxes[i].top + boxes[i].height / 2 ? "before" : "after" };
-      setDrag({ from, over });
+      setDrag({ from, over, ghost: { left: head.left, top: e.clientY - (y0 - head.top), width: head.width } });
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
@@ -641,9 +685,11 @@ export default function OverviewApp() {
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto pb-3">
         <Waiting projects={projects} />
-        <h2 className="px-3 pt-5 pb-2 text-[12px] font-semibold tracking-wider text-slate-400 uppercase">{t("Projects")}</h2>
+        {/* No heading: the projects are what the overview is; only the room below "Waits for you" stays */}
+        <div className="pt-4" />
         {projects.length ? (
-          <ul>
+          // Nothing here to select; a press that becomes a drag must not mark text on its way
+          <ul className="select-none">
             {projects.map((p) => (
               <ProjectRow key={p.path} project={p} drag={dragOf(p)} />
             ))}
@@ -653,6 +699,7 @@ export default function OverviewApp() {
         )}
       </main>
       <Told />
+      {drag && <DragGhost project={projects.find((p) => p.path === drag.from)} at={drag.ghost} />}
       {picking && (
         <MarkPicker
           name={picking.name}

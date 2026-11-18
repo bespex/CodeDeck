@@ -107,7 +107,8 @@ Fenster öffnet sie es. So bleibt der Bildschirm frei, und die Übersicht ist de
 
 **2. Meine Projekte verwalten.** Die Übersicht führt die Liste der Projekte, an denen man grundsätzlich
 arbeitet, nicht nur die gerade offenen:
-- **Aufnehmen** über ＋ (Ordner wählen oder aus den letzten Projekten), **entfernen** über das Menü der
+- **Aufnehmen** über ＋ (Ordner wählen oder aus den letzten Projekten) oder „Alle Projekte in einem
+  Verzeichnis…“ im `⋯` (jedes sichtbare Unterverzeichnis, alphabetisch; was schon da ist, bleibt, wo es ist), **entfernen** über das Menü der
   Projektzeile (Rechtsklick oder `⋯` beim Überfahren). Entfernen löscht nichts, es nimmt das Projekt nur aus
   der Liste; laufende Sitzungen dort erscheinen weiter, solange sie laufen.
 - **Reihenfolge** per Ziehen; sie bleibt, statt sich nach dem Zustand zu ändern (wer sucht, findet das Projekt
@@ -126,7 +127,8 @@ Namen aus 3.2 (Konten). Wirkt beim Starten (tmux mit `CLAUDE_CONFIG_DIR`, B2), b
 Profil des Kontos, B4) und als Warnung, wenn eine Sitzung im Projekt mit einer anderen Konfiguration läuft. In
 der Zeile erscheint es nur als kleiner Punkt in der Farbe des Kontos, Name im Tooltip (Grundsatz 4).
 
-**Menü der Projektzeile** (beim Überfahren `⋯`, auch Rechtsklick), jede Aktion mit Icon, alle Labels bündig:
+**Menü der Projektzeile** (beim Überfahren `⋯`, auch Rechtsklick; geht nach oben auf, wenn unten kein Platz
+ist), jede Aktion mit Icon, alle Labels bündig:
 Öffnen bzw. Fenster zeigen/verbergen · Tagesliste (Ring in der Projektfarbe um die Marke) · Marke ändern… ·
 KI-Konfiguration · abgesetzt und rot: Aus der Liste nehmen (lag zu nah an „Marke ändern“). ▶ und ＋ stehen
 beim Überfahren direkt in der Zeile.

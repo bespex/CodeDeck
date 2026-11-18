@@ -25,6 +25,7 @@ export const nouns: Record<string, [string, string]> = {
   turn: ["Runde", "Runden"],
   "new entry": ["neu", "neu"],
   page: ["Seite", "Seiten"],
+  project: ["Projekt", "Projekte"],
 };
 
 export const de: Record<string, string> = {
@@ -802,7 +803,6 @@ export const de: Record<string, string> = {
   "Workbench: {n} new": "Werkbank: {n} neu",
   "Click: its project's window": "Klick: das Fenster seines Projekts",
   "Open a project (Ctrl+O)": "Projekt öffnen (Strg+O)",
-  "Projects": "Projekte",
   "No project open. + opens one; the overview stays as your radar.": "Kein Projekt offen. + öffnet eines; die Übersicht bleibt dein Radar.",
   "done": "fertig",
   "Overview of all projects · Ctrl+Alt+L": "Übersicht aller Projekte · Strg+Alt+L",
@@ -930,4 +930,8 @@ export const de: Record<string, string> = {
   "Today's list to the top (nothing else moves)": "Tagesliste nach oben (sonst bleibt alles)",
   "Once; drag a project to move it from there": "Einmalig; danach ein Projekt ziehen, um es zu verschieben",
   "CodeDeck – Overview": "CodeDeck – Übersicht",
+  "All projects in a folder…": "Alle Projekte in einem Verzeichnis…",
+  "Choose a folder: every folder in it goes on the list": "Verzeichnis wählen: jedes Unterverzeichnis kommt auf die Liste",
+  "Added: {projects}": "Aufgenommen: {projects}",
+  "on the list already: {n}": "schon auf der Liste: {n}",
 };
