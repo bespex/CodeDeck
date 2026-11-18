@@ -41,6 +41,8 @@ notify-rust = { version = "4", default-features = false, features = ["z"] }
 x11rb = "0.13"
 # Show/hide and sidebar from anywhere (X11; Wayland has no global shortcuts for apps)
 tauri-plugin-global-shortcut = "2"
+# setsid for programs CodeDeck starts (apps::detach); already in the tree
+libc = "0.2"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

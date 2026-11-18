@@ -195,37 +195,44 @@ pub fn show_markdown(text: &str) -> Result<(), String> {
 }
 
 /// Starts a program that lives on by itself (a desktop app, a terminal) and returns at once.
-/// Nothing ties it to CodeDeck: no inherited terminal or pipes, a process group of its own. Started
-/// from a terminal as a background job, a child that touches that terminal would otherwise stop the
-/// whole group, CodeDeck's window with it; a child writing to inherited pipes nobody reads would
-/// block. A thread waits for it, so it leaves no `<defunct>` entry behind.
+/// Nothing ties it to CodeDeck: no inherited pipes, and a session of its own without a controlling
+/// terminal. Started from a terminal, a child in CodeDeck's process group that touches that terminal
+/// stops the whole group, CodeDeck's window with it; a process group of its own is not enough: as a
+/// background group of the same session it is stopped itself (Claude Desktop asks a login shell for
+/// its environment at start and froze before showing a window). A child writing to inherited pipes
+/// nobody reads would block. A thread waits for it, so it leaves no `<defunct>` entry behind.
 pub fn detach(mut command: std::process::Command) -> Result<(), String> {
-    use std::os::unix::process::CommandExt;
     use std::process::Stdio;
     let program = command.get_program().to_string_lossy().into_owned();
-    let mut child = command
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .process_group(0)
-        .spawn()
-        .map_err(|e| format!("{program}: {e}"))?;
+    command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    let mut child = own_session(&mut command).spawn().map_err(|e| format!("{program}: {e}"))?;
     std::thread::spawn(move || {
         let _ = child.wait();
     });
     Ok(())
 }
 
+/// Lets the child start a session of its own: no controlling terminal, so nothing it does to a
+/// terminal can stop it or CodeDeck (see [`detach`]).
+fn own_session(command: &mut std::process::Command) -> &mut std::process::Command {
+    use std::os::unix::process::CommandExt;
+    // SAFETY: between fork and exec only setsid runs, which is async-signal-safe
+    unsafe {
+        command.pre_exec(|| {
+            if libc::setsid() == -1 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        })
+    }
+}
+
 /// Starts `<viewer> - --reuse` with the text on its standard input.
 fn pipe_to(viewer: &Path, text: &str) -> Result<(), String> {
     use std::io::Write;
-    use std::os::unix::process::CommandExt;
-    let mut child = std::process::Command::new(viewer)
-        .args(["-", "--reuse"])
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .process_group(0)
+    let mut command = std::process::Command::new(viewer);
+    command.args(["-", "--reuse"]).stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+    let mut child = own_session(&mut command)
         .spawn()
         .map_err(|e| format!("{}: {e}", viewer.display()))?;
     let mut stdin = child.stdin.take().ok_or_else(|| format!("{}: no input", viewer.display()))?;
@@ -249,9 +256,9 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         let out = dir.join("out");
         // What the child sees: its input, its error output (its standard output goes to the file),
-        // and whether it leads a process group of its own
+        // whether it leads a session of its own, and whether it still has a terminal to be stopped by
         let mut command = std::process::Command::new("sh");
-        command.arg("-c").arg(r#"{ readlink /proc/self/fd/0; readlink /proc/$$/fd/2; [ "$(ps -o pgid= -p $$ | tr -d ' ')" = "$$" ] && echo own; } > "$0.tmp"; mv "$0.tmp" "$0""#).arg(&out);
+        command.arg("-c").arg(r#"{ readlink /proc/self/fd/0; readlink /proc/$$/fd/2; [ "$(ps -o sid= -p $$ | tr -d ' ')" = "$$" ] && echo own; ps -o tty= -p $$; } > "$0.tmp"; mv "$0.tmp" "$0""#).arg(&out);
         detach(command).unwrap();
         let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
         while !out.exists() && std::time::Instant::now() < until {
@@ -259,7 +266,7 @@ mod tests {
         }
         let seen = fs::read_to_string(&out).unwrap();
         let _ = fs::remove_dir_all(&dir);
-        assert_eq!(seen.lines().collect::<Vec<_>>(), ["/dev/null", "/dev/null", "own"]);
+        assert_eq!(seen.lines().map(str::trim).collect::<Vec<_>>(), ["/dev/null", "/dev/null", "own", "?"]);
     }
 
     #[test]

@@ -492,6 +492,7 @@ name = "codedeck"
 version = "0.1.2"
 dependencies = [
  "gio",
+ "libc",
  "notify",
  "notify-rust",
  "serde",
