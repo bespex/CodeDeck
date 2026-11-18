@@ -102,7 +102,10 @@ arbeitet, nicht nur die gerade offenen:
   Projektzeile (Rechtsklick oder `⋯` beim Überfahren). Entfernen löscht nichts, es nimmt das Projekt nur aus
   der Liste; laufende Sitzungen dort erscheinen weiter, solange sie laufen.
 - **Reihenfolge** per Ziehen; sie bleibt, statt sich nach dem Zustand zu ändern (wer sucht, findet das Projekt
-  immer an derselben Stelle). Was wartet, steht ohnehin oben unter „Wartet auf dich“.
+  immer an derselben Stelle). Was wartet, steht ohnehin oben unter „Wartet auf dich“. „Projekte sortieren“ im
+  `⋯` (klappt auf) ordnet die Liste einmal neu, kein Modus: danach zieht man weiter. Nach Projektnamen · nach
+  KI-Konfiguration (deren Name), dann Projektnamen, ohne Konfiguration zuletzt · Tagesliste nach oben, sonst
+  bleibt die Reihenfolge. Neue Projekte kommen ans Ende.
 - **Tagesliste** (`SITZUNGEN.md` A12) ist eine Eigenschaft eines Projekts in dieser Liste (Stern im Menü der
   Zeile), keine eigene Liste mehr. ▶ in der Werkzeugleiste startet die Sitzungen aller Projekte mit Stern.
 - Projekte, die nicht in der Liste stehen, aber eine laufende Sitzung haben (von Hand gestartet), erscheinen

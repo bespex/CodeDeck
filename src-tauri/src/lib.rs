@@ -649,6 +649,25 @@ fn remove_project(path: String, app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Puts my projects in the order they were dragged into in the overview.
+#[tauri::command]
+fn reorder_projects(paths: Vec<String>, app: AppHandle) -> Result<(), String> {
+    projects::reorder(&paths.into_iter().map(PathBuf::from).collect::<Vec<_>>())?;
+    windows::overview_changed(&app);
+    Ok(())
+}
+
+/// Sorts my projects once (from the overview's `⋯`): by `name`, by `account` (the AI
+/// configuration's name, then the project's), or `daily` (today's list to the top).
+#[tauri::command]
+fn sort_projects(by: String, app: AppHandle) -> Result<(), String> {
+    let by = projects::SortBy::of(&by).ok_or_else(|| format!("{by}: no such order"))?;
+    let accounts = accounts::list();
+    projects::sort(by, &|dir| accounts.iter().find(|a| a.dir == dir).map(|a| a.name.clone()))?;
+    windows::overview_changed(&app);
+    Ok(())
+}
+
 /// Changes one setting of one of my projects: `daily`, `account` or `mark`.
 #[tauri::command]
 fn set_project(path: String, field: String, value: serde_json::Value, app: AppHandle) -> Result<(), String> {
@@ -1089,6 +1108,8 @@ pub fn run() {
             start_today,
             stop_session,
             remove_project,
+            reorder_projects,
+            sort_projects,
             show_project,
             toggle_project_window
         ])

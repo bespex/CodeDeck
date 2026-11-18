@@ -77,6 +77,66 @@ fn set_in(file: &Path, root: &Path, field: &str, value: serde_json::Value) -> Re
     save(file, &list)
 }
 
+/// Puts the list in the order the user dragged it into. Projects `order` does not name (a folder
+/// that is gone for now, so the overview never showed it) keep their order after the others.
+pub fn reorder(order: &[PathBuf]) -> Result<(), String> {
+    reorder_in(&file().ok_or("no config directory")?, order)
+}
+
+/// How the list can be sorted, once; from then on it is an order like any dragged one.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SortBy {
+    /// By folder name
+    Name,
+    /// By the name of the AI configuration, then by folder name; projects without one come last
+    Account,
+    /// Today's list to the top; everything else keeps its order
+    Daily,
+}
+
+impl SortBy {
+    pub fn of(word: &str) -> Option<SortBy> {
+        match word {
+            "name" => Some(SortBy::Name),
+            "account" => Some(SortBy::Account),
+            "daily" => Some(SortBy::Daily),
+            _ => None,
+        }
+    }
+}
+
+/// Sorts the list once; `account_name` names an AI configuration by its folder.
+pub fn sort(by: SortBy, account_name: &dyn Fn(&str) -> Option<String>) -> Result<(), String> {
+    sort_in(&file().ok_or("no config directory")?, by, account_name)
+}
+
+fn reorder_in(file: &Path, order: &[PathBuf]) -> Result<(), String> {
+    let mut list = load(file);
+    let rank = |p: &Listed| order.iter().position(|o| *o == p.path).unwrap_or(usize::MAX);
+    // Stable: the projects not named stay in their order
+    list.sort_by_key(rank);
+    save(file, &list)
+}
+
+fn sort_in(file: &Path, by: SortBy, account_name: &dyn Fn(&str) -> Option<String>) -> Result<(), String> {
+    let mut list = load(file);
+    let name = |p: &Listed| p.path.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+    // The full path decides between two folders of the same name
+    let by_name = |a: &Listed, b: &Listed| name(a).cmp(&name(b)).then_with(|| a.path.cmp(&b.path));
+    // `None` sorts first: without a configuration last, hence the flag in front
+    let account = |p: &Listed| {
+        let named = p.account.as_deref().map(|dir| account_name(dir).unwrap_or_else(|| dir.to_string()).to_lowercase());
+        (named.is_none(), named)
+    };
+    match by {
+        SortBy::Name => list.sort_by(by_name),
+        SortBy::Account => list.sort_by(|a, b| account(a).cmp(&account(b)).then_with(|| by_name(a, b))),
+        // Stable: within both groups the order stays
+        SortBy::Daily => list.sort_by_key(|p| !p.daily),
+    }
+    save(file, &list)
+}
+
 fn remove_in(file: &Path, root: &Path) -> Result<(), String> {
     let mut list = load(file);
     list.retain(|p| p.path != root);
@@ -105,6 +165,37 @@ mod tests {
         // An older file without the new fields still reads
         std::fs::write(&file, r#"[{"path":"/p/c"}]"#).unwrap();
         assert_eq!(load(&file)[0].path, PathBuf::from("/p/c"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn takes_a_dragged_order_and_sorts_three_ways() {
+        let dir = std::env::temp_dir().join(format!("codedeck-projects-order-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("projects.json");
+        let paths = |file: &Path| load(file).iter().map(|p| p.path.display().to_string()).collect::<Vec<_>>();
+        for p in ["/p/Zeta", "/p/alpha", "/q/alpha", "/p/gone", "/p/Mid"] {
+            add_in(&file, Path::new(p));
+        }
+        set_in(&file, Path::new("/p/Mid"), "daily", serde_json::json!(true)).unwrap();
+        // "/p/gone" is not shown, so not named: it goes after the others
+        reorder_in(&file, &["/p/Mid", "/p/Zeta", "/q/alpha", "/p/alpha"].map(PathBuf::from)).unwrap();
+        assert_eq!(paths(&file), ["/p/Mid", "/p/Zeta", "/q/alpha", "/p/alpha", "/p/gone"]);
+        assert!(load(&file)[0].daily, "a project keeps its settings when it moves");
+        let none = |_: &str| None;
+        sort_in(&file, SortBy::Name, &none).unwrap();
+        assert_eq!(paths(&file), ["/p/alpha", "/q/alpha", "/p/gone", "/p/Mid", "/p/Zeta"]);
+        // Today's list to the top, the rest as it was
+        set_in(&file, Path::new("/p/Zeta"), "daily", serde_json::json!(true)).unwrap();
+        sort_in(&file, SortBy::Daily, &none).unwrap();
+        assert_eq!(paths(&file), ["/p/Mid", "/p/Zeta", "/p/alpha", "/q/alpha", "/p/gone"]);
+        // By the configuration's name ("Work" after "Private"), then by name; without one last
+        set_in(&file, Path::new("/p/Zeta"), "account", serde_json::json!("/h/.claude-private")).unwrap();
+        set_in(&file, Path::new("/q/alpha"), "account", serde_json::json!("/h/.claude")).unwrap();
+        set_in(&file, Path::new("/p/gone"), "account", serde_json::json!("/h/.claude-private")).unwrap();
+        let named = |dir: &str| Some(if dir.ends_with("private") { "Private" } else { "Work" }.to_string());
+        sort_in(&file, SortBy::Account, &named).unwrap();
+        assert_eq!(paths(&file), ["/p/gone", "/p/Zeta", "/q/alpha", "/p/alpha", "/p/Mid"]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

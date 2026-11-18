@@ -924,4 +924,9 @@ export const de: Record<string, string> = {
   "Account: {dir}": "Konto: {dir}",
   "Change mark and colour…": "Marke und Farbe ändern…",
   "Shows at the projects and sessions of this account": "Erscheint an den Projekten und Sitzungen dieses Kontos",
+  "Sort projects": "Projekte sortieren",
+  "By project name": "Nach Projektnamen",
+  "By AI configuration, then project name": "Nach KI-Konfiguration, dann Projektnamen",
+  "Today's list to the top (nothing else moves)": "Tagesliste nach oben (sonst bleibt alles)",
+  "Once; drag a project to move it from there": "Einmalig; danach ein Projekt ziehen, um es zu verschieben",
 };

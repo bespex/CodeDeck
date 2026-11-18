@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Loader, Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, RotateCcw, Square, SquareTerminal, TriangleAlert } from "lucide-react";
-import { pendingSession, addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, setProject, showProject, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type Session } from "../backend";
+import { ChevronRight, Loader, Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, RotateCcw, Square, SquareTerminal, TriangleAlert } from "lucide-react";
+import { pendingSession, addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
 import { accountLook, useAccounts } from "../accounts";
 import { usePending } from "../pending";
 import { AccountMark, MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
@@ -13,7 +13,7 @@ import { t } from "../i18n";
 // open. Everything occasional appears on hover or sits behind an icon of the toolbar.
 
 /** Keeps the state of every open project, asked again whenever the backend says it changed. */
-function useOverview(): OverviewProject[] {
+function useOverview(): [OverviewProject[], (p: OverviewProject[]) => void] {
   const [projects, setProjects] = useState<OverviewProject[]>([]);
   useEffect(() => {
     let alive = true;
@@ -34,7 +34,22 @@ function useOverview(): OverviewProject[] {
       stop();
     };
   }, []);
-  return projects;
+  return [projects, setProjects];
+}
+
+/** What is dragged in the project list: only rows of my projects, never a file or a session. */
+const PROJECT_DRAG = "application/x-codedeck-project";
+
+/** Where a dragged project would land: before or after this row. */
+type DropLine = "before" | "after" | null;
+
+/** My projects with `from` moved to just before or after `to`; `null` when nothing would change. */
+function moved(paths: string[], from: string, to: string, line: "before" | "after"): string[] | null {
+  if (from === to) return null;
+  const rest = paths.filter((p) => p !== from);
+  const at = rest.indexOf(to) + (line === "after" ? 1 : 0);
+  const next = [...rest.slice(0, at), from, ...rest.slice(at)];
+  return next.join("\n") === paths.join("\n") ? null : next;
 }
 
 const titleOf = (s: Session) => s.title ?? t("Session {id}", { id: s.id.slice(0, 8) });
@@ -158,7 +173,13 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
 let tellListener: ((text: string | null) => void) | null = null;
 const tell = (text: string) => tellListener?.(text);
 
-function ProjectRow({ project }: { project: OverviewProject }) {
+/** How a row of my projects takes part in dragging: the handlers for its `<li>` and its drop line. */
+interface RowDrag {
+  props: React.LiHTMLAttributes<HTMLLIElement>;
+  line: DropLine;
+}
+
+function ProjectRow({ project, drag }: { project: OverviewProject; drag?: RowDrag }) {
   const now = useNow();
   const sessions = (project.state?.sessions ?? []).filter((s) => relevant(s, now));
   const label = project.label;
@@ -183,7 +204,9 @@ function ProjectRow({ project }: { project: OverviewProject }) {
   // Double click: Desktop where the session is reachable there, else its terminal
   const defaultDoor = (s: Session) => (s.place?.remote ? "desktop" : "terminal");
   return (
-    <li className="relative border-t border-line/40 py-1 first:border-t-0">
+    <li {...drag?.props} className="relative border-t border-line/40 py-1 first:border-t-0">
+      {/* Where the dragged project would land */}
+      {drag?.line && <span className={`pointer-events-none absolute right-2 left-2 z-10 h-0.5 rounded-full bg-ai ${drag.line === "before" ? "-top-px" : "-bottom-px"}`} />}
       <div
         role="button"
         tabIndex={0}
@@ -403,9 +426,18 @@ function Waiting({ projects }: { projects: OverviewProject[] }) {
 
 const toolButton = "rounded-md p-1.5 text-slate-400 hover:bg-overlay-hover hover:text-slate-100 disabled:opacity-40";
 
+/** The ways to sort my projects once, as offered under "Sort projects". */
+const SORTS: [ProjectSort, string][] = [
+  ["name", "By project name"],
+  ["account", "By AI configuration, then project name"],
+  ["daily", "Today's list to the top (nothing else moves)"],
+];
+
 /** The `⋯` menu: what is needed now and then. */
 function MoreMenu({ host }: { host: string | null }) {
   const [open, setOpen] = useState(false);
+  const [sorting, setSorting] = useState(false);
+  useEffect(() => void (open || setSorting(false)), [open]);
   useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
@@ -434,6 +466,26 @@ function MoreMenu({ host }: { host: string | null }) {
             {t("Settings")}
           </button>
           <div className="my-1 h-px bg-overlay-line" />
+          {/* Folds out in place: the overview is too narrow for a submenu beside the menu */}
+          <button
+            type="button"
+            className={item}
+            aria-expanded={sorting}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSorting((o) => !o);
+            }}
+          >
+            {t("Sort projects")}
+            <ChevronRight className={`ml-auto size-3.5 text-slate-500 transition-transform ${sorting ? "rotate-90" : ""}`} />
+          </button>
+          {sorting &&
+            SORTS.map(([by, label]) => (
+              <button key={by} type="button" className={`${item} pl-5`} title={t("Once; drag a project to move it from there")} onClick={() => void sortProjects(by).catch((e) => tell(String(e)))}>
+                {t(label)}
+              </button>
+            ))}
+          <div className="my-1 h-px bg-overlay-line" />
           <button type="button" disabled={!host} className={item} onClick={() => inWindow("shortcuts")}>
             {t("Keyboard shortcuts")}
           </button>
@@ -452,7 +504,53 @@ function MoreMenu({ host }: { host: string | null }) {
 }
 
 export default function OverviewApp() {
-  const projects = useOverview();
+  const [projects, setProjects] = useOverview();
+  // Dragging a project: which one, and where it would land
+  const [dragged, setDragged] = useState<string | null>(null);
+  const [over, setOver] = useState<{ path: string; line: "before" | "after" } | null>(null);
+  const mine = projects.filter((p) => p.listed).map((p) => p.path);
+  const endDrag = () => (setDragged(null), setOver(null));
+  const dragOf = (p: OverviewProject): RowDrag | undefined => {
+    // Only my projects have a place in the list; the others stand below it as they come
+    if (!p.listed) return undefined;
+    const lineAt = (e: React.DragEvent<HTMLLIElement>) => {
+      const box = e.currentTarget.getBoundingClientRect();
+      return e.clientY < box.top + box.height / 2 ? "before" : "after";
+    };
+    const wouldMove = (line: "before" | "after") => !!dragged && !!moved(mine, dragged, p.path, line);
+    return {
+      line: over?.path === p.path && wouldMove(over.line) ? over.line : null,
+      props: {
+        draggable: true,
+        onDragStart: (e) => {
+          e.dataTransfer.setData(PROJECT_DRAG, p.path);
+          e.dataTransfer.effectAllowed = "move";
+          setDragged(p.path);
+        },
+        onDragOver: (e) => {
+          if (!e.dataTransfer.types.includes(PROJECT_DRAG)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          const line = lineAt(e);
+          if (over?.path !== p.path || over.line !== line) setOver({ path: p.path, line });
+        },
+        onDragEnd: endDrag,
+      },
+    };
+  };
+  // Let go anywhere on the list: the project lands where the line was last shown
+  const drop = (e: React.DragEvent) => {
+    const from = e.dataTransfer.getData(PROJECT_DRAG);
+    if (!from) return;
+    e.preventDefault();
+    const next = over && moved(mine, from, over.path, over.line);
+    endDrag();
+    if (!next) return;
+    // Shown at once; the backend's answer follows with the next state
+    const byPath = new Map(projects.map((q) => [q.path, q]));
+    setProjects([...next.flatMap((q) => byPath.get(q) ?? []), ...projects.filter((q) => !q.listed)]);
+    void reorderProjects(next).catch((err) => tell(String(err)));
+  };
   const [picking, setPicking] = useState<OverviewProject | null>(null);
   useEffect(() => {
     pickListener = setPicking;
@@ -512,9 +610,9 @@ export default function OverviewApp() {
         <Waiting projects={projects} />
         <h2 className="px-3 pt-5 pb-2 text-[12px] font-semibold tracking-wider text-slate-400 uppercase">{t("Projects")}</h2>
         {projects.length ? (
-          <ul>
+          <ul onDragOver={(e) => e.dataTransfer.types.includes(PROJECT_DRAG) && e.preventDefault()} onDrop={drop}>
             {projects.map((p) => (
-              <ProjectRow key={p.path} project={p} />
+              <ProjectRow key={p.path} project={p} drag={dragOf(p)} />
             ))}
           </ul>
         ) : (

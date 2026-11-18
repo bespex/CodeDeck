@@ -1478,8 +1478,14 @@ const mockOverview = (): OverviewProject[] => [
 
 export function overviewState(): Promise<OverviewProject[]> {
   if (live) return invoke("overview_state");
-  return Promise.resolve(mockOverview());
+  const all = mockOverview();
+  // The preview keeps a dragged or sorted order as the backend would
+  const rank = (p: OverviewProject) => (mockOrder.indexOf(p.path) + 1 || Infinity) + (p.listed ? 0 : 1e6);
+  return Promise.resolve(mockOrder.length ? [...all].sort((a, b) => rank(a) - rank(b)) : all);
 }
+
+let mockOrder: string[] = [];
+const mockOverviewListeners = new Set<() => void>();
 
 /** Something the overview shows changed: ask again. */
 export function onOverviewChanged(callback: () => void): () => void {
@@ -1487,7 +1493,37 @@ export function onOverviewChanged(callback: () => void): () => void {
     const unlisten = listen("overview_changed", () => callback());
     return () => void unlisten.then((stop) => stop());
   }
-  return () => {};
+  mockOverviewListeners.add(callback);
+  return () => void mockOverviewListeners.delete(callback);
+}
+
+/** Puts my projects in this order (dragged in the overview). */
+export function reorderProjects(paths: string[]): Promise<void> {
+  if (live) return invoke("reorder_projects", { paths });
+  mockOrder = paths;
+  mockOverviewListeners.forEach((f) => f());
+  return Promise.resolve();
+}
+
+/** How my projects can be sorted, once: by name, by AI configuration then name, today's list first. */
+export type ProjectSort = "name" | "account" | "daily";
+
+/** Sorts my projects once; afterwards dragging goes on from that order. */
+export function sortProjects(by: ProjectSort): Promise<void> {
+  if (live) return invoke("sort_projects", { by });
+  const listed = mockOverview().filter((p) => p.listed);
+  const ranked = [...listed].sort((a, b) => (mockOrder.indexOf(a.path) + 1 || Infinity) - (mockOrder.indexOf(b.path) + 1 || Infinity));
+  const name = (p: OverviewProject) => p.name.toLowerCase();
+  const byName = (a: OverviewProject, b: OverviewProject) => name(a).localeCompare(name(b)) || a.path.localeCompare(b.path);
+  const sorted =
+    by === "daily"
+      ? [...ranked.filter((p) => p.daily), ...ranked.filter((p) => !p.daily)]
+      : by === "account"
+        ? [...ranked].sort((a, b) => Number(!a.account) - Number(!b.account) || (a.account ?? "").localeCompare(b.account ?? "") || byName(a, b))
+        : [...ranked].sort(byName);
+  mockOrder = sorted.map((p) => p.path);
+  mockOverviewListeners.forEach((f) => f());
+  return Promise.resolve();
 }
 
 /** The project window tells the overview about its project. */
