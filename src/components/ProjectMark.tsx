@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectMarkSpec } from "../backend";
-import { EMOJI, MARK_COLORS, markOf, searchIcons, useLucide } from "../marks";
+import { EMOJI, inkOn, MARK_COLORS, markOf, searchIcons, useLucide } from "../marks";
 import { t } from "../i18n";
 
 /** The shape tells what a mark stands for: a project is a circle, an account a hexagon (sessions
  *  have rounded squares, `SessionBadge`). */
 export type MarkShape = "circle" | "hexagon" | "bare";
 
-/** Dark or white ink for text and icons on a colour, whichever reads better. */
-export function inkOn(hex: string): string {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.32 ? "#14161a" : "#ffffff";
-}
+export { inkOn } from "../marks";
 const HEXAGON = "polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%)";
 
 /** A project's or account's mark: its icon, emoji or first letter on its colour (docs/UEBERSICHT.md). */
@@ -35,11 +31,14 @@ export function ProjectMark({ mark, color, name, size = 20, shape = "circle" }: 
       </span>
     );
   }
+  // Letter and icon in the same ink, the one that reads on the colour (an icon was always white)
+  const ink = inkOn(fill);
   return (
     <span
       aria-hidden
       style={{
         height: size,
+        color: ink,
         // An emoji brings its own colours: a lighter shape, on a circle with a ring of the colour
         background: m.kind === "emoji" ? `color-mix(in srgb, ${fill} ${shape === "hexagon" ? 55 : 40}%, transparent)` : fill,
         boxShadow: m.kind === "emoji" && shape === "circle" ? `inset 0 0 0 ${Math.max(1, size / 14)}px ${fill}` : undefined,
@@ -47,7 +46,7 @@ export function ProjectMark({ mark, color, name, size = 20, shape = "circle" }: 
         width: shape === "hexagon" ? Math.round(size * 1.12) : size,
         fontSize: Math.round(size * (m.kind === "emoji" ? 0.6 : 0.52)),
       }}
-      className={`inline-flex shrink-0 items-center justify-center leading-none font-bold text-[#0b0d10] ${shape === "circle" ? "rounded-full" : ""}`}
+      className={`inline-flex shrink-0 items-center justify-center leading-none font-bold ${shape === "circle" ? "rounded-full" : ""}`}
     >
       {inner ? (
         <svg
@@ -55,7 +54,7 @@ export function ProjectMark({ mark, color, name, size = 20, shape = "circle" }: 
           width={Math.round(size * 0.6)}
           height={Math.round(size * 0.6)}
           fill="none"
-          stroke="#fff"
+          stroke="currentColor"
           strokeWidth={2.2}
           strokeLinecap="round"
           strokeLinejoin="round"

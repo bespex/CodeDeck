@@ -16,7 +16,7 @@ import {
   Loader,
   Radio,
   RotateCcw,
-  Square,
+  Power,
   SquareTerminal,
   X,
   User,
@@ -351,7 +351,7 @@ function PendingItem({ pending, projectPath }: { pending: PendingSession; projec
             {t("Open")}
           </button>
           <button type="button" title={t("End this session (nothing is lost; it never began)")} onClick={() => void act(true)} className={button}>
-            <Square className="size-3" />
+            <Power className="size-3" />
           </button>
         </span>
         {failed && <span className="selectable text-[11px] text-problem">{failed}</span>}
@@ -537,7 +537,7 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
                   onClick={() => void stopSession(projectPath, s.id, false).catch((e) => setFailed(String(e)))}
                   className="flex shrink-0 items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-slate-300 hover:border-overlay-line hover:bg-overlay-hover hover:text-slate-100"
                 >
-                  <Square className="size-3" /> {t("Stop")}
+                  <Power className="size-3" /> {t("Stop")}
                 </button>
               </>
             )}

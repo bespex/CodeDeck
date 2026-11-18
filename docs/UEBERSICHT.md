@@ -117,8 +117,10 @@ Namen aus 3.2 (Konten). Wirkt beim Starten (tmux mit `CLAUDE_CONFIG_DIR`, B2), b
 Profil des Kontos, B4) und als Warnung, wenn eine Sitzung im Projekt mit einer anderen Konfiguration läuft. In
 der Zeile erscheint es nur als kleiner Punkt in der Farbe des Kontos, Name im Tooltip (Grundsatz 4).
 
-**Menü der Projektzeile** (beim Überfahren `⋯`, auch Rechtsklick): Fenster öffnen/schließen · Sitzung starten
-(▶) · Neue Sitzung · Tagesliste (Ring in der Projektfarbe um die Marke) · KI-Konfiguration ▸ · Marke ändern… · Aus der Liste nehmen. ▶ und ＋ stehen beim Überfahren direkt in der Zeile.
+**Menü der Projektzeile** (beim Überfahren `⋯`, auch Rechtsklick), jede Aktion mit Icon, alle Labels bündig:
+Öffnen bzw. Fenster zeigen/verbergen · Tagesliste (Ring in der Projektfarbe um die Marke) · Marke ändern… ·
+KI-Konfiguration · abgesetzt und rot: Aus der Liste nehmen (lag zu nah an „Marke ändern“). ▶ und ＋ stehen
+beim Überfahren direkt in der Zeile.
 
 **Gespeichert** in `~/.config/codedeck/projects.json` je Projekt: Pfad, Reihenfolge, Stern, Konfiguration, Marke
 (eine Datei für alles, was ein Projekt in der Übersicht ausmacht).

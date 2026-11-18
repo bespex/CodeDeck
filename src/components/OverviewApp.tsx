@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { ChevronRight, Loader, Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, RotateCcw, Square, SquareTerminal, TriangleAlert } from "lucide-react";
+import { AppWindow, ChevronRight, Eye, EyeOff, ListX, Loader, Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
 import { pendingSession, addProject, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
 import { accountLook, useAccounts } from "../accounts";
 import { usePending } from "../pending";
@@ -37,11 +37,11 @@ function useOverview(): [OverviewProject[], (p: OverviewProject[]) => void] {
   return [projects, setProjects];
 }
 
-/** What is dragged in the project list: only rows of my projects, never a file or a session. */
-const PROJECT_DRAG = "application/x-codedeck-project";
-
 /** Where a dragged project would land: before or after this row. */
 type DropLine = "before" | "after" | null;
+
+/** How far the pointer moves before a press on a project becomes dragging it, in pixels. */
+const DRAG_FROM = 5;
 
 /** My projects with `from` moved to just before or after `to`; `null` when nothing would change. */
 function moved(paths: string[], from: string, to: string, line: "before" | "after"): string[] | null {
@@ -118,50 +118,65 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
       window.removeEventListener("click", close);
     };
   }, [onClose]);
-  const item = "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] text-slate-200 hover:bg-overlay-hover";
+  const plain = "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] hover:bg-overlay-hover";
+  const item = `${plain} text-slate-200`;
   const label = project.label;
+  const line = <div className="my-1 h-px bg-overlay-line" />;
   return (
     <div onClick={(e) => e.stopPropagation()} className="surface-overlay absolute top-8 right-2 z-30 flex w-64 flex-col rounded-lg p-1">
       <button type="button" className={item} onClick={() => (onClose(), label ? void toggleProjectWindow(label) : void showProject(project.path))}>
-        {label ? (project.visible ? t("Hide its window") : t("Show its window")) : t("Load its window")}
+        <MenuIcon>{!label ? <AppWindow className="size-3.5" /> : project.visible ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}</MenuIcon>
+        <span className="flex-1">{label ? (project.visible ? t("Hide its window") : t("Show its window")) : t("Open")}</span>
       </button>
-      <div className="my-1 h-px bg-overlay-line" />
       {project.listed && (
-        <button type="button" className={item} onClick={() => (onClose(), void setProject(project.path, "daily", !project.daily))}>
-          <span className="flex size-3.5 items-center justify-center">
-            <span className="size-3 rounded-full border-2" style={{ borderColor: project.daily ? ((project.mark as { color?: string } | null)?.color ?? project.color) : "var(--color-slate-500)" }} />
-          </span>
-          <span className="flex-1">{t("On today's list")}</span>
-          {project.daily && <Check className="size-3.5 text-slate-300" />}
-        </button>
+        <>
+          {line}
+          <button type="button" className={item} onClick={() => (onClose(), void setProject(project.path, "daily", !project.daily))}>
+            <MenuIcon>
+              <span className="size-3 rounded-full border-2" style={{ borderColor: project.daily ? ((project.mark as { color?: string } | null)?.color ?? project.color) : "var(--color-slate-500)" }} />
+            </MenuIcon>
+            <span className="flex-1">{t("On today's list")}</span>
+            {project.daily && <Check className="size-3.5 text-slate-300" />}
+          </button>
+          <button type="button" className={item} onClick={() => (onClose(), pickListener?.(project))}>
+            <MenuIcon>
+              <ProjectMark project={project} size={14} />
+            </MenuIcon>
+            <span className="flex-1">{t("Change mark…")}</span>
+          </button>
+        </>
       )}
       {project.listed && accounts.length > 0 && (
         <>
-          <div className="my-1 h-px bg-overlay-line" />
+          {line}
           <p className="px-2 pt-0.5 pb-1 text-[11px] text-slate-500">{t("AI configuration its sessions run with")}</p>
           {accounts.map((a) => (
             <button key={a.dir} type="button" title={a.dir} className={item} onClick={() => (onClose(), void setProject(project.path, "account", a.dir))}>
-              <AccountMark account={a} size={14} />
+              <MenuIcon>
+                <AccountMark account={a} size={14} />
+              </MenuIcon>
               <span className="flex-1 truncate">{a.name}</span>
               {project.account === a.dir && <Check className="size-3.5 text-slate-300" />}
             </button>
           ))}
           <button type="button" className={item} onClick={() => (onClose(), void setProject(project.path, "account", null))}>
-            <span className="size-2 rounded-full border border-slate-500" />
+            <MenuIcon>
+              <span className="size-2 rounded-full border border-slate-500" />
+            </MenuIcon>
             <span className="flex-1 text-slate-400">{t("Not set")}</span>
             {!project.account && <Check className="size-3.5 text-slate-300" />}
           </button>
         </>
       )}
+      {/* Apart from the rest, with room above it: it was hit by mistake right under "Change mark" */}
       {project.listed && (
         <>
-          <div className="my-1 h-px bg-overlay-line" />
-          <button type="button" className={item} onClick={() => (onClose(), pickListener?.(project))}>
-            <ProjectMark project={project} size={14} />
-            {t("Change mark…")}
-          </button>
-          <button type="button" className={item} onClick={() => (onClose(), void removeProject(project.path))}>
-            {t("Take off my list (nothing on disk changes)")}
+          <div className="mt-2 mb-1 h-px bg-overlay-line" />
+          <button type="button" className={`${plain} text-problem`} onClick={() => (onClose(), void removeProject(project.path))}>
+            <MenuIcon>
+              <ListX className="size-3.5" />
+            </MenuIcon>
+            <span className="flex-1">{t("Take off my list (nothing on disk changes)")}</span>
           </button>
         </>
       )}
@@ -169,13 +184,20 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
   );
 }
 
+/** The icon column of a menu item: one width for all, so every label starts at the same place. */
+function MenuIcon({ children }: { children: ReactNode }) {
+  return <span className="flex size-4 shrink-0 items-center justify-center">{children}</span>;
+}
+
 /** Says for a moment why a way into a session did not work. */
 let tellListener: ((text: string | null) => void) | null = null;
 const tell = (text: string) => tellListener?.(text);
 
-/** How a row of my projects takes part in dragging: the handlers for its `<li>` and its drop line. */
+/** How a row of my projects takes part in dragging: its head is what is grabbed, the line shows
+ *  where it would land. Pointer events, not HTML drag and drop: under WebKitGTK `draggable` left the
+ *  row's menu unable to open the mark picker a second time. */
 interface RowDrag {
-  props: React.LiHTMLAttributes<HTMLLIElement>;
+  onPointerDown: (e: React.PointerEvent) => void;
   line: DropLine;
 }
 
@@ -204,10 +226,11 @@ function ProjectRow({ project, drag }: { project: OverviewProject; drag?: RowDra
   // Double click: Desktop where the session is reachable there, else its terminal
   const defaultDoor = (s: Session) => (s.place?.remote ? "desktop" : "terminal");
   return (
-    <li {...drag?.props} className="relative border-t border-line/40 py-1 first:border-t-0">
+    <li data-project={drag ? project.path : undefined} className="relative border-t border-line/40 py-1 first:border-t-0">
       {/* Where the dragged project would land */}
       {drag?.line && <span className={`pointer-events-none absolute right-2 left-2 z-10 h-0.5 rounded-full bg-ai ${drag.line === "before" ? "-top-px" : "-bottom-px"}`} />}
       <div
+        onPointerDown={drag?.onPointerDown}
         role="button"
         tabIndex={0}
         onClick={front}
@@ -309,8 +332,9 @@ function ProjectRow({ project, drag }: { project: OverviewProject; drag?: RowDra
                 <RowIcon title={t("Open it in a terminal, answer, and leave with Ctrl+B, D")} onClick={() => void pendingSession(project.path, p.name, false).catch((e) => tell(String(e)))}>
                   <SquareTerminal className="size-3.5" />
                 </RowIcon>
+                <span className="mx-1 h-3.5 w-px bg-line" />
                 <RowIcon title={t("End this session (nothing is lost; it never began)")} onClick={() => void pendingSession(project.path, p.name, true).catch((e) => tell(String(e)))}>
-                  <Square className="size-3.5" />
+                  <Power className="size-3.5" />
                 </RowIcon>
               </span>
               <span className="shrink-0 text-[11px] text-changed">{t("waits in tmux")}</span>
@@ -335,17 +359,7 @@ function ProjectRow({ project, drag }: { project: OverviewProject; drag?: RowDra
                   </span>
                 )}
                 <span className="hidden items-center group-hover/s:flex">
-                  {/* Sessions in tmux can be stopped and restarted from here; not while they work */}
-                  {s.place?.tmux?.session && s.status !== "working" && (
-                    <>
-                      <RowIcon title={t("Restart: same conversation, fresh process")} onClick={() => void stopSession(project.path, s.id, true).catch((e) => tell(String(e)))}>
-                        <RotateCcw className="size-3.5" />
-                      </RowIcon>
-                      <RowIcon title={t("Stop (the conversation is kept and can be continued)")} onClick={() => void stopSession(project.path, s.id, false).catch((e) => tell(String(e)))}>
-                        <Square className="size-3.5" />
-                      </RowIcon>
-                    </>
-                  )}
+                  {/* Ways into it first, then what changes its process, apart */}
                   {s.place?.remote && (
                     <RowIcon title={t("Open in the desktop app")} onClick={() => void go(s, "desktop")}>
                       <Monitor className="size-3.5" />
@@ -354,6 +368,18 @@ function ProjectRow({ project, drag }: { project: OverviewProject; drag?: RowDra
                   <RowIcon title={t("Open in a terminal")} onClick={() => void go(s, "terminal")}>
                     <SquareTerminal className="size-3.5" />
                   </RowIcon>
+                  {/* Sessions in tmux can be stopped and restarted from here; not while they work */}
+                  {s.place?.tmux?.session && s.status !== "working" && (
+                    <>
+                      <span className="mx-1 h-3.5 w-px bg-line" />
+                      <RowIcon title={t("Restart: same conversation, fresh process")} onClick={() => void stopSession(project.path, s.id, true).catch((e) => tell(String(e)))}>
+                        <RotateCcw className="size-3.5" />
+                      </RowIcon>
+                      <RowIcon title={t("Stop (the conversation is kept and can be continued)")} onClick={() => void stopSession(project.path, s.id, false).catch((e) => tell(String(e)))}>
+                        <Power className="size-3.5" />
+                      </RowIcon>
+                    </>
+                  )}
                 </span>
                 <span className={`shrink-0 text-[11px] ${status.className}`}>{status.word}</span>
               </li>
@@ -506,50 +532,56 @@ function MoreMenu({ host }: { host: string | null }) {
 export default function OverviewApp() {
   const [projects, setProjects] = useOverview();
   // Dragging a project: which one, and where it would land
-  const [dragged, setDragged] = useState<string | null>(null);
-  const [over, setOver] = useState<{ path: string; line: "before" | "after" } | null>(null);
+  const [drag, setDrag] = useState<{ from: string; over: { path: string; line: "before" | "after" } | null } | null>(null);
   const mine = projects.filter((p) => p.listed).map((p) => p.path);
-  const endDrag = () => (setDragged(null), setOver(null));
   const dragOf = (p: OverviewProject): RowDrag | undefined => {
     // Only my projects have a place in the list; the others stand below it as they come
     if (!p.listed) return undefined;
-    const lineAt = (e: React.DragEvent<HTMLLIElement>) => {
-      const box = e.currentTarget.getBoundingClientRect();
-      return e.clientY < box.top + box.height / 2 ? "before" : "after";
-    };
-    const wouldMove = (line: "before" | "after") => !!dragged && !!moved(mine, dragged, p.path, line);
-    return {
-      line: over?.path === p.path && wouldMove(over.line) ? over.line : null,
-      props: {
-        draggable: true,
-        onDragStart: (e) => {
-          e.dataTransfer.setData(PROJECT_DRAG, p.path);
-          e.dataTransfer.effectAllowed = "move";
-          setDragged(p.path);
-        },
-        onDragOver: (e) => {
-          if (!e.dataTransfer.types.includes(PROJECT_DRAG)) return;
-          e.preventDefault();
-          e.dataTransfer.dropEffect = "move";
-          const line = lineAt(e);
-          if (over?.path !== p.path || over.line !== line) setOver({ path: p.path, line });
-        },
-        onDragEnd: endDrag,
-      },
-    };
+    const shown = drag?.over?.path === p.path && moved(mine, drag.from, p.path, drag.over.line);
+    return { line: shown ? drag!.over!.line : null, onPointerDown: (e) => e.button === 0 && follow(p.path, e.clientX, e.clientY) };
   };
-  // Let go anywhere on the list: the project lands where the line was last shown
-  const drop = (e: React.DragEvent) => {
-    const from = e.dataTransfer.getData(PROJECT_DRAG);
-    if (!from) return;
-    e.preventDefault();
-    const next = over && moved(mine, from, over.path, over.line);
-    endDrag();
-    if (!next) return;
-    // Shown at once; the backend's answer follows with the next state
-    const byPath = new Map(projects.map((q) => [q.path, q]));
-    setProjects([...next.flatMap((q) => byPath.get(q) ?? []), ...projects.filter((q) => !q.listed)]);
-    void reorderProjects(next).catch((err) => tell(String(err)));
+  // A press becomes a drag once the pointer has moved a little; until then it is a click
+  const follow = (from: string, x0: number, y0: number) => {
+    const order = mine;
+    let active = false;
+    let over: { path: string; line: "before" | "after" } | null = null;
+    const move = (e: PointerEvent) => {
+      if (!active) {
+        if (Math.hypot(e.clientX - x0, e.clientY - y0) < DRAG_FROM) return;
+        active = true;
+        document.body.style.cursor = "grabbing";
+        document.body.style.userSelect = "none";
+      }
+      // The row under the pointer; above the first or below the last, that one
+      const rows = [...document.querySelectorAll<HTMLElement>("li[data-project]")];
+      const boxes = rows.map((r) => r.getBoundingClientRect());
+      const at = boxes.findIndex((b) => e.clientY >= b.top && e.clientY < b.bottom);
+      const i = at >= 0 ? at : boxes.length && e.clientY < boxes[0].top ? 0 : rows.length - 1;
+      if (i >= 0) over = { path: rows[i].dataset.project!, line: e.clientY < boxes[i].top + boxes[i].height / 2 ? "before" : "after" };
+      setDrag({ from, over });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      setDrag(null);
+      if (!active) return;
+      // The click that follows letting go must not bring a window to the front; only that one
+      const swallow = (c: MouseEvent) => (c.stopPropagation(), c.preventDefault());
+      window.addEventListener("click", swallow, { capture: true });
+      setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 0);
+      const next = over && moved(order, from, over.path, over.line);
+      if (!next) return;
+      // Shown at once; the backend's answer follows with the next state
+      const byPath = new Map(projects.map((q) => [q.path, q]));
+      setProjects([...next.flatMap((q) => byPath.get(q) ?? []), ...projects.filter((q) => !q.listed)]);
+      void reorderProjects(next).catch((err) => tell(String(err)));
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
   };
   const [picking, setPicking] = useState<OverviewProject | null>(null);
   useEffect(() => {
@@ -610,7 +642,7 @@ export default function OverviewApp() {
         <Waiting projects={projects} />
         <h2 className="px-3 pt-5 pb-2 text-[12px] font-semibold tracking-wider text-slate-400 uppercase">{t("Projects")}</h2>
         {projects.length ? (
-          <ul onDragOver={(e) => e.dataTransfer.types.includes(PROJECT_DRAG) && e.preventDefault()} onDrop={drop}>
+          <ul>
             {projects.map((p) => (
               <ProjectRow key={p.path} project={p} drag={dragOf(p)} />
             ))}

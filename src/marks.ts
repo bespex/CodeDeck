@@ -90,10 +90,22 @@ export function searchIcons(data: Lucide, text: string): string[] {
   return scored.sort((a, b) => b[0] - a[0] || a[1].localeCompare(b[1])).map(([, n]) => n);
 }
 
+/** Dark or white ink for text and icons on a colour: the one with more contrast (WCAG). */
+export function inkOn(hex: string): string {
+  const luminance = (h: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [dark, light] = ["#14161a", "#ffffff"];
+  const bg = luminance(hex);
+  // Contrast against each ink; mid tones (the mark colours) mostly read better dark
+  return (bg + 0.05) / (luminance(dark) + 0.05) >= (luminance(light) + 0.05) / (bg + 0.05) ? dark : light;
+}
+
 /** The mark of a project: what it chose, else its first letter. */
 export const markOf = (mark: ProjectMarkSpec | null | undefined): ProjectMarkSpec => mark ?? { kind: "letter" };
 
-/** An icon's outline as a whole SVG, white on transparent, for drawing. */
+/** An icon's outline as a whole SVG on transparent, for drawing. */
 export const iconSvg = (inner: string, stroke = "#ffffff", width = 2.2) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 
@@ -106,7 +118,10 @@ export async function drawWindowIcon(mark: ProjectMarkSpec, color: string, name:
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext("2d")!;
   const r = size / 2;
-  ctx.fillStyle = mark.color ?? color;
+  const fill = mark.color ?? color;
+  // As in the overview: letter and icon in the ink that reads on the colour
+  const ink = inkOn(fill);
+  ctx.fillStyle = fill;
   ctx.beginPath();
   ctx.arc(r, r, r - 1, 0, Math.PI * 2);
   ctx.fill();
@@ -115,7 +130,7 @@ export async function drawWindowIcon(mark: ProjectMarkSpec, color: string, name:
     const inner = data.icons[mark.value];
     if (inner) {
       const image = new Image();
-      image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(iconSvg(inner, "#ffffff", 2.4))}`;
+      image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(iconSvg(inner, ink, 2.4))}`;
       await image.decode();
       const s = size * 0.58;
       ctx.drawImage(image, r - s / 2, r - s / 2, s, s);
@@ -124,7 +139,7 @@ export async function drawWindowIcon(mark: ProjectMarkSpec, color: string, name:
     const text = mark.kind === "emoji" && mark.value ? mark.value : name.charAt(0).toUpperCase();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillStyle = "#0b0d10";
+    ctx.fillStyle = ink;
     ctx.font = mark.kind === "emoji" ? `${Math.round(size * 0.58)}px "Noto Color Emoji", sans-serif` : `800 ${Math.round(size * 0.55)}px "Open Sans", sans-serif`;
     ctx.fillText(text, r, r + size * 0.04);
   }
