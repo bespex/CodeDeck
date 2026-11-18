@@ -27,7 +27,7 @@ pub struct Win {
     /// What follows the project's name in the title, e.g. "● 2 asking"; set by the window
     pub title_status: Mutex<String>,
     /// Whether a session asks, whether a turn is done: the dot on the window's icon
-    pub waiting: Mutex<(bool, bool)>,
+    pub waiting: Mutex<(usize, bool)>,
     /// What the window reports about its project for the overview (git, next prompt, workbench)
     pub summary: Mutex<serde_json::Value>,
     /// The window draws its icon itself (the project's mark): no plain icon over it any more
@@ -140,7 +140,7 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
         watch,
         bridge: Mutex::new(bridge.clone()),
         title_status: Mutex::new(String::new()),
-        waiting: Mutex::new((false, false)),
+        waiting: Mutex::new((0, false)),
         summary: Mutex::new(serde_json::Value::Null),
         drawn_icon: Mutex::new(false),
     });
@@ -259,6 +259,8 @@ fn open_project(app: &AppHandle, path: &Path) -> Result<(), String> {
 pub fn overview_changed(app: &AppHandle) {
     use tauri::Emitter;
     let _ = app.emit_to(OVERVIEW, "overview_changed", ());
+    // What waits shows in the tray too
+    crate::tray::refresh(app);
 }
 
 /// Shows the overview, or hides it when it is shown; opens it the first time. Off the main thread.
@@ -266,6 +268,7 @@ pub fn toggle_overview(app: &AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(OVERVIEW) {
         if window.is_visible().unwrap_or(false) {
             let _ = window.hide();
+            crate::tray::refresh(app);
         } else {
             // Back at the right edge of its monitor, at the width the user left it: shown again,
             // the window manager may put it elsewhere (user, 2026-11-17)
@@ -274,11 +277,12 @@ pub fn toggle_overview(app: &AppHandle) -> Result<(), String> {
             let _ = window.unminimize();
             crate::window::set_compact(&window, &FullPlace::default(), true, width, None).map_err(|e| e.to_string())?;
             let _ = window.set_focus();
+            crate::tray::refresh(app);
         }
         return Ok(());
     }
     let window = WebviewWindowBuilder::new(app, OVERVIEW, WebviewUrl::App("index.html?view=overview".into()))
-        .title("CodeDeck")
+        .title(crate::tray::overview_title())
         .inner_size(OVERVIEW_WIDTH, 800.0)
         .min_inner_size(260.0, 300.0)
         .background_color(tauri::window::Color(2, 6, 23, 255))
@@ -286,5 +290,6 @@ pub fn toggle_overview(app: &AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     // At the right edge of the monitor, as high as the panels leave free: the sidebar's place
     crate::window::set_compact(&window, &FullPlace::default(), true, OVERVIEW_WIDTH, crate::window::start_monitor(app)).map_err(|e| e.to_string())?;
+    crate::tray::refresh(app);
     Ok(())
 }

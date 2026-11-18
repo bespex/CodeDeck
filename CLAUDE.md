@@ -13,7 +13,7 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 |---|---|
 | `src-tauri/src/lib.rs` | Tauri-Commands (finden ihr Fenster über `windows::of`), Setup, `Locked` (Sperren ohne `unwrap`) |
 | `src-tauri/src/windows.rs` | Ein Prozess, ein Fenster je Projekt (D25): `Win` (Projekt, Git, Watch, Bridge, Titel), `open` |
-| `src-tauri/src/icon.rs` | Icon je Fenster, selbst gezeichnet: Projektfarbe (`project_color`), Statuspunkt (fragt/fertig) |
+| `src-tauri/src/icon.rs` | Icon je Fenster, selbst gezeichnet: Projektfarbe (`project_color`), Markierung (fragt/fertig) |
 | `src-tauri/src/accounts.rs`, `src/accounts.ts` | Konten (3.2): Konfigurationen mit Name, Farbe, Desktop-Profil (`accounts.json`), Art laut Adapter (`account_kind`), Papierkorb für Sicherungen; `useAccounts`, `accountLook` |
 | `src-tauri/src/tmux.rs` | Sitzungen in tmux starten (`start`, Befehl vom Adapter `Harness::launch`, über die Login-Shell) und beenden; nie `send-keys` |
 | `src-tauri/src/projects.rs`, `doors.rs` | Meine Projekte (`projects.json`); Wege in eine Sitzung: Terminal (tmux attach oder Fenster nach vorn), Desktop über `Harness::desktop_command` |
@@ -54,6 +54,8 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src/components/SessionsPanel.tsx` | Rechte Spalte: „Needs you“, Sitzungen (zwei Zeilen, „Earlier“, Umbenennen, Entfernen, Hover), „Next prompt“ als Dashboard (Zahlen je Art, Tokens, für wen, Quittung, öffnet den Reiter) |
 | `src/components/SessionBadge.tsx`, `useSessionMarks` in `src/assistant.ts` | Schild einer Sitzung; Farbe/Kurzname/Schreiber je Datei für alle Komponenten |
 | `src/components/HeaderBar.tsx`, `ProjectHeader.tsx` | Kopfleiste der rechten Spalte (`docs/KOPFLEISTE.md`): `ProjectMenu`, Schnelleinstellungen, App-Menü `⋯`, Leisten-Knopf; links nur `PathBar` |
+| `src-tauri/src/tray.rs` | Tray-Symbol wie in Maillet (`ksni`, StatusNotifierItem, auch Wayland): Linksklick Übersicht zeigen/verbergen, Menü, Beenden; Titel der Übersicht in der Sprache der Oberfläche |
+| `src-tauri/src/icon.rs` `mark_waiting`, `src/marks.ts` `markWaiting` | Markierung wie in allen be spex-Apps: Pille mit Zahl (fragt) oben rechts, Punkt (fertig) unten rechts; beide pixelgleich |
 | `src-tauri/src/window.rs`, `SidebarSummary.tsx` | Platzierung am rechten Rand (`set_compact`, für die Übersicht), Verbergen/Zeigen an derselben Stelle, globale Kürzel im Prozess (`Ctrl+Alt+L` Übersicht); `SidebarSummary`: Zusammenfassung oben in der rechten Spalte, meldet sie an die Übersicht. Die Leiste je Projektfenster (`docs/SEITENLEISTE.md`) ist entfallen |
 | `src/components/Dialogs.tsx`, `src/dialogs.ts` | About, Tastenkürzel (`F1`), Einstellungsdialog (`Ctrl+,`); `openDialog` von überall |
 | `src/attention.ts`, `AttentionChoice.tsx`, `src-tauri/src/attention.rs` | „Wartet auf dich“ einmal berechnet; Fenstertitel, Taskleiste, Desktop-Meldung, „Nicht stören“ |

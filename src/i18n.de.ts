@@ -929,4 +929,5 @@ export const de: Record<string, string> = {
   "By AI configuration, then project name": "Nach KI-Konfiguration, dann Projektnamen",
   "Today's list to the top (nothing else moves)": "Tagesliste nach oben (sonst bleibt alles)",
   "Once; drag a project to move it from there": "Einmalig; danach ein Projekt ziehen, um es zu verschieben",
+  "CodeDeck – Overview": "CodeDeck – Übersicht",
 };

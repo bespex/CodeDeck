@@ -526,6 +526,18 @@ impl Bridge {
         self.inner.locked().sessions.contains_key(id)
     }
 
+    /// How many sessions ask something and how many finished a turn in the last `done_for` ms, as
+    /// the overview counts them under "Waits for you" (without the turns put aside there).
+    pub fn waiting(&self, now: u64, done_for: u64) -> (usize, usize) {
+        let inner = self.inner.locked();
+        let live = inner.sessions.values().filter(|s| s.capabilities.live_status);
+        live.fold((0, 0), |(asks, done), s| match (s.status, s.turn_done) {
+            ("waiting", _) => (asks + 1, done),
+            ("idle", Some(at)) if now.saturating_sub(at) < done_for => (asks, done + 1),
+            _ => (asks, done),
+        })
+    }
+
     /// What is needed to go into a session: its tool, its account, where it runs.
     pub fn session_place(&self, id: &str) -> Option<(&'static str, Option<String>, Option<Place>)> {
         let inner = self.inner.locked();

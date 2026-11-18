@@ -66,9 +66,18 @@ rechts die Türen (Desktop, Terminal) statt des Zuhause-Symbols. Doppelklick und
   ziehbar (wie die Leiste heute, `window.rs` `set_compact` liefert die Platzierung).
 - **Start:** `codeck` ohne Ordner öffnet nur die Übersicht. `codeck <ordner>` öffnet das Projekt; ob die
   Übersicht dazu aufgeht, ist eine Einstellung (Vorgabe: ja).
-- **Schließen:** Das Programm endet, wenn das letzte Fenster zugeht, die Übersicht eingeschlossen. Wer
-  Projektfenster schließt und die Übersicht offen lässt, behält CodeDeck als Radar. Quit im Menü `⋯` beendet
-  alles. Später kann das Tray die Übersicht ersetzen, wenn sie zu ist.
+- **Titel:** „CodeDeck – Übersicht“ (in der Sprache der Oberfläche).
+- **Schließen** verbirgt die Übersicht nur (2026-11-18): Man sucht sie dann im **Tray** (`tray.rs`), nicht über
+  ein Kürzel. CodeDeck läuft weiter und hört seine Sitzungen, auch ohne offenes Fenster. Beendet wird über
+  „CodeDeck beenden“ im Tray oder im `⋯` der Übersicht.
+- **Tray** wie in Maillet: StatusNotifierItem über D-Bus mit `ksni` (geht auch unter Wayland, keine
+  C-Bibliothek; reines GNOME braucht die AppIndicator-Erweiterung). **Linksklick** zeigt oder verbirgt die
+  Übersicht, **Rechtsklick** öffnet das Menü: Übersicht zeigen/verbergen · „Wartet auf dich (n)“, wenn etwas
+  wartet (öffnet die Übersicht) · CodeDeck beenden.
+- **Markierung** an Tray-Symbol und Fenster-Icons, in Form und Größe wie in allen be spex-Apps (Maillet), in
+  CodeDecks Farben: oben rechts eine Pille mit der Zahl der Sitzungen, die fragen (gelb, bis 99), unten
+  rechts ein grüner Punkt mit weißem Ring für eine fertige Runde (30 min). `icon.rs` `mark_waiting` und
+  `marks.ts` `markWaiting` zeichnen pixelgleich.
 
 ## Was im Projektfenster bleibt
 

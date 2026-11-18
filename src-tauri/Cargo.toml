@@ -23,7 +23,8 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# image-png: the tray draws on the app icon's PNGs (src/tray.rs)
+tauri = { version = "2", features = ["image-png"] }
 serde = { version = "1", features = ["derive"] }
 # preserve_order: Claude Code's settings keep their order when CodeDeck adds its hooks
 serde_json = { version = "1", features = ["preserve_order"] }
@@ -41,6 +42,8 @@ notify-rust = { version = "4", default-features = false, features = ["z"] }
 x11rb = "0.13"
 # Show/hide and sidebar from anywhere (X11; Wayland has no global shortcuts for apps)
 tauri-plugin-global-shortcut = "2"
+# The tray icon as in Maillet: StatusNotifierItem over D-Bus, reports the left click (src/tray.rs)
+ksni = "0.3"
 # setsid for programs CodeDeck starts (apps::detach); already in the tree
 libc = "0.2"
 

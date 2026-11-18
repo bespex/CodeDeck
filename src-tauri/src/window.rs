@@ -372,6 +372,11 @@ pub fn obey(window: &WebviewWindow, request: Request) {
 /// Tells every window that a setting of this machine changed.
 pub fn settings_changed(app: &AppHandle) {
     let _ = app.emit("settings_changed", ());
+    // The language may have changed: the overview's title and the tray speak it too
+    if let Some(overview) = app.get_webview_window(crate::windows::OVERVIEW) {
+        let _ = overview.set_title(&crate::tray::overview_title());
+    }
+    crate::tray::refresh(app);
 }
 
 /// Asks the window manager to activate the window of this process with this title the way a pager

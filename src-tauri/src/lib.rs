@@ -27,6 +27,7 @@ mod recent;
 mod rules;
 mod snapshot;
 mod tmux;
+mod tray;
 mod updates;
 mod usage;
 mod watch;
@@ -102,7 +103,7 @@ pub(crate) fn set_title(app: &AppHandle, win: &Win) {
 fn set_title_status(status: String, asks: Option<u32>, done: Option<u32>, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
     let win = windows::of(&window)?;
     *win.title_status.locked() = status;
-    *win.waiting.locked() = (asks.unwrap_or(0) > 0, done.unwrap_or(0) > 0);
+    *win.waiting.locked() = (asks.unwrap_or(0) as usize, done.unwrap_or(0) > 0);
     set_title(&app, &win);
     Ok(())
 }
@@ -986,6 +987,13 @@ pub fn run() {
                     windows::overview_changed(window.app_handle());
                 }
             }
+            // Closing the overview hides it: it is found again in the tray, and CodeDeck goes on
+            // hearing its sessions with no window in sight. Quit (tray or ⋯) ends it
+            tauri::WindowEvent::CloseRequested { api, .. } if window.label() == windows::OVERVIEW => {
+                api.prevent_close();
+                let _ = window.hide();
+                tray::refresh(window.app_handle());
+            }
             tauri::WindowEvent::Destroyed => {
                 window.app_handle().state::<Windows>().remove(window.app_handle(), window.label());
                 windows::overview_changed(window.app_handle());
@@ -1003,6 +1011,7 @@ pub fn run() {
             }
             // Every project on my list hears its sessions, window or not
             windows::listen_to_my_projects(app.handle());
+            tray::start(app.handle());
             windows::open(app.handle(), project)?;
             // The overview of all projects comes along (docs/UEBERSICHT.md; to become a setting)
             let handle = app.handle().clone();

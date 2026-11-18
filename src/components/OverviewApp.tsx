@@ -588,7 +588,8 @@ export default function OverviewApp() {
     pickListener = setPicking;
     return () => void (pickListener = null);
   }, []);
-  useEffect(() => void (document.title = "CodeDeck"), []);
+  // As the backend names the window (tray.rs), in case the web view's title shows through
+  useEffect(() => void (document.title = t("CodeDeck – Overview")), []);
   // ＋ takes a project into my list; its window stays closed until it is needed
   const open = async () => {
     const path = await pickFolder();

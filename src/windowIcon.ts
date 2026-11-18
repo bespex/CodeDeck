@@ -1,12 +1,12 @@
 // The project window draws its taskbar icon itself (docs/UEBERSICHT.md): its project's mark on its
-// colour and a dot for what waits. Drawn here because only the web view can draw emoji and SVG;
+// colour and the marks for what waits. Drawn here because only the web view can draw emoji and SVG;
 // the backend sets the pixels (`set_window_icon`).
 
 import { live, myProject, onProjectChanged, setWindowIconPixels, type ProjectLook } from "./backend";
-import { drawWindowIcon, markOf } from "./marks";
+import { drawWindowIcon, markOf, type Waits } from "./marks";
 
 let look: ProjectLook | null = null;
-let waits: "asks" | "done" | null = null;
+let waits: Waits = { asks: 0, done: false };
 let drawing = Promise.resolve();
 
 async function paint() {
@@ -26,15 +26,15 @@ async function load() {
 
 let started = false;
 
-/** What waits in this window's project: the dot on its icon. Starts keeping the icon on first use. */
-export function setWindowWaits(next: "asks" | "done" | null) {
+/** What waits in this window's project: the marks on its icon. Starts keeping the icon on first use. */
+export function setWindowWaits(next: Waits) {
   if (!started) {
     started = true;
     void load();
     // The mark changes in the overview: draw again; a switch to another project too
     onProjectChanged((path) => (!look || look.path === path) && void load());
   }
-  if (next === waits && look) return;
+  if (next.asks === waits.asks && next.done === waits.done && look) return;
   waits = next;
   repaint();
 }

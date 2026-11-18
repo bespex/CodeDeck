@@ -109,11 +109,18 @@ export const markOf = (mark: ProjectMarkSpec | null | undefined): ProjectMarkSpe
 export const iconSvg = (inner: string, stroke = "#ffffff", width = 2.2) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 
+/** What waits in a project: how many sessions ask, and whether a turn is done. */
+export interface Waits {
+  asks: number;
+  done: boolean;
+}
+
 /**
- * The window's icon: the mark on its colour, the dot for what waits (amber asks, green done) top
- * right. As RGBA pixels, `size` × `size`, for `set_window_icon`.
+ * The window's icon: the mark on its colour, and what waits marked as on the tray icon (a pill with
+ * the number that ask top right, a dot for a finished turn bottom right). As RGBA pixels, `size` ×
+ * `size`, for `set_window_icon`.
  */
-export async function drawWindowIcon(mark: ProjectMarkSpec, color: string, name: string, waits: "asks" | "done" | null, size = 64): Promise<Uint8ClampedArray> {
+export async function drawWindowIcon(mark: ProjectMarkSpec, color: string, name: string, waits: Waits, size = 64): Promise<Uint8ClampedArray> {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext("2d")!;
@@ -143,16 +150,59 @@ export async function drawWindowIcon(mark: ProjectMarkSpec, color: string, name:
     ctx.font = mark.kind === "emoji" ? `${Math.round(size * 0.58)}px "Noto Color Emoji", sans-serif` : `800 ${Math.round(size * 0.55)}px "Open Sans", sans-serif`;
     ctx.fillText(text, r, r + size * 0.04);
   }
-  if (waits) {
-    const d = size * 0.2;
-    ctx.fillStyle = "#14161a";
-    ctx.beginPath();
-    ctx.arc(size - d, d, d, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = waits === "asks" ? "#e0a868" : "#6cc58e";
-    ctx.beginPath();
-    ctx.arc(size - d, d, d * 0.7, 0, Math.PI * 2);
-    ctx.fill();
+  const image = ctx.getImageData(0, 0, size, size);
+  markWaiting(image.data, size, waits.asks, waits.done);
+  return image.data;
+}
+
+/* What waits, marked in the shapes and sizes every be spex app uses (Maillet's tray), in CodeDeck's
+   colours. Pixel for pixel the same as `icon.rs` `mark_waiting`, which draws the tray icon. */
+const ASKS = [0xe0, 0xa8, 0x68, 255];
+const DONE = [0x6c, 0xc5, 0x8e, 255];
+const INK = [0x14, 0x16, 0x1a, 255];
+const WHITE = [255, 255, 255, 255];
+/** 3×5 pixel digits, one row per entry, bits from the left (Maillet's). */
+const DIGITS = [
+  [7, 5, 5, 5, 7], [2, 6, 2, 2, 7], [7, 1, 7, 4, 7], [7, 1, 7, 1, 7], [5, 5, 7, 1, 1],
+  [7, 4, 7, 1, 7], [7, 4, 7, 5, 7], [7, 1, 1, 1, 1], [7, 5, 7, 5, 7], [7, 5, 7, 1, 7],
+];
+
+/** On square RGBA pixels: the pill with the number of asking sessions, the dot for a finished turn. */
+export function markWaiting(data: Uint8ClampedArray, size: number, asks: number, done: boolean) {
+  const s = Math.max(1, Math.floor(size / 32));
+  const set = (x: number, y: number, px: number[]) => {
+    if (x >= 0 && x < size && y >= 0 && y < size) data.set(px, (y * size + x) * 4);
+  };
+  if (asks > 0) {
+    // The pill, half the icon high, at least round, in the top right corner
+    const text = String(Math.min(asks, 99));
+    const h = 16 * s;
+    const w = Math.max((text.length * 8 + 6) * s, h);
+    const [x0, r] = [size - w, h / 2];
+    for (let y = 0; y < h; y++)
+      for (let x = x0; x < size; x++) {
+        const cx = Math.min(Math.max(x - x0, r), w - r) + x0;
+        if ((x - cx) ** 2 + (y - r) ** 2 <= r * r) set(x, y, ASKS);
+      }
+    // The digits centred, each 6 px wide plus a gap of 2
+    let cx = x0 + Math.floor((w - (text.length * 8 - 2) * s) / 2);
+    for (const ch of text) {
+      DIGITS[Number(ch)].forEach((bits, row) => {
+        for (let col = 0; col < 3; col++)
+          if (bits & (4 >> col))
+            for (let dy = 0; dy < 2 * s; dy++) for (let dx = 0; dx < 2 * s; dx++) set(cx + col * 2 * s + dx, 3 * s + row * 2 * s + dy, INK);
+      });
+      cx += 8 * s;
+    }
   }
-  return ctx.getImageData(0, 0, size, size).data;
+  if (done) {
+    // The dot in the bottom right corner, a white ring round it
+    const [outer, inner] = [6 * s, 4 * s + Math.floor(s / 2)];
+    const [cx, cy] = [size - outer, size - outer];
+    for (let y = cy - outer; y <= cy + outer; y++)
+      for (let x = cx - outer; x <= cx + outer; x++) {
+        const d = (x - cx) ** 2 + (y - cy) ** 2;
+        if (d <= outer * outer) set(x, y, d <= inner * inner ? DONE : WHITE);
+      }
+  }
 }
