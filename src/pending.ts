@@ -6,9 +6,12 @@ import { useEffect, useState } from "react";
 import { pendingSessions, type PendingSession } from "./backend";
 
 /** The pending sessions of a project, asked of tmux now and then (it is cheap, and a session
- *  leaves the list by itself once it reports). */
-export function usePending(project: string | undefined, every = 3000): PendingSession[] {
+ *  leaves the list by itself once it reports). `known` are the ids of the sessions already listed:
+ *  one of them is no longer pending even before tmux is asked again, so it never shows twice, and
+ *  a change among them asks again at once. */
+export function usePending(project: string | undefined, known: string[], every = 3000): PendingSession[] {
   const [list, setList] = useState<PendingSession[]>([]);
+  const knownKey = known.join("\n");
   useEffect(() => {
     if (!project) return;
     let alive = true;
@@ -19,6 +22,6 @@ export function usePending(project: string | undefined, every = 3000): PendingSe
       alive = false;
       clearInterval(timer);
     };
-  }, [project, every]);
-  return list;
+  }, [project, every, knownKey]);
+  return list.filter((p) => !known.includes(p.id));
 }

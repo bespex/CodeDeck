@@ -194,6 +194,28 @@ pub fn show_markdown(text: &str) -> Result<(), String> {
     pipe_to(&marq, text)
 }
 
+/// Starts a program that lives on by itself (a desktop app, a terminal) and returns at once.
+/// Nothing ties it to CodeDeck: no inherited terminal or pipes, a process group of its own. Started
+/// from a terminal as a background job, a child that touches that terminal would otherwise stop the
+/// whole group, CodeDeck's window with it; a child writing to inherited pipes nobody reads would
+/// block. A thread waits for it, so it leaves no `<defunct>` entry behind.
+pub fn detach(mut command: std::process::Command) -> Result<(), String> {
+    use std::os::unix::process::CommandExt;
+    use std::process::Stdio;
+    let program = command.get_program().to_string_lossy().into_owned();
+    let mut child = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .process_group(0)
+        .spawn()
+        .map_err(|e| format!("{program}: {e}"))?;
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
+}
+
 /// Starts `<viewer> - --reuse` with the text on its standard input.
 fn pipe_to(viewer: &Path, text: &str) -> Result<(), String> {
     use std::io::Write;
@@ -215,4 +237,34 @@ fn pipe_to(viewer: &Path, text: &str) -> Result<(), String> {
         let _ = child.wait();
     });
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_detached_program_is_tied_to_nothing() {
+        let dir = std::env::temp_dir().join(format!("codedeck-detach-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let out = dir.join("out");
+        // What the child sees: its input, its error output (its standard output goes to the file),
+        // and whether it leads a process group of its own
+        let mut command = std::process::Command::new("sh");
+        command.arg("-c").arg(r#"{ readlink /proc/self/fd/0; readlink /proc/$$/fd/2; [ "$(ps -o pgid= -p $$ | tr -d ' ')" = "$$" ] && echo own; } > "$0.tmp"; mv "$0.tmp" "$0""#).arg(&out);
+        detach(command).unwrap();
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while !out.exists() && std::time::Instant::now() < until {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let seen = fs::read_to_string(&out).unwrap();
+        let _ = fs::remove_dir_all(&dir);
+        assert_eq!(seen.lines().collect::<Vec<_>>(), ["/dev/null", "/dev/null", "own"]);
+    }
+
+    #[test]
+    fn a_missing_program_says_so() {
+        let error = detach(std::process::Command::new("codedeck-no-such-program")).unwrap_err();
+        assert!(error.starts_with("codedeck-no-such-program: "), "{error}");
+    }
 }

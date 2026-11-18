@@ -262,7 +262,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
   const earlier = state.sessions.filter(isEarlier);
   const [showEarlier, setShowEarlier] = useState(false);
   const Fold = showEarlier ? ChevronDown : ChevronRight;
-  const pending = usePending(look?.path);
+  const pending = usePending(look?.path, state.sessions.map((s) => s.id));
   return (
     // No tint of its own (user, 2026-11-17): it stood out more than "Needs you"; a theme with zones colours the column
     <section className="flex min-h-0 flex-col border-b border-line">

@@ -13,11 +13,9 @@ pub fn terminal(place: &Place) -> Result<(), String> {
     if let Some(tmux) = &place.tmux {
         // `=name` matches the session's name exactly; the pane id finds its session too
         let target = tmux.session.as_ref().map_or_else(|| tmux.pane.clone(), |name| format!("={name}"));
-        return Command::new("x-terminal-emulator")
-            .args(["-e", "tmux", "attach-session", "-t", &target])
-            .spawn()
-            .map(drop)
-            .map_err(|e| format!("no terminal could be started: {e}"));
+        let mut command = Command::new("x-terminal-emulator");
+        command.args(["-e", "tmux", "attach-session", "-t", &target]);
+        return crate::apps::detach(command).map_err(|e| format!("no terminal could be started: {e}"));
     }
     let pid = place.pid.ok_or("CodeDeck does not know where this session runs")?;
     if raise_window_of(pid) {

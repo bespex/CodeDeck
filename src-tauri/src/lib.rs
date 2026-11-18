@@ -747,7 +747,9 @@ fn create_desktop_profile(dir: String, app: AppHandle) -> Result<String, String>
     let account = accounts::list().into_iter().find(|a| a.dir == dir).ok_or("unknown account")?;
     let tool = harness::by_id(Some(&account.harness)).ok_or("unknown tool")?;
     let (profile, command) = tool.new_desktop_profile(&account.name).ok_or("this tool's desktop app has no profiles")?;
-    std::process::Command::new(&command[0]).args(&command[1..]).spawn().map_err(|e| format!("{}: {e}", command[0]))?;
+    let mut start = std::process::Command::new(&command[0]);
+    start.args(&command[1..]);
+    apps::detach(start)?;
     accounts::set(&dir, "desktopProfile", serde_json::json!(profile))?;
     let _ = app.emit("accounts_changed", ());
     Ok(profile)
@@ -848,8 +850,9 @@ struct Pending {
 }
 
 /// The sessions started in tmux for a project that nothing was heard of yet.
+// Async: asked every few seconds, and tmux and /proc must not hold up the window
 #[tauri::command]
-fn pending_sessions(project: String, app: AppHandle) -> Vec<Pending> {
+async fn pending_sessions(project: String, app: AppHandle) -> Vec<Pending> {
     let root = Path::new(&project);
     let bridge = windows::bridge_for(&app, root);
     tmux::started_for(root).into_iter().filter(|(_, id)| !bridge.knows(id)).map(|(name, id)| Pending { name, id }).collect()
@@ -857,7 +860,7 @@ fn pending_sessions(project: String, app: AppHandle) -> Vec<Pending> {
 
 /// Opens such a session in a terminal (to see its question and answer it), or ends it.
 #[tauri::command]
-fn pending_session(project: String, name: String, end: bool) -> Result<(), String> {
+async fn pending_session(project: String, name: String, end: bool) -> Result<(), String> {
     // Only what CodeDeck started for this project: never an arbitrary tmux session
     if !tmux::started_for(Path::new(&project)).iter().any(|(n, _)| *n == name) {
         return Err("that session is not one CodeDeck started here (any more)".into());
@@ -869,8 +872,9 @@ fn pending_session(project: String, name: String, end: bool) -> Result<(), Strin
 }
 
 /// Goes into a session of a project: `door` is "desktop" (the tool's desktop app) or "terminal".
+// Async, so not on the main thread: it may read the session's log first and starts programs
 #[tauri::command]
-fn open_session(project: String, session: String, door: String, app: AppHandle) -> Result<(), String> {
+async fn open_session(project: String, session: String, door: String, app: AppHandle) -> Result<(), String> {
     let bridge = windows::bridge_for(&app, Path::new(&project));
     // A fresh session has not told its link yet: its log may have it already
     if door != "terminal" {
@@ -892,7 +896,9 @@ fn open_session(project: String, session: String, door: String, app: AppHandle) 
             // The app's data folder for the session's account, as set under Settings → Accounts
             let profile = account.as_deref().and_then(accounts::desktop_profile);
             let command = tool.desktop_command(remote, profile.as_deref()).ok_or("this tool has no desktop app to open it in")?;
-            std::process::Command::new(&command[0]).args(&command[1..]).spawn().map(drop).map_err(|e| format!("{}: {e}", command[0]))
+            let mut start = std::process::Command::new(&command[0]);
+            start.args(&command[1..]);
+            apps::detach(start)
         }
         _ => Err(format!("{door}: no such way in")),
     }

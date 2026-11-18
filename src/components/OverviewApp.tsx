@@ -178,7 +178,7 @@ function ProjectRow({ project }: { project: OverviewProject }) {
   const closeMenu = useCallback(() => setMenu(false), []);
   // A session that runs with another configuration than the project's
   const wrongAccount = (s: Session) => !!project.account && !!s.account && s.account !== project.account;
-  const pending = usePending(project.path, 5000);
+  const pending = usePending(project.path, (project.state?.sessions ?? []).map((s) => s.id), 5000);
   const go = (s: Session, door: "desktop" | "terminal" | "auto") => openSession(project.path, s.id, door).catch((e) => tell(String(e)));
   // Double click: Desktop where the session is reachable there, else its terminal
   const defaultDoor = (s: Session) => (s.place?.remote ? "desktop" : "terminal");
