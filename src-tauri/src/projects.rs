@@ -100,9 +100,9 @@ pub fn reorder(order: &[PathBuf]) -> Result<(), String> {
 /// How the list can be sorted, once; from then on it is an order like any dragged one.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SortBy {
-    /// By folder name
+    /// By path: the groups (the folders projects lie in) by name, in each the projects by name
     Name,
-    /// By the name of the AI configuration, then by folder name; projects without one come last
+    /// By the name of the AI configuration, then by path; projects without one come last
     Account,
     /// Today's list to the top; everything else keeps its order
     Daily,
@@ -134,8 +134,9 @@ fn reorder_in(file: &Path, order: &[PathBuf]) -> Result<(), String> {
 
 fn sort_in(file: &Path, by: SortBy, account_name: &dyn Fn(&str) -> Option<String>) -> Result<(), String> {
     let mut list = load(file);
-    let name = |p: &Listed| p.path.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
-    // The full path decides between two folders of the same name
+    // The path, not the folder's name: the overview groups projects by the folder they lie in, so the
+    // groups come in the order of their names too, each with its projects by name
+    let name = |p: &Listed| p.path.to_string_lossy().to_lowercase();
     let by_name = |a: &Listed, b: &Listed| name(a).cmp(&name(b)).then_with(|| a.path.cmp(&b.path));
     // `None` sorts first: without a configuration last, hence the flag in front
     let account = |p: &Listed| {
@@ -210,13 +211,14 @@ mod tests {
         assert_eq!(paths(&file), ["/p/Mid", "/p/Zeta", "/q/alpha", "/p/alpha", "/p/gone"]);
         assert!(load(&file)[0].daily, "a project keeps its settings when it moves");
         let none = |_: &str| None;
+        // By path: the folder first ("/p" before "/q"), then the name, case aside
         sort_in(&file, SortBy::Name, &none).unwrap();
-        assert_eq!(paths(&file), ["/p/alpha", "/q/alpha", "/p/gone", "/p/Mid", "/p/Zeta"]);
+        assert_eq!(paths(&file), ["/p/alpha", "/p/gone", "/p/Mid", "/p/Zeta", "/q/alpha"]);
         // Today's list to the top, the rest as it was
         set_in(&file, Path::new("/p/Zeta"), "daily", serde_json::json!(true)).unwrap();
         sort_in(&file, SortBy::Daily, &none).unwrap();
-        assert_eq!(paths(&file), ["/p/Mid", "/p/Zeta", "/p/alpha", "/q/alpha", "/p/gone"]);
-        // By the configuration's name ("Work" after "Private"), then by name; without one last
+        assert_eq!(paths(&file), ["/p/Mid", "/p/Zeta", "/p/alpha", "/p/gone", "/q/alpha"]);
+        // By the configuration's name ("Work" after "Private"), then by path; without one last
         set_in(&file, Path::new("/p/Zeta"), "account", serde_json::json!("/h/.claude-private")).unwrap();
         set_in(&file, Path::new("/q/alpha"), "account", serde_json::json!("/h/.claude")).unwrap();
         set_in(&file, Path::new("/p/gone"), "account", serde_json::json!("/h/.claude-private")).unwrap();

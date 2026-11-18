@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { AppWindow, ChevronRight, Eye, EyeOff, ListX, Loader, Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
+import { AppWindow, ChevronRight, ChevronsDownUp, ChevronsUpDown, Shapes, Eye, EyeOff, ListX, Loader, Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
 import { pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
 import { accountLook, useAccounts } from "../accounts";
 import { usePending } from "../pending";
@@ -7,6 +7,7 @@ import { AccountMark, MarkPicker, ProjectMark as SharedMark } from "./ProjectMar
 import { DONE_SHOWN_MS, needsYou, useNow } from "../attention";
 import { SessionBadge } from "./SessionBadge";
 import { plural, t } from "../i18n";
+import { loadCollapsed, nameIn, saveCollapsed, sectionsOf } from "../groups";
 
 // The overview of all projects (docs/UEBERSICHT.md): one window for every project, always there.
 // Calm by default: what waits, the projects with their sessions and status, which windows are
@@ -70,7 +71,15 @@ function ProjectMark({ project, size = 20 }: { project: OverviewProject; size?: 
 }
 
 /** Opens the picker for a project's mark, from its row menu. */
-let pickListener: ((project: OverviewProject) => void) | null = null;
+let pickListener: ((pick: Picking) => void) | null = null;
+
+/** Whose mark is chosen: one project, or every project of a group at once. */
+interface Picking {
+  name: string;
+  color: string;
+  mark: OverviewProject["mark"];
+  paths: string[];
+}
 
 /** A small icon button in a project's row: what changed there, or an action. Never taller than the
  *  row, so nothing moves when one appears. */
@@ -106,9 +115,8 @@ function relevant(s: Session, now: number): boolean {
 }
 
 /** The menu of a project's row: what is done now and then, kept out of sight (docs/UEBERSICHT.md). */
-function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () => void }) {
-  // Accounts in use or new; a backup copy is no configuration to run with
-  const accounts = useAccounts().filter((a) => a.kind !== "backup");
+/** A click anywhere closes the menu; not the click that opened it. */
+function useCloseOnClick(onClose: () => void) {
   useEffect(() => {
     const close = () => onClose();
     // Next tick: the click that opened the menu must not close it
@@ -118,11 +126,11 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
       window.removeEventListener("click", close);
     };
   }, [onClose]);
-  const plain = "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] hover:bg-overlay-hover";
-  const item = `${plain} text-slate-200`;
-  const label = project.label;
-  const line = <div className="my-1 h-px bg-overlay-line" />;
-  // Below the row where there is room, else above it: at the end of a long list it would leave the window
+}
+
+/** A row's or group's menu: below it where there is room, else above it, so that at the end of a long
+ *  list it does not leave the window. */
+function FloatingMenu({ children }: { children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   const [above, setAbove] = useState(false);
   useLayoutEffect(() => {
@@ -132,6 +140,23 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
   }, []);
   return (
     <div ref={box} onClick={(e) => e.stopPropagation()} className={`surface-overlay absolute ${above ? "bottom-[calc(100%-0.75rem)]" : "top-8"} right-2 z-30 flex w-64 flex-col rounded-lg p-1`}>
+      {children}
+    </div>
+  );
+}
+
+const menuPlain = "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] hover:bg-overlay-hover";
+const menuItem = `${menuPlain} text-slate-200`;
+const menuLine = <div className="my-1 h-px bg-overlay-line" />;
+
+function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () => void }) {
+  // Accounts in use or new; a backup copy is no configuration to run with
+  const accounts = useAccounts().filter((a) => a.kind !== "backup");
+  useCloseOnClick(onClose);
+  const [plain, item, line] = [menuPlain, menuItem, menuLine];
+  const label = project.label;
+  return (
+    <FloatingMenu>
       <button type="button" className={item} onClick={() => (onClose(), label ? void toggleProjectWindow(label) : void showProject(project.path))}>
         <MenuIcon>{!label ? <AppWindow className="size-3.5" /> : project.visible ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}</MenuIcon>
         <span className="flex-1">{label ? (project.visible ? t("Hide its window") : t("Show its window")) : t("Open")}</span>
@@ -146,7 +171,7 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
             <span className="flex-1">{t("On today's list")}</span>
             {project.daily && <Check className="size-3.5 text-slate-300" />}
           </button>
-          <button type="button" className={item} onClick={() => (onClose(), pickListener?.(project))}>
+          <button type="button" className={item} onClick={() => (onClose(), pickListener?.({ name: project.name, color: project.color, mark: project.mark, paths: [project.path] }))}>
             <MenuIcon>
               <ProjectMark project={project} size={14} />
             </MenuIcon>
@@ -188,7 +213,68 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
           </button>
         </>
       )}
-    </div>
+    </FloatingMenu>
+  );
+}
+
+/**
+ * The menu of a group: what the menu of a row sets, for every project in the group at once. A group
+ * has no settings of its own; it is its folder.
+ */
+function GroupMenu({ group, projects, onClose }: { group: string; projects: OverviewProject[]; onClose: () => void }) {
+  const accounts = useAccounts().filter((a) => a.kind !== "backup");
+  useCloseOnClick(onClose);
+  const all = (field: "daily" | "account", value: unknown) => {
+    onClose();
+    void Promise.all(projects.map((p) => setProject(p.path, field, value))).catch((e) => tell(String(e)));
+  };
+  // A check where every project agrees
+  const allDaily = projects.every((p) => p.daily);
+  const noneDaily = projects.every((p) => !p.daily);
+  const allOn = (dir: string | null) => projects.every((p) => (p.account ?? null) === dir);
+  const ring = (on: boolean) => <span className="size-3 rounded-full border-2" style={{ borderColor: on ? "var(--color-slate-300)" : "var(--color-slate-500)" }} />;
+  return (
+    <FloatingMenu>
+      <p className="px-2 pt-0.5 pb-1 text-[11px] text-slate-500">{t("For all {n} projects in {group}", { n: projects.length, group })}</p>
+      <button type="button" className={menuItem} onClick={() => all("daily", true)}>
+        <MenuIcon>{ring(true)}</MenuIcon>
+        <span className="flex-1">{t("Put all on today's list")}</span>
+        {allDaily && <Check className="size-3.5 text-slate-300" />}
+      </button>
+      <button type="button" className={menuItem} onClick={() => all("daily", false)}>
+        <MenuIcon>{ring(false)}</MenuIcon>
+        <span className="flex-1">{t("Take all off today's list")}</span>
+        {noneDaily && <Check className="size-3.5 text-slate-300" />}
+      </button>
+      <button type="button" className={menuItem} onClick={() => (onClose(), pickListener?.({ name: group, color: projects[0].color, mark: null, paths: projects.map((p) => p.path) }))}>
+        <MenuIcon>
+          <Shapes className="size-3.5" />
+        </MenuIcon>
+        <span className="flex-1">{t("Change the mark of all projects…")}</span>
+      </button>
+      {accounts.length > 0 && (
+        <>
+          {menuLine}
+          <p className="px-2 pt-0.5 pb-1 text-[11px] text-slate-500">{t("AI configuration their sessions run with")}</p>
+          {accounts.map((a) => (
+            <button key={a.dir} type="button" title={a.dir} className={menuItem} onClick={() => all("account", a.dir)}>
+              <MenuIcon>
+                <AccountMark account={a} size={14} />
+              </MenuIcon>
+              <span className="flex-1 truncate">{a.name}</span>
+              {allOn(a.dir) && <Check className="size-3.5 text-slate-300" />}
+            </button>
+          ))}
+          <button type="button" className={menuItem} onClick={() => all("account", null)}>
+            <MenuIcon>
+              <span className="size-2 rounded-full border border-slate-500" />
+            </MenuIcon>
+            <span className="flex-1 text-slate-400">{t("Not set")}</span>
+            {allOn(null) && <Check className="size-3.5 text-slate-300" />}
+          </button>
+        </>
+      )}
+    </FloatingMenu>
   );
 }
 
@@ -201,13 +287,71 @@ function MenuIcon({ children }: { children: ReactNode }) {
 let tellListener: ((text: string | null) => void) | null = null;
 const tell = (text: string) => tellListener?.(text);
 
+/**
+ * A group of projects: its folder's name, how many, and, folded away, what waits in it, marked as on
+ * the icons (a pill with the number that ask, a dot for a finished turn). "Waits for you" above the
+ * list shows every question anyway, folded or not.
+ */
+function GroupSection({ group, projects, first, folded, onFold, children }: { group: string; projects: OverviewProject[]; first: boolean; folded: boolean; onFold: () => void; children: ReactNode }) {
+  const now = useNow();
+  const [menu, setMenu] = useState(false);
+  const closeMenu = useCallback(() => setMenu(false), []);
+  const sessions = projects.flatMap((p) => (p.state?.sessions ?? []).filter((s) => relevant(s, now)));
+  const asks = sessions.filter((s) => needsYou(s) === "asks").length;
+  const done = sessions.some((s) => needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS);
+  return (
+    <>
+      <li
+        className={`group/g relative ${first ? "" : "mt-2"} border-t border-line/40 first:border-t-0`}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setMenu(true);
+        }}
+      >
+        {/* A heading between the projects: in the theme's accent, on a band of its own */}
+        <div className="flex h-8 items-center bg-raised/50 pr-3 hover:bg-raised">
+          <button
+            type="button"
+            onClick={onFold}
+            aria-expanded={!folded}
+            title={folded ? t("Show the projects of {group}", { group }) : t("Fold {group} away", { group })}
+            className="flex h-full min-w-0 flex-1 items-center gap-1.5 pl-2 text-left text-[12px] font-semibold tracking-wider text-ai uppercase"
+          >
+            <ChevronRight className={`size-3.5 shrink-0 transition-transform ${folded ? "" : "rotate-90"}`} />
+            <span className="min-w-0 truncate">{group}</span>
+            <span className="font-normal text-slate-400">{projects.length}</span>
+          </button>
+          {/* On hover, left of the marks: its place is kept, so the marks never move */}
+          <span className={menu ? "visible" : "invisible group-hover/g:visible"}>
+            <RowIcon title={t("For all projects in {group}", { group })} onClick={() => setMenu(true)}>
+              <Ellipsis className="size-4" />
+            </RowIcon>
+          </span>
+          {folded && (asks > 0 || done) && (
+            <span className="ml-1.5 flex items-center gap-1.5">
+              {asks > 0 && (
+                <span title={t("{n} asking", { n: asks })} className="flex h-4 min-w-4 items-center justify-center rounded-full bg-changed px-1 text-[10px] leading-none font-bold text-[#14161a]">
+                  {Math.min(asks, 99)}
+                </span>
+              )}
+              {done && <span title={t("A turn is done")} className="size-3 rounded-full border-2 border-white bg-added" />}
+            </span>
+          )}
+        </div>
+        {menu && <GroupMenu group={group} projects={projects} onClose={closeMenu} />}
+      </li>
+      {!folded && children}
+    </>
+  );
+}
+
 /** The dragged project's head, hanging at the pointer. */
-function DragGhost({ project, at }: { project: OverviewProject | undefined; at: { left: number; top: number; width: number } }) {
+function DragGhost({ project, name, at }: { project: OverviewProject | undefined; name: string; at: { left: number; top: number; width: number } }) {
   if (!project) return null;
   return (
     <div style={{ left: at.left, top: at.top, width: at.width }} className="surface-overlay pointer-events-none fixed z-50 flex h-9 items-center gap-2 rounded-md pr-2 pl-3 shadow-lg select-none">
       <ProjectMark project={project} />
-      <span className="min-w-0 truncate text-[14px] font-semibold text-slate-100">{project.name}</span>
+      <span className="min-w-0 truncate text-[14px] font-semibold text-slate-100">{name}</span>
     </div>
   );
 }
@@ -220,9 +364,11 @@ interface RowDrag {
   line: DropLine;
   /** This row is the one being dragged: its place stays, faint, while its ghost follows the pointer */
   dragged: boolean;
+  /** Its group: a project moves within its group only, the group is its folder */
+  group: string;
 }
 
-function ProjectRow({ project, drag }: { project: OverviewProject; drag?: RowDrag }) {
+function ProjectRow({ project, name, drag }: { project: OverviewProject; name: string; drag?: RowDrag }) {
   const now = useNow();
   const sessions = (project.state?.sessions ?? []).filter((s) => relevant(s, now));
   const label = project.label;
@@ -247,7 +393,7 @@ function ProjectRow({ project, drag }: { project: OverviewProject; drag?: RowDra
   // Double click: Desktop where the session is reachable there, else its terminal
   const defaultDoor = (s: Session) => (s.place?.remote ? "desktop" : "terminal");
   return (
-    <li data-project={drag ? project.path : undefined} className={`relative border-t border-line/40 py-1 first:border-t-0 ${drag?.dragged ? "opacity-35" : ""}`}>
+    <li data-project={drag ? project.path : undefined} data-group={drag?.group} className={`relative border-t border-line/40 py-1 first:border-t-0 ${drag?.dragged ? "opacity-35" : ""}`}>
       {/* Where the dragged project would land */}
       {drag?.line && <span className={`pointer-events-none absolute right-2 left-2 z-10 h-0.5 rounded-full bg-ai ${drag.line === "before" ? "-top-px" : "-bottom-px"}`} />}
       <div
@@ -283,7 +429,9 @@ function ProjectRow({ project, drag }: { project: OverviewProject; drag?: RowDra
         >
           <ProjectMark project={project} />
         </button>
-        <span className={`min-w-0 truncate text-[14px] ${label ? "font-semibold text-slate-100" : "text-slate-400"}`}>{project.name}</span>
+        <span title={name === project.name ? undefined : project.name} className={`min-w-0 truncate text-[14px] ${label ? "font-semibold text-slate-100" : "text-slate-400"}`}>
+          {name}
+        </span>
         {project.account && (
           <span title={`${t("AI configuration")}: ${look(project.account).name}`} className="flex shrink-0">
             <AccountMark account={look(project.account)} size={16} />
@@ -522,8 +670,8 @@ function MoreMenu({ host }: { host: string | null }) {
       </button>
       {open && (
         <div className="surface-overlay absolute top-9 right-0 z-20 flex w-64 flex-col rounded-lg p-1">
-          <button type="button" disabled={!host} title={host ? undefined : t("Settings: open a project first")} className={item} onClick={() => inWindow("settings")}>
-            {t("Settings")}
+          <button type="button" className={item} title={t("Choose a folder: every folder in it goes on the list")} onClick={() => void addAllIn()}>
+            {t("All projects in a folder…")}
           </button>
           <div className="my-1 h-px bg-overlay-line" />
           {/* Folds out in place: the overview is too narrow for a submenu beside the menu */}
@@ -545,8 +693,9 @@ function MoreMenu({ host }: { host: string | null }) {
                 {t(label)}
               </button>
             ))}
-          <button type="button" className={item} title={t("Choose a folder: every folder in it goes on the list")} onClick={() => void addAllIn()}>
-            {t("All projects in a folder…")}
+          <div className="my-1 h-px bg-overlay-line" />
+          <button type="button" disabled={!host} title={host ? undefined : t("Settings: open a project first")} className={item} onClick={() => inWindow("settings")}>
+            {t("Settings")}
           </button>
           <div className="my-1 h-px bg-overlay-line" />
           <button type="button" disabled={!host} className={item} onClick={() => inWindow("shortcuts")}>
@@ -569,21 +718,45 @@ function MoreMenu({ host }: { host: string | null }) {
 export default function OverviewApp() {
   const [projects, setProjects] = useOverview();
   // Dragging a project: which one, and where it would land
+  // Groups folded away, kept on this machine
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
+  const fold = (group: string) =>
+    setCollapsed((old) => {
+      const next = new Set(old);
+      if (!next.delete(group)) next.add(group);
+      saveCollapsed(next);
+      return next;
+    });
+  // Fold every group away or show them all (the toolbar)
+  const groups = sectionsOf(projects).flatMap((s) => (s.group ? [s.group] : []));
+  const setAll = (folded: boolean) => {
+    const next = folded ? new Set([...collapsed, ...groups]) : new Set([...collapsed].filter((g) => !groups.includes(g)));
+    saveCollapsed(next);
+    setCollapsed(next);
+  };
+  // The name a project shows in its group, for the dragged row's ghost
+  const dragName = (path: string) => {
+    const section = sectionsOf(projects).find((s) => s.items.some((p) => p.path === path));
+    const p = projects.find((q) => q.path === path);
+    return p ? nameIn(p.name, section?.group ?? null) : "";
+  };
   // The ghost: the dragged row's head hangs at the pointer, at the height it was grabbed
   const [drag, setDrag] = useState<{ from: string; over: { path: string; line: "before" | "after" } | null; ghost: { left: number; top: number; width: number } } | null>(null);
   const mine = projects.filter((p) => p.listed).map((p) => p.path);
-  const dragOf = (p: OverviewProject): RowDrag | undefined => {
+  const dragOf = (p: OverviewProject, group: string | null): RowDrag | undefined => {
     // Only my projects have a place in the list; the others stand below it as they come
     if (!p.listed) return undefined;
+    const within = group ?? "";
     const shown = drag?.over?.path === p.path && moved(mine, drag.from, p.path, drag.over.line);
     return {
       line: shown ? drag!.over!.line : null,
       dragged: drag?.from === p.path,
-      onPointerDown: (e) => e.button === 0 && follow(p.path, e.clientX, e.clientY, e.currentTarget.getBoundingClientRect()),
+      group: within,
+      onPointerDown: (e) => e.button === 0 && follow(p.path, within, e.clientX, e.clientY, e.currentTarget.getBoundingClientRect()),
     };
   };
   // A press becomes a drag once the pointer has moved a little; until then it is a click
-  const follow = (from: string, x0: number, y0: number, head: DOMRect) => {
+  const follow = (from: string, group: string, x0: number, y0: number, head: DOMRect) => {
     const order = mine;
     let active = false;
     let over: { path: string; line: "before" | "after" } | null = null;
@@ -596,8 +769,8 @@ export default function OverviewApp() {
         // A selection begun with the press would otherwise grow over every row the pointer passes
         window.getSelection()?.removeAllRanges();
       }
-      // The row under the pointer; above the first or below the last, that one
-      const rows = [...document.querySelectorAll<HTMLElement>("li[data-project]")];
+      // The row of its group under the pointer; above the first or below the last, that one
+      const rows = [...document.querySelectorAll<HTMLElement>(`li[data-project][data-group="${CSS.escape(group)}"]`)];
       const boxes = rows.map((r) => r.getBoundingClientRect());
       const at = boxes.findIndex((b) => e.clientY >= b.top && e.clientY < b.bottom);
       const i = at >= 0 ? at : boxes.length && e.clientY < boxes[0].top ? 0 : rows.length - 1;
@@ -627,7 +800,7 @@ export default function OverviewApp() {
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
   };
-  const [picking, setPicking] = useState<OverviewProject | null>(null);
+  const [picking, setPicking] = useState<Picking | null>(null);
   useEffect(() => {
     pickListener = setPicking;
     return () => void (pickListener = null);
@@ -669,6 +842,17 @@ export default function OverviewApp() {
       <header className="zone-tabs area-ai flex h-10 shrink-0 items-center gap-1 border-b border-line pr-2 pl-3">
         <img src="/codedeck.svg" alt="" className="size-[18px]" />
         <span className="flex-1" />
+        {groups.length > 0 && (
+          <>
+            <button type="button" title={t("Fold all groups away")} onClick={() => setAll(true)} disabled={groups.every((g) => collapsed.has(g))} className={toolButton}>
+              <ChevronsDownUp className="size-4" />
+            </button>
+            <button type="button" title={t("Show all groups")} onClick={() => setAll(false)} disabled={groups.every((g) => !collapsed.has(g))} className={toolButton}>
+              <ChevronsUpDown className="size-4" />
+            </button>
+            <span className="mx-1 h-4 w-px bg-line" />
+          </>
+        )}
         <button
           type="button"
           title={toStart ? t("Start today's list: {n} without a running session", { n: toStart }) : t("Start today's list (set in a project's menu)")}
@@ -690,16 +874,24 @@ export default function OverviewApp() {
         {projects.length ? (
           // Nothing here to select; a press that becomes a drag must not mark text on its way
           <ul className="select-none">
-            {projects.map((p) => (
-              <ProjectRow key={p.path} project={p} drag={dragOf(p)} />
-            ))}
+            {sectionsOf(projects).map((section, i) =>
+              section.group === null ? (
+                section.items.map((p) => <ProjectRow key={p.path} project={p} name={p.name} drag={dragOf(p, null)} />)
+              ) : (
+                <GroupSection key={`g:${section.group}`} group={section.group} projects={section.items} first={i === 0} folded={collapsed.has(section.group)} onFold={() => fold(section.group!)}>
+                  {section.items.map((p) => (
+                    <ProjectRow key={p.path} project={p} name={nameIn(p.name, section.group)} drag={dragOf(p, section.group)} />
+                  ))}
+                </GroupSection>
+              ),
+            )}
           </ul>
         ) : (
           <p className="px-3 py-2 text-[12px] text-slate-500">{t("No projects yet. + adds one; its window opens when you click it.")}</p>
         )}
       </main>
       <Told />
-      {drag && <DragGhost project={projects.find((p) => p.path === drag.from)} at={drag.ghost} />}
+      {drag && <DragGhost project={projects.find((p) => p.path === drag.from)} name={dragName(drag.from)} at={drag.ghost} />}
       {picking && (
         <MarkPicker
           name={picking.name}
@@ -707,7 +899,7 @@ export default function OverviewApp() {
           mark={picking.mark}
           onCancel={() => setPicking(null)}
           onDone={(mark) => {
-            void setProject(picking.path, "mark", mark);
+            void Promise.all(picking.paths.map((path) => setProject(path, "mark", mark))).catch((e) => tell(String(e)));
             setPicking(null);
           }}
         />

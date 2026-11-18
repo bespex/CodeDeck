@@ -116,6 +116,16 @@ arbeitet, nicht nur die gerade offenen:
   `⋯` (klappt auf) ordnet die Liste einmal neu, kein Modus: danach zieht man weiter. Nach Projektnamen · nach
   KI-Konfiguration (deren Name), dann Projektnamen, ohne Konfiguration zuletzt · Tagesliste nach oben, sonst
   bleibt die Reihenfolge. Neue Projekte kommen ans Ende.
+- **Gruppen** (2026-11-18, `src/groups.ts`): die Ordner, in denen die Projekte liegen, unterhalb des Ordners,
+  den alle teilen (bei `~/projects/bespex/…` und `~/projects/tsobss/…` die Gruppen „bespex“ und „tsobss“).
+  Nichts einzustellen; eine Gruppe aus einem Projekt ist keine. Projekte ohne Gruppe stehen oben, die Gruppen
+  folgen in der Reihenfolge ihres ersten Projekts. In der Gruppe fällt der Gruppenname vorn weg
+  („tsobss-nms“ → „nms“). Der Gruppenkopf ist eine Zwischenüberschrift (Akzentfarbe, eigenes Band) mit Pfeil
+  zum Zuklappen; zugeklappt trägt er Pille (fragt) und Punkt (fertig) wie die Icons. Zugeklappt wird je
+  Rechner gemerkt; oben in der Werkzeugleiste alle zu- oder aufklappen. Kein Icon je Gruppe (der Pfeil
+  reicht); ihr Menü (Rechtsklick, `⋯`) setzt für alle Projekte darin auf einmal: Tagesliste an/aus, Marke,
+  KI-Konfiguration. Ziehen bleibt in der Gruppe; „Nach Projektnamen“ sortiert nach Pfad, also Gruppen und
+  Projekte darin alphabetisch.
 - **Tagesliste** (`SITZUNGEN.md` A12) ist eine Eigenschaft eines Projekts in dieser Liste (Stern im Menü der
   Zeile), keine eigene Liste mehr. ▶ in der Werkzeugleiste startet die Sitzungen aller Projekte mit Stern.
 - Projekte, die nicht in der Liste stehen, aber eine laufende Sitzung haben (von Hand gestartet), erscheinen

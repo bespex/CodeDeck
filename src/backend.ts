@@ -1436,7 +1436,7 @@ export interface ProjectLook {
 
 export function myProject(): Promise<ProjectLook | null> {
   if (live) return invoke("my_project");
-  return Promise.resolve({ path: "/home/me/projects/orbit-api", name: "orbit-api", color: "#7f95ff", mark: { kind: "icon", value: "satellite" }, account: "/home/me/.claude" });
+  return Promise.resolve({ path: "/home/me/projects/acme/acme-orbit-api", name: "orbit-api", color: "#7f95ff", mark: { kind: "icon", value: "satellite" }, account: "/home/me/.claude" });
 }
 
 /** Sets the window's icon to these RGBA pixels (`size` × `size`). */
@@ -1458,7 +1458,7 @@ export function onProjectChanged(callback: (path: string) => void): () => void {
 export const isOverview = new URLSearchParams(window.location.search).get("view") === "overview";
 
 const mockOverview = (): OverviewProject[] => [
-  { label: "w1", name: "orbit-api", path: "/home/me/projects/orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", uncommitted: 3, next: mockAssistant.attachments.length, news: 0 }, front: true, listed: true, visible: true, daily: true, account: "/home/me/.claude", mark: { kind: "icon", value: "satellite" } },
+  { label: "w1", name: "acme-orbit-api", path: "/home/me/projects/acme/acme-orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", uncommitted: 3, next: mockAssistant.attachments.length, news: 0 }, front: true, listed: true, visible: true, daily: true, account: "/home/me/.claude", mark: { kind: "icon", value: "satellite" } },
   {
     label: "w2",
     name: "ai-driven-development",
@@ -1473,7 +1473,7 @@ const mockOverview = (): OverviewProject[] => [
     account: "/home/me/.claude-private",
     mark: { kind: "emoji", value: "🧠" },
   },
-  { label: null, name: "billing-ui", path: "/home/me/projects/billing-ui", color: "#c3cf6c", state: null, summary: null, front: false, listed: true, visible: false, daily: false, account: null, mark: null },
+  { label: null, name: "billing-ui", path: "/home/me/projects/acme/billing-ui", color: "#c3cf6c", state: null, summary: null, front: false, listed: true, visible: false, daily: false, account: null, mark: null },
 ];
 
 export function overviewState(): Promise<OverviewProject[]> {
@@ -1513,7 +1513,7 @@ export function sortProjects(by: ProjectSort): Promise<void> {
   if (live) return invoke("sort_projects", { by });
   const listed = mockOverview().filter((p) => p.listed);
   const ranked = [...listed].sort((a, b) => (mockOrder.indexOf(a.path) + 1 || Infinity) - (mockOrder.indexOf(b.path) + 1 || Infinity));
-  const name = (p: OverviewProject) => p.name.toLowerCase();
+  const name = (p: OverviewProject) => p.path.toLowerCase();
   const byName = (a: OverviewProject, b: OverviewProject) => name(a).localeCompare(name(b)) || a.path.localeCompare(b.path);
   const sorted =
     by === "daily"
