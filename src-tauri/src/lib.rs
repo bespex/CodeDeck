@@ -5,6 +5,7 @@
 //! which coding tools report what they do (see [`hub`], [`harness`]).
 
 mod accounts;
+mod autostart;
 mod apps;
 mod attention;
 mod bridge;
@@ -817,14 +818,27 @@ fn start_in(app: &AppHandle, root: &Path, fresh: bool) -> Result<Option<String>,
     // Started by CodeDeck earlier and silent so far: the tool probably waits for a question, e.g.
     // whether to trust the folder. Another one would only wait beside it (user, 2026-11-18: eight)
     if !fresh {
-        if let Some((name, _)) = tmux::started_for(root).first() {
+        let ours = tmux::started_for(root);
+        // One of them reported: it runs, even if its log says nothing of it yet
+        if ours.iter().any(|s| bridge.knows(&s.id)) {
+            return Ok(None);
+        }
+        if let Some(silent) = ours.first() {
+            let name = &silent.name;
             return Err(format!("{SILENT_START} ({name}) has not reported yet. It probably waits for a question, e.g. whether to trust this folder: open it with  tmux attach -t {name}"));
         }
     }
     let account = projects::list().into_iter().find(|p| p.path == root).and_then(|p| p.account);
     let tool = harness::all().first().copied().ok_or("no tool")?;
     let (_, name) = tmux::start(root, tool, account.as_deref(), if fresh { None } else { resume.as_deref() })?;
+    started(app);
     Ok(Some(name))
+}
+
+/// Tells every window that a session was started in tmux: its "Starting…" row shows at once, not
+/// at the next look at tmux.
+fn started(app: &AppHandle) {
+    let _ = app.emit("sessions_started", ());
 }
 
 /// Starts a session in one project: `fresh` a new conversation, else the last one continues.
@@ -839,10 +853,37 @@ async fn start_session(project: String, fresh: bool, app: AppHandle) -> Result<O
 /// other (docs/SITZUNGEN.md A12). The names of the projects started and of those skipped.
 #[tauri::command]
 async fn start_today(app: AppHandle) -> Result<(Vec<String>, Vec<String>), String> {
+    today(&app)
+}
+
+/// The machine setting that starts today's list when CodeDeck starts ("at start", A12).
+const TODAY_AT_START: &str = "startTodayAtStart";
+
+/// At the start of the process, if the user wants it: today's list, once every project on it
+/// knows what runs there (else a quiet running session would be started a second time). The
+/// windows hear the outcome (`today_started`).
+fn today_at_start(app: &AppHandle) {
+    if config::machine_settings().get(TODAY_AT_START).and_then(|v| v.as_bool()) != Some(true) {
+        return;
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        for project in projects::list().into_iter().filter(|p| p.daily) {
+            windows::bridge_for(&app, &project.path).wait_loaded(std::time::Duration::from_secs(20));
+        }
+        let outcome = today(&app);
+        if let Err(e) = &outcome {
+            eprintln!("codedeck: today's list: {e}");
+        }
+        let _ = app.emit("today_started", outcome);
+    });
+}
+
+fn today(app: &AppHandle) -> Result<(Vec<String>, Vec<String>), String> {
     let (mut started, mut skipped) = (Vec::new(), Vec::new());
     for project in projects::list().into_iter().filter(|p| p.daily) {
         let name = project.path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
-        match start_in(&app, &project.path, false) {
+        match start_in(app, &project.path, false) {
             Ok(Some(_)) => {
                 started.push(name);
                 // A breath between two: every tool start reads its configuration and logs in
@@ -874,6 +915,7 @@ async fn stop_session(project: String, session: String, restart: bool, app: AppH
         let tool = harness::by_id(Some(harness_id)).ok_or("unknown tool")?;
         let account = projects::list().into_iter().find(|p| p.path == root).and_then(|p| p.account).or(account);
         tmux::start(&root, tool, account.as_deref(), Some(&session))?;
+        started(&app);
     }
     Ok(())
 }
@@ -886,6 +928,10 @@ struct Pending {
     name: String,
     /// The id of the session it will become
     id: String,
+    /// When it was started, Unix milliseconds: at first it is starting, later it probably waits
+    since: u64,
+    /// The command it was started with, if CodeDeck kept it
+    command: Option<String>,
 }
 
 /// The sessions started in tmux for a project that nothing was heard of yet.
@@ -894,20 +940,57 @@ struct Pending {
 async fn pending_sessions(project: String, app: AppHandle) -> Vec<Pending> {
     let root = Path::new(&project);
     let bridge = windows::bridge_for(&app, root);
-    tmux::started_for(root).into_iter().filter(|(_, id)| !bridge.knows(id)).map(|(name, id)| Pending { name, id }).collect()
+    tmux::started_for(root)
+        .into_iter()
+        .filter(|s| !bridge.knows(&s.id))
+        .map(|s| Pending { command: tmux::command_of(&s.name), name: s.name, id: s.id, since: s.since })
+        .collect()
 }
 
 /// Opens such a session in a terminal (to see its question and answer it), or ends it.
 #[tauri::command]
 async fn pending_session(project: String, name: String, end: bool) -> Result<(), String> {
     // Only what CodeDeck started for this project: never an arbitrary tmux session
-    if !tmux::started_for(Path::new(&project)).iter().any(|(n, _)| *n == name) {
+    if !tmux::started_for(Path::new(&project)).iter().any(|s| s.name == name) {
         return Err("that session is not one CodeDeck started here (any more)".into());
     }
     if end {
         return tmux::stop(&name);
     }
     doors::terminal(&harness::Place { tmux: Some(harness::Tmux { pane: String::new(), session: Some(name) }), ..Default::default() })
+}
+
+/// Whether CodeDeck starts at login (in the tray), and with which program.
+#[tauri::command]
+fn autostart_state() -> autostart::State {
+    autostart::state()
+}
+
+/// Starts CodeDeck at login with this program, or no longer.
+#[tauri::command]
+fn set_autostart(on: bool) -> Result<autostart::State, String> {
+    autostart::set(on)?;
+    Ok(autostart::state())
+}
+
+/// How a session CodeDeck started in tmux was started, and how it is ended (nothing happens out of
+/// sight, docs/SITZUNGEN.md A3). `None` for a session CodeDeck did not start.
+#[derive(serde::Serialize)]
+struct Commands {
+    /// `None` when CodeDeck started it before it kept the command
+    start: Option<String>,
+    /// The tool's part of it, to be read at a glance
+    tool: Option<String>,
+    stop: String,
+}
+
+#[tauri::command]
+async fn session_commands(project: String, name: String) -> Option<Commands> {
+    // Only what CodeDeck started for this project: never an arbitrary tmux session
+    if !tmux::started_for(Path::new(&project)).iter().any(|s| s.name == name) {
+        return None;
+    }
+    Some(Commands { start: tmux::command_of(&name), tool: tmux::tool_command_of(&name), stop: tmux::stop_command(&name) })
 }
 
 /// Goes into a session of a project: `door` is "desktop" (the tool's desktop app) or "terminal".
@@ -978,17 +1061,27 @@ pub(crate) const GIT_RAN: &str = "git_ran";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let project = match Project::from_args() {
-        Ok(project) => project,
-        Err(message) => {
-            eprintln!("codedeck: {message}");
-            std::process::exit(2);
+    // At login (`--tray`): no window, the overview waits in the tray; nothing to do if CodeDeck runs
+    let tray_only = std::env::args().nth(1).as_deref() == Some(autostart::TRAY);
+    let project = if tray_only {
+        if hub::running() {
+            return;
         }
+        None
+    } else {
+        let project = match Project::from_args() {
+            Ok(project) => project,
+            Err(message) => {
+                eprintln!("codedeck: {message}");
+                std::process::exit(2);
+            }
+        };
+        // This program runs already: it opens the window, this start ends here
+        if hub::hand_over(&project.root) {
+            return;
+        }
+        Some(project)
     };
-    // This program runs already: it opens the window, this start ends here
-    if hub::hand_over(&project.root) {
-        return;
-    }
 
     tauri::Builder::default()
         .manage(Windows::default())
@@ -1030,12 +1123,16 @@ pub fn run() {
             }
             // Every project on my list hears its sessions, window or not
             windows::listen_to_my_projects(app.handle());
+            today_at_start(app.handle());
             tray::start(app.handle());
-            windows::open(app.handle(), project)?;
-            // The overview of all projects comes along (docs/UEBERSICHT.md; to become a setting)
+            if let Some(project) = project {
+                windows::open(app.handle(), project)?;
+            }
+            // The overview of all projects comes along (docs/UEBERSICHT.md); at login hidden in the tray
             let handle = app.handle().clone();
             std::thread::spawn(move || {
-                if let Err(e) = windows::toggle_overview(&handle) {
+                let made = if tray_only { windows::hidden_overview(&handle) } else { windows::toggle_overview(&handle) };
+                if let Err(e) = made {
                     eprintln!("codedeck: overview: {e}");
                 }
                 // The first project window opened before the overview stood: beside it now
@@ -1127,6 +1224,9 @@ pub fn run() {
             open_session,
             pending_sessions,
             pending_session,
+            session_commands,
+            autostart_state,
+            set_autostart,
             start_session,
             accounts_list,
             set_account,

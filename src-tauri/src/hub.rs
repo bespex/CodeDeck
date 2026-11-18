@@ -97,6 +97,12 @@ fn serve(app: &AppHandle, mut stream: UnixStream) {
     let _ = stream.write_all(json!({ "contexts": contexts, "windows": bridges.len() }).to_string().as_bytes());
 }
 
+/// Whether a CodeDeck runs already from this same program and listens.
+pub fn running() -> bool {
+    let Some(pid) = instance_file().and_then(|f| std::fs::read_to_string(f).ok()).and_then(|t| t.trim().parse::<u32>().ok()) else { return false };
+    Path::new(&format!("/proc/{pid}")).exists() && UnixStream::connect(crate::hook::socket_dir().join(format!("{pid}.sock"))).is_ok()
+}
+
 /// Hands the folder to a CodeDeck already running from this same program; whether one took it.
 pub fn hand_over(folder: &Path) -> bool {
     let Some(file) = instance_file() else { return false };

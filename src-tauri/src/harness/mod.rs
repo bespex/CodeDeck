@@ -97,6 +97,12 @@ pub trait Harness: Send + Sync {
     fn remote_link(&self, _var: &dyn Fn(&str) -> Option<String>) -> Option<String> {
         None
     }
+    /// The sessions of the project whose process runs right now, with where it runs, as far as the
+    /// tool keeps a record of it. A log alone cannot tell a quiet running session from one whose
+    /// window was closed; after a restart of CodeDeck this can, before the session says anything.
+    fn running(&self, _project: &Path) -> Vec<(String, Place)> {
+        Vec::new()
+    }
 }
 
 /// What a tool, or one of its sessions, lets CodeDeck do. The interface offers only what is here.

@@ -520,14 +520,14 @@ App-Menü.
 
 | # | Frage | Vorschlag |
 |---|---|---|
-| 1 | Zuhause für von CodeDeck gestartete Sitzungen | tmux, mit Remote Control (B7 begründet, warum nicht `--bg`) |
+| 1 | Zuhause für von CodeDeck gestartete Sitzungen | **entschieden (Nutzer, 2026-11-18):** tmux, mit Remote Control (B7 begründet, warum nicht `--bg`) |
 | 2 | Standardtür beim Doppelklick | **entschieden (Nutzer, 2026-11-17):** Desktop, wo vorhanden, sonst Terminal; Mittelklick immer Terminal; änderbar in den Einstellungen |
-| 3 | CodeDeck tippt nie in eine Sitzung, auch nicht für New task | ja |
-| 4 | Remote Control für neue Sitzungen vorgegeben an | ja |
-| 5 | Kein „Umziehen nach Desktop“ | ja, Desktop kommt über Remote Control dazu |
+| 3 | CodeDeck tippt nie in eine Sitzung, auch nicht für New task | **entschieden (Nutzer, 2026-11-18):** ja |
+| 4 | Remote Control für neue Sitzungen vorgegeben an | **entschieden (Nutzer, 2026-11-18):** ja |
+| 5 | Kein „Umziehen nach Desktop“ | **entschieden (Nutzer, 2026-11-18):** ja, Desktop kommt über Remote Control dazu |
 | 6 | Nach einem Neustart | fragen (Vorgabe), wahlweise automatisch; Warnung beim Herunterfahren, solange eine Sitzung arbeitet |
 | 7 | Remote Control wiederherstellen | per Neustart mit `--fork-session` (neuer Eintrag in der App), nie per Tippen; automatisch nur beim Wiederherstellen nach dem Neustart, sonst Knopf |
 | 8 | Tagesliste | **entschieden (Nutzer, 2026-11-17):** eine Sitzung je Projekt; ▶ setzt fort, frisch beginnen über Restart/New task; „▶ All“ überspringt Laufendes |
 | 9 | Automatischer Start der Tagesliste | **entschieden:** beim Start von CodeDeck reicht („at start“) |
 | 10 | Startseite | **entschieden:** ohne offenes Projekt die Leiste als Startseite; mit Projekt keine eigene Startseite, sondern „Wartet auf dich“ über alle Projekte und die Tagesliste im Projektmenü; Projekt schließen → Startseite |
-| 11 | CodeDeck bei der Anmeldung starten, nur im Tray | offen; Nutzer findet es gut, Entscheidung mit 3.5 |
+| 11 | CodeDeck bei der Anmeldung starten, nur im Tray | **entschieden (Nutzer, 2026-11-18):** ja, als Einstellung; gebaut mit 3.5. Weitere Listen und Warnungen mit Behebung vorerst nicht |

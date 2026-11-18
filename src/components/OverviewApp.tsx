@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { AppWindow, ChevronRight, ChevronsDownUp, ChevronsUpDown, Shapes, Eye, EyeOff, ListX, Loader, Check, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
-import { pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
+import { AppWindow, ChevronRight, ChevronsDownUp, ChevronsUpDown, Shapes, Eye, EyeOff, ListX, Loader, Check, Copy, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
+import { onTodayStarted, sessionCommands, pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
 import { accountLook, useAccounts } from "../accounts";
 import { usePending } from "../pending";
 import { AccountMark, MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
@@ -284,6 +284,17 @@ function MenuIcon({ children }: { children: ReactNode }) {
   return <span className="flex size-4 shrink-0 items-center justify-center">{children}</span>;
 }
 
+/** Copies a start command and says so: nothing CodeDeck runs is out of sight. */
+function copyCommand(command: string) {
+  void navigator.clipboard.writeText(command).then(() => tell(t("Copied: {command}", { command })));
+}
+
+async function copyStartOf(project: string, name: string) {
+  const commands = await sessionCommands(project, name).catch(() => null);
+  if (commands?.start) copyCommand(commands.start);
+  else tell(commands ? t("Started before CodeDeck kept the command") : t("CodeDeck did not start it: it ends where it was started."));
+}
+
 /** Says for a moment why a way into a session did not work. */
 let tellListener: ((text: string | null) => void) | null = null;
 const tell = (text: string) => tellListener?.(text);
@@ -486,7 +497,7 @@ function ProjectRow({ project, name, drag }: { project: OverviewProject; name: s
             <li
               key={p.name}
               onDoubleClick={() => void pendingSession(project.path, p.name, false).catch((e) => tell(String(e)))}
-              title={t("Nothing reported yet: it may ask a question, e.g. whether to trust the folder.")}
+              title={p.waits ? t("Nothing reported yet: it may ask a question, e.g. whether to trust the folder.") : t("In tmux {name}", { name: p.name })}
               className="group/s flex h-7 cursor-default items-center gap-2 pr-2 pl-9 text-[12px] hover-session"
             >
               <span className="flex size-4 shrink-0 items-center justify-center rounded border border-dashed border-slate-500/60 text-slate-400">
@@ -495,10 +506,11 @@ function ProjectRow({ project, name, drag }: { project: OverviewProject; name: s
               <span className="min-w-0 flex-1 truncate text-slate-400">{t("Starting…")}</span>
               <HoverTools show="group-hover/s:flex">
                 <Tool icon={SquareTerminal} label={t("Open it in a terminal, answer, and leave with Ctrl+B, D")} onClick={() => void pendingSession(project.path, p.name, false).catch((e) => tell(String(e)))} />
+                {p.command && <Tool icon={Copy} label={t("Copy how it was started")} says={p.command} onClick={() => copyCommand(p.command!)} />}
                 <ToolGap />
                 <Tool icon={Power} label={t("End this session (nothing is lost; it never began)")} onClick={() => void pendingSession(project.path, p.name, true).catch((e) => tell(String(e)))} />
               </HoverTools>
-              <span className="shrink-0 text-[11px] text-changed">{t("waits in tmux")}</span>
+              <span className={`shrink-0 text-[11px] ${p.waits ? "text-changed" : "text-slate-400"}`}>{p.waits ? t("waits in tmux") : t("starting")}</span>
             </li>
           ))}
           {sessions.map((s) => {
@@ -523,6 +535,7 @@ function ProjectRow({ project, name, drag }: { project: OverviewProject; name: s
                   {/* Ways into it first, then what changes its process, apart */}
                   {s.place?.remote && <Tool icon={Monitor} label={t("Open in the desktop app")} hint={defaultDoor(s) === "desktop" ? t("Also: double-click the session") : undefined} onClick={() => void go(s, "desktop")} />}
                   <Tool icon={SquareTerminal} label={t("Open in a terminal")} hint={t("Also: middle-click the session")} onClick={() => void go(s, "terminal")} />
+                  {s.place?.tmux?.session && <Tool icon={Copy} label={t("Copy how it was started")} onClick={() => void copyStartOf(project.path, s.place!.tmux!.session!)} />}
                   {/* Sessions in tmux can be stopped and restarted from here; not while they work */}
                   {s.place?.tmux?.session && s.status !== "working" && (
                     <>
@@ -809,16 +822,25 @@ export default function OverviewApp() {
   // Today's list: projects with the star and no live session
   const now = useNow();
   const toStart = projects.filter((p) => p.daily && !(p.state?.sessions ?? []).some((s) => relevant(s, now) && s.alive !== false && (s.alive === true || s.status === "working" || s.status === "waiting"))).length;
+  const told = ([started, skipped]: [string[], string[]]) =>
+    tell(
+      [started.length ? t("Started: {names}", { names: started.join(", ") }) : t("Nothing to start"), skipped.length ? t("running already: {names}", { names: skipped.join(", ") }) : ""]
+        .filter(Boolean)
+        .join(" · "),
+    );
   const startAll = () =>
     void startToday()
-      .then(([started, skipped]) =>
-        tell(
-          [started.length ? t("Started: {names}", { names: started.join(", ") }) : t("Nothing to start"), skipped.length ? t("running already: {names}", { names: skipped.join(", ") }) : ""]
-            .filter(Boolean)
-            .join(" · "),
-        ),
-      )
+      .then(told)
       .catch((e) => tell(String(e)));
+  // Started by itself as CodeDeck started ("at start")
+  useEffect(
+    () =>
+      onTodayStarted((outcome) => {
+        if (outcome.Ok) told(outcome.Ok);
+        else if (outcome.Err) tell(outcome.Err);
+      }),
+    [],
+  );
   return (
     <div className="flex h-screen flex-col bg-panel text-[13px]">
       <header className="zone-tabs area-ai flex h-10 shrink-0 items-center gap-1 border-b border-line pr-2 pl-3">

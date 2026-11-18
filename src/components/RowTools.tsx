@@ -15,6 +15,9 @@ import { Tooltip, ToolTipBody } from "./Tooltip";
 export function HoverTools({ show = "group-hover:flex group-has-[:focus-visible]:flex", open = false, children }: { show?: string; open?: boolean; children: ReactNode }) {
   return (
     <span
+      // An empty title: the row's own tooltip (e.g. "double-click: …") stays away while the
+      // tools speak with theirs, so no two tooltips show at once
+      title=""
       onClick={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
       onAuxClick={(e) => e.stopPropagation()}

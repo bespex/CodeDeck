@@ -32,6 +32,15 @@ pub fn here(harness: &dyn Harness, with_name: bool) -> Place {
     }
 }
 
+/// The id CodeDeck gave a session it started, read from the environment of its process; `None` for
+/// any other start (or a process that is gone). Lets CodeDeck know its own sessions before they
+/// report again, e.g. after CodeDeck itself was restarted.
+pub fn launched_by(pid: u32) -> Option<String> {
+    let env = std::fs::read(format!("/proc/{pid}/environ")).ok()?;
+    let prefix = format!("{LAUNCHED}=");
+    env.split(|b| *b == 0).filter_map(|kv| std::str::from_utf8(kv).ok()).find_map(|kv| kv.strip_prefix(prefix.as_str()).filter(|v| !v.is_empty()).map(String::from))
+}
+
 /// Whether the session's process still runs: the process id is there and started when the session's
 /// did (a reused id is another process). `None` when the place does not say which process it is.
 pub fn alive(place: &Place) -> Option<bool> {

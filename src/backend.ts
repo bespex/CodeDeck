@@ -1823,12 +1823,80 @@ export interface PendingSession {
   /** The tmux session's name */
   name: string;
   id: string;
+  /** When it was started (Unix ms): at first it starts, after a while it probably waits */
+  since: number;
+  /** The command it was started with, if CodeDeck kept it */
+  command: string | null;
 }
 
 /** The sessions CodeDeck started in tmux for a project that nothing was heard of yet. */
 export function pendingSessions(project: string): Promise<PendingSession[]> {
   if (live) return invoke("pending_sessions", { project });
-  return Promise.resolve([{ name: `codedeck-${project.split("/").pop()}-2`, id: "pending-mock" }]);
+  const name = `codedeck-${project.split("/").pop()}-2`;
+  return Promise.resolve([{ name, id: "pending-mock", since: Date.now() - 60_000, command: mockStartCommand(project, name) }]);
+}
+
+function mockStartCommand(project: string, name: string): string {
+  const base = project.split("/").pop();
+  return `tmux new-session -d -s ${name} -c ${project} -e CODEDECK_SESSION=3f9c2a71-0000-4000-8000-000000000000 -e CLAUDE_CONFIG_DIR=/home/me/.claude-work -- /bin/bash -lc 'exec claude --resume 3f9c2a71-0000-4000-8000-000000000000 -n ${base} --remote-control ${base}'`;
+}
+
+/** How a session CodeDeck started in tmux was started and how it is ended; `null` for one it did not start. */
+export interface SessionCommands {
+  /** `null` when it was started before CodeDeck kept the command */
+  start: string | null;
+  /** The tool's part of it, to be read at a glance */
+  tool: string | null;
+  stop: string;
+}
+
+export function sessionCommands(project: string, name: string): Promise<SessionCommands | null> {
+  if (live) return invoke("session_commands", { project, name });
+  const base = project.split("/").pop();
+  return Promise.resolve({
+    start: mockStartCommand(project, name),
+    tool: `claude --resume 3f9c2a71-0000-4000-8000-000000000000 -n ${base} --remote-control ${base}`,
+    stop: `tmux kill-session -t =${name}`,
+  });
+}
+
+/** Whether CodeDeck starts at login (in the tray), and with which program. */
+export interface AutostartState {
+  on: boolean;
+  /** The program the entry starts */
+  program: string | null;
+  /** Whether that is the program running now */
+  this: boolean;
+}
+
+export function autostartState(): Promise<AutostartState> {
+  if (live) return invoke("autostart_state");
+  const on = localStorage.getItem("codedeck.mockAutostart") === "1";
+  return Promise.resolve({ on, program: on ? "/usr/bin/codedeck" : null, this: true });
+}
+
+export function setAutostart(on: boolean): Promise<AutostartState> {
+  if (live) return invoke("set_autostart", { on });
+  localStorage.setItem("codedeck.mockAutostart", on ? "1" : "0");
+  return autostartState();
+}
+
+/** A session was started in tmux somewhere: its row can show at once. */
+export function onSessionsStarted(callback: () => void): () => void {
+  if (live) {
+    const unlisten = listen("sessions_started", () => callback());
+    return () => void unlisten.then((stop) => stop());
+  }
+  return () => {};
+}
+
+/** Today's list was started as CodeDeck started ("at start"): the projects started and skipped, or what went wrong. */
+export function onTodayStarted(callback: (outcome: { Ok?: [string[], string[]]; Err?: string }) => void): () => void {
+  if (live) {
+    const unlisten = listen<{ Ok?: [string[], string[]]; Err?: string }>("today_started", (e) => callback(e.payload));
+    return () => void unlisten.then((stop) => stop());
+  }
+  return () => {};
 }
 
 /** Opens such a session in a terminal (to answer what it asks), or ends it. */

@@ -32,19 +32,57 @@ pub fn start(root: &Path, harness: &dyn Harness, account: Option<&str>, resume: 
     // Through the user's login shell: started from the desktop, CodeDeck's own PATH may lack the
     // folder the tool is installed in
     let shell = std::env::var("SHELL").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "/bin/sh".into());
-    let line = format!("exec {}", launched.argv.iter().map(|a| crate::hook::quote(a)).collect::<Vec<_>>().join(" "));
+    let line = format!("exec {}", launched.argv.iter().map(|a| word(a)).collect::<Vec<_>>().join(" "));
     let mut command = Command::new("tmux");
     command.args(["new-session", "-d", "-s", &name, "-c"]).arg(root).args(["-e", &format!("{LAUNCHED}={id}")]);
     for (key, value) in &launched.env {
         command.args(["-e", &format!("{key}={value}")]);
     }
     command.args(["--", &shell, "-lc", &line]);
+    // What exactly ran, to be shown (nothing happens out of sight) and to be run by hand
+    let shown = std::iter::once(command.get_program()).chain(command.get_args()).map(|a| word(&a.to_string_lossy())).collect::<Vec<_>>().join(" ");
     run(&mut command)?;
     // Which session it is, kept with the tmux session: it outlives a restart of CodeDeck (B10)
     let _ = run(Command::new("tmux").args(["set-option", "-t", &format!("={name}:"), "@codedeck", &id]));
     // And for which project, so that "does one run there?" can ask tmux itself
     let _ = run(Command::new("tmux").args(["set-option", "-t", &format!("={name}:"), "@codedeck-project", &root.display().to_string()]));
+    let _ = run(Command::new("tmux").args(["set-option", "-t", &format!("={name}:"), "@codedeck-command", &shown]));
+    // The tool's command alone, what is read at a glance (its environment, e.g. the account, is in
+    // the full command)
+    let tool = launched.argv.iter().map(|a| word(a)).collect::<Vec<_>>().join(" ");
+    let _ = run(Command::new("tmux").args(["set-option", "-t", &format!("={name}:"), "@codedeck-tool", &tool]));
     Ok((id, name))
+}
+
+/// The command a tmux session CodeDeck started was started with; `None` for sessions started
+/// before CodeDeck kept it.
+pub fn command_of(name: &str) -> Option<String> {
+    option(name, "@codedeck-command")
+}
+
+/// The tool's part of that command, e.g. `claude --resume <id> …`.
+pub fn tool_command_of(name: &str) -> Option<String> {
+    option(name, "@codedeck-tool")
+}
+
+fn option(name: &str, key: &str) -> Option<String> {
+    let out = Command::new("tmux").args(["show-options", "-v", "-t", &format!("={name}:"), key]).output().ok()?;
+    let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    (out.status.success() && !text.is_empty()).then_some(text)
+}
+
+/// The command that ends a tmux session, as [`stop`] runs it.
+pub fn stop_command(name: &str) -> String {
+    format!("tmux kill-session -t {}", word(&format!("={name}")))
+}
+
+/// A tmux session CodeDeck started that still runs.
+pub struct Started {
+    pub name: String,
+    /// The id of the session the tool inside has or will have
+    pub id: String,
+    /// When the tmux session began, Unix milliseconds
+    pub since: u64,
 }
 
 /// Ends the tmux session a session runs in. The tool keeps its conversation; it can be continued.
@@ -57,15 +95,16 @@ pub fn stop(name: &str) -> Result<(), String> {
 /// whether to trust the folder) and say nothing until it is answered. What marks one as ours is the
 /// id CodeDeck put into its environment (`CODEDECK_SESSION`); which project it is for is told by the
 /// tmux option set at the start, or, for older ones, by the name.
-pub fn started_for(root: &Path) -> Vec<(String, String)> {
-    let Ok(out) = Command::new("tmux").args(["list-panes", "-a", "-F", "#{session_name}\t#{pane_pid}\t#{@codedeck-project}"]).output() else {
+pub fn started_for(root: &Path) -> Vec<Started> {
+    let Ok(out) = Command::new("tmux").args(["list-panes", "-a", "-F", "#{session_name}\t#{pane_pid}\t#{session_created}\t#{@codedeck-project}"]).output() else {
         return Vec::new();
     };
     let base = format!("codedeck-{}", safe(&root.file_name().map_or_else(|| "project".into(), |n| n.to_string_lossy().into_owned())));
-    let mut found: Vec<(String, String)> = Vec::new();
+    let mut found: Vec<Started> = Vec::new();
     for line in String::from_utf8_lossy(&out.stdout).lines() {
         let mut f = line.split('\t');
         let (Some(name), Some(pid)) = (f.next(), f.next().and_then(|p| p.parse::<u32>().ok())) else { continue };
+        let since = f.next().and_then(|s| s.parse::<u64>().ok()).unwrap_or(0) * 1000;
         let project = f.next().unwrap_or("");
         let mine = if project.is_empty() {
             name == base || name.strip_prefix(&format!("{base}-")).is_some_and(|n| n.chars().all(|c| c.is_ascii_digit()))
@@ -73,12 +112,10 @@ pub fn started_for(root: &Path) -> Vec<(String, String)> {
             Path::new(project) == root
         };
         // The pane's process was `exec`ed into the tool: its environment carries the id
-        let id = std::fs::read(format!("/proc/{pid}/environ")).ok().and_then(|env| {
-            env.split(|b| *b == 0).filter_map(|kv| std::str::from_utf8(kv).ok()).find_map(|kv| kv.strip_prefix(&format!("{LAUNCHED}=")).map(String::from))
-        });
+        let id = crate::place::launched_by(pid);
         if let (true, Some(id)) = (mine, id) {
-            if !found.iter().any(|(n, _)| n == name) {
-                found.push((name.to_string(), id));
+            if !found.iter().any(|s| s.name == name) {
+                found.push(Started { name: name.to_string(), id, since });
             }
         }
     }
@@ -100,6 +137,13 @@ fn safe(name: &str) -> String {
     name.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' }).collect()
 }
 
+/// One word of a command line as a shell reads it: quoted only where it has to be, so the
+/// command stays readable.
+fn word(arg: &str) -> String {
+    let plain = !arg.is_empty() && arg.chars().all(|c| c.is_ascii_alphanumeric() || "-_./=:%@,+".contains(c));
+    if plain { arg.to_string() } else { crate::hook::quote(arg) }
+}
+
 fn run(command: &mut Command) -> Result<(), String> {
     let out = command.output().map_err(|e| format!("tmux: {e} (is tmux installed?)"))?;
     if out.status.success() {
@@ -119,5 +163,7 @@ mod tests {
         let id = new_id().unwrap();
         assert_eq!(id.len(), 36);
         assert_eq!(id.matches('-').count(), 4);
+        assert_eq!(word("=codedeck-p:"), "=codedeck-p:");
+        assert_eq!(word("exec claude -n x"), "'exec claude -n x'");
     }
 }

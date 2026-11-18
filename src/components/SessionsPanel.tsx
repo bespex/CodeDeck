@@ -8,6 +8,9 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardCopy,
+  Copy,
+  Ellipsis,
+  Monitor,
   GitCompareArrows,
   MessageSquare,
   Paperclip,
@@ -28,9 +31,12 @@ import { Tooltip } from "./Tooltip";
 import { changes } from "../changes";
 import { notes } from "../notes";
 import { markers } from "../markers";
-import { pendingSession, forgetSession, openSession, openUrl, stopSession, renameSession, type AssistantState, type Entry, type PendingSession, type ProjectInfo, type Session } from "../backend";
+import { pendingSession, forgetSession, openSession, openUrl, stopSession, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
 import { useProjectAccount, useProjectLook } from "../projectLook";
-import { usePending } from "../pending";
+import { usePending, type Pending } from "../pending";
+import { StartCommand, useSessionCommands } from "./SessionCommands";
+import { HoverTools, Tool, ToolGap } from "./RowTools";
+import { useContextMenu } from "./ContextMenu";
 import { AssistantStatusBar } from "./StatusBar";
 import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
 import { SessionBadge } from "./SessionBadge";
@@ -328,31 +334,38 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
  * (whether to trust the folder) and says nothing until answered; this row makes it visible and
  * reachable: open its terminal, answer, and it turns into a normal session by itself.
  */
-function PendingItem({ pending, projectPath }: { pending: PendingSession; projectPath: string | undefined }) {
+function PendingItem({ pending, projectPath }: { pending: Pending; projectPath: string | undefined }) {
   const [failed, setFailed] = useState<string | null>(null);
+  const commands = useSessionCommands(projectPath, pending.name);
   const act = (end: boolean) => projectPath && pendingSession(projectPath, pending.name, end).catch((e) => setFailed(String(e)));
-  const button = "flex shrink-0 items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-[11px] text-slate-300 hover:border-overlay-line hover:bg-overlay-hover hover:text-slate-100";
   return (
-    <li onDoubleClick={() => void act(false)} title={t("Double-click: open it in a terminal")} className="flex items-center gap-2.5 py-2 pr-3 pl-3 hover:bg-raised/40">
+    <li onDoubleClick={() => void act(false)} title={t("Double-click: open it in a terminal")} className="group/pending flex items-center gap-2.5 py-2 pr-3 pl-3 hover:bg-raised/40">
       <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-500/60 text-slate-400">
         <Loader className="size-4 animate-spin [animation-duration:2.5s]" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="flex items-center gap-2">
           <span className="min-w-0 truncate font-medium text-slate-100">{t("Starting…")}</span>
-          <span className={`ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-2 py-px text-[11px] font-medium ${PILL.wait}`}>{t("waits in tmux")}</span>
-        </span>
-        <span className="flex items-center gap-1.5 text-[12px] text-slate-400">
-          <SquareTerminal className="size-3.5 shrink-0 text-slate-500" />
-          <span className="min-w-0 flex-1 truncate" title={pending.name}>
-            {t("Nothing reported yet: it may ask a question, e.g. whether to trust the folder.")}
+          {/* At first it starts; a tool silent for long most likely asks something */}
+          <span className={`ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-2 py-px text-[11px] font-medium ${pending.waits ? PILL.wait : PILL.quiet}`}>
+            {pending.waits ? t("waits in tmux") : t("starting")}
           </span>
-          <button type="button" title={t("Open it in a terminal, answer, and leave with Ctrl+B, D")} onClick={() => void act(false)} className={button}>
-            {t("Open")}
-          </button>
-          <button type="button" title={t("End this session (nothing is lost; it never began)")} onClick={() => void act(true)} className={button}>
-            <Power className="size-3" />
-          </button>
+        </span>
+        <span className="truncate text-[12px] text-slate-400">
+          {pending.waits ? t("Nothing reported yet: it may ask a question, e.g. whether to trust the folder.") : t("It reports in a moment")}
+        </span>
+        {/* As every session: where it runs, the tools on the right while the mouse is on it */}
+        <span className="flex h-[22px] items-center gap-1.5 text-[11px] text-slate-500">
+          <span title={t("Runs in tmux ({name}). Attach with: tmux attach -t {name}", { name: pending.name })} className="flex h-[18px] shrink-0 items-center rounded border border-line px-1 leading-none text-slate-300">
+            tmux
+          </span>
+          <span className="flex-1" />
+          <HoverTools show="group-hover/pending:flex">
+            <Tool icon={SquareTerminal} label={t("Open it in a terminal, answer, and leave with Ctrl+B, D")} hint={t("Also: double-click")} onClick={() => void act(false)} />
+            {commands?.start && <Tool icon={Copy} label={t("Copy how it was started")} says={commands.tool ?? commands.start} onClick={() => void navigator.clipboard.writeText(commands.start!)} />}
+            <ToolGap />
+            <Tool icon={Power} danger label={t("End this session (nothing is lost; it never began)")} says={commands?.stop} onClick={() => void act(true)} />
+          </HoverTools>
         </span>
         {failed && <span className="selectable text-[11px] text-problem">{failed}</span>}
       </span>
@@ -403,10 +416,39 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
     }, 250);
   };
   const head = headline(s);
+  const tmuxName = s.status !== "ended" ? (s.place?.tmux?.session ?? undefined) : undefined;
+  const commands = useSessionCommands(projectPath, tmuxName);
+  const controllable = !!tmuxName && s.status !== "working" && !!projectPath;
+  // Not while its process is known to run: it must stay in sight, or one could never find it again
+  // to write its next prompt (user, 2026-11-17). Where the process is not known (a session seen in
+  // its log only) CodeDeck cannot promise anything, so it may go
+  const removable = s.status === "ended" || s.alive !== true;
+  // What is needed now and then: in the ⋯ of the toolbar and on the right mouse button
+  const menu = useContextMenu();
+  const openMenu = (e: React.MouseEvent) =>
+    menu.open(e, titleOf(s), [
+      {
+        icon: Pencil,
+        label: t("Rename"),
+        run: () => {
+          setOpen(true);
+          setRenaming(true);
+        },
+      },
+      ...(commands?.start ? [{ icon: Copy, label: t("Copy how it was started"), run: () => void navigator.clipboard.writeText(commands.start!) }] : []),
+      {
+        icon: X,
+        label: t("Remove from list"),
+        disabled: !removable,
+        why: t("Not while it runs: it comes back by itself with its next step anyway"),
+        run: () => forgetSession(s.id),
+      },
+    ]);
   return (
     <li
       // On the list: what belongs to this session stands out on the trail and in the file list
       onMouseEnter={() => marks.hover(s.id)}
+      onContextMenu={openMenu}
       onDoubleClick={() => {
         cancelFold();
         go("auto");
@@ -429,23 +471,6 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
           <span className="flex min-w-0 flex-1 flex-col gap-1">
             <span className="flex items-center gap-2">
               <span className="min-w-0 truncate font-medium text-slate-100">{titleOf(s)}</span>
-              {/* Right behind the title, so the far right stays free for the state */}
-              <button
-                type="button"
-                aria-label={t("Rename session {short}", { short: mark.short })}
-                title={t("Rename")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpen(true);
-                  setRenaming(!renaming);
-                }}
-                onDoubleClick={(e) => e.stopPropagation()}
-                className={`shrink-0 rounded p-0.5 text-slate-500 hover:bg-overlay-hover hover:text-slate-100 focus-visible:opacity-100 ${
-                  renaming ? "opacity-100" : "opacity-0 group-hover/session:opacity-100"
-                }`}
-              >
-                <Pencil className="size-3" />
-              </button>
               <span
                 title={timed ? t("since {time}", { time: time(status.at!) }) : undefined}
                 data-event={blocked ? "blocked" : s.status === "idle" && s.turnDone != null && s.capabilities.liveStatus ? "done" : s.status}
@@ -456,26 +481,50 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
               </span>
             </span>
             <span className="flex items-center gap-1.5 text-[12px] text-slate-400">
-              {s.model && <span className="flex h-[18px] shrink-0 items-center rounded border border-line px-1 text-[11px] leading-none font-medium text-slate-200">{s.model}</span>}
+              <span className="min-w-0 flex-1 truncate">{head.text}</span>
+              <Chevron className="size-3.5 shrink-0 text-slate-500" />
+            </span>
+            {/* What kind of session it is: the model, where it runs; the tools on the right while the mouse is on
+                it. A line of its own, one height with or without the tools, so nothing moves and the title keeps its room */}
+            <span className="flex h-[22px] items-center gap-1.5 text-[11px] text-slate-500">
+              {s.model && <span className="flex h-[18px] shrink-0 items-center rounded border border-line px-1 leading-none font-medium text-slate-200">{s.model}</span>}
               {byHand && (
                 <span
                   title={`${t("by hand")} · ${toolName}: ${t("Started outside CodeDeck: it ends where it runs")}`}
-                  className="flex h-[18px] shrink-0 items-center gap-1 rounded border border-dashed border-slate-500/60 px-1 text-[11px] leading-none text-slate-300"
+                  className="flex h-[18px] shrink-0 items-center gap-1 rounded border border-dashed border-slate-500/60 px-1 leading-none text-slate-300"
                 >
                   <User className="size-3 shrink-0" />
                   {/* The tool only when it is not the project's own */}
                   {s.harness !== projectTool && toolShort}
                 </span>
               )}
-              <PlaceIcons session={s} />
-              <span className="min-w-0 flex-1 truncate">{head.text}</span>
-              <Chevron className="size-3.5 shrink-0 text-slate-500" />
+              <Place session={s} />
+              <span className="flex-1" />
+              <HoverTools show="group-hover/session:flex group-has-[:focus-visible]/session:flex" open={!!menu.element}>
+                {s.status !== "ended" && (
+                  <>
+                    {s.place?.remote && <Tool icon={Monitor} label={t("Open in the desktop app")} hint={door === "desktop" ? t("Also: double-click the session") : undefined} onClick={() => go("desktop")} />}
+                    <Tool icon={SquareTerminal} label={t("Open in a terminal")} hint={t("Also: middle-click the session")} onClick={() => go("terminal")} />
+                  </>
+                )}
+                {/* What changes its process, apart; only in tmux, and not while it works */}
+                {controllable && (
+                  <>
+                    <ToolGap />
+                    <Tool icon={RotateCcw} label={t("Restart: same conversation, fresh process")} says={commands?.stop && commands.start ? `${commands.stop}\n${commands.start}` : undefined} onClick={() => void stopSession(projectPath!, s.id, true).catch((e) => setFailed(String(e)))} />
+                    <Tool icon={Power} danger label={t("Stop (the conversation is kept and can be continued)")} says={commands?.stop} onClick={() => void stopSession(projectPath!, s.id, false).catch((e) => setFailed(String(e)))} />
+                  </>
+                )}
+                {s.status !== "ended" && <ToolGap />}
+                <Tool icon={Ellipsis} label={t("More (also right click)")} onClick={(e) => openMenu(e)} />
+              </HoverTools>
             </span>
           </span>
         </div>
       </div>
       {failed && <p className="selectable px-3 pb-1.5 pl-[54px] text-[11px] text-problem">{failed}</p>}
       {open && renaming && <RenameForm session={s} onClose={() => setRenaming(false)} />}
+      {menu.element}
       {open && (
         <div className="pr-3 pb-1.5 pl-[38px] text-[12px]">
           {/* Only what the two lines above do not say already */}
@@ -511,70 +560,40 @@ function SessionItem({ session: s, blockedUntil: reset, onShowFile, toolName, to
               </ul>
             </div>
           )}
-          {/* The session's own little status bar: where it runs (the model is on the second line above). Set apart
-              by a faint dotted line, quieter than the hairlines between the sessions */}
-          <div className="mt-2 flex items-start gap-2 border-t border-dotted border-line/60 pt-1.5 text-[11px] text-slate-500">
-            <span className="min-w-0 flex-1 pt-0.5">
-              {s.cwd === "" ? t("project root") : s.cwd}
-              {` · ${t("last step {time}", { time: time(s.last) })}`}
-              {s.step && head.from !== "step" && ` · ${t("step")}: ${s.step}`}
-              <AccountNote session={s} projectAccount={projectAccount} />
-            </span>
-            {/* Sessions CodeDeck can reach in tmux end here; not while they work. Their conversation stays */}
-            {s.place?.tmux?.session && s.status !== "working" && s.status !== "ended" && projectPath && (
-              <>
-                <button
-                  type="button"
-                  title={t("Restart: same conversation, fresh process")}
-                  onClick={() => void stopSession(projectPath, s.id, true).catch((e) => setFailed(String(e)))}
-                  className="flex shrink-0 items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-slate-300 hover:border-overlay-line hover:bg-overlay-hover hover:text-slate-100"
-                >
-                  <RotateCcw className="size-3" /> {t("Restart")}
-                </button>
-                <button
-                  type="button"
-                  title={t("Stop (the conversation is kept and can be continued)")}
-                  onClick={() => void stopSession(projectPath, s.id, false).catch((e) => setFailed(String(e)))}
-                  className="flex shrink-0 items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-slate-300 hover:border-overlay-line hover:bg-overlay-hover hover:text-slate-100"
-                >
-                  <Power className="size-3" /> {t("Stop")}
-                </button>
-              </>
+          {/* What one looks up, one fact a line: nothing breaks word by word in a narrow column. Set apart by
+              a faint dotted line, quieter than the hairlines between the sessions */}
+          <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-0.5 border-t border-dotted border-line/60 pt-1.5 text-[11px]">
+            <Fact label={t("Folder")}>{s.cwd === "" ? t("project root") : s.cwd}</Fact>
+            <Fact label={t("Last step")}>
+              {time(s.last)}
+              {s.step && head.from !== "step" && ` · ${s.step}`}
+            </Fact>
+            <AccountFact session={s} projectAccount={projectAccount} />
+            {commands && (
+              <Fact label={t("Started with")}>
+                <StartCommand commands={commands} />
+              </Fact>
             )}
-            {/* Not while its process is known to run: it must stay in sight, or one could never find
-                it again to write its next prompt (user, 2026-11-17). Where the process is not known
-                (a session seen in its log only) CodeDeck cannot promise anything, so it may go */}
-            {(s.status === "ended" || s.alive !== true) && (
-              <button
-                type="button"
-                title={t("Takes it off this list. It comes back by itself when the session takes its next step")}
-                onClick={() => forgetSession(s.id)}
-                className="flex shrink-0 items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-slate-300 hover:border-overlay-line hover:bg-overlay-hover hover:text-slate-100"
-              >
-                <X className="size-3" /> {t("Remove from list")}
-              </button>
-            )}
-          </div>
+          </dl>
         </div>
       )}
     </li>
   );
 }
 
-/** Where the session runs, as far as it said, as small icons with the details in their tooltips:
- *  in tmux (CodeDeck can stop and restart it), and reachable from another device or the browser. */
-function PlaceIcons({ session: s }: { session: Session }) {
+/** Where the session runs, as far as it said: in tmux (CodeDeck can stop and restart it there; the
+ *  name in the tooltip), and the blue mark when it is reachable from another device or the browser. */
+function Place({ session: s }: { session: Session }) {
   const place = s.place;
   if (!place || s.status === "ended") return null;
   const tmux = place.tmux;
   return (
     <>
       {tmux && (
-        <span
-          title={t("Runs in tmux ({name}). Attach with: tmux attach -t {name}", { name: tmux.session ?? tmux.pane })}
-          className="flex shrink-0 text-slate-500"
-        >
-          <SquareTerminal className="size-3.5" />
+        // A word, not the terminal icon: that one is the tool that opens a terminal. That it runs in
+        // tmux counts; its name is in the tooltip
+        <span title={t("Runs in tmux ({name}). Attach with: tmux attach -t {name}", { name: tmux.session ?? tmux.pane })} className="flex h-[18px] shrink-0 items-center rounded border border-line px-1 leading-none text-slate-300">
+          tmux
         </span>
       )}
       {place.remote && (
@@ -596,18 +615,29 @@ function PlaceIcons({ session: s }: { session: Session }) {
   );
 }
 
+/** One line of a session's details: a quiet label, then the value, which may wrap. */
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <dt className="text-slate-500">{label}</dt>
+      <dd className="min-w-0 break-words text-slate-400">{children}</dd>
+    </>
+  );
+}
+
 /** The account a session runs in, by the name and colour set under Settings → Accounts (3.2). */
-function AccountNote({ session: s, projectAccount }: { session: Session; projectAccount: string | undefined }) {
+function AccountFact({ session: s, projectAccount }: { session: Session; projectAccount: string | undefined }) {
   const accounts = useAccounts();
   // The project's own account is no news: only a session running with another one says so
   if (!s.account || s.account === projectAccount) return null;
   const look = accountLook(accounts, s.account);
   return (
-    <span title={t("Account: {dir}", { dir: s.account })} className="inline-flex items-center gap-1 align-middle">
-      {" · "}
-      <AccountMark account={look} size={12} />
-      {look.name}
-    </span>
+    <Fact label={t("Account")}>
+      <span title={s.account} className="inline-flex items-center gap-1 align-middle">
+        <AccountMark account={look} size={12} />
+        {look.name}
+      </span>
+    </Fact>
   );
 }
 

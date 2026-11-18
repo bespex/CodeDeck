@@ -227,6 +227,8 @@ pub struct IdentityInfo {
 #[derive(Default)]
 struct Inner {
     heard: bool,
+    /// The tools' logs were read once: until then, what runs here is not known yet
+    loaded: bool,
     sessions: HashMap<String, Session>,
     /// Per session: the repositories (top-level paths) with a snapshot in the current turn
     turn: HashMap<String, HashSet<PathBuf>>,
@@ -391,7 +393,21 @@ impl Bridge {
                 for (harness, info) in found {
                     inner.take_log(harness, info, &root);
                 }
+                // Which of them run right now: a quiet session that runs must count as running
+                // (today's list must not start its conversation a second time)
+                for harness in harness::all() {
+                    for (id, mut place) in harness.running(&root) {
+                        // Started by CodeDeck? Its process says so, long before its next report
+                        if let Some(pid) = place.pid.filter(|_| place.launched.is_none()) {
+                            place.launched = crate::place::launched_by(pid);
+                        }
+                        if let Some(session) = inner.sessions.get_mut(&id) {
+                            session.place = Some(moved_to(session.place.take(), &place));
+                        }
+                    }
+                }
                 trim(&mut inner);
+                inner.loaded = true;
                 inner.save_identities();
             }
             me.tell(&app, ASSISTANT_CHANGED, me.state());
@@ -522,6 +538,14 @@ impl Bridge {
     }
 
     /// Whether a session with this id is known (it reported, or its log was read).
+    /// Waits until the tools' logs were read once, at most `max`.
+    pub fn wait_loaded(&self, max: std::time::Duration) {
+        let until = std::time::Instant::now() + max;
+        while !self.inner.locked().loaded && std::time::Instant::now() < until {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    }
+
     pub fn knows(&self, id: &str) -> bool {
         self.inner.locked().sessions.contains_key(id)
     }

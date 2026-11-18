@@ -264,6 +264,24 @@ pub fn overview_changed(app: &AppHandle) {
 }
 
 /// Shows the overview, or hides it when it is shown; opens it the first time. Off the main thread.
+/// The overview, made but not shown (CodeDeck started at login): its page runs, so it hears what
+/// happens, and the tray shows it at the right edge the first time.
+pub fn hidden_overview(app: &AppHandle) -> Result<(), String> {
+    if app.get_webview_window(OVERVIEW).is_some() {
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(app, OVERVIEW, WebviewUrl::App("index.html?view=overview".into()))
+        .title(crate::tray::overview_title())
+        .inner_size(OVERVIEW_WIDTH, 800.0)
+        .min_inner_size(260.0, 300.0)
+        .background_color(tauri::window::Color(2, 6, 23, 255))
+        .visible(false)
+        .build()
+        .map_err(|e| e.to_string())?;
+    crate::tray::refresh(app);
+    Ok(())
+}
+
 pub fn toggle_overview(app: &AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(OVERVIEW) {
         if window.is_visible().unwrap_or(false) {

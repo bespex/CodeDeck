@@ -16,7 +16,7 @@ use std::time::Duration;
 use serde_json::{Value, json};
 
 use crate::usage::{Usage, Window};
-use super::{Attach, Background, Capabilities, Connection, Event, EventKind, Harness, SessionInfo};
+use super::{Attach, Background, Capabilities, Connection, Event, EventKind, Harness, Place, SessionInfo, Tmux};
 
 pub struct Claude;
 
@@ -249,6 +249,21 @@ impl Harness for Claude {
         recent(project)
     }
 
+    /// Claude Code keeps a file per running process in `<config>/sessions/<pid>.json` (seen with
+    /// 2.1.327): the session's id, its folder, the process's start time, its tmux pane and its
+    /// Remote Control session. A file of a process that is gone may stay behind; the start time
+    /// lets [`crate::place::alive`] tell.
+    fn running(&self, project: &Path) -> Vec<(String, Place)> {
+        config_dirs()
+            .iter()
+            .flat_map(|dir| std::fs::read_dir(dir.join("sessions")).into_iter().flatten().flatten())
+            .filter(|e| e.path().extension().is_some_and(|x| x == "json"))
+            .filter_map(|e| serde_json::from_slice::<Value>(&std::fs::read(e.path()).ok()?).ok())
+            .filter_map(|v| running_entry(&v, project))
+            .filter(|(_, place)| crate::place::alive(place) == Some(true))
+            .collect()
+    }
+
     /// Everything in a configuration (memory, settings, logs, to-dos) except its plans: a plan is
     /// written for the user to read and may be worth keeping in the project.
     fn is_own_file(&self, path: &Path) -> bool {
@@ -394,6 +409,25 @@ fn shell_outputs(command: &str) -> Vec<String> {
         }
     }
     found
+}
+
+/// One record of a running process (see [`Claude::running`]), if it is a session in `project`.
+fn running_entry(v: &Value, project: &Path) -> Option<(String, Place)> {
+    let id = v.get("sessionId")?.as_str()?.to_string();
+    if !Path::new(v.get("cwd")?.as_str()?).starts_with(project) {
+        return None;
+    }
+    let pid = u32::try_from(v.get("pid")?.as_u64()?).ok()?;
+    let since = v.get("procStart").and_then(|s| s.as_str().and_then(|s| s.parse().ok()).or_else(|| s.as_u64()))?;
+    // `session:@window.%pane`
+    let tmux = v.get("tmux").and_then(Value::as_str).and_then(|t| {
+        let (session, rest) = t.rsplit_once(':')?;
+        let pane = rest.rsplit_once('.').map_or(rest, |(_, p)| p);
+        Some(Tmux { pane: pane.to_string(), session: Some(session.to_string()) })
+    });
+    let bridge = v.get("bridgeSessionId").and_then(Value::as_str).map(String::from);
+    let remote = Claude.remote_link(&|name| (name == "CLAUDE_CODE_BRIDGE_SESSION_ID").then(|| bridge.clone()).flatten());
+    Some((id, Place { pid: Some(pid), since: Some(since), tmux, launched: None, remote }))
 }
 
 fn config_dirs() -> Vec<PathBuf> {
@@ -827,6 +861,24 @@ fn iso_ms(text: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_running_process_tells_its_session_and_where_it_runs() {
+        let v: Value = serde_json::from_str(
+            r#"{"pid":9296,"sessionId":"041868a4","cwd":"/p/sub","procStart":"11438","tmux":"codedeck-p:@0.%3","bridgeSessionId":"session_01Ab"}"#,
+        )
+        .unwrap();
+        let (id, place) = running_entry(&v, Path::new("/p")).unwrap();
+        assert_eq!(id, "041868a4");
+        assert_eq!((place.pid, place.since), (Some(9296), Some(11438)));
+        assert_eq!(place.tmux, Some(Tmux { pane: "%3".into(), session: Some("codedeck-p".into()) }));
+        assert_eq!(place.remote.as_deref(), Some("https://claude.ai/code/session_01Ab"));
+        // Another project's session is none of this one's
+        assert!(running_entry(&v, Path::new("/q")).is_none());
+        let plain: Value = serde_json::from_str(r#"{"pid":1,"sessionId":"a","cwd":"/p","procStart":"5"}"#).unwrap();
+        let (_, place) = running_entry(&plain, Path::new("/p")).unwrap();
+        assert_eq!((place.tmux, place.remote), (None, None));
+    }
 
     /// Raw hook messages as Claude Code 2.1 sent them in the field test of step 1.1, rebuilt from
     /// its notes (the recording itself was not kept): the fields named there, with made-up values.

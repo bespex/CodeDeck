@@ -23,6 +23,7 @@ Your co-deck for AI sessions.
 Usage:
   codedeck [DIR]       open DIR in a window (default: the current directory);
                        a running CodeDeck opens it in a new window
+  codedeck --tray      start in the tray without a window (what the login start runs)
   codedeck hook        what a coding tool's hooks run; CodeDeck sets this up itself
   codedeck statusline  what a coding tool's status line runs to tell the usage; set up on request
   codedeck --version

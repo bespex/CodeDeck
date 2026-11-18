@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Copy, X } from "lucide-react";
-import { appInfo, machineSettings, setMachineSetting, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
+import { appInfo, autostartState, setAutostart, type AutostartState, machineSettings, setMachineSetting, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
 import { useAccounts } from "../accounts";
 import { AccountMark, MarkPicker } from "./ProjectMark";
 import { useConnections } from "../assistant";
@@ -241,6 +241,80 @@ function Setting(props: { label: string; note?: string; scope: "machine" | "proj
   );
 }
 
+/** CodeDeck at login: not at all, or in the tray without a window (an entry in the desktop's autostart folder). */
+function AtLogin() {
+  const [state, setState] = useState<AutostartState | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => void autostartState().then(setState).catch((e) => setError(String(e))), []);
+  const choose = (on: boolean) => {
+    setError(null);
+    void setAutostart(on)
+      .then(setState)
+      .catch((e) => setError(String(e)));
+  };
+  const on = !!state?.on;
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex rounded-md border border-overlay-line p-0.5" role="radiogroup" aria-label={t("At login")}>
+        {(
+          [
+            [false, t("Off")],
+            [true, t("In the tray")],
+          ] as const
+        ).map(([v, label]) => (
+          <button
+            key={String(v)}
+            type="button"
+            role="radio"
+            aria-checked={on === v}
+            disabled={!state}
+            onClick={() => choose(v)}
+            className={`rounded px-2 py-0.5 text-[12px] ${on === v ? "bg-overlay-hover text-slate-100" : "text-slate-500 hover:text-slate-200"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {/* Another installation in the entry (a build, a package): say which, choosing again takes this one */}
+      {state?.on && !state.this && state.program && (
+        <span className="max-w-64 text-right text-[11px] break-all text-changed">{t("Starts {program}. Choose “In the tray” again for this one.", { program: state.program })}</span>
+      )}
+      {error && <span className="selectable max-w-64 text-right text-[11px] text-problem">{error}</span>}
+    </div>
+  );
+}
+
+/** Today's list when CodeDeck starts ("at start", docs/SITZUNGEN.md A12): left alone, or its sessions start. */
+function TodayAtStart() {
+  const [on, setOn] = useState(false);
+  useEffect(() => void machineSettings().then((m) => setOn(m.startTodayAtStart === true)), []);
+  const choose = (v: boolean) => {
+    setOn(v);
+    void setMachineSetting("startTodayAtStart", v || null);
+  };
+  return (
+    <div className="flex rounded-md border border-overlay-line p-0.5" role="radiogroup" aria-label={t("Today's list")}>
+      {(
+        [
+          [false, t("Off")],
+          [true, t("Start with CodeDeck")],
+        ] as const
+      ).map(([v, label]) => (
+        <button
+          key={String(v)}
+          type="button"
+          role="radio"
+          aria-checked={on === v}
+          onClick={() => choose(v)}
+          className={`rounded px-2 py-0.5 text-[12px] ${on === v ? "bg-overlay-hover text-slate-100" : "text-slate-500 hover:text-slate-200"}`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** The screen CodeDeck opens on: the main one, or wherever the window manager puts it. */
 function StartScreen() {
   const [value, setValue] = useState<"primary" | "last">("primary");
@@ -292,6 +366,20 @@ function General() {
             </button>
           ))}
         </div>
+      </Setting>
+      <Setting
+        label={t("At login")}
+        note={t("CodeDeck starts without a window and hears your sessions from the start; the tray icon shows the overview.")}
+        scope="machine"
+      >
+        <AtLogin />
+      </Setting>
+      <Setting
+        label={t("Today's list")}
+        note={t("When CodeDeck starts (also at login), every project on today's list without a running session starts its session, as ▶ in the overview does. Nothing starts twice.")}
+        scope="machine"
+      >
+        <TodayAtStart />
       </Setting>
       <Setting label={t("Starts on")} note={t("The screen CodeDeck opens on. Windows opened later follow the overview.")} scope="machine">
         <StartScreen />

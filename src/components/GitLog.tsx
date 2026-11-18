@@ -24,7 +24,7 @@ function runText(run: GitRun): string {
 }
 
 /** Copies and says so on the button for a moment. */
-function useCopy(): [boolean, (text: string) => void] {
+export function useCopy(): [boolean, (text: string) => void] {
   const [done, setDone] = useState(false);
   const copy = (text: string) => {
     void navigator.clipboard.writeText(text).then(() => {
