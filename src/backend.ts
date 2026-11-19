@@ -125,6 +125,13 @@ export function projectInfo(): Promise<ProjectInfo> {
   return Promise.resolve(mockInfo(MOCK_PATH));
 }
 
+/** Closes this project window ("Close project"); the last one leaves the start page. */
+export function closeWindow(): Promise<void> {
+  if (live) return invoke("close_window");
+  console.info("would close this window");
+  return Promise.resolve();
+}
+
 /** Switches this window to another directory (absolute path). */
 export function openProject(path: string): Promise<ProjectInfo> {
   if (live) return invoke("open_project", { path });

@@ -809,6 +809,8 @@ export const de: Record<string, string> = {
   "Show the project list": "Projektliste zeigen",
   "Projects": "Projekte",
   "Add a project…": "Projekt hinzufügen …",
+  "Close project": "Projekt schließen",
+  "Close project (its window; the last one leaves the start page)": "Projekt schließen (sein Fenster; nach dem letzten bleibt die Startseite)",
   "Waiting in other projects": "Wartet in anderen Projekten",
   "AI usage": "Verbrauch der KI",
   "Show it here · Ctrl+click or middle click: in a new window": "Hier zeigen · Strg+Klick oder Mittelklick: in einem neuen Fenster",

@@ -16,8 +16,9 @@ import {
   Sparkles,
   SquareTerminal,
   Stethoscope,
+  X,
 } from "lucide-react";
-import { appInfo, diagnostics, openUrl, setProject, startSession, stopSession, type Account, type AssistantState, type ProjectInfo } from "../backend";
+import { appInfo, diagnostics, openUrl, setProject, startSession, stopSession, type Account, type AssistantState, type ProjectInfo, closeWindow } from "../backend";
 import { useAccounts } from "../accounts";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
@@ -334,6 +335,10 @@ export function AppMenu({ onToggleLog, assistant, onColor = false }: { onToggleL
             <Item icon={<Info className="size-4" />} label={t("About CodeDeck")} onClick={run(() => openDialog({ kind: "about" }))} />
             <Item icon={<Keyboard className="size-4" />} label={t("Keyboard shortcuts")} aside={<Key>F1</Key>} onClick={run(() => openDialog({ kind: "shortcuts" }))} />
             <Item icon={<CircleHelp className="size-4" />} label={t("Help")} onClick={run(() => void openUrl(`${SOURCE_URL}#readme`))} />
+          </div>
+          {/* Closes the window with its project; the last one leaves the start page */}
+          <div className="border-t border-overlay-line p-1">
+            <Item icon={<X className="size-4" />} label={t("Close project")} aside={<Key>{`${t("Ctrl")}+W`}</Key>} onClick={run(() => void closeWindow())} />
           </div>
           <div className="border-t border-overlay-line p-1">
             <Item icon={<SquareTerminal className="size-4" />} label={t("Git commands")} aside={<Key>{t("Ctrl+Shift+G")}</Key>} onClick={run(onToggleLog)} />

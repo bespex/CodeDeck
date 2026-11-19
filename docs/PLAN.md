@@ -276,7 +276,8 @@ zu Desktop und Remote Control erledigt (SITZUNGEN B4, B11).
     Umbau, gehört zu 3.4) ist es das vorhandene Fenster `overview`: `OverviewApp` mit `START_PAGE` (Liste ohne
     Sitzungen; Klick holt das Projektfenster nach vorn oder öffnet es, dann tritt die Startseite zurück). Sie wird beim
     Start verborgen angelegt und zeigt sich nur ohne Projektfenster: Tray, `Ctrl+Alt+L`, und von selbst, wenn das
-    letzte Projektfenster schließt (CodeDeck hört weiter zu). Ihr Platz am rechten Rand bleibt vorerst; (d) Fenster `overview` entfernen, Tray und Kürzel auf das zuletzt benutzte Fenster,
+    letzte Projektfenster schließt (CodeDeck hört weiter zu). Ihr Platz am rechten Rand bleibt vorerst. „Projekt
+    schließen“ (`⋯` der Projektkopfzeile, `Strg+W`, Command `close_window`) schließt das Fenster mit seinem Projekt; (d) Fenster `overview` entfernen, Tray und Kürzel auf das zuletzt benutzte Fenster,
     `docs/UEBERSICHT.md` und `KONZEPT.md` nachziehen. Jeder Schritt mit Praxistest.
   - **Spike zu Weg 2** (eine Webview je Projekt im selben Fenster, `.scratch/spike-webviews/`), als Reserve:
     Ergebnis (2026-11-19, Tauri 2.12.5 mit `unstable`, WebKitGTK unter Xvfb/X11):

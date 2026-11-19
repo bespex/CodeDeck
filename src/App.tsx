@@ -3,7 +3,7 @@ import { FilesPanel } from "./components/FilesPanel";
 import { GitLog } from "./components/GitLog";
 import { Deck } from "./components/Deck";
 import { SessionsPanel } from "./components/SessionsPanel";
-import { live, onOpenView, openProject, openWindow, projectInfo, toggleOverview, type Entry, type ProjectInfo } from "./backend";
+import { closeWindow, live, onOpenView, openProject, openWindow, projectInfo, toggleOverview, type Entry, type ProjectInfo } from "./backend";
 import { currentView, openView, type ViewId } from "./view";
 import { initialPins } from "./mock";
 import { files, pinFromEntry } from "./files";
@@ -51,7 +51,11 @@ export default function App() {
   // (in the window only, as the sidebar in VS Code)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") {
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "w") {
+        // Close project: the window goes with it (docs/PLAN.md "Projektliste im Fenster statt Übersicht")
+        e.preventDefault();
+        void closeWindow();
+      } else if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") {
         e.preventDefault();
         fold();
       } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "g") {

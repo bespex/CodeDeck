@@ -1051,6 +1051,13 @@ async fn toggle_overview(app: AppHandle) -> Result<(), String> {
     windows::toggle_overview(&app)
 }
 
+/// "Close project" (Ctrl+W): the window goes with its project; when it was the last project window the
+/// start page shows (see `Destroyed`). A window has no state without a project to fall back to.
+#[tauri::command]
+fn close_window(window: WebviewWindow) -> Result<(), String> {
+    window.close().map_err(|e| e.to_string())
+}
+
 /// The git commands run so far, oldest first.
 #[tauri::command]
 fn git_log(window: WebviewWindow) -> Result<Vec<GitRun>, String> {
@@ -1230,6 +1237,7 @@ pub fn run() {
             report_summary,
             focus_project,
             toggle_overview,
+            close_window,
             quit,
             add_project,
             set_project,
