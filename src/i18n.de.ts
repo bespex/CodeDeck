@@ -808,6 +808,8 @@ export const de: Record<string, string> = {
   "Fold the project list": "Projektliste zuklappen",
   "Show the project list": "Projektliste zeigen",
   "Projects": "Projekte",
+  "Recently": "Zuletzt",
+  "Back to the project shown before": "Zurück zum vorher gezeigten Projekt",
   "CodeDeck to the front from anywhere, or away when it is in front; without a project window the start page": "CodeDeck von überall nach vorn, oder weg, wenn es vorn ist; ohne Projektfenster die Startseite",
   "Fold or show the project list": "Projektliste zuklappen oder zeigen",
   "to the front": "nach vorn",

@@ -3,7 +3,7 @@ import { FilesPanel } from "./components/FilesPanel";
 import { GitLog } from "./components/GitLog";
 import { Deck } from "./components/Deck";
 import { SessionsPanel } from "./components/SessionsPanel";
-import { closeWindow, live, onOpenView, openProject, openWindow, projectInfo, type Entry, type ProjectInfo } from "./backend";
+import { overviewState, closeWindow, live, onOpenView, openProject, openWindow, projectInfo, type Entry, type ProjectInfo } from "./backend";
 import { currentView, openView, type ViewId } from "./view";
 import { initialPins } from "./mock";
 import { files, pinFromEntry } from "./files";
@@ -19,6 +19,7 @@ import { openDialog } from "./dialogs";
 import { projectSwitched } from "./windowIcon";
 import { useLayout, useProjectsFolded } from "./layout";
 import { ProjectsPanel } from "./components/ProjectsPanel";
+import { recentOf } from "./components/OverviewApp";
 import { Splitter } from "./components/Splitter";
 
 // The preview starts with something attached, to show what that looks like
@@ -46,12 +47,23 @@ export default function App() {
   const [projectsFolded, foldProjects] = useProjectsFolded();
   const layout = useLayout(project?.path, projectsFolded);
   const { fold } = layout;
+  // For the key handler, which is set up once: the project shown and the way to show another
+  const currentPath = useRef<string | null>(null);
+  currentPath.current = project?.path ?? null;
+  const openRef = useRef<(path: string, newWindow: boolean) => Promise<unknown>>(async () => {});
   // Ctrl+Shift+G shows and hides the git commands from anywhere, Ctrl+Shift+L folds the project list,
   // Ctrl+B the file list
   // (in the window only, as the sidebar in VS Code)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "w") {
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === "Tab") {
+        // Back to the project shown before (user, 2026-11-19: two projects one moves between)
+        e.preventDefault();
+        void overviewState().then((all) => {
+          const previous = recentOf(all, currentPath.current)[0];
+          if (previous) void openRef.current(previous.path, false);
+        });
+      } else if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "w") {
         // Close project: the window goes with it (docs/PLAN.md "Projektliste im Fenster statt Übersicht")
         e.preventDefault();
         void closeWindow();
@@ -132,6 +144,7 @@ export default function App() {
     setActions(null);
     setProject(next);
   };
+  openRef.current = open;
   // The preview has no project menu yet: a way to switch for checking with tools/shot.mjs
   if (!live) (window as unknown as { openProject?: typeof open }).openProject = open;
 

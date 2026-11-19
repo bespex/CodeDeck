@@ -135,6 +135,8 @@ export function closeWindow(): Promise<void> {
 /** Switches this window to another directory (absolute path). */
 export function openProject(path: string): Promise<ProjectInfo> {
   if (live) return invoke("open_project", { path });
+  mockRecent.splice(0, mockRecent.length, path, ...mockRecent.filter((p) => p !== path));
+  mockOverviewListeners.forEach((l) => l());
   return Promise.resolve(mockInfo(path));
 }
 
@@ -1432,6 +1434,8 @@ export interface OverviewProject {
   account: string | null;
   /** Its mark as chosen; `null`: the first letter on its colour */
   mark: ProjectMarkSpec | null;
+  /** Its place among the projects shown lately, 0 the newest; `null` when not among them */
+  recent: number | null;
 }
 
 /** A project's mark (docs/UEBERSICHT.md): a Lucide icon, an emoji or its first letter, on a colour. */
@@ -1481,7 +1485,7 @@ export function onProjectChanged(callback: (path: string) => void): () => void {
 /** The overview window shows this instead of a project. */
 export const isOverview = new URLSearchParams(window.location.search).get("view") === "overview";
 
-const mockOverview = (): OverviewProject[] => [
+const mockOverview = (): Omit<OverviewProject, "recent">[] => [
   { label: "w1", name: "acme-orbit-api", path: "/home/me/projects/acme/acme-orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", uncommitted: 3, next: mockAssistant.attachments.length, news: 0 }, front: true, listed: true, visible: true, daily: true, account: "/home/me/.claude", mark: { kind: "icon", value: "satellite" } },
   {
     label: "w2",
@@ -1502,13 +1506,15 @@ const mockOverview = (): OverviewProject[] => [
 
 export function overviewState(): Promise<OverviewProject[]> {
   if (live) return invoke("overview_state");
-  const all = mockOverview();
+  const all = mockOverview().map((p) => ({ ...p, recent: mockRecent.indexOf(p.path) >= 0 ? mockRecent.indexOf(p.path) : null }));
   // The preview keeps a dragged or sorted order as the backend would
   const rank = (p: OverviewProject) => (mockOrder.indexOf(p.path) + 1 || Infinity) + (p.listed ? 0 : 1e6);
   return Promise.resolve(mockOrder.length ? [...all].sort((a, b) => rank(a) - rank(b)) : all);
 }
 
 let mockOrder: string[] = [];
+/** Projects shown lately in the preview, newest first (the backend's recent.json) */
+const mockRecent = ["/home/me/projects/acme/acme-orbit-api", "/home/me/projects/acme/billing-ui"];
 const mockOverviewListeners = new Set<() => void>();
 
 /** Something the overview shows changed: ask again. */
@@ -1537,8 +1543,8 @@ export function sortProjects(by: ProjectSort): Promise<void> {
   if (live) return invoke("sort_projects", { by });
   const listed = mockOverview().filter((p) => p.listed);
   const ranked = [...listed].sort((a, b) => (mockOrder.indexOf(a.path) + 1 || Infinity) - (mockOrder.indexOf(b.path) + 1 || Infinity));
-  const name = (p: OverviewProject) => p.path.toLowerCase();
-  const byName = (a: OverviewProject, b: OverviewProject) => name(a).localeCompare(name(b)) || a.path.localeCompare(b.path);
+  const name = (p: Omit<OverviewProject, "recent">) => p.path.toLowerCase();
+  const byName = (a: Omit<OverviewProject, "recent">, b: Omit<OverviewProject, "recent">) => name(a).localeCompare(name(b)) || a.path.localeCompare(b.path);
   const sorted =
     by === "daily"
       ? [...ranked.filter((p) => p.daily), ...ranked.filter((p) => !p.daily)]

@@ -215,6 +215,8 @@ pub struct OverviewProject {
     pub account: Option<String>,
     /// Its mark, as chosen; `null`: the first letter on its colour
     pub mark: serde_json::Value,
+    /// Its place among the projects shown lately, 0 the newest; `None` when not among them
+    pub recent: Option<usize>,
 }
 
 /// The overview's view of my projects in their order, then open windows of projects not on the list.
@@ -223,6 +225,7 @@ pub fn overview_state(app: &AppHandle) -> Vec<OverviewProject> {
     let mut open = app.state::<Windows>().all();
     open.sort_by_key(|w| w.label.trim_start_matches('w').parse::<u32>().unwrap_or(0));
     let listed = crate::projects::list();
+    let recent = crate::recent::order();
     let entry = |root: &Path, win: Option<&Arc<Win>>, listed: Option<&crate::projects::Listed>| {
         let [r, g, b] = crate::icon::project_color(root);
         OverviewProject {
@@ -238,6 +241,7 @@ pub fn overview_state(app: &AppHandle) -> Vec<OverviewProject> {
             account: listed.and_then(|l| l.account.clone()),
             mark: listed.and_then(|l| l.mark.clone()).unwrap_or(serde_json::Value::Null),
             visible: win.and_then(|w| app.get_webview_window(&w.label)).is_some_and(|w| w.is_visible().unwrap_or(false)),
+            recent: recent.iter().position(|p| p == root),
         }
     };
     let window_of = |root: &Path| open.iter().find(|w| w.current.get().root == root);

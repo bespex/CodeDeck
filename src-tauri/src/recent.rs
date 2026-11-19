@@ -47,6 +47,12 @@ pub fn remember(root: &Path) {
     let _ = crate::config::write(&file, &serde_json::to_vec_pretty(&list).unwrap_or_default());
 }
 
+/// The projects opened lately, newest first: their place gives each its rank in the project list's
+/// "Recently" (docs/PLAN.md "Projektliste im Fenster statt Übersicht").
+pub fn order() -> Vec<PathBuf> {
+    file().map(|f| load(&f).into_iter().map(|entry| entry.path).collect()).unwrap_or_default()
+}
+
 /// Recent projects that still exist, newest first, without the one given.
 pub fn list(except: &Path) -> Vec<RecentProject> {
     let Some(file) = file() else { return Vec::new() };

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { AppWindow, ChevronRight, ChevronsDownUp, ChevronsUpDown, Shapes, Eye, EyeOff, ListX, Loader, Check, Copy, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
+import { History, AppWindow, ChevronRight, ChevronsDownUp, ChevronsUpDown, Shapes, Eye, EyeOff, ListX, Loader, Check, Copy, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
 import { toggleOverview, onTodayStarted, sessionCommands, pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
 import { accountLook, useAccounts } from "../accounts";
 import { usePending } from "../pending";
@@ -43,6 +43,35 @@ export const START_PAGE: InWindow = {
       .catch((e) => tell(String(e))),
 };
 const InWindowContext = createContext<InWindow | null>(null);
+
+/** How many projects "Recently" shows, the one shown here among them: enough for the two or three one
+ *  moves between (user, 2026-11-19) */
+const RECENT_SHOWN = 3;
+
+/** The projects shown lately, newest first; with `current`, without that one (Ctrl+Tab: the one before). */
+export function recentOf(projects: OverviewProject[], current: string | null): OverviewProject[] {
+  return projects
+    .filter((p) => p.recent !== null && p.path !== current)
+    .sort((a, b) => (a.recent ?? 0) - (b.recent ?? 0));
+}
+
+/** The places of "Recently" in this window, kept while one switches between its projects. */
+let recentSlots: string[] = [];
+
+/**
+ * "Recently" in a fixed order (user, 2026-11-19: it must not change while one moves between them): each
+ * project keeps its place; one that comes in takes the place of one that dropped out, else the end.
+ * The project shown here stays among them, marked, so that switching moves nothing.
+ */
+export function recentInPlace(projects: OverviewProject[]): OverviewProject[] {
+  const wanted = recentOf(projects, null).slice(0, RECENT_SHOWN).map((p) => p.path);
+  const kept = recentSlots.map((path) => (wanted.includes(path) ? path : null));
+  const newcomers = wanted.filter((path) => !kept.includes(path));
+  const slots = kept.map((path) => path ?? newcomers.shift() ?? null).filter((path): path is string => path !== null);
+  recentSlots = [...slots, ...newcomers];
+  const byPath = new Map(projects.map((p) => [p.path, p]));
+  return recentSlots.flatMap((path) => byPath.get(path) ?? []);
+}
 
 /** Keeps the state of every open project, asked again whenever the backend says it changed. */
 export function useOverview(): [OverviewProject[], (p: OverviewProject[]) => void] {
@@ -953,6 +982,22 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto pb-3">
         <Waiting projects={projects} />
+        {/* The projects one moves between, at the top (user, 2026-11-19: with more than 20 they were hard
+            to find again); they stay in their groups below too, so nothing there moves when one switches */}
+        {inWindow && recentInPlace(projects).length > 0 && (
+          // A box of its own, apart from the list below (user, 2026-11-19: it did not stand out enough)
+          <section aria-label={t("Recently")} className="mx-2 mt-3 overflow-hidden rounded-lg border border-line bg-raised/40">
+            <h2 className="flex h-7 items-center gap-1.5 border-b border-line/60 px-3 text-[12px] font-semibold tracking-wider text-ai uppercase">
+              <History className="size-3.5" />
+              {t("Recently")}
+            </h2>
+            <ul className="select-none">
+              {recentInPlace(projects).map((p) => (
+                <ProjectRow key={`recent:${p.path}`} project={p} name={p.name} />
+              ))}
+            </ul>
+          </section>
+        )}
         {/* No heading: the projects are what the overview is; only the room below "Waits for you" stays */}
         <div className="pt-4" />
         {projects.length ? (
@@ -1002,16 +1047,18 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
 export function ProjectsRail({ inWindow }: { inWindow: InWindow }) {
   const [projects] = useOverview();
   const now = useNow();
+  // Recently shown first, apart and in their fixed places; then every project in the order of the list
+  const recent = recentInPlace(projects);
+  const rest = sectionsOf(projects).flatMap((s) => s.items);
   return (
     <ul className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto py-1.5 [scrollbar-width:none]">
-      {sectionsOf(projects).flatMap((section) =>
-        section.items.map((p) => {
+      {[...recent.map((p) => ({ p, key: `recent:${p.path}`, last: p === recent.at(-1) })), ...rest.map((p) => ({ p, key: p.path, last: false }))].map(({ p, key, last }) => {
           const sessions = (p.state?.sessions ?? []).filter((s) => relevant(s, now));
           const asks = sessions.filter((s) => needsYou(s) === "asks").length;
           const done = sessions.some((s) => needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS);
           const shown = inWindow.current === p.path;
           return (
-            <li key={p.path}>
+            <li key={key} className={last ? "mb-1 border-b border-line/60 pb-2" : ""}>
               <button
                 type="button"
                 title={`${p.name}${asks ? ` · ${t("{n} asking", { n: asks })}` : done ? ` · ${t("A turn is done")}` : ""}\n${t("Show it here · Ctrl+click or middle click: in a new window")}`}
@@ -1029,8 +1076,7 @@ export function ProjectsRail({ inWindow }: { inWindow: InWindow }) {
               </button>
             </li>
           );
-        }),
-      )}
+      })}
     </ul>
   );
 }

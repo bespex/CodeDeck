@@ -354,6 +354,8 @@ fn open_project(path: &str, app: AppHandle, window: WebviewWindow) -> Result<Pro
     recent::remember(&project.root);
     set_title(&app, &win);
     exclude_scratch(&app, &win);
+    // The project lists of every window: which is shown here, and what was shown lately
+    windows::overview_changed(&app);
     Ok(project.info())
 }
 

@@ -519,7 +519,8 @@ Projekte, Sitzungen, Deck, Trail, Dateien. Sie lesen sich vom Allgemeinen zum Ei
 Projekt, welche Sitzung, was sie getan hat, die Dateien zum Nachschlagen; alles, was auf dich wartet,
 steht links an einem Ort. Die Projektliste (300 px) zeigt oben das Projekt dieses Fensters in seiner
 Farbe mit den Menüs, darunter alle Projekte ohne ihre Sitzungen und „Wartet in anderen Projekten“; ein
-Klick zeigt ein Projekt hier, Strg+Klick in einem neuen Fenster, ein Klick auf das Projektzeichen klappt
+Klick zeigt ein Projekt hier, Strg+Klick in einem neuen Fenster; oben stehen in einem eigenen Kasten „Zuletzt“
+die zuletzt gezeigten Projekte auf festen Plätzen, `Strg+Tab` springt zum vorigen zurück; ein Klick auf das Projektzeichen klappt
 sie auf eine Leiste mit den Zeichen zu (siehe `docs/PLAN.md` „Projektliste im Fenster statt Übersicht“).
 Ohne offenes Projektfenster zeigt CodeDeck nur die Liste, als Startseite am linken Bildschirmrand; ein
 Projekt öffnet von dort maximiert. Eine eigene Übersicht aller Projekte gibt es nicht mehr: Tray-Symbol und

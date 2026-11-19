@@ -163,6 +163,7 @@ function Shortcuts() {
     ["F1", t("This overview")],
     [`${t("Ctrl")}+B`, t("Fold or show the file list")],
     [`${t("Ctrl")}+W`, t("Close project (its window; the last one leaves the start page)")],
+    [`${t("Ctrl")}+Tab`, t("Back to the project shown before")],
     [t("Ctrl+Shift+G"), t("Git commands CodeDeck ran")],
     [t("Ctrl+Shift+L"), t("Fold or show the project list")],
     [t("Ctrl+click"), t("On a project or folder: open it in a new window. On the trail: compare with the point shown")],

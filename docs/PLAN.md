@@ -284,6 +284,13 @@ zu Desktop und Remote Control erledigt (SITZUNGEN B4, B11).
     0,7 s (`window::in_front`, `Shortcuts.lost`): Ein Klick auf das Tray-Symbol nimmt dem Fenster den Fokus, bevor er
     ankommt. Tray-Menü: „CodeDeck zeigen“ (nur nach vorn) statt „Übersicht zeigen/verbergen“. `Ctrl+Shift+L` im
     Projektfenster klappt die Projektliste. `docs/UEBERSICHT.md` als abgelöst markiert, `KONZEPT.md` nachgezogen.
+    Danach (Nutzer 2026-11-19, über 20 Projekte, an zweien wird gewechselt): Abschnitt „Zuletzt“ oben in der
+    Projektliste mit den drei zuletzt gezeigten Projekten, das gezeigte hervorgehoben darunter, als eigener hinterlegter
+    Kasten; feste Plätze (`recentInPlace`): Beim Wechseln zwischen ihnen ändert sich die Reihenfolge nicht, ein neues
+    nimmt den Platz eines herausgefallenen (Nutzer). Sie bleiben auch in ihren Gruppen, damit dort nichts springt; in
+    der zugeklappten Leiste oben abgesetzt; `Strg+Tab` zurück zum vorher
+    gezeigten. Quelle: `recent.json` (`recent::order`, Feld `recent` in `OverviewProject`), `open_project` meldet
+    `overview_changed`.
     Jeder Schritt mit Praxistest.
   - **Spike zu Weg 2** (eine Webview je Projekt im selben Fenster, `.scratch/spike-webviews/`), als Reserve:
     Ergebnis (2026-11-19, Tauri 2.12.5 mit `unstable`, WebKitGTK unter Xvfb/X11):
