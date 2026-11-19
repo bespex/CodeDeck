@@ -979,6 +979,9 @@ export const de: Record<string, string> = {
   "At login": "Bei der Anmeldung",
   "Off": "Aus",
   "In the tray": "Im Tray",
+  "Starts the development build {program}. It needs the dev server, so its windows stay empty at login.":
+    "Startet den Entwicklungs-Build {program}. Er braucht den Dev-Server, darum bleiben seine Fenster bei der Anmeldung leer.",
+  "A development build cannot start at login. Use an installed CodeDeck.": "Ein Entwicklungs-Build kann nicht bei der Anmeldung starten. Nimm ein installiertes CodeDeck.",
   "Starts {program}. Choose “In the tray” again for this one.": "Startet {program}. „Im Tray“ erneut wählen, um dieses Programm zu nehmen.",
   "CodeDeck starts without a window and hears your sessions from the start; the tray icon shows the overview.": "CodeDeck startet ohne Fenster und hört deine Sitzungen von Anfang an; das Tray-Symbol zeigt die Übersicht.",
   "Start with CodeDeck": "Mit CodeDeck starten",

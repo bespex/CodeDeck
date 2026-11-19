@@ -16,6 +16,11 @@ pub struct State {
     pub program: Option<String>,
     /// Whether that is this program
     pub this: bool,
+    /// Whether this program is a development build: it loads its page from the dev server, which
+    /// is not running at login, so its windows would stay empty. It cannot be the entry.
+    pub dev: bool,
+    /// Whether the entry starts a development build (this one or another): at login it shows empty windows
+    pub needs_server: bool,
 }
 
 fn entry_file() -> Option<PathBuf> {
@@ -31,7 +36,16 @@ pub fn state() -> State {
         (Some(p), Ok(exe)) => Path::new(p) == exe,
         _ => false,
     };
-    State { on, program, this }
+    let dev = tauri::is_dev();
+    // For this program the build knows; another one is judged by where cargo puts debug builds
+    let needs_server = on && program.as_deref().is_some_and(|p| if this { dev } else { in_debug_folder(Path::new(p)) });
+    State { on, program, this, dev, needs_server }
+}
+
+/// Whether a program lies in cargo's `debug` folder, where development builds go. A guess for
+/// programs other than this one, good enough to warn about.
+fn in_debug_folder(program: &Path) -> bool {
+    program.parent().and_then(Path::file_name).is_some_and(|d| d == "debug")
 }
 
 /// Puts the entry there for this program, or takes it away.
@@ -42,6 +56,9 @@ pub fn set(on: bool) -> Result<(), String> {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(format!("{}: {e}", file.display())),
             _ => Ok(()),
         };
+    }
+    if tauri::is_dev() {
+        return Err("a development build needs the dev server and cannot start at login".into());
     }
     let exe = std::env::current_exe().map_err(|e| format!("which program runs: {e}"))?;
     if let Some(dir) = file.parent() {
@@ -101,5 +118,12 @@ mod tests {
         assert!(text.contains("Exec=\"/opt/my apps/code\\\"deck\" --tray\n"));
         assert_eq!(program_of(&text).as_deref(), Some("/opt/my apps/code\"deck"));
         assert_eq!(program_of("Exec=/usr/bin/codedeck --tray").as_deref(), Some("/usr/bin/codedeck"));
+    }
+
+    #[test]
+    fn a_program_in_cargos_debug_folder_counts_as_a_development_build() {
+        assert!(in_debug_folder(Path::new("/shared/cargo-target/debug/codedeck")));
+        assert!(!in_debug_folder(Path::new("/shared/cargo-target/release/codedeck")));
+        assert!(!in_debug_folder(Path::new("/usr/bin/codedeck")));
     }
 }

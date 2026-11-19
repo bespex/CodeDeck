@@ -1884,12 +1884,16 @@ export interface AutostartState {
   program: string | null;
   /** Whether that is the program running now */
   this: boolean;
+  /** Whether the program running now is a development build (it needs the dev server, so it cannot start at login) */
+  dev: boolean;
+  /** Whether the entry starts a development build: at login its windows stay empty */
+  needs_server: boolean;
 }
 
 export function autostartState(): Promise<AutostartState> {
   if (live) return invoke("autostart_state");
   const on = localStorage.getItem("codedeck.mockAutostart") === "1";
-  return Promise.resolve({ on, program: on ? "/usr/bin/codedeck" : null, this: true });
+  return Promise.resolve({ on, program: on ? "/usr/bin/codedeck" : null, this: true, dev: false, needs_server: false });
 }
 
 export function setAutostart(on: boolean): Promise<AutostartState> {

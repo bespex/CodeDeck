@@ -267,7 +267,8 @@ function AtLogin() {
             type="button"
             role="radio"
             aria-checked={on === v}
-            disabled={!state}
+            // A development build cannot be the entry (the backend refuses it too); turning it off still works
+            disabled={!state || (v && state.dev)}
             onClick={() => choose(v)}
             className={`rounded px-2 py-0.5 text-[12px] ${on === v ? "bg-overlay-hover text-slate-100" : "text-slate-500 hover:text-slate-200"}`}
           >
@@ -275,8 +276,15 @@ function AtLogin() {
           </button>
         ))}
       </div>
+      {/* An entry with a development build shows empty windows at login: the dev server is not running then */}
+      {state?.needs_server && (
+        <span className="max-w-64 text-right text-[11px] break-all text-problem">
+          {t("Starts the development build {program}. It needs the dev server, so its windows stay empty at login.", { program: state.program ?? "" })}
+        </span>
+      )}
+      {state?.dev && !state.on && <span className="max-w-64 text-right text-[11px] text-slate-500">{t("A development build cannot start at login. Use an installed CodeDeck.")}</span>}
       {/* Another installation in the entry (a build, a package): say which, choosing again takes this one */}
-      {state?.on && !state.this && state.program && (
+      {state?.on && !state.this && !state.needs_server && !state.dev && state.program && (
         <span className="max-w-64 text-right text-[11px] break-all text-changed">{t("Starts {program}. Choose “In the tray” again for this one.", { program: state.program })}</span>
       )}
       {error && <span className="selectable max-w-64 text-right text-[11px] text-problem">{error}</span>}
