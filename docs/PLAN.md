@@ -288,7 +288,9 @@ zu Desktop und Remote Control erledigt (SITZUNGEN B4, B11).
     Projektliste mit den drei zuletzt gezeigten Projekten, das gezeigte hervorgehoben darunter, als eigener hinterlegter
     Kasten; feste Plätze (`recentInPlace`): Beim Wechseln zwischen ihnen ändert sich die Reihenfolge nicht, ein neues
     nimmt den Platz eines herausgefallenen (Nutzer). Sie bleiben auch in ihren Gruppen, damit dort nichts springt; in
-    der zugeklappten Leiste oben abgesetzt; `Strg+Tab` zurück zum vorher
+    der zugeklappten Leiste oben abgesetzt; das Menü einer Zeile dort hat nur „In einem neuen Fenster öffnen“ und
+    „Aus ‚Zuletzt‘ entfernen“ (`forget_recent`: `recent.json` behält nur die übrigen angezeigten, kein älteres rückt
+    nach, Nutzer; das nächste Öffnen eines Projekts setzt es wieder hinein); `Strg+Tab` zurück zum vorher
     gezeigten. Quelle: `recent.json` (`recent::order`, Feld `recent` in `OverviewProject`), `open_project` meldet
     `overview_changed`.
     Jeder Schritt mit Praxistest.

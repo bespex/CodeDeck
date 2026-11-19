@@ -1053,6 +1053,14 @@ async fn toggle_overview(app: AppHandle) -> Result<(), String> {
     windows::toggle_overview(&app)
 }
 
+/// "Remove from Recently" in the project list: `recent.json` keeps only the projects still shown there
+/// (`keep`), every list shows it at once.
+#[tauri::command]
+fn forget_recent(app: AppHandle, keep: Vec<String>) {
+    recent::forget(&keep.into_iter().map(PathBuf::from).collect::<Vec<_>>());
+    windows::overview_changed(&app);
+}
+
 /// "Close project" (Ctrl+W): the window goes with its project; when it was the last project window the
 /// start page shows (see `Destroyed`). A window has no state without a project to fall back to.
 #[tauri::command]
@@ -1241,6 +1249,7 @@ pub fn run() {
             focus_project,
             toggle_overview,
             close_window,
+            forget_recent,
             quit,
             add_project,
             set_project,

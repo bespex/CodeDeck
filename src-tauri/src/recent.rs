@@ -47,6 +47,16 @@ pub fn remember(root: &Path) {
     let _ = crate::config::write(&file, &serde_json::to_vec_pretty(&list).unwrap_or_default());
 }
 
+/// "Remove from Recently": of the projects opened lately only `keep` stay (the ones "Recently" still
+/// shows), so that no older one moves up into the freed place (user, 2026-11-19); the next opening of
+/// a project puts it back. Failures only cost the removal.
+pub fn forget(keep: &[PathBuf]) {
+    let Some(file) = file() else { return };
+    let mut list = load(&file);
+    list.retain(|entry| keep.contains(&entry.path));
+    let _ = crate::config::write(&file, &serde_json::to_vec_pretty(&list).unwrap_or_default());
+}
+
 /// The projects opened lately, newest first: their place gives each its rank in the project list's
 /// "Recently" (docs/PLAN.md "Projektliste im Fenster statt Übersicht").
 pub fn order() -> Vec<PathBuf> {

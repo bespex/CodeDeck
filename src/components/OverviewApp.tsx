@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { History, AppWindow, ChevronRight, ChevronsDownUp, ChevronsUpDown, Shapes, Eye, EyeOff, ListX, Loader, Check, Copy, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
-import { toggleOverview, onTodayStarted, sessionCommands, pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
+import { forgetRecent, toggleOverview, onTodayStarted, sessionCommands, pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
 import { accountLook, useAccounts } from "../accounts";
 import { usePending } from "../pending";
 import { AccountMark, MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
@@ -287,6 +287,28 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
   );
 }
 
+/** The menu of a project in "Recently": open it in a new window, or take it out of "Recently". */
+function RecentMenu({ project, onClose }: { project: OverviewProject; onClose: () => void }) {
+  const inWindow = useContext(InWindowContext);
+  useCloseOnClick(onClose);
+  return (
+    <FloatingMenu>
+      <button type="button" className={menuItem} onClick={() => (onClose(), inWindow ? inWindow.onOpen(project.path, true) : void showProject(project.path))}>
+        <MenuIcon>
+          <AppWindow className="size-3.5" />
+        </MenuIcon>
+        <span className="flex-1">{t("Open in a new window")}</span>
+      </button>
+      <button type="button" className={menuItem} onClick={() => (onClose(), void forgetRecent(recentSlots.filter((path) => path !== project.path)).catch((e) => tell(String(e))))}>
+        <MenuIcon>
+          <ListX className="size-3.5" />
+        </MenuIcon>
+        <span className="flex-1">{t("Remove from Recently")}</span>
+      </button>
+    </FloatingMenu>
+  );
+}
+
 /**
  * The menu of a group: what the menu of a row sets, for every project in the group at once. A group
  * has no settings of its own; it is its folder.
@@ -447,7 +469,7 @@ interface RowDrag {
   group: string;
 }
 
-function ProjectRow({ project, name, drag }: { project: OverviewProject; name: string; drag?: RowDrag }) {
+function ProjectRow({ project, name, drag, inRecent = false }: { project: OverviewProject; name: string; drag?: RowDrag; inRecent?: boolean }) {
   const inWindow = useContext(InWindowContext);
   const now = useNow();
   const sessions = (project.state?.sessions ?? []).filter((s) => relevant(s, now));
@@ -582,7 +604,8 @@ function ProjectRow({ project, name, drag }: { project: OverviewProject; name: s
           )}
         </HoverTools>
       </div>
-      {menu && <RowMenu project={project} onClose={closeMenu} />}
+      {/* In "Recently" only what belongs there (user, 2026-11-19); the rest is in the project's row below */}
+      {menu && (inRecent ? <RecentMenu project={project} onClose={closeMenu} /> : <RowMenu project={project} onClose={closeMenu} />)}
       {/* In a project window the list has no sessions (user, 2026-11-19): they are in the column beside it */}
       {!inWindow && (sessions.length > 0 || pending.length > 0) && (
         <ul>
@@ -986,14 +1009,15 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
             to find again); they stay in their groups below too, so nothing there moves when one switches */}
         {inWindow && recentInPlace(projects).length > 0 && (
           // A box of its own, apart from the list below (user, 2026-11-19: it did not stand out enough)
-          <section aria-label={t("Recently")} className="mx-2 mt-3 overflow-hidden rounded-lg border border-line bg-raised/40">
+          // No `overflow-hidden` for the round corners: it cut off a row's menu; the last row rounds itself
+          <section aria-label={t("Recently")} className="mx-2 mt-3 rounded-lg border border-line bg-raised/40">
             <h2 className="flex h-7 items-center gap-1.5 border-b border-line/60 px-3 text-[12px] font-semibold tracking-wider text-ai uppercase">
               <History className="size-3.5" />
               {t("Recently")}
             </h2>
-            <ul className="select-none">
+            <ul className="select-none [&>li:last-child_[role=button]]:rounded-b-[7px]">
               {recentInPlace(projects).map((p) => (
-                <ProjectRow key={`recent:${p.path}`} project={p} name={p.name} />
+                <ProjectRow key={`recent:${p.path}`} project={p} name={p.name} inRecent />
               ))}
             </ul>
           </section>

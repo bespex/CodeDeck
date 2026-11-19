@@ -125,6 +125,15 @@ export function projectInfo(): Promise<ProjectInfo> {
   return Promise.resolve(mockInfo(MOCK_PATH));
 }
 
+/** "Remove from Recently": only the projects in `keep` (still shown there) stay; the next opening of a
+ *  project puts it back. */
+export function forgetRecent(keep: string[]): Promise<void> {
+  if (live) return invoke("forget_recent", { keep });
+  mockRecent.splice(0, mockRecent.length, ...mockRecent.filter((p) => keep.includes(p)));
+  mockOverviewListeners.forEach((l) => l());
+  return Promise.resolve();
+}
+
 /** Closes this project window ("Close project"); the last one leaves the start page. */
 export function closeWindow(): Promise<void> {
   if (live) return invoke("close_window");
