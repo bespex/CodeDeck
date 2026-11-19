@@ -30,6 +30,7 @@ import { useSessionMarks } from "../assistant";
 import { RepoTooltip } from "./RepoTooltip";
 import { PathBar, type OpenProject } from "./ProjectHeader";
 import { GitStatusBar } from "./StatusBar";
+import { FilesRail } from "./FilesRail";
 import { inScratch, moveIntoProject, SCRATCH_DRAG } from "../scratch";
 import { plural, T, t } from "../i18n";
 
@@ -74,6 +75,9 @@ interface Props {
   onRepoActions: (repo: string, at: HTMLElement, above: boolean) => void;
   /** Files an assistant wrote, with the time (ms) of its latest write */
   touched: Map<string, number>;
+  /** Folded to its rail (`FilesRail`); the tree keeps its state meanwhile */
+  folded: boolean;
+  onFold: (folded?: boolean) => void;
 }
 
 /** Listings by directory path. Only directories that were opened are in here. */
@@ -147,9 +151,23 @@ export function FilesPanel(props: Props) {
   const tree: TreeState = { ...props, listings, open, recentPaths, needle, toggle, menu: contextMenu.open };
   const [rootDrop, setRootDrop] = useState(false);
 
+  if (props.folded)
+    return (
+      <FilesRail
+        project={props.project}
+        git={props.git}
+        assistant={props.assistant}
+        recent={recentPaths.length}
+        onToggleLog={props.onToggleLog}
+        logOpen={props.logOpen}
+        onRepoActions={props.onRepoActions}
+        onOpen={() => props.onFold(false)}
+      />
+    );
+
   return (
     <aside className="zone-files flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
-      <PathBar project={props.project} onToggleLog={props.onToggleLog} assistant={props.assistant} />
+      <PathBar project={props.project} onToggleLog={props.onToggleLog} assistant={props.assistant} onFold={() => props.onFold(true)} />
 
       <div className="px-2 pt-2">
         <label className="flex items-center gap-2 rounded-md border border-line bg-base px-2 py-1.5 focus-within:border-ai">

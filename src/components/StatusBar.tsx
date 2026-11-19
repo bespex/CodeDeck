@@ -24,13 +24,23 @@ interface GitProps {
  * is bright, with an icon and a short word; what only informs stays quiet grey and gives way first
  * when the column is narrow. Details are in the tooltips.
  */
+/**
+ * The left status bar reaches under the trail (user, 2026-11-19): the trail ends above it, the bar runs
+ * on to the trail's right edge (`w-11`, 44 px), so it has more room, and the folded rail's foot too.
+ * Above the grips of the lines it crosses; its own right border carries the trail's line down.
+ */
+export const UNDER_TRAIL = "relative z-30 -mr-11 border-r border-line";
+
+/** Whether the trail is shown, so the bar reaches under it (without git there is none, see `Deck`) */
+export const trailShown = (git: GitView) => !lacksGit(git);
+
 export function GitStatusBar({ git, onRepoActions, logOpen, onToggleLog, recent }: GitProps) {
   const root = git.rootRepo;
   const inFolders = git.repos.filter((r) => r.path);
   const withChanges = inFolders.filter((r) => r.files.length > 0).length;
 
   return (
-    <footer className="zone-bar @container flex h-7 shrink-0 items-center gap-3 overflow-x-clip border-t border-line bg-panel px-3 text-[12px] whitespace-nowrap text-slate-500">
+    <footer className={`zone-bar @container flex h-7 shrink-0 items-center gap-3 overflow-x-clip border-t border-line bg-panel px-3 text-[12px] whitespace-nowrap text-slate-500 ${trailShown(git) ? UNDER_TRAIL : ""}`}>
       {root && (
         <Tooltip className="flex min-w-0" content={<RepoTooltip repo={root} runs={git.runs} />}>
           <button
@@ -99,7 +109,7 @@ export const CLICKABLE = "-mx-1 flex shrink-0 items-center gap-1.5 rounded px-1 
  * command itself is in the tooltip, as one would type it. The same command in several repos within
  * a moment (one status round) counts once, with the number of repos.
  */
-function GitCommands({ runs, open, onToggle }: { runs: GitRun[]; open: boolean; onToggle: () => void }) {
+export function GitCommands({ runs, open, onToggle, compact = false }: { runs: GitRun[]; open: boolean; onToggle: () => void; compact?: boolean }) {
   const last = runs.at(-1);
   const round = last ? runs.filter((r) => r.command === last.command && last.at - r.at < 1000) : [];
   const where = round.length > 1 ? plural(round.length, "repository") : last?.repo;
@@ -126,10 +136,11 @@ function GitCommands({ runs, open, onToggle }: { runs: GitRun[]; open: boolean; 
         aria-expanded={open}
         aria-label={t("Git commands")}
         onClick={onToggle}
-        className={`${CLICKABLE} ${open ? "bg-raised text-slate-50" : last && !last.ok ? "text-problem" : "text-slate-200"}`}
+        // Compact, in the foot of the folded file list's rail: the icon alone
+        className={`${compact ? "flex items-center rounded-md p-1 hover:bg-raised" : CLICKABLE} ${open ? "bg-raised text-slate-50" : last && !last.ok ? "text-problem" : compact ? "text-slate-400 hover:text-slate-100" : "text-slate-200"}`}
       >
-        <SquareTerminal className="size-3.5" />
-        git
+        <SquareTerminal className={compact ? "size-4" : "size-3.5"} />
+        {!compact && "git"}
       </button>
     </Tooltip>
   );

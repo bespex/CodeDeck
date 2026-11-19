@@ -34,7 +34,7 @@ const FOLD_FROM = 3;
 const OPEN_DELAY_MS = 220;
 
 const ROW = "h-[42px]";
-/** Width of the open trail, if the window leaves room for it on the left. */
+/** Width of the open trail; it opens to the left as far as the window allows, the rest to the right. */
 const WIDTH = 400;
 
 /** Dates in the language of the interface, with the 24-hour clock. */
@@ -53,7 +53,8 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
   const [open, setOpen] = useState(false);
   // Runs of snapshots opened by a click, by the newest snapshot of the run
   const [unfolded, setUnfolded] = useState<Set<string>>(new Set());
-  const [width, setWidth] = useState(WIDTH);
+  // How far the open trail reaches past its column on the right: only where the left lacks room
+  const [overhang, setOverhang] = useState(0);
   const column = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -66,8 +67,9 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
   const enter = () => {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      // Opens to the left, over the file list, never past the window's edge
-      setWidth(Math.min(WIDTH, column.current?.getBoundingClientRect().right ?? WIDTH));
+      // Opens to the left, over the file list, never past the window's edge. With little room there
+      // (the file list folded to its rail) it keeps its width and reaches over the deck instead
+      setOverhang(Math.max(0, WIDTH - (column.current?.getBoundingClientRect().right ?? WIDTH)));
       setOpen(true);
     }, OPEN_DELAY_MS);
   };
@@ -97,13 +99,16 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
   let lastDay = "";
 
   return (
-    <div ref={column} className="relative w-11 shrink-0 border-r border-line bg-panel" aria-label={t("Trail")}>
+    // Ends above the left status bar, which reaches under it (`UNDER_TRAIL` in StatusBar.tsx)
+    <div ref={column} className="relative mb-7 w-11 shrink-0 border-r border-line bg-panel" aria-label={t("Trail")}>
       <div
         onMouseEnter={enter}
         onMouseLeave={leave}
-        style={{ width: open ? width : 44 }}
-        className={`absolute inset-y-0 right-0 z-20 overflow-x-hidden overflow-y-auto transition-[width] duration-150 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
-          open ? "surface-overlay rounded-l-lg" : ""
+        style={{ width: open ? WIDTH : 44, right: open ? -overhang : 0 }}
+        // Open, it lies above the grip of the line beside it (`Splitter`, z-20, later in the page): reaching
+        // over the deck, the mouse would otherwise cross that grip, leave the trail and close it
+        className={`absolute inset-y-0 right-0 overflow-x-hidden overflow-y-auto transition-[width,right] duration-150 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+          open ? "surface-overlay z-30 rounded-l-lg" : "z-20"
         }`}
       >
         <ol className="relative py-2">

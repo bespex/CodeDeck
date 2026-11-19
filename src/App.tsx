@@ -42,11 +42,16 @@ export default function App() {
   const [logOpen, setLogOpen] = useState(false);
   // Widths of file list and right column, as the user left them in this project
   const layout = useLayout(project?.path);
+  const { fold } = layout;
   // Ctrl+Shift+G shows and hides the git commands from anywhere, Ctrl+Shift+L the overview of all
-  // projects (docs/UEBERSICHT.md; it replaced the sidebar of each window)
+  // projects (docs/UEBERSICHT.md; it replaced the sidebar of each window), Ctrl+B folds the file list
+  // (in the window only, as the sidebar in VS Code)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "g") {
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        fold();
+      } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "g") {
         e.preventDefault();
         setLogOpen((o) => !o);
       } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "l") {
@@ -66,7 +71,7 @@ export default function App() {
       window.removeEventListener("keydown", onKey);
       stopView();
     };
-  }, []);
+  }, [fold]);
   const actionsRepo = actions && git.repos.find((r) => r.path === actions.repo);
   const openActions = (repo: string, element: HTMLElement, above: boolean) =>
     setActions((current) =>
@@ -93,7 +98,11 @@ export default function App() {
   };
 
   const unpin = (id: string) => files.remove([id]);
-  const showFile = (path: string) => setSelected(path);
+  // Showing a file in the tree needs the tree: a folded list opens first
+  const showFile = (path: string) => {
+    fold(false);
+    setSelected(path);
+  };
 
   return (
     <SessionMarksContext.Provider value={marks}>
@@ -114,6 +123,8 @@ export default function App() {
           assistant={assistant}
           onRepoActions={openActions}
           touched={touchedFiles(assistant)}
+          folded={layout.folded}
+          onFold={fold}
         />
         <Splitter side="files" onResize={layout.resize} />
         <Deck key={`deck:${project?.path}`} git={git} selected={selected} assistant={assistant} onResize={layout.resize} />

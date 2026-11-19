@@ -307,10 +307,13 @@ body {
   user-select: text;
 }
 
-/* Thin, quiet scrollbars */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-slate-700) transparent;
+/* Thin, quiet scrollbars. In the base layer: unlayered, this rule would beat every utility, and an
+   element that hides its scrollbar (`[scrollbar-width:none]`, the trail) would still show one */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-slate-700) transparent;
+  }
 }
 
 /* Marker for files changed recently; `--dot` is the colour of the session that wrote it, if one did */

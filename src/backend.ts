@@ -1807,6 +1807,8 @@ export function setMachineSetting(key: string, value: unknown): Promise<void> {
 export interface Layout {
   files?: number;
   right?: number;
+  /** The file list is folded to its rail; `files` keeps the width it comes back with */
+  filesFolded?: boolean;
 }
 
 /** The division the user left the project with (`~/.config/codedeck/layouts.json`). */

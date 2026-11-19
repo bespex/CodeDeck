@@ -6,6 +6,9 @@ import { useProjectLook } from "../projectLook";
 import { inkOn, ProjectMark } from "./ProjectMark";
 import { t } from "../i18n";
 
+/** Where a project lives: the folders above it, the home folder as ~. */
+export const placeOf = (root: string) => root.replace(/\/[^/]*\/?$/, "").replace(/^\/home\/[^/]+/, "~") || "/";
+
 /** Opens a directory: here, or in a new window of its own. */
 export type OpenProject = (path: string, newWindow: boolean) => Promise<void>;
 
@@ -36,7 +39,7 @@ export function usePopover<T extends HTMLElement>() {
  * name and below it, quiet, where it lives; at the right the menus about CodeDeck itself (quick
  * settings, the app menu). Projects are opened in the overview.
  */
-export function PathBar({ project, onToggleLog, assistant }: { project: ProjectInfo | null; onToggleLog: () => void; assistant: AssistantState }) {
+export function PathBar({ project, onToggleLog, assistant, onFold }: { project: ProjectInfo | null; onToggleLog: () => void; assistant: AssistantState; onFold: () => void }) {
   const crumbs = project?.crumbs ?? [];
   const look = useProjectLook(project?.path);
   const name = crumbs[crumbs.length - 1]?.label ?? project?.root ?? "";
@@ -44,7 +47,7 @@ export function PathBar({ project, onToggleLog, assistant }: { project: ProjectI
   // The bar takes the project's colour: one look at the top left says which project this is
   const fill = look ? (look.mark?.color ?? look.color) : null;
   const ink = fill ? inkOn(fill) : undefined;
-  const where = (project?.root ?? "").replace(/\/[^/]*\/?$/, "").replace(/^\/home\/[^/]+/, "~") || "/";
+  const where = placeOf(project?.root ?? "");
   return (
     <Tooltip
       area
@@ -62,7 +65,18 @@ export function PathBar({ project, onToggleLog, assistant }: { project: ProjectI
       <div className="flex h-[43px] items-center gap-1 pr-1.5 pl-3">
         {project && (
           <span className="flex min-w-0 items-center gap-2.5" title={project.root}>
-            {look && <ProjectMark mark={look.mark} color={look.color} name={look.name} size={32} shape="bare" />}
+            {/* The mark folds the list to its rail, where the same mark opens it again (docs/KONZEPT.md 4.7 rule 4) */}
+            {look && (
+              <button
+                type="button"
+                aria-label={t("Fold the file list")}
+                title={`${t("Fold the file list")} (${t("Ctrl")}+B)`}
+                onClick={onFold}
+                className="shrink-0 rounded-md hover:bg-black/15"
+              >
+                <ProjectMark mark={look.mark} color={look.color} name={look.name} size={32} shape="bare" />
+              </button>
+            )}
             <span className="flex min-w-0 flex-col leading-tight">
               <span className={`truncate text-[14px] font-semibold ${fill ? "" : "text-slate-100"}`}>{name}</span>
               <span className={`truncate font-mono text-[11px] ${fill ? "opacity-70" : "text-slate-500"}`}>{where}</span>

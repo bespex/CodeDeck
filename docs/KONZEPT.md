@@ -595,10 +595,18 @@ weil man ihm die Dateien einzeln nennt und es selbst committet.
    Einzelheiten klappen auf, stehen im Tooltip oder im schwebenden Panel. Lange Texte dürfen keine
    Übersicht sprengen.
 4. **Größen gehören dem Benutzer.** Dateiliste und rechte Spalte lassen sich in der Breite ziehen
-   (Doppelklick: zurück zur Standardbreite); zuklappen lassen sie sich nicht, Tastenkürzel dafür gibt
-   es vorerst keine (Entscheidung 2026-11-17). Die Trennlinien bleiben haarfein
-   und zeigen sich erst beim Überfahren, damit sie keine Unruhe ins Bild bringen. Der Inhalt passt
-   sich fließend an, die Aufteilung wird je Projekt gemerkt.
+   (Doppelklick: zurück zur Standardbreite). Die Dateiliste lässt sich außerdem zuklappen, mit
+   `Strg+B` oder einem Klick auf das Projektzeichen oben links (Entscheidung 2026-11-19, ersetzt die vom
+   2026-11-17). Zugeklappt bleibt eine schmale Leiste, nicht nichts: dasselbe Projektzeichen in der
+   Projektfarbe, das die Liste wieder aufklappt (mit Punkt, wenn kürzlich etwas geändert wurde),
+   Schnelleinstellungen und `⋯`, unten wie in der Statusleiste das Git-Log und der Branch für die
+   Git-Aktionen. Die linke Statusleiste reicht immer unter dem Trail durch bis zu seinem rechten Rand. Zuklappen verbirgt also nur
+   den Baum, nie das Projekt oder ein Menü. Wer eine Datei im Baum zeigen will, klappt ihn damit auf.
+   Die rechte Spalte klappt nicht zu: Sie ist das Radar, und wer fragt, soll immer zu sehen sein. Die
+   Trennlinien bleiben haarfein und zeigen sich erst beim Überfahren, damit sie keine Unruhe ins Bild
+   bringen. Der Trail öffnet sich nach links über die Dateiliste; ist dort zu wenig Platz (zugeklappt),
+   reicht er nach rechts über das Deck. Der Inhalt passt sich fließend an; Aufteilung und Zugeklapptes werden je
+   Projekt gemerkt, beim Aufklappen kommt die zuletzt gezogene Breite zurück.
 5. **Schwebend statt eingebaut**, wenn etwas selten gebraucht wird: Konten, Hinweise und Tipps
    liegen in Seitenleisten, die ein kleiner Knopf öffnet.
 

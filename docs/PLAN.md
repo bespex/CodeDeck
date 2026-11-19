@@ -143,7 +143,7 @@ prüfen und lenken. Alles beruht auf Daten, die es heute schon gibt.
 | 2.3d Desktop-Meldungen stapeln sich ✅ 2026-11-17 (Praxistest bestanden 2026-11-17; Zurückziehen erledigter Meldungen und Ablaufzeit bewusst nicht gebaut) | Jede Meldung (`attention.rs` `desktop()`, `notify-rust`) bleibt im Benachrichtigungsbereich; Cinnamon zeigt die Zahl der ungelesenen als Badge am Taskleistensymbol (13, während „Needs you“ 2 zeigt; ein Klick auf das Fenster setzt sie auf 0). Besser: eine Meldung je Sitzung ersetzen (`replaces_id`), zurückziehen, sobald der Eintrag erledigt ist, Ablaufzeit setzen. Dazu den Fenstertitel trennen: `● 2 asking · 9 done` statt einer Zahl, und die Zahl in „Needs you“ mit Tooltip erklären (2 fragen, 9 fertig in den letzten 30 Minuten) | Needs you, Fenstertitel | `attention.rs`, `attention.ts`, `SessionsPanel.tsx` | Nach mehreren Runden steht höchstens eine Meldung je Sitzung da; die Zahl in der Taskleiste passt zu „Needs you“ |
 | 2.3e Projekt ohne Git ✅ 2026-11-17 (Praxistest bestanden 2026-11-17; Funde behoben: `rev-parse --verify` ohne Commit stand rot im Git-Log, jetzt `Git::verify` mit Exit-Code 1 als Antwort; Git-Log kopierbar, „Copy“ im Kopf und je Eintrag) | Ohne Repository gibt es weder Commits noch Snapshots: der Trail wird nicht gezeigt. Stattdessen „No git repository“ mit Knopf `git init` links in der Statusleiste (die Übersicht oben rechts nennt nur den Hinweis), dazu ein Abschnitt mit den Vorteilen bei „Notices and tips“. `git init -b main` läuft über `Git::execute` (im Log), ist keine der `ACTIONS` und nur ohne Repository möglich. Das Git-Log gehört dem Prozess: beim Projektwechsel wird es geleert, vorher zeigte ein Projekt ohne Git die Befehle des vorigen | Statusleiste, Übersicht, Glocke | `git.rs` (`init`, `clear_log`), `lib.rs` (`git_init`, `open_project`), `git.ts` (`loaded`), neu `GitInit.tsx`, `Deck.tsx`, `StatusBar.tsx`, `SidebarSummary.tsx`, `NoticesPanel.tsx` | Ein Ordner ohne Git zeigt keinen Trail; ein Klick auf `git init` macht ihn zum Repository, der Trail erscheint |
 | 2.4 Verbrauch ✅ 2026-11-17 (Praxistest bestanden 2026-11-17) | P4: erst den Spike. Ohne verlässliche Quelle entfällt die Anzeige, nicht schätzen | Activity, Statusleiste | siehe P4 | D2 ist entschieden und umgesetzt oder gestrichen |
-| 2.5 Größen ✅ | Dateiliste und rechte Spalte in der Breite ziehen, Aufteilung je Projekt merken; Trennlinien haarfein (Zuklappen und Tastenkürzel gestrichen, Nutzer 2026-11-17; Praxistest bestanden) | Trennlinien (im Dummy nur angedeutet) | `App.tsx`, `Deck.tsx`, `config.rs` | Aufteilung überlebt einen Neustart |
+| 2.5 Größen ✅ | Dateiliste und rechte Spalte in der Breite ziehen, Aufteilung je Projekt merken; Trennlinien haarfein (Zuklappen und Tastenkürzel gestrichen, Nutzer 2026-11-17, für die Dateiliste 2026-11-19 doch gebaut, siehe „Später“; Praxistest bestanden) | Trennlinien (im Dummy nur angedeutet) | `App.tsx`, `Deck.tsx`, `config.rs` | Aufteilung überlebt einen Neustart |
 
 ### MVP 3: CodeDeck ersetzt das Start-Script
 
@@ -192,11 +192,39 @@ zu Desktop und Remote Control erledigt (SITZUNGEN B4, B11).
   rechts oben; Benachrichtigungen bei Statusänderungen. Kurzkonzept mit drei Schritten (A Kopf rechts, B Leiste,
   C Aufmerksamkeit) in `docs/SEITENLEISTE.md`. Alle drei gebaut: C als 2.1a, A als Kopfleiste 2.1b, B als 2.1c. Schritt A ist als **Kopfleiste** ausgearbeitet (Projekt, Schnelleinstellungen, App-Menü, About, Einstellungsdialog; auch für die Startseite): `docs/KOPFLEISTE.md`, Entwurf zur Abstimmung (2026-11-16).
 - **Themes** (Wunsch des Nutzers, 2026-11-17): vorbereitete Farbgebungen zum Auswählen, Rollen und Eingriffe, Vorgabe „CodeDeck“ und Beispiel „Signal“. Konzept `docs/STYLING.md` (Schritte S.1 bis S.3), Labor `design/click-dummy/themes.html`. Nach MVP 3; S.1 (Rollen bereinigen, ohne sichtbare Änderung) jederzeit dazwischen.
-- **TODO: Linke Spalte zu- und aufklappen** (Nutzer, 2026-11-19, ändert die Entscheidung vom 2026-11-17 in
-  `docs/KONZEPT.md` 4.7 Regel 4: „zuklappen lassen sie sich nicht“): per Tastenkürzel und über ein kleines Symbol auf
-  der Trennlinie zwischen Dateiliste und Deck. Zu klären: welches Kürzel (frei, auch unter Wayland, nicht mit den
-  globalen Kürzeln kollidierend), ob der Zustand je Projekt oder je Rechner gemerkt wird, und ob die rechte Spalte
-  dasselbe bekommt.
+- **Linke Spalte zu- und aufklappen** ◐ (Nutzer, 2026-11-19, ändert die Entscheidung vom 2026-11-17 in
+  `docs/KONZEPT.md` 4.7 Regel 4, dort angepasst). Konzept abgestimmt und gebaut 2026-11-19 (`FilesRail.tsx`),
+  Praxistest offen:
+  - **Zugeklappt eine schmale Leiste** (44 px), nicht Breite 0, weil in der Spalte mehr steckt als der Dateibaum: oben
+    das Projektzeichen in der Projektfarbe (hält die 44-px-Kopfzeile, Tooltip mit Name und Ort), darunter
+    Schnelleinstellungen und `⋯` als Symbole; am Projektzeichen ein KI-Punkt, wenn kürzlich etwas geändert wurde
+    (Zahl im Tooltip; das zuerst gebaute Dateibaum-Symbol zum Aufklappen ist entfallen, Nutzer 2026-11-19); unten wie in der Statusleiste das Symbol für das Git-Log (`GitCommands` mit `compact`) und der Branch als Symbol in der Farbe der Git-Statusleiste (geändert/Fehler),
+    Klick öffnet die Git-Aktionen wie heute. Ohne Git dort ein graues Branch-Symbol, das die Liste öffnet: `git init`
+    ändert etwas und bleibt der beschriftete Knopf der offenen Liste. Filterfeld und Baum gibt es nur aufgeklappt;
+    der Baum behält derweil, was aufgeklappt war.
+  - **Aufklappen/Zuklappen:** `Ctrl+B` (wie die Seitenleiste in VS Code; nur im Fenster, kein globales Kürzel, also
+    auch unter Wayland, keine Kollision mit `Ctrl+Alt+…`) und ein Klick auf das Projektzeichen: oben links in der
+    Pfadleiste klappt es zu, in der Leiste wieder auf (Praxistest 2026-11-19: der zuerst gebaute Pfeil auf der
+    Trennlinie war nicht zu finden, er ist entfallen). Doppelklick auf die Linie bleibt „Standardbreite“. Kürzel in
+    `F1` und in den Tooltips.
+  - **Trail:** Er öffnet sich nach links über die Dateiliste; reicht der Platz dort nicht für seine 400 px (Leiste),
+    ragt er um den Rest nach rechts über das Deck (`overhang` in `Trail.tsx`, Breite und Lage gleiten zusammen, damit
+    die Maus drin bleibt).
+  - **Linke Statusleiste unter dem Trail** (Nutzer 2026-11-19, gilt immer, nicht nur zugeklappt): Der Trail endet über
+    ihr, die Leiste reicht bis zu seinem rechten Rand (`UNDER_TRAIL` in `StatusBar.tsx`, ohne Git kein Trail und kein
+    Überstand). So hat der Branch mehr Platz, und der Fuß der Leiste zeigt Branch und Git-Log in voller Symbolgröße.
+  - **Scrollbar des Trails:** Die globale Regel „dünne Scrollbars“ in `index.css` stand außerhalb jeder Ebene und
+    schlug damit `[scrollbar-width:none]`; jetzt in `@layer base`.
+  - **Gemerkt je Projekt** im Layout neben den Breiten (`Layout.filesFolded` in `config.rs`/`layout.ts`); die zuletzt
+    gezogene Breite bleibt erhalten und kommt beim Aufklappen zurück. Die Linie einer zugeklappten Liste ziehen
+    klappt sie wieder auf.
+  - **Sprünge in den Baum klappen auf:** Was heute eine Datei im Baum zeigt (z. B. „Öffnen“ beim Nächsten Prompt,
+    `showFile`), klappt die Spalte zuerst auf.
+  - **Rechte Spalte nicht:** Sie ist das Radar; für den Blick über alles gibt es die Übersicht.
+  - Dateien: `layout.ts` (`filesFolded`, `fold`, `RAIL`), `App.tsx` (Kürzel, `showFile`), neu `FilesRail.tsx`, `Trail.tsx`, `index.css`, `FilesPanel.tsx`,
+    `ProjectHeader.tsx` (`placeOf`), `backend.ts` (`Layout`), `Dialogs.tsx` (F1); `config.rs` speichert das Layout
+    ohnehin als freies JSON. Praxistest: zuklappen per Kürzel und Projektzeichen, Trail bei zugeklappter Liste, Leiste zeigt Projekt, Branch und
+    Menüs, Neustart behält den Zustand je Projekt.
 - **TODO: Umgang mit dem Git-Index prüfen und ggf. überarbeiten** (Nutzer, 2026-11-19). Heute: CodeDeck merkt nie
   selbst vor; liegt etwas im Index (aus dem Terminal oder von einer Sitzung, die `git add` ausführte), committet ✓ Commit
   still nur das (`commitSteps` in `src/git.ts`), sonst vorher `git add -A`. Das sagt nur der Tooltip. Das Label „im
