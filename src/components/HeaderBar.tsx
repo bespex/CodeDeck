@@ -38,7 +38,7 @@ interface Props {
 
 /**
  * The header of the right column, which stays in every form of CodeDeck (docs/KOPFLEISTE.md):
- * which AI account the project runs with (the overview opens with Ctrl+Shift+L). The project, quick settings
+ * which AI account the project runs with (the project list folds with Ctrl+Shift+L). The project, quick settings
  * and the app menu are at the top of the file column (`PathBar`).
  */
 export function HeaderBar(props: Props) {

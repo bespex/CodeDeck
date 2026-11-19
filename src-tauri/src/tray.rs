@@ -122,7 +122,7 @@ impl ksni::Tray for CodeDeckTray {
             (a, d, true) => format!("CodeDeck – {a} fragt · {d} fertig"),
             (a, d, false) => format!("CodeDeck – {a} asking · {d} done"),
         };
-        let description = if de { "Klick: Übersicht zeigen oder verbergen" } else { "Click: show or hide the overview" };
+        let description = if de { "Klick: CodeDeck nach vorn, oder weg, wenn es vorn ist" } else { "Click: CodeDeck to the front, or away when it is in front" };
         ToolTip { title, description: description.into(), ..Default::default() }
     }
 
@@ -133,8 +133,7 @@ impl ksni::Tray for CodeDeckTray {
     fn menu(&self) -> Vec<MenuItem<Self>> {
         let s = &self.shown;
         let text = |en: &str, de: &str| if s.german { de.to_string() } else { en.to_string() };
-        let overview = if s.overview_visible { text("Hide overview", "Übersicht verbergen") } else { text("Show overview", "Übersicht zeigen") };
-        let mut items: Vec<MenuItem<Self>> = vec![StandardItem { label: overview, activate: Box::new(|t: &mut Self| toggle(&t.app)), ..Default::default() }.into()];
+        let mut items: Vec<MenuItem<Self>> = vec![StandardItem { label: text("Show CodeDeck", "CodeDeck zeigen"), activate: Box::new(|t: &mut Self| show(&t.app)), ..Default::default() }.into()];
         let waiting = s.asks + s.done;
         if waiting > 0 {
             let label = match (s.asks, s.german) {
@@ -174,19 +173,30 @@ pub fn overview_title() -> String {
 fn toggle(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
-        let _ = crate::windows::toggle_overview(&app);
+        let _ = crate::windows::front_or_away(&app);
         refresh(&app);
     });
 }
 
+/// CodeDeck to the front, never away (the menu's items): the project window used last, else the start page.
 fn show(app: &AppHandle) {
-    match app.get_webview_window(crate::windows::OVERVIEW) {
-        Some(window) if window.is_visible().unwrap_or(false) => {
-            let _ = window.unminimize();
-            let _ = window.set_focus();
+    let app = app.clone();
+    std::thread::spawn(move || {
+        use crate::window::{obey, Request};
+        let window = crate::window::last_label(&app)
+            .and_then(|l| app.get_webview_window(&l))
+            .or_else(|| app.state::<crate::windows::Windows>().all().iter().find_map(|w| app.get_webview_window(&w.label)));
+        match window {
+            Some(w) => obey(&w, Request::Front),
+            None => match app.get_webview_window(crate::windows::OVERVIEW) {
+                Some(start) if start.is_visible().unwrap_or(false) => obey(&start, Request::Front),
+                _ => {
+                    let _ = crate::windows::toggle_overview(&app);
+                }
+            },
         }
-        _ => toggle(app),
-    }
+        refresh(&app);
+    });
 }
 
 #[cfg(test)]

@@ -180,7 +180,7 @@ export function UsageCards({ assistant, onlySetUp = false }: { assistant: Assist
  * amber when the pace would use a limit up before it starts over, red at the limit). A click opens
  * the details, the same as in Activity.
  */
-export function UsageChip({ assistant, account }: { assistant: AssistantState; account?: string | null }) {
+export function UsageChip({ assistant, account, wide = false }: { assistant: AssistantState; account?: string | null; wide?: boolean }) {
   const all = useAccounts(assistant);
   // The project's account only, once it is known: the figures of another account say nothing here
   const accounts = account && all.some((c) => c.dir === account) ? all.filter((c) => c.dir === account) : all;
@@ -210,8 +210,9 @@ export function UsageChip({ assistant, account }: { assistant: AssistantState; a
   const text = !accounts.some((c) => c.usage) ? t("usage: set up") : shown.length === 0 ? t("usage: no figures yet") : null;
 
   return (
-    <div ref={box} className="relative">
-      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className={`${CLICKABLE} ${open ? "bg-raised" : ""}`}>
+    // `wide`: the whole line under the session column's header, the bars share what is free (user, 2026-11-19)
+    <div ref={box} className={`relative ${wide ? "min-w-0 flex-1" : ""}`}>
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className={`${wide ? `${CLICKABLE.replace("-mx-1 ", "")} w-full` : CLICKABLE} ${open ? "bg-raised" : ""}`}>
         {text !== null ? (
           <>
             <Gauge className="size-3.5 text-slate-500" />
@@ -219,17 +220,17 @@ export function UsageChip({ assistant, account }: { assistant: AssistantState; a
           </>
         ) : (
           chips.map(({ c, i, limits }) => (
-            <span key={c.dir} className="flex items-center gap-3">
+            <span key={c.dir} className={`flex items-center gap-3 ${wide ? "min-w-0 flex-1" : ""}`}>
               {accounts.length > 1 && <span className="size-2 rounded-[2px]" style={mark(i)} />}
               {limits.map((l) => (
                 <span
                   key={l.key}
                   title={`${l.label}: ${Math.round(l.window.used)} % · ${t("resets in {time} · {at}", { time: span(l.left), at: resetAt(l.window.resetsAt, now, LOCALE) })}`}
-                  className={`flex items-center gap-1.5 ${STANDING_TEXT[l.standing]}`}
+                  className={`flex items-center gap-1.5 ${wide ? "min-w-0 flex-1" : ""} ${STANDING_TEXT[l.standing]}`}
                 >
                   <span className="font-normal text-slate-500">{l.key}</span>
                   {/* The bar with the marker for the time that is over, as in the details */}
-                  <span className="relative h-1.5 w-16 rounded-full bg-line">
+                  <span className={`relative h-1.5 rounded-full bg-line ${wide ? "min-w-8 flex-1" : "w-16"}`}>
                     <span className={`absolute inset-y-0 left-0 rounded-full ${STANDING_FILL[l.standing]}`} style={{ width: `${Math.min(100, l.window.used)}%` }} />
                     <span className="absolute -top-0.5 -bottom-0.5 w-0.5 bg-slate-100/70" style={{ left: `${Math.round(l.elapsed * 100)}%` }} />
                   </span>

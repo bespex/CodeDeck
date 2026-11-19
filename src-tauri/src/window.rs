@@ -248,7 +248,8 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutEvent, S
 
 /// Shows CodeDeck, brings it to the front, or hides it when it is in front already.
 const SHOW_HIDE: &str = "Ctrl+Alt+C";
-/// Shows or hides the overview of all projects.
+/// Brings CodeDeck to the front, or away when it is in front: the project window used last, without
+/// one the start page.
 const SIDEBAR: &str = "Ctrl+Alt+L";
 /// How often the process tries again to hold a shortcut another program holds.
 const RETRY: Duration = Duration::from_secs(15);
@@ -287,6 +288,9 @@ pub struct Shortcuts {
     last: Mutex<Option<String>>,
     /// Set while a press has hidden CodeDeck: the next one brings it back
     hidden: AtomicBool,
+    /// When each window last lost the focus: a click on the tray icon takes it a moment before the
+    /// click arrives, and the window counts as in front still (`in_front`)
+    lost: Mutex<std::collections::HashMap<String, std::time::Instant>>,
 }
 
 impl Shortcuts {
@@ -298,11 +302,24 @@ impl Shortcuts {
 /// Notes focus changes: the window used last is the one a shortcut brings back. A window that gets
 /// the focus is in sight, whoever showed it: the next press hides again.
 pub fn focus_changed(app: &AppHandle, label: &str, focused: bool) {
+    if !focused {
+        app.state::<Shortcuts>().lost.locked().insert(label.to_string(), std::time::Instant::now());
+    }
     if focused {
         let shortcuts = app.state::<Shortcuts>();
         *shortcuts.last.locked() = Some(label.to_string());
         shortcuts.hidden.store(false, Ordering::Relaxed);
     }
+}
+
+/// Whether a window is in front: it has the focus, or had it a moment ago (the tray icon, the panel
+/// of the desktop, takes it just before its click arrives).
+pub fn in_front(app: &AppHandle, window: &WebviewWindow) -> bool {
+    if !window.is_visible().unwrap_or(false) {
+        return false;
+    }
+    window.is_focused().unwrap_or(false)
+        || app.state::<Shortcuts>().lost.locked().get(window.label()).is_some_and(|at| at.elapsed() < Duration::from_millis(700))
 }
 
 /// A window that opens is shown: CodeDeck is no longer hidden.
@@ -419,12 +436,13 @@ fn activate_as_pager(title: &str) -> Option<()> {
 /// A shortcut was pressed.
 fn pressed(app: &AppHandle, shortcut: &Shortcut) {
     let Some(last) = last_used(app) else { return };
-    // The overview of all projects, shown or hidden from anywhere (docs/UEBERSICHT.md)
+    // CodeDeck to the front from anywhere, or away when it is in front (docs/PLAN.md "Projektliste im
+    // Fenster statt Übersicht", step d)
     if shortcut.id() == parse(SIDEBAR).id() {
         let app = app.clone();
         std::thread::spawn(move || {
-            if let Err(e) = crate::windows::toggle_overview(&app) {
-                eprintln!("codedeck: overview: {e}");
+            if let Err(e) = crate::windows::front_or_away(&app) {
+                eprintln!("codedeck: to the front: {e}");
             }
         });
         return;

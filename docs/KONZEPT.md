@@ -521,7 +521,9 @@ steht links an einem Ort. Die Projektliste (300 px) zeigt oben das Projekt diese
 Farbe mit den Menüs, darunter alle Projekte ohne ihre Sitzungen und „Wartet in anderen Projekten“; ein
 Klick zeigt ein Projekt hier, Strg+Klick in einem neuen Fenster, ein Klick auf das Projektzeichen klappt
 sie auf eine Leiste mit den Zeichen zu (siehe `docs/PLAN.md` „Projektliste im Fenster statt Übersicht“).
-Ohne offenes Projektfenster zeigt CodeDeck nur die Liste, als Startseite. Der Trail gehört zu den
+Ohne offenes Projektfenster zeigt CodeDeck nur die Liste, als Startseite am linken Bildschirmrand; ein
+Projekt öffnet von dort maximiert. Eine eigene Übersicht aller Projekte gibt es nicht mehr: Tray-Symbol und
+`Strg+Alt+L` holen das zuletzt benutzte Projektfenster nach vorn (oder weg, wenn es vorn ist). Der Trail gehört zu den
 Dateien und steht links neben ihnen; der Dateibaum ist anfangs zugeklappt. Unter der Kopfleiste der
 Sitzungsspalte steht in einer Zeile der Verbrauch der KI. Die Sitzungsspalte hat drei Bereiche:
 

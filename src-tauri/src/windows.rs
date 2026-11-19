@@ -185,8 +185,9 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
 
 /// The label of the overview: one window for every project, no project of its own.
 pub const OVERVIEW: &str = "overview";
-/// Width of the overview when it opens, in logical pixels.
-const OVERVIEW_WIDTH: f64 = 450.0;
+/// Width of the start page, in logical pixels: as wide as the project list in a project window
+/// (`PROJECTS` in src/layout.ts; user, 2026-11-19).
+const OVERVIEW_WIDTH: f64 = 300.0;
 
 /// One of my projects, as the overview shows it, with its window or without.
 #[derive(serde::Serialize)]
@@ -275,6 +276,29 @@ pub fn overview_changed(app: &AppHandle) {
     crate::tray::refresh(app);
 }
 
+/// The tray and `Ctrl+Alt+L` (docs/PLAN.md "Projektliste im Fenster statt Übersicht", step d): the project
+/// window used last to the front, or away when it is in front; without a project window the start page
+/// the same way. Hidden or covered, it comes forward; only in front it goes. Off the main thread.
+pub fn front_or_away(app: &AppHandle) -> Result<(), String> {
+    use crate::window::{in_front, obey, Request};
+    let project = crate::window::last_label(app)
+        .and_then(|l| app.get_webview_window(&l))
+        .or_else(|| app.state::<Windows>().all().iter().find_map(|w| app.get_webview_window(&w.label)));
+    match project {
+        Some(window) if in_front(app, &window) => obey(&window, Request::Hide),
+        Some(window) => obey(&window, Request::Front),
+        None => match app.get_webview_window(OVERVIEW) {
+            Some(start) if in_front(app, &start) => {
+                let _ = start.hide();
+            }
+            Some(start) if start.is_visible().unwrap_or(false) => obey(&start, Request::Front),
+            _ => toggle_overview(app)?,
+        },
+    }
+    crate::tray::refresh(app);
+    Ok(())
+}
+
 /// Shows the overview, or hides it when it is shown; opens it the first time. Off the main thread.
 /// The overview, made but not shown (CodeDeck started at login): its page runs, so it hears what
 /// happens, and the tray shows it at the right edge the first time.
@@ -300,13 +324,17 @@ pub fn toggle_overview(app: &AppHandle) -> Result<(), String> {
             let _ = window.hide();
             crate::tray::refresh(app);
         } else {
-            // Back at the right edge of its monitor, at the width the user left it: shown again,
-            // the window manager may put it elsewhere (user, 2026-11-17)
-            let width = window.inner_size().ok().zip(window.scale_factor().ok()).map_or(OVERVIEW_WIDTH, |(s, f)| s.width as f64 / f);
+            // Back at the left edge of its monitor, as wide as the project list in a project window:
+            // shown again, the window manager may put it elsewhere (user, 2026-11-17)
+            let width = OVERVIEW_WIDTH;
             let _ = window.show();
             let _ = window.unminimize();
             crate::window::set_compact(&window, &FullPlace::default(), true, width, None).map_err(|e| e.to_string())?;
-            let _ = window.set_focus();
+            // To the front as a taskbar asks for it: asked by the window itself, Cinnamon refuses the
+            // focus and the start page stayed behind the other windows (user, 2026-11-19: after the last
+            // project window closed, it had to be dug out)
+            crate::window::obey(&window, crate::window::Request::Front);
+            eprintln!("codedeck: start page shown");
             crate::tray::refresh(app);
         }
         return Ok(());

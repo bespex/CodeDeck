@@ -136,7 +136,7 @@ function useGlobalShortcuts(): GlobalShortcut[] {
 }
 
 const shortcutAction = (s: GlobalShortcut) =>
-  s.action === "showHide" ? t("Show CodeDeck, or hide it when it is in front") : t("Overview of all projects, from anywhere");
+  s.action === "showHide" ? t("Show CodeDeck, or hide it when it is in front") : t("CodeDeck to the front from anywhere, or away when it is in front; without a project window the start page");
 
 /** Says when a global shortcut does not work; CodeDeck holds it for all its windows. */
 function ShortcutState({ shortcut }: { shortcut: GlobalShortcut }) {
@@ -164,7 +164,7 @@ function Shortcuts() {
     [`${t("Ctrl")}+B`, t("Fold or show the file list")],
     [`${t("Ctrl")}+W`, t("Close project (its window; the last one leaves the start page)")],
     [t("Ctrl+Shift+G"), t("Git commands CodeDeck ran")],
-    [t("Ctrl+Shift+L"), t("Show or hide the overview of all projects")],
+    [t("Ctrl+Shift+L"), t("Fold or show the project list")],
     [t("Ctrl+click"), t("On a project or folder: open it in a new window. On the trail: compare with the point shown")],
     [t("Middle click"), t("On a file: edit it. On a project: open it in a new window")],
     [t("Ctrl+Enter"), t("Commit, or save a line comment")],
@@ -365,19 +365,19 @@ function General() {
       <h3 className="mb-1 font-semibold text-slate-100">{t("General")}</h3>
       <Setting
         label={t("At login")}
-        note={t("CodeDeck starts without a window and hears your sessions from the start; the tray icon shows the overview.")}
+        note={t("CodeDeck starts without a window and hears your sessions from the start; the tray icon brings it to the front.")}
         scope="machine"
       >
         <AtLogin />
       </Setting>
       <Setting
         label={t("Today's list")}
-        note={t("When CodeDeck starts (also at login), every project on today's list without a running session starts its session, as ▶ in the overview does. Nothing starts twice.")}
+        note={t("When CodeDeck starts (also at login), every project on today's list without a running session starts its session, as ▶ in the project list does. Nothing starts twice.")}
         scope="machine"
       >
         <TodayAtStart />
       </Setting>
-      <Setting label={t("Starts on")} note={t("The screen CodeDeck opens on. Windows opened later follow the overview.")} scope="machine">
+      <Setting label={t("Starts on")} note={t("The screen CodeDeck opens on. Windows opened later follow the start page.")} scope="machine">
         <StartScreen />
       </Setting>
       <Setting
@@ -390,7 +390,7 @@ function General() {
             <div key={s.keys} className="flex flex-col">
               <span className="flex items-center gap-2 whitespace-nowrap">
                 <kbd className="rounded border border-overlay-line bg-base px-1.5 py-0.5 font-mono text-[11px] text-slate-200">{s.keys.replace("Ctrl", t("Ctrl"))}</kbd>
-                <span className="text-slate-300">{s.action === "showHide" ? t("show / hide") : t("overview")}</span>
+                <span className="text-slate-300">{s.action === "showHide" ? t("show / hide") : t("to the front")}</span>
               </span>
               <ShortcutState shortcut={s} />
             </div>

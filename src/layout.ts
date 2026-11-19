@@ -11,7 +11,8 @@ export const LIMITS: Record<Side, { min: number; max: number }> = {
 export const DECK_MIN = 420;
 /** The folded file list: a rail as wide as the header is high (docs/KONZEPT.md 4.7 rule 4) */
 export const RAIL = 44;
-/** The project list at the left (user, 2026-11-19: 300 px are enough), folded a rail of marks */
+/** The project list at the left (user, 2026-11-19: 300 px are enough), folded a rail of marks; the
+ *  start page has the same width (`OVERVIEW_WIDTH` in src-tauri/src/windows.rs) */
 export const PROJECTS = 300;
 const PROJECTS_FOLDED = "codedeck.projectsFolded";
 

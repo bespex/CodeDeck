@@ -3,7 +3,7 @@ import { FilesPanel } from "./components/FilesPanel";
 import { GitLog } from "./components/GitLog";
 import { Deck } from "./components/Deck";
 import { SessionsPanel } from "./components/SessionsPanel";
-import { closeWindow, live, onOpenView, openProject, openWindow, projectInfo, toggleOverview, type Entry, type ProjectInfo } from "./backend";
+import { closeWindow, live, onOpenView, openProject, openWindow, projectInfo, type Entry, type ProjectInfo } from "./backend";
 import { currentView, openView, type ViewId } from "./view";
 import { initialPins } from "./mock";
 import { files, pinFromEntry } from "./files";
@@ -46,8 +46,8 @@ export default function App() {
   const [projectsFolded, foldProjects] = useProjectsFolded();
   const layout = useLayout(project?.path, projectsFolded);
   const { fold } = layout;
-  // Ctrl+Shift+G shows and hides the git commands from anywhere, Ctrl+Shift+L the overview of all
-  // projects (docs/UEBERSICHT.md; it replaced the sidebar of each window), Ctrl+B folds the file list
+  // Ctrl+Shift+G shows and hides the git commands from anywhere, Ctrl+Shift+L folds the project list,
+  // Ctrl+B the file list
   // (in the window only, as the sidebar in VS Code)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -62,8 +62,9 @@ export default function App() {
         e.preventDefault();
         setLogOpen((o) => !o);
       } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "l") {
+        // The project list folds and opens (it took the place of the overview window)
         e.preventDefault();
-        void toggleOverview();
+        foldProjects();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -78,7 +79,7 @@ export default function App() {
       window.removeEventListener("keydown", onKey);
       stopView();
     };
-  }, [fold]);
+  }, [fold, foldProjects]);
   const actionsRepo = actions && git.repos.find((r) => r.path === actions.repo);
   const openActions = (repo: string, element: HTMLElement, above: boolean) =>
     setActions((current) =>
@@ -146,7 +147,10 @@ export default function App() {
     <div className="flex h-full flex-col">
       <div data-columns className="grid min-h-0 flex-1" style={{ gridTemplateColumns: layout.columns }}>
         <ProjectsPanel project={project} assistant={assistant} onToggleLog={() => setLogOpen((o) => !o)} onOpen={(path, newWindow, view) => void open(path, newWindow, view)} folded={projectsFolded} onFold={foldProjects} />
+        {/* Made anew for each project, as the deck and the file list: its parts read the project's account
+            once (usage, the sessions' tool) and would otherwise keep the old project's */}
         <SessionsPanel
+          key={`sessions:${project?.path}`}
           assistant={assistant}
           pins={pins}
           onPin={pin}

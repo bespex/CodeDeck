@@ -1,5 +1,12 @@
 # Eine Leiste für alle Projekte: die Übersicht
 
+> **Abgelöst (2026-11-19):** Die Übersicht als eigenes Fenster gibt es nicht mehr. Ihre Liste steht links in
+> jedem Projektfenster (Projektliste, ohne Sitzungen), ohne offenes Projektfenster als Startseite am linken
+> Bildschirmrand; Tray und `Ctrl+Alt+L` holen das zuletzt benutzte Projektfenster nach vorn. Siehe
+> `docs/PLAN.md` „Projektliste im Fenster statt Übersicht“. Was hier über Gruppen, Zeilenmenü, Marken, Ziehen
+> und die Tagesliste steht, gilt für die Projektliste weiter; was über Fenster, Leistenform und Sitzungen in
+> der Liste steht, nicht mehr.
+
 Entwurf vom 2026-11-17 zur Abstimmung, Anlass: Praxistest 3.0 (Nutzer). Click-Dummy:
 `design/click-dummy/overview.html` (Aufruf wie in `design/click-dummy/README.md`, dann
 `http://localhost:5392/overview.html`). Ersetzt die Leiste je Projekt (`docs/SEITENLEISTE.md`, Form B) und

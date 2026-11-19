@@ -95,8 +95,7 @@ export function AssistantLine({ assistant }: { assistant: AssistantState }) {
   const mine = useProjectAccount(assistant, look);
   return (
     <section aria-label={t("AI usage")} className="flex h-9 shrink-0 items-center gap-3 overflow-x-clip border-b border-line px-3 text-[12px] whitespace-nowrap text-slate-500">
-      <UsageChip assistant={assistant} account={mine.account?.dir} />
-      <span className="ml-auto" />
+      <UsageChip assistant={assistant} account={mine.account?.dir} wide />
       <NotConnected mine={mine} />
     </section>
   );

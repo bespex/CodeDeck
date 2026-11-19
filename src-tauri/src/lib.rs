@@ -1122,9 +1122,16 @@ pub fn run() {
                 if window.label() != windows::OVERVIEW && app.state::<Windows>().all().is_empty() {
                     let app = app.clone();
                     std::thread::spawn(move || {
-                        let shown = app.get_webview_window(windows::OVERVIEW).is_some_and(|o| o.is_visible().unwrap_or(false));
-                        if !shown && let Err(e) = windows::toggle_overview(&app) {
-                            eprintln!("codedeck: start page: {e}");
+                        // A moment for the window manager to finish with the closed window: shown in the
+                        // same instant, the start page could end up behind what took the focus next
+                        std::thread::sleep(std::time::Duration::from_millis(150));
+                        match app.get_webview_window(windows::OVERVIEW) {
+                            Some(start) if start.is_visible().unwrap_or(false) => window::obey(&start, window::Request::Front),
+                            _ => {
+                                if let Err(e) = windows::toggle_overview(&app) {
+                                    eprintln!("codedeck: start page: {e}");
+                                }
+                            }
                         }
                     });
                 }

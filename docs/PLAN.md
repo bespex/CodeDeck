@@ -277,8 +277,14 @@ zu Desktop und Remote Control erledigt (SITZUNGEN B4, B11).
     Sitzungen; Klick holt das Projektfenster nach vorn oder öffnet es, dann tritt die Startseite zurück). Sie wird beim
     Start verborgen angelegt und zeigt sich nur ohne Projektfenster: Tray, `Ctrl+Alt+L`, und von selbst, wenn das
     letzte Projektfenster schließt (CodeDeck hört weiter zu). Sie steht am linken Bildschirmrand (`set_compact`; Nutzer 2026-11-19, wie die Liste links im Projektfenster), das erste Projektfenster (beim Start oder von der Startseite aus) öffnet maximiert (Nutzer 2026-11-19), jedes weitere rechts neben der Startseite (`place_beside_overview`). „Projekt
-    schließen“ (`⋯` der Projektkopfzeile, `Strg+W`, Command `close_window`) schließt das Fenster mit seinem Projekt; (d) Fenster `overview` entfernen, Tray und Kürzel auf das zuletzt benutzte Fenster,
-    `docs/UEBERSICHT.md` und `KONZEPT.md` nachziehen. Jeder Schritt mit Praxistest.
+    schließen“ (`⋯` der Projektkopfzeile, `Strg+W`, Command `close_window`) schließt das Fenster mit seinem Projekt; (d) ✅ 2026-11-19 gebaut, Praxistest offen:
+    Die Übersicht als eigenes Fenster gibt es nicht mehr; das Fenster `overview` bleibt nur als Startseite (c).
+    Tray-Klick und `Ctrl+Alt+L` (`windows::front_or_away`): das zuletzt benutzte Projektfenster nach vorn, oder weg,
+    wenn es vorn ist; ohne Projektfenster die Startseite ebenso. „Vorn“ = hat den Fokus oder hatte ihn vor weniger als
+    0,7 s (`window::in_front`, `Shortcuts.lost`): Ein Klick auf das Tray-Symbol nimmt dem Fenster den Fokus, bevor er
+    ankommt. Tray-Menü: „CodeDeck zeigen“ (nur nach vorn) statt „Übersicht zeigen/verbergen“. `Ctrl+Shift+L` im
+    Projektfenster klappt die Projektliste. `docs/UEBERSICHT.md` als abgelöst markiert, `KONZEPT.md` nachgezogen.
+    Jeder Schritt mit Praxistest.
   - **Spike zu Weg 2** (eine Webview je Projekt im selben Fenster, `.scratch/spike-webviews/`), als Reserve:
     Ergebnis (2026-11-19, Tauri 2.12.5 mit `unstable`, WebKitGTK unter Xvfb/X11):
     - Trägt: Zwei Projekt-Webviews in einem Fenster, Umschalten mit `hide`/`show`/`set_focus`; die Tastatur geht an die
