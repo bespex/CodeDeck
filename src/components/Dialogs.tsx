@@ -189,6 +189,7 @@ function Shortcuts() {
 
 const SECTIONS: [SettingsSection, string][] = [
   ["general", "General"],
+  ["interface", "Interface"],
   ["notifications", "Notifications"],
   ["tools", "AI tools"],
 ];
@@ -216,6 +217,7 @@ function Settings({ section, assistant }: { section: SettingsSection; assistant:
         </nav>
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
           {section === "general" && <General />}
+          {section === "interface" && <Interface />}
           {section === "notifications" && <Notifications />}
           {section === "tools" && <Tools assistant={assistant} />}
         </div>
@@ -359,22 +361,6 @@ function General() {
   return (
     <>
       <h3 className="mb-1 font-semibold text-slate-100">{t("General")}</h3>
-      <Setting label={t("Language")} note={t("Follows the system until chosen here. What the assistant gets stays in English.")} scope="machine">
-        <div className="flex rounded-md border border-overlay-line p-0.5" role="radiogroup" aria-label={t("Language")}>
-          {(["en", "de"] as const).map((l) => (
-            <button
-              key={l}
-              type="button"
-              role="radio"
-              aria-checked={lang === l}
-              onClick={() => setLang(l)}
-              className={`rounded px-2 py-0.5 text-[12px] ${lang === l ? "bg-overlay-hover text-slate-100" : "text-slate-500 hover:text-slate-200"}`}
-            >
-              {l === "en" ? "English" : "Deutsch"}
-            </button>
-          ))}
-        </div>
-      </Setting>
       <Setting
         label={t("At login")}
         note={t("CodeDeck starts without a window and hears your sessions from the start; the tray icon shows the overview.")}
@@ -392,12 +378,6 @@ function General() {
       <Setting label={t("Starts on")} note={t("The screen CodeDeck opens on. Windows opened later follow the overview.")} scope="machine">
         <StartScreen />
       </Setting>
-      <Setting label={t("Theme")} note={t("A click chooses it. Colours keep their meaning in every theme.")} scope="machine">
-        <ThemeChoice />
-      </Setting>
-      <Setting label={t("Transparency")} note={t("Menus and popups of some themes let a blurred picture of what is behind them through.")} scope="machine">
-        <ReduceTransparency />
-      </Setting>
       <Setting
         label={t("Global shortcuts")}
         note={t("Work also when CodeDeck has no focus or is hidden. With several windows one of them holds them and acts for all.")}
@@ -414,6 +394,37 @@ function General() {
             </div>
           ))}
         </div>
+      </Setting>
+    </>
+  );
+}
+
+/** How CodeDeck looks and speaks: language, theme, transparency. */
+function Interface() {
+  return (
+    <>
+      <h3 className="mb-1 font-semibold text-slate-100">{t("Interface")}</h3>
+      <Setting label={t("Language")} note={t("Follows the system until chosen here. What the assistant gets stays in English.")} scope="machine">
+        <div className="flex rounded-md border border-overlay-line p-0.5" role="radiogroup" aria-label={t("Language")}>
+          {(["en", "de"] as const).map((l) => (
+            <button
+              key={l}
+              type="button"
+              role="radio"
+              aria-checked={lang === l}
+              onClick={() => setLang(l)}
+              className={`rounded px-2 py-0.5 text-[12px] ${lang === l ? "bg-overlay-hover text-slate-100" : "text-slate-500 hover:text-slate-200"}`}
+            >
+              {l === "en" ? "English" : "Deutsch"}
+            </button>
+          ))}
+        </div>
+      </Setting>
+      <Setting label={t("Theme")} note={t("A click chooses it. Colours keep their meaning in every theme.")} scope="machine">
+        <ThemeChoice />
+      </Setting>
+      <Setting label={t("Transparency")} note={t("Menus and popups of some themes let a blurred picture of what is behind them through.")} scope="machine">
+        <ReduceTransparency />
       </Setting>
     </>
   );

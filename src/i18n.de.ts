@@ -760,6 +760,7 @@ export const de: Record<string, string> = {
   "Shift+right click": "Umschalt+Rechtsklick",
   "The web view's own menu (developer tools)": "Das eigene Menü der Webansicht (Entwicklerwerkzeuge)",
   "General": "Allgemein",
+  "Interface": "Benutzeroberfläche",
   "Notifications": "Meldungen",
   "Follows the system until chosen here. What the assistant gets stays in English.": "Folgt dem System, bis hier gewählt. Was die KI bekommt, bleibt englisch.",
   "this computer": "dieser Rechner",

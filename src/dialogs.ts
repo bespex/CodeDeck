@@ -3,7 +3,7 @@
 
 import { useSyncExternalStore } from "react";
 
-export type SettingsSection = "general" | "notifications" | "tools";
+export type SettingsSection = "general" | "interface" | "notifications" | "tools";
 export type DialogState = { kind: "settings"; section: SettingsSection } | { kind: "about" } | { kind: "shortcuts" } | null;
 
 let current: DialogState = null;
