@@ -121,9 +121,9 @@ pub fn start_monitor(app: &AppHandle) -> Option<tauri::Monitor> {
 /// Margin of a new project window to the screen's edges, in logical pixels.
 const MARGIN: f64 = 25.0;
 
-/// Puts a new project window into the space beside the overview: `MARGIN` from the work area's
-/// left, top and bottom and from the overview on the right (or from the edge when the overview is
-/// not shown on that monitor).
+/// Puts a new project window into the space beside the start page: `MARGIN` from the work area's
+/// right, top and bottom and from the start page on the left (or from the edge when it is not shown
+/// on that monitor).
 pub fn place_beside_overview(app: &AppHandle, window: &WebviewWindow) {
     let run = || -> tauri::Result<()> {
         let overview = app.get_webview_window(crate::windows::OVERVIEW).filter(|o| o.is_visible().unwrap_or(false));
@@ -139,14 +139,14 @@ pub fn place_beside_overview(app: &AppHandle, window: &WebviewWindow) {
         let area = *monitor.work_area();
         let scale = monitor.scale_factor();
         let margin = (MARGIN * scale).round() as i32;
-        let (left, top) = (area.position.x + margin, area.position.y + margin);
-        let screen_right = area.position.x + area.size.width as i32;
-        // The overview stands at the right edge: its width, frame included, is taken off. Its
+        let top = area.position.y + margin;
+        let right = area.position.x + area.size.width as i32 - margin;
+        // The start page stands at the left edge: its width, frame included, is taken off. Its
         // position is not used, it may still be on its way there
-        let right = match &overview {
+        let left = match &overview {
             // and the same margin to it as to the screen's edges (user, 2026-11-17)
-            Some(o) => screen_right - o.outer_size()?.width as i32 - margin,
-            None => screen_right - margin,
+            Some(o) => area.position.x + o.outer_size()?.width as i32 + margin,
+            None => area.position.x + margin,
         };
         let bottom = area.position.y + area.size.height as i32 - margin;
         // The size set is the inside, the position the outside: the frame counts
@@ -162,7 +162,7 @@ pub fn place_beside_overview(app: &AppHandle, window: &WebviewWindow) {
     }
 }
 
-/// Makes the window a sidebar `width` (logical pixels) wide, always at the right edge of the
+/// Makes the window a sidebar `width` (logical pixels) wide, always at the left edge of the
 /// monitor it is on and as high as the panels leave free; or the full window again, where it was. Gives the
 /// logical width it had before, so that the frontend can keep the sidebar's width for next time.
 /// Runs off the main thread: it waits for the desktop.
@@ -189,11 +189,13 @@ pub fn set_compact(window: &WebviewWindow, kept: &FullPlace, on: bool, width: f6
         let full = Place { x: at.x, y: at.y, width: size.width, height: size.height, maximized: maximized || fullscreen };
         *kept.kept.locked() = Some(full);
         let w = ((width.max(SIDEBAR_MIN.0)) * scale).round() as u32;
-        // Always at the right edge of the monitor, from top to bottom of what panels leave free.
-        // The size set is the inside, the position the outside: the desktop's frame counts
-        let target = |frame_w: u32, frame_h: u32| match area {
-            Some(a) => (a.position.x + a.size.width as i32 - (w + frame_w) as i32, a.position.y, a.size.height.saturating_sub(frame_h)),
-            None => (fit(full.x + full.width as i32 - w as i32, w), full.y, full.height),
+        // Always at the left edge of the monitor, from top to bottom of what panels leave free: the
+        // start page is the project list, which stands at the left in a project window too (user,
+        // 2026-11-19; it was at the right edge as the overview). The size set is the inside, the
+        // position the outside: the desktop's frame counts
+        let target = |_frame_w: u32, frame_h: u32| match area {
+            Some(a) => (a.position.x, a.position.y, a.size.height.saturating_sub(frame_h)),
+            None => (fit(full.x, w), full.y, full.height),
         };
         if maximized || fullscreen {
             // Restored, the desktop puts the window where it was before maximizing; it is moved
@@ -214,8 +216,8 @@ pub fn set_compact(window: &WebviewWindow, kept: &FullPlace, on: bool, width: f6
         let place = kept.kept.locked().take();
         let full_w = (FULL_WIDTH * scale).round() as u32;
         let place = place.unwrap_or(Place {
-            // Grows to the left, so that the sidebar's place becomes the right column
-            x: fit(at.x + size.width as i32 - full_w as i32, full_w),
+            // Grows to the right, so that the sidebar's place becomes the left column
+            x: fit(at.x, full_w),
             y: at.y,
             width: full_w,
             height: size.height.max((FULL_MIN_HEIGHT * scale) as u32),

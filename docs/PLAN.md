@@ -276,7 +276,7 @@ zu Desktop und Remote Control erledigt (SITZUNGEN B4, B11).
     Umbau, gehört zu 3.4) ist es das vorhandene Fenster `overview`: `OverviewApp` mit `START_PAGE` (Liste ohne
     Sitzungen; Klick holt das Projektfenster nach vorn oder öffnet es, dann tritt die Startseite zurück). Sie wird beim
     Start verborgen angelegt und zeigt sich nur ohne Projektfenster: Tray, `Ctrl+Alt+L`, und von selbst, wenn das
-    letzte Projektfenster schließt (CodeDeck hört weiter zu). Ihr Platz am rechten Rand bleibt vorerst. „Projekt
+    letzte Projektfenster schließt (CodeDeck hört weiter zu). Sie steht am linken Bildschirmrand (`set_compact`; Nutzer 2026-11-19, wie die Liste links im Projektfenster), das erste Projektfenster (beim Start oder von der Startseite aus) öffnet maximiert (Nutzer 2026-11-19), jedes weitere rechts neben der Startseite (`place_beside_overview`). „Projekt
     schließen“ (`⋯` der Projektkopfzeile, `Strg+W`, Command `close_window`) schließt das Fenster mit seinem Projekt; (d) Fenster `overview` entfernen, Tray und Kürzel auf das zuletzt benutzte Fenster,
     `docs/UEBERSICHT.md` und `KONZEPT.md` nachziehen. Jeder Schritt mit Praxistest.
   - **Spike zu Weg 2** (eine Webview je Projekt im selben Fenster, `.scratch/spike-webviews/`), als Reserve:

@@ -1156,12 +1156,6 @@ pub fn run() {
                 if let Err(e) = made {
                     eprintln!("codedeck: overview: {e}");
                 }
-                // The first project window opened before the overview stood: beside it now
-                for win in handle.state::<Windows>().all() {
-                    if let Some(window) = handle.get_webview_window(&win.label) {
-                        window::place_beside_overview(&handle, &window);
-                    }
-                }
             });
             updates::check_in_background(app.handle());
             window::claim_shortcuts(app.handle().clone());

@@ -157,11 +157,22 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
         return Err(e.to_string());
     }
     bridge.show_in(app, Some(label.clone()));
-    // Beside the overview, with a margin to the screen's edges (user, 2026-11-17). Off this thread:
-    // placing waits for the window manager, and `open` may run on the main thread
+    // The first project window (opened at the start or from the start page, which then steps back)
+    // fills the screen (user, 2026-11-19): the project list is in it. A further one, e.g. for a second
+    // monitor, comes beside the start page with a margin to the screen's edges (user, 2026-11-17).
+    // Off this thread: placing waits for the window manager, and `open` may run on the main thread
+    let first = windows.all.locked().len() == 1;
     if let Some(window) = app.get_webview_window(&label) {
         let app = app.clone();
-        std::thread::spawn(move || crate::window::place_beside_overview(&app, &window));
+        std::thread::spawn(move || {
+            if first {
+                if let Err(e) = window.maximize() {
+                    eprintln!("codedeck: maximizing the window: {e}");
+                }
+            } else {
+                crate::window::place_beside_overview(&app, &window);
+            }
+        });
     }
     crate::set_title(app, &win);
     crate::window::shown(app);
