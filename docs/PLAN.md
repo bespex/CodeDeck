@@ -225,6 +225,69 @@ zu Desktop und Remote Control erledigt (SITZUNGEN B4, B11).
     `ProjectHeader.tsx` (`placeOf`), `backend.ts` (`Layout`), `Dialogs.tsx` (F1); `config.rs` speichert das Layout
     ohnehin als freies JSON. Praxistest: zuklappen per Kürzel und Projektzeichen, Trail bei zugeklappter Liste, Leiste zeigt Projekt, Branch und
     Menüs, Neustart behält den Zustand je Projekt.
+- **Projektliste im Fenster statt Übersicht** ☐ (Idee des Nutzers, 2026-11-19, abgestimmt; Anlass: viele Fenster auf
+  dem Desktop verwirren, die Übersicht liegt oft verdeckt). Ersetzt das Fenster `overview` (3.0b) und die zuerst
+  gedachte senkrechte Projektleiste; keine zweite Reiterleiste (Sorge des Nutzers).
+  - **Spalten neu geordnet** (Nutzer, 2026-11-19, ✅ gebaut, Praxistest offen): Sitzungen → Deck → Trail → Dateien;
+    der Trail wandert mit den Dateien und steht links von ihnen, öffnet sich nach links über das Deck, die
+    Statusleiste der Dateien reicht unter ihm durch (`UNDER_TRAIL`). Projektfarbe und Menüs stehen bis Schritt (b)
+    über den Dateien (oben rechts); mit der Projektliste ziehen sie über diese.
+  - **Bild:** Ganz links im Projektfenster die **Projektliste, 300 px**, vor der Sitzungsspalte (zuerst gedacht: vor der Dateiliste): „Wartet auf dich“ über alle
+    Projekte, Gruppen nach Ordner, je Projekt Zeichen, Name und Markierung (Pille = fragt, Punkt = fertig), das gezeigte
+    hinterlegt, `+` zum Aufnehmen. **Keine Sitzungen in der Liste** (Nutzer): Die Sitzungen des gezeigten Projekts
+    stehen wie heute in der rechten Spalte. Teilung damit klar: Liste = alle Projekte, rechte Spalte = dieses Projekt.
+    Zugeklappt bleibt eine Leiste mit den Projektzeichen und ihren Markierungen (die Liste in schmal); Projektliste und
+    Dateiliste klappen einzeln, `Strg+B` bleibt bei der Dateiliste.
+  - **Ein Klick wechselt das Projekt in diesem Fenster.** Kein Herausziehen einer Projektseite in ein eigenes Fenster
+    (Nutzer: macht es einfacher). Mehrere Bildschirme: ein zweites CodeDeck-Fenster wie ein zweites Browserfenster
+    („Neues Fenster“, Strg+Klick), jedes mit Liste und eigenem gezeigten Projekt.
+  - **Ohne Projekt** zeigt das Fenster nur die Liste: das ist die Startseite aus 3.4.
+  - **Die Übersicht als eigenes Fenster entfällt** (auch nicht als „herausgezogene Liste“, Nutzer). Tray-Klick und
+    `Ctrl+Alt+L` holen das zuletzt benutzte Fenster nach vorn (nach „vorn“ umschalten, nicht nach „sichtbar“:
+    verdeckt heißt nach vorn holen, nur vorn heißt verbergen).
+  - **Technik: eine Webview je Fenster, das Projekt wird gewechselt** (Weg 1, ohne Tauri `unstable`). Das Fenster
+    wechselt schon heute das Projekt (`open` in `App.tsx`, `open_project`), das Backend hält Projekte ohne Fenster
+    (`windows::Bridges`). Neu: Was das Frontend heute beim Wechsel wegwirft (`clearAttachments()`, Auswahl, Reiter,
+    offene Ordner, Zuklappen), wird je Projekt gemerkt und beim Zurückkommen wiederhergestellt. Fühlt sich der Wechsel
+    zu träge an (Git-Status und Logs laden neu), bleibt Weg 2: eine Webview je Projekt im Fenster (Spike unten).
+  - **Bauschritte:** (a) ✅ 2026-11-19 gebaut, Praxistest mit (b): Zustand je Projekt beim Wechsel behalten
+    (`src/projectMemory.ts`: `usePerProject` für offene Ordner, Filter, Punkt im Trail, Sitzungsfilter; Auswahl und
+    Reiter in `App.open`; Anhänge über `switchAttachments` statt `clearAttachments`, abgeglichen mit dem, was das
+    Backend für das Projekt noch hält; vorher blieben sie im Backend des alten Projekts liegen, ohne dass das Fenster
+    sie zeigte), Wechsel messen (Konsole `CodeDeck: project switch took … ms` und „Diagnose kopieren“; messbar erst
+    mit (b), denn bis dahin gibt es im Fenster keinen Weg zurück); (b) ✅ 2026-11-19 gebaut, Praxistest offen:
+    Projektliste ins Projektfenster (`ProjectsPanel.tsx`: oben die Projektleiste mit Farbe, Zeichen, Schnell-
+    einstellungen und `⋯`, darunter `OverviewApp` mit `inWindow`: Klick zeigt hier, Strg+Klick/Mittelklick in
+    neuem Fenster, keine Sitzungen, „Wartet in anderen Projekten“ ohne das gezeigte Projekt, dessen Wartendes
+    steht in der Sitzungsspalte; eigene Werkzeugzeile ▶, `+`, Gruppen auf/zu, `⋯` mit „Alle Projekte in einem
+    Ordner“ und Sortieren), Breite 300 px fest; Klick auf das Projektzeichen klappt auf die Leiste
+    (`ProjectsRail`: Zeichen je Projekt mit Pille/Punkt, `+`; oben Projektzeichen, Schnelleinstellungen, `⋯`),
+    zugeklappt gilt je Rechner (`useProjectsFolded`, `localStorage`). Der Dateibaum hat dafür eine eigene
+    Kopfzeile „Dateien“ mit Knopf zum Zuklappen (`Strg+B` bleibt), seine Leiste nur noch Baum-Symbol, Git-Log und
+    Branch. Backend: `overview_changed` geht an alle Fenster (`app.emit`), nicht nur an die Übersicht; (c) Fenster ohne Projekt =
+    Liste (mit 3.4); (d) Fenster `overview` entfernen, Tray und Kürzel auf das zuletzt benutzte Fenster,
+    `docs/UEBERSICHT.md` und `KONZEPT.md` nachziehen. Jeder Schritt mit Praxistest.
+  - **Spike zu Weg 2** (eine Webview je Projekt im selben Fenster, `.scratch/spike-webviews/`), als Reserve:
+    Ergebnis (2026-11-19, Tauri 2.12.5 mit `unstable`, WebKitGTK unter Xvfb/X11):
+    - Trägt: Zwei Projekt-Webviews in einem Fenster, Umschalten mit `hide`/`show`/`set_focus`; die Tastatur geht an die
+      gezeigte. Der Zustand der Seite bleibt beim Umschalten erhalten (Eingabefeld behält seinen Text, kein Neuladen).
+      Commands kennen ihre Webview (`Webview` als Parameter: Label und Fenster). `emit_to(EventTarget::webview(..))`
+      erreicht nur diese Webview, wenn die Seite mit `getCurrentWebview().listen` lauscht; ein Ereignis an das
+      Fenster-Label erreicht dann keine. Größenänderung des Fensters: die sichtbare Webview füllt es.
+    - **`reparent` trägt:** eine Webview wandert ohne Neuladen in ein neues Fenster, behält ihren Zustand, meldet das
+      neue Fenster und bekommt weiter ihre Ereignisse. Das ist „In eigenem Fenster“ (für mehrere Bildschirme) und
+      umgekehrt das Zusammenlegen zweier Fenster, beides ohne die Seite neu aufzubauen.
+    - **Trägt nicht:** mehrere *gleichzeitig sichtbare* Webviews nebeneinander. Unter Linux packt
+      `tauri-runtime-wry` Kind-Webviews in die `GtkBox` des Fensters (`build_gtk(default_vbox)`), Position und Größe
+      werden übergangen, sie stapeln sich. Darum **keine eigene Webview für die Leiste**: Jede Projekt-Webview zeichnet
+      die Projektleiste selbst (React, Daten aus dem Backend, Änderung an alle Webviews des Fensters), und es ist immer
+      genau eine Webview je Fenster sichtbar. So ist es auch getestet und trägt.
+    - Offen für den Bau: echter Desktop (Cinnamon/X11) und Wayland, vor allem `reparent`; Fenster ohne Webview nach dem
+      Schließen der letzten schließen. Umbau in CodeDeck: Frontend lauscht mit `getCurrentWebview()` statt
+      `getCurrentWebviewWindow()` (`backend.ts`), Backend sendet an das Webview-Label; `windows::of` findet den Zustand
+      über die Webview statt das Fenster (D25 wird „ein Zustand je Projekt-Webview“); Titel und Icon des Fensters
+      folgen dem gezeigten Projekt, die Markierung zählt alle Projekte des Fensters; `focus_project` der Übersicht und
+      die Meldungen zeigen erst die Webview, dann das Fenster.
 - **TODO: Umgang mit dem Git-Index prüfen und ggf. überarbeiten** (Nutzer, 2026-11-19). Heute: CodeDeck merkt nie
   selbst vor; liegt etwas im Index (aus dem Terminal oder von einer Sitzung, die `git add` ausführte), committet ✓ Commit
   still nur das (`commitSteps` in `src/git.ts`), sonst vorher `git add -A`. Das sagt nur der Tooltip. Das Label „im

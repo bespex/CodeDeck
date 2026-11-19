@@ -11,6 +11,23 @@ export const LIMITS: Record<Side, { min: number; max: number }> = {
 export const DECK_MIN = 420;
 /** The folded file list: a rail as wide as the header is high (docs/KONZEPT.md 4.7 rule 4) */
 export const RAIL = 44;
+/** The project list at the left (user, 2026-11-19: 300 px are enough), folded a rail of marks */
+export const PROJECTS = 300;
+const PROJECTS_FOLDED = "codedeck.projectsFolded";
+
+/** Whether the project list is folded: one choice for this machine, not per project, as the list is
+ *  what one moves between projects with. */
+export function useProjectsFolded(): [boolean, (folded?: boolean) => void] {
+  const [folded, setFolded] = useState(() => localStorage.getItem(PROJECTS_FOLDED) === "1");
+  const fold = useCallback((next?: boolean) => {
+    setFolded((old) => {
+      const value = next ?? !old;
+      localStorage.setItem(PROJECTS_FOLDED, value ? "1" : "0");
+      return value;
+    });
+  }, []);
+  return [folded, fold];
+}
 
 const clamp = (side: Side, width: number) => Math.round(Math.min(LIMITS[side].max, Math.max(LIMITS[side].min, width)));
 
@@ -18,7 +35,7 @@ const clamp = (side: Side, width: number) => Math.round(Math.min(LIMITS[side].ma
  * The column widths of this project's window. They are loaded when the project changes and stored
  * per project, so the division survives a restart and every project keeps its own.
  */
-export function useLayout(project: string | undefined) {
+export function useLayout(project: string | undefined, projectsFolded: boolean) {
   const [layout, setState] = useState<Layout>({});
   // The callbacks below stay the same across renders (a key handler holds them); they read the project here
   const current = useRef(project);
@@ -70,6 +87,11 @@ export function useLayout(project: string | undefined) {
     layout[side] === undefined ? fallback : `minmax(${LIMITS[side].min}px,${layout[side]}px)`;
   const folded = layout.filesFolded === true;
   const files = folded ? `${RAIL}px` : track("files", "minmax(220px,20%)");
-  const columns = `${files} 0px minmax(${DECK_MIN}px,1fr) 0px ${track("right", "minmax(300px,25%)")}`;
+  // From left to right: projects, sessions, deck (with the trail at its right), file list (user,
+  // 2026-11-19: the session list beside what it did, the files as reference at the right edge). `right`
+  // is the session list's width; the name stays, as stored layouts use it. The project list has a
+  // fixed width and no line to drag
+  const projects = `${projectsFolded ? RAIL : PROJECTS}px`;
+  const columns = `${projects} ${track("right", "minmax(300px,25%)")} 0px minmax(${DECK_MIN}px,1fr) 0px ${files}`;
   return { columns, resize, folded, fold };
 }

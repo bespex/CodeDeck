@@ -514,7 +514,14 @@ Tests sind kein eigener Ort: Das Ergebnis gehört zur Runde und steht in Changes
 Docs-Ansicht geht auf: Hinweise sind etwas, das man anhängt (Next prompt), geschriebene Dokumente sind
 Ergebnisse (Activity).
 
-Links bleiben Dateien und Trail. Die rechte Spalte hat drei Bereiche:
+Die Spalten von links nach rechts (Entscheidung 2026-11-19, vorher Dateien links, Sitzungen rechts):
+Projekte, Sitzungen, Deck, Trail, Dateien. Sie lesen sich vom Allgemeinen zum Einzelnen: welches
+Projekt, welche Sitzung, was sie getan hat, die Dateien zum Nachschlagen; alles, was auf dich wartet,
+steht links an einem Ort. Die Projektliste (300 px) zeigt oben das Projekt dieses Fensters in seiner
+Farbe mit den Menüs, darunter alle Projekte ohne ihre Sitzungen und „Wartet in anderen Projekten“; ein
+Klick zeigt ein Projekt hier, Strg+Klick in einem neuen Fenster, ein Klick auf das Projektzeichen klappt
+sie auf eine Leiste mit den Zeichen zu (siehe `docs/PLAN.md` „Projektliste im Fenster statt Übersicht“).
+Der Trail gehört zu den Dateien und steht links neben ihnen. Die Sitzungsspalte hat drei Bereiche:
 
 - **Needs you:** alles, was auf dich wartet, mit der Handlung direkt daran. Farbig nur, wenn etwas
   wartet. Eine Sitzung steht dort, wenn sie etwas fragt oder ihre Runde beendet hat; eine beendete
@@ -594,18 +601,17 @@ weil man ihm die Dateien einzeln nennt und es selbst committet.
 3. **Auf einen Blick, dann auf Wunsch.** Jede Zeile zeigt das eine, was zählt, in fester Länge.
    Einzelheiten klappen auf, stehen im Tooltip oder im schwebenden Panel. Lange Texte dürfen keine
    Übersicht sprengen.
-4. **Größen gehören dem Benutzer.** Dateiliste und rechte Spalte lassen sich in der Breite ziehen
+4. **Größen gehören dem Benutzer.** Dateiliste und Sitzungsspalte lassen sich in der Breite ziehen
    (Doppelklick: zurück zur Standardbreite). Die Dateiliste lässt sich außerdem zuklappen, mit
-   `Strg+B` oder einem Klick auf das Projektzeichen oben links (Entscheidung 2026-11-19, ersetzt die vom
-   2026-11-17). Zugeklappt bleibt eine schmale Leiste, nicht nichts: dasselbe Projektzeichen in der
-   Projektfarbe, das die Liste wieder aufklappt (mit Punkt, wenn kürzlich etwas geändert wurde),
-   Schnelleinstellungen und `⋯`, unten wie in der Statusleiste das Git-Log und der Branch für die
-   Git-Aktionen. Die linke Statusleiste reicht immer unter dem Trail durch bis zu seinem rechten Rand. Zuklappen verbirgt also nur
+   `Strg+B` oder dem Knopf in ihrer Kopfzeile (Entscheidung 2026-11-19, ersetzt die vom
+   2026-11-17). Zugeklappt bleibt eine schmale Leiste, nicht nichts: das Baum-Symbol, das die Liste
+   wieder aufklappt (mit Punkt, wenn kürzlich etwas geändert wurde), unten wie in der Statusleiste das
+   Git-Log und der Branch für die Git-Aktionen. Projektfarbe und Menüs stehen in der Projektliste. Die Statusleiste der Dateien reicht immer unter dem Trail durch bis zu seinem linken Rand. Zuklappen verbirgt also nur
    den Baum, nie das Projekt oder ein Menü. Wer eine Datei im Baum zeigen will, klappt ihn damit auf.
-   Die rechte Spalte klappt nicht zu: Sie ist das Radar, und wer fragt, soll immer zu sehen sein. Die
+   Die Sitzungsspalte klappt nicht zu: Sie ist das Radar, und wer fragt, soll immer zu sehen sein. Die
    Trennlinien bleiben haarfein und zeigen sich erst beim Überfahren, damit sie keine Unruhe ins Bild
-   bringen. Der Trail öffnet sich nach links über die Dateiliste; ist dort zu wenig Platz (zugeklappt),
-   reicht er nach rechts über das Deck. Der Inhalt passt sich fließend an; Aufteilung und Zugeklapptes werden je
+   bringen. Der Trail öffnet sich nach links über das Deck (reicht der Platz links
+   nicht, ragt er nach rechts). Der Inhalt passt sich fließend an; Aufteilung und Zugeklapptes werden je
    Projekt gemerkt, beim Aufklappen kommt die zuletzt gezogene Breite zurück.
 5. **Schwebend statt eingebaut**, wenn etwas selten gebraucht wird: Konten, Hinweise und Tipps
    liegen in Seitenleisten, die ein kleiner Knopf öffnet.

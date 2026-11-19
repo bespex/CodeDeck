@@ -39,7 +39,7 @@ export function usePopover<T extends HTMLElement>() {
  * name and below it, quiet, where it lives; at the right the menus about CodeDeck itself (quick
  * settings, the app menu). Projects are opened in the overview.
  */
-export function PathBar({ project, onToggleLog, assistant, onFold }: { project: ProjectInfo | null; onToggleLog: () => void; assistant: AssistantState; onFold: () => void }) {
+export function PathBar({ project, onToggleLog, assistant, onFold, foldLabel }: { project: ProjectInfo | null; onToggleLog: () => void; assistant: AssistantState; onFold: () => void; foldLabel: string }) {
   const crumbs = project?.crumbs ?? [];
   const look = useProjectLook(project?.path);
   const name = crumbs[crumbs.length - 1]?.label ?? project?.root ?? "";
@@ -54,8 +54,8 @@ export function PathBar({ project, onToggleLog, assistant, onFold }: { project: 
       className="block shrink-0"
       content={
         <ToolTipBody
-          says={t("Your project's files. At the top is the open project and where it lives, below it the file tree. Folders and files that sessions touched are marked in their colour.")}
-          hint={t("The paperclip attaches a file to your next prompt; a double click opens it.")}
+          says={t("The project shown in this window and where it lives; below it all your projects. A click on one shows it here.")}
+          hint={t("A click on the mark folds the list.")}
         />
       }
     >
@@ -65,12 +65,12 @@ export function PathBar({ project, onToggleLog, assistant, onFold }: { project: 
       <div className="flex h-[43px] items-center gap-1 pr-1.5 pl-3">
         {project && (
           <span className="flex min-w-0 items-center gap-2.5" title={project.root}>
-            {/* The mark folds the list to its rail, where the same mark opens it again (docs/KONZEPT.md 4.7 rule 4) */}
+            {/* The mark folds the column it heads to its rail, where the same mark opens it again (docs/KONZEPT.md 4.7 rule 4) */}
             {look && (
               <button
                 type="button"
-                aria-label={t("Fold the file list")}
-                title={`${t("Fold the file list")} (${t("Ctrl")}+B)`}
+                aria-label={foldLabel}
+                title={foldLabel}
                 onClick={onFold}
                 className="shrink-0 rounded-md hover:bg-black/15"
               >

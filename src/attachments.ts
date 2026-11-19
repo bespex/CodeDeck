@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { assistantState, attach, onAssistantChanged, type AssistantState } from "./backend";
 import { mainHarness } from "./assistant";
+import { recall, remember } from "./projectMemory";
 
 export interface Part<T> {
   key: string;
@@ -31,6 +32,9 @@ interface Store {
   sent: (rev: number) => void;
   clear: () => void;
   empty: () => boolean;
+  /** Its items with their revisions, to come back with the project (`switchAttachments`) */
+  save: () => unknown;
+  restore: (saved: unknown) => void;
 }
 
 const stores = new Map<string, Store>();
@@ -110,6 +114,14 @@ export function createPart<T>(
       publish();
     },
     empty: () => entries.length === 0,
+    save: () => ({ entries, rev }),
+    restore: (saved) => {
+      const s = saved as { entries: { item: T; rev: number }[]; rev: number } | undefined;
+      entries = s?.entries ?? [];
+      // Revisions only ever count up: a receipt of the project's last prompt names one of its own
+      rev = Math.max(rev, s?.rev ?? 0);
+      publish();
+    },
   });
   return part;
 }
@@ -120,9 +132,27 @@ export function removeAttachment(key: string) {
   void attach(key, null);
 }
 
-/** A new project: nothing attached there yet (the backend forgets the old project's attachments). */
-export function clearAttachments() {
-  stores.forEach((s) => s.clear());
+/**
+ * The window shows another project: what was attached to the old one stays with it (its bridge in the
+ * backend keeps the text, so its next prompt still gets it), what the new one had comes back.
+ */
+export function switchAttachments(from: string | null, to: string | null) {
+  remember(from, "attachments", Object.fromEntries([...stores].map(([key, s]) => [key, s.save()])));
+  const saved = recall<Record<string, unknown>>(to, "attachments") ?? {};
+  stores.forEach((s, key) => s.restore(saved[key]));
+  // Called once the backend shows the new project: compared with what it holds for it now
+  void assistantState().then(reconcile);
+}
+
+/** The backend may have let the project go meanwhile (not on my list, no window): then what came back
+ *  here is sent again; what only the backend still has is dropped, as after a reload of the window. */
+function reconcile(state: AssistantState) {
+  if (!enabled) return;
+  for (const store of stores.values()) {
+    const there = state.attachments.some((a) => a.key === store.key);
+    if (!store.empty() && !there) store.sync();
+    else if (store.empty() && there) void attach(store.key, null);
+  }
 }
 
 let lastReceipt = "";

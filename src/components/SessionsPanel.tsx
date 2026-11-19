@@ -78,7 +78,7 @@ interface Props {
 export function SessionsPanel(props: Props) {
   return (
     <aside
-      className="zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_minmax(0,1fr)_fit-content(40%)_auto] border-l border-line bg-panel"
+      className="zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_minmax(0,1fr)_fit-content(40%)_auto] border-r border-line bg-panel"
     >
       <HeaderBar project={props.project} onOpenProject={props.onOpenProject} assistant={props.assistant} onToggleLog={props.onToggleLog} />
       <SidebarSummary git={props.git} assistant={props.assistant} />

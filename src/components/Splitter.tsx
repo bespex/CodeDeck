@@ -8,10 +8,10 @@ interface Props {
   onResize: (side: Side, width: number | null, store: boolean) => void;
 }
 
-/** Reads the drawn width of a column from the grid: its tracks are files, line, deck, line, right. */
+/** Reads the drawn width of a column from the grid: its tracks are projects, sessions, line, deck, line, files. */
 function widthOf(side: Side, grid: HTMLElement | null): number {
   const tracks = grid ? getComputedStyle(grid).gridTemplateColumns.split(" ").map(parseFloat) : [];
-  return (side === "files" ? tracks[0] : tracks[4]) ?? 0;
+  return (side === "files" ? tracks[5] : tracks[1]) ?? 0;
 }
 
 /**
@@ -21,15 +21,15 @@ function widthOf(side: Side, grid: HTMLElement | null): number {
  */
 export function Splitter({ side, onResize }: Props) {
   const drag = useRef<{ x: number; width: number } | null>(null);
-  // Dragging to the right widens the file list but narrows the right column
-  const sign = side === "files" ? 1 : -1;
+  // Dragging to the right widens the session list (left) but narrows the file list (right)
+  const sign = side === "files" ? -1 : 1;
   const grid = (e: { currentTarget: HTMLElement }) => e.currentTarget.closest<HTMLElement>("[data-columns]");
 
   return (
     <div className="relative z-20 w-0 shrink-0">
       <button
         type="button"
-        aria-label={side === "files" ? t("Resize the file list") : t("Resize the right column")}
+        aria-label={side === "files" ? t("Resize the file list") : t("Resize the session list")}
         title={t("Drag to resize · double click: default width")}
         className="absolute inset-y-0 -left-[3px] w-[7px] cursor-col-resize touch-none bg-clip-content px-[2px] outline-none hover:bg-ai/60 focus-visible:bg-ai/60"
         onPointerDown={(e) => {

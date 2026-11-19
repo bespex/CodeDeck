@@ -1,4 +1,5 @@
 import { Tooltip, ToolTipBody } from "./Tooltip";
+import { lastSwitch } from "../projectMemory";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   Bug,
@@ -308,7 +309,8 @@ export function AppMenu({ onToggleLog, assistant, onColor = false }: { onToggleL
     const sessions = `Sessions: ${assistant.sessions.length} (working ${count("working")}, waiting ${count("waiting")}, idle ${count("idle")}, ended ${count("ended")}), heard: ${assistant.heard}`;
     const window = `Window: ${innerWidth}×${innerHeight}, language ${lang}, focused ${document.hasFocus()}`;
     const found = `Found: ${assistant.found.outside.length} left elsewhere, ${assistant.found.pages.length} pages; attachments: ${assistant.attachments.length}`;
-    await navigator.clipboard.writeText([(await diagnostics()).trimEnd(), sessions, window, found, `Web view: ${navigator.userAgent}`].join("\n"));
+    const switched = `Last project switch: ${lastSwitch === null ? "none yet" : `${lastSwitch} ms`}`;
+    await navigator.clipboard.writeText([(await diagnostics()).trimEnd(), sessions, window, found, switched, `Web view: ${navigator.userAgent}`].join("\n"));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

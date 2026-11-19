@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AppWindow, ChevronRight, ChevronsDownUp, ChevronsUpDown, Shapes, Eye, EyeOff, ListX, Loader, Check, Copy, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
 import { onTodayStarted, sessionCommands, pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
 import { accountLook, useAccounts } from "../accounts";
@@ -14,8 +14,21 @@ import { loadCollapsed, nameIn, saveCollapsed, sectionsOf } from "../groups";
 // Calm by default: what waits, the projects with their sessions and status, which windows are
 // open. Everything occasional appears on hover or sits behind an icon of the toolbar.
 
+/**
+ * The list in a project window (docs/PLAN.md "Projektliste im Fenster statt Übersicht"): a click shows
+ * the project in this window, Ctrl+click in a new one. No sessions in the list: those of the project
+ * shown are in the session column beside it.
+ */
+export interface InWindow {
+  /** The project this window shows */
+  current: string | null;
+  /** Shows a project here or in a new window; `view` opens a view of the deck as well */
+  onOpen: (path: string, newWindow: boolean, view?: string) => void;
+}
+const InWindowContext = createContext<InWindow | null>(null);
+
 /** Keeps the state of every open project, asked again whenever the backend says it changed. */
-function useOverview(): [OverviewProject[], (p: OverviewProject[]) => void] {
+export function useOverview(): [OverviewProject[], (p: OverviewProject[]) => void] {
   const [projects, setProjects] = useState<OverviewProject[]>([]);
   useEffect(() => {
     let alive = true;
@@ -151,6 +164,7 @@ const menuItem = `${menuPlain} text-slate-200`;
 const menuLine = <div className="my-1 h-px bg-overlay-line" />;
 
 function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () => void }) {
+  const inWindow = useContext(InWindowContext);
   // Accounts in use or new; a backup copy is no configuration to run with
   const accounts = useAccounts().filter((a) => a.kind !== "backup");
   useCloseOnClick(onClose);
@@ -158,10 +172,19 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
   const label = project.label;
   return (
     <FloatingMenu>
+      {inWindow ? (
+        <button type="button" className={item} onClick={() => (onClose(), inWindow.onOpen(project.path, true))}>
+          <MenuIcon>
+            <AppWindow className="size-3.5" />
+          </MenuIcon>
+          <span className="flex-1">{t("Open in a new window")}</span>
+        </button>
+      ) : (
       <button type="button" className={item} onClick={() => (onClose(), label ? void toggleProjectWindow(label) : void showProject(project.path))}>
         <MenuIcon>{!label ? <AppWindow className="size-3.5" /> : project.visible ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}</MenuIcon>
         <span className="flex-1">{label ? (project.visible ? t("Hide its window") : t("Show its window")) : t("Open")}</span>
       </button>
+      )}
       {project.listed && (
         <>
           {line}
@@ -379,6 +402,7 @@ interface RowDrag {
 }
 
 function ProjectRow({ project, name, drag }: { project: OverviewProject; name: string; drag?: RowDrag }) {
+  const inWindow = useContext(InWindowContext);
   const now = useNow();
   const sessions = (project.state?.sessions ?? []).filter((s) => relevant(s, now));
   const label = project.label;
@@ -391,6 +415,10 @@ function ProjectRow({ project, name, drag }: { project: OverviewProject; name: s
   // Loaded windows: a click on the row brings it to the front. Not loaded: a double click loads it
   const front = () => label && void focusProject(label);
   const load = () => !label && void showProject(project.path);
+  // In a project window: shown here, or with Ctrl in a new window; what changed opens its view
+  const here = (newWindow: boolean, view?: string) => inWindow?.onOpen(project.path, newWindow, view);
+  const shownHere = !!inWindow && inWindow.current === project.path;
+  const look2 = (view: string) => (inWindow ? here(false, view) : label && void focusProject(label, view));
   // A click on the mark hides or shows the loaded window; closing is the window's own business
   const toggle = () => label && void toggleProjectWindow(label);
   const hidden = !!label && !project.visible;
@@ -410,18 +438,24 @@ function ProjectRow({ project, name, drag }: { project: OverviewProject; name: s
         onPointerDown={drag?.onPointerDown}
         role="button"
         tabIndex={0}
-        onClick={front}
-        onDoubleClick={load}
+        onClick={(e) => (inWindow ? here(e.ctrlKey || e.metaKey) : front())}
+        onAuxClick={(e) => inWindow && e.button === 1 && here(true)}
+        onDoubleClick={inWindow ? undefined : load}
         onContextMenu={(e) => {
           e.preventDefault();
           setMenu(true);
         }}
-        onKeyDown={(e) => e.key === "Enter" && (label ? front() : load())}
-        title={label ? t("Bring its window to the front") : t("Double-click: load its window")}
-        className={`group/row flex h-9 cursor-pointer items-center gap-2 border-l-2 pr-2 pl-3 select-none hover-project ${project.front && project.visible ? "border-ai bg-raised" : "border-transparent"}`}
+        onKeyDown={(e) => e.key === "Enter" && (inWindow ? here(e.ctrlKey) : label ? front() : load())}
+        title={inWindow ? t("Show it here · Ctrl+click or middle click: in a new window") : label ? t("Bring its window to the front") : t("Double-click: load its window")}
+        className={`group/row flex h-9 cursor-pointer items-center gap-2 border-l-2 pr-2 pl-3 select-none hover-project ${(inWindow ? shownHere : project.front && project.visible) ? "border-ai bg-raised" : "border-transparent"}`}
       >
         {/* The mark: a click hides or shows the loaded window, a double click loads it. A ring runs
-            round it on hover, so it reads as a switch */}
+            round it on hover, so it reads as a switch. In a project window it is part of the row */}
+        {inWindow ? (
+          <span title={project.daily ? t("On today's list") : undefined} className={`${project.daily ? "mark-daily" : ""} flex shrink-0 rounded-full`} style={{ ["--ring" as string]: (project.mark as { color?: string } | null)?.color ?? project.color }}>
+            <ProjectMark project={project} />
+          </span>
+        ) : (
         <button
           type="button"
           onClick={(e) => {
@@ -439,7 +473,8 @@ function ProjectRow({ project, name, drag }: { project: OverviewProject; name: s
         >
           <ProjectMark project={project} />
         </button>
-        <span title={name === project.name ? undefined : project.name} className={`min-w-0 truncate text-[14px] ${label ? "font-semibold text-slate-100" : "text-slate-400"}`}>
+        )}
+        <span title={name === project.name ? undefined : project.name} className={`min-w-0 truncate text-[14px] ${label || inWindow ? "font-semibold text-slate-100" : "text-slate-400"}`}>
           {name}
         </span>
         {project.account && (
@@ -473,24 +508,25 @@ function ProjectRow({ project, name, drag }: { project: OverviewProject; name: s
         <span className="flex-1" />
         {/* What changed there: always in sight, the details in the tooltip */}
         {label && (summary.gitFailed || !!summary.uncommitted) && (
-          <RowIcon title={`${t("Git")}: ${summary.git ?? "…"}`} tone={summary.gitFailed ? "text-problem" : "text-changed"} onClick={() => void focusProject(label, "changes")}>
+          <RowIcon title={`${t("Git")}: ${summary.git ?? "…"}`} tone={summary.gitFailed ? "text-problem" : "text-changed"} onClick={() => look2("changes")}>
             <GitBranch className="size-4" />
           </RowIcon>
         )}
         {label && !!summary.next && (
-          <RowIcon title={t("Next prompt: {n} attached", { n: summary.next })} tone="text-ai" onClick={() => void focusProject(label, "next")}>
+          <RowIcon title={t("Next prompt: {n} attached", { n: summary.next })} tone="text-ai" onClick={() => look2("next")}>
             <Paperclip className="size-4" />
           </RowIcon>
         )}
         {label && !!summary.news && (
-          <RowIcon title={t("Workbench: {n} new", { n: summary.news })} tone="text-ai" onClick={() => void focusProject(label, "workbench")}>
+          <RowIcon title={t("Workbench: {n} new", { n: summary.news })} tone="text-ai" onClick={() => look2("workbench")}>
             <Inbox className="size-4" />
           </RowIcon>
         )}
         {dot && <span className={`size-2 shrink-0 rounded-full ${dot}`} />}
       </div>
       {menu && <RowMenu project={project} onClose={closeMenu} />}
-      {(sessions.length > 0 || pending.length > 0) && (
+      {/* In a project window the list has no sessions (user, 2026-11-19): they are in the column beside it */}
+      {!inWindow && (sessions.length > 0 || pending.length > 0) && (
         <ul>
           {/* Started in tmux, nothing reported yet: maybe it asks a question; open it to answer */}
           {pending.map((p) => (
@@ -576,8 +612,10 @@ function Told() {
 
 /** "Needs you" over every project: questions first, then finished turns of the last half hour. */
 function Waiting({ projects }: { projects: OverviewProject[] }) {
+  const inWindow = useContext(InWindowContext);
   const now = useNow();
-  const waiting = projects.flatMap((p) =>
+  // In a project window what waits in the project shown is in the session column beside: only the others
+  const waiting = projects.filter((p) => !inWindow || p.path !== inWindow.current).flatMap((p) =>
     (p.state?.sessions ?? [])
       .filter((s) => relevant(s, now) && (needsYou(s) === "asks" || (needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS)))
       .map((s) => ({ project: p, session: s })),
@@ -586,7 +624,7 @@ function Waiting({ projects }: { projects: OverviewProject[] }) {
   if (!waiting.length) return null;
   return (
     <section aria-label={t("Needs you")}>
-      <h2 className="px-3 pt-3 pb-1 text-[12px] font-semibold tracking-wider text-slate-400 uppercase">{t("Needs you")}</h2>
+      <h2 className="px-3 pt-3 pb-1 text-[12px] font-semibold tracking-wider text-slate-400 uppercase">{inWindow ? t("Waiting in other projects") : t("Needs you")}</h2>
       <ul className="flex flex-col gap-1.5 px-2">
         {waiting.map(({ project, session: s }) => {
           const asks = needsYou(s) === "asks";
@@ -594,8 +632,8 @@ function Waiting({ projects }: { projects: OverviewProject[] }) {
             <li
               key={`${project.label}:${s.id}`}
               data-event={asks ? "waiting" : "done"}
-              onClick={() => void (project.label ? focusProject(project.label) : showProject(project.path))}
-              title={t("Click: its project's window")}
+              onClick={() => (inWindow ? inWindow.onOpen(project.path, false) : void (project.label ? focusProject(project.label) : showProject(project.path)))}
+              title={inWindow ? t("Click: show its project here") : t("Click: its project's window")}
               className={`event-row wait-card flex cursor-pointer items-center gap-2 rounded-md bg-raised py-1.5 pr-2 pl-2 ${asks ? "wait-card-asks" : ""}`}
             >
               <ProjectMark project={project} size={20} />
@@ -637,7 +675,7 @@ async function addAllIn() {
 }
 
 /** The `⋯` menu: what is needed now and then. */
-function MoreMenu({ host }: { host: string | null }) {
+function MoreMenu({ host, inWindow = false }: { host: string | null; inWindow?: boolean }) {
   const [open, setOpen] = useState(false);
   const [sorting, setSorting] = useState(false);
   useEffect(() => void (open || setSorting(false)), [open]);
@@ -649,12 +687,12 @@ function MoreMenu({ host }: { host: string | null }) {
   }, [open]);
   const item = "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] text-slate-200 hover:bg-overlay-hover disabled:opacity-40";
   // Dialogs open in the project window used last: they need more room than the overview has
-  const inWindow = (view: string) => host && void focusProject(host, view);
+  const inWindowView = (view: string) => host && void focusProject(host, view);
   return (
     <span className="relative">
       <button
         type="button"
-        title={t("More")}
+        title={inWindow ? t("Add or sort projects") : t("More")}
         onClick={(e) => {
           e.stopPropagation();
           setOpen((o) => !o);
@@ -688,15 +726,18 @@ function MoreMenu({ host }: { host: string | null }) {
                 {t(label)}
               </button>
             ))}
+          {/* In a project window the rest is in the app menu of the project bar above the list */}
+          {!inWindow && (
+          <>
           <div className="my-1 h-px bg-overlay-line" />
-          <button type="button" disabled={!host} title={host ? undefined : t("Settings: open a project first")} className={item} onClick={() => inWindow("settings")}>
+          <button type="button" disabled={!host} title={host ? undefined : t("Settings: open a project first")} className={item} onClick={() => inWindowView("settings")}>
             {t("Settings")}
           </button>
           <div className="my-1 h-px bg-overlay-line" />
-          <button type="button" disabled={!host} className={item} onClick={() => inWindow("shortcuts")}>
+          <button type="button" disabled={!host} className={item} onClick={() => inWindowView("shortcuts")}>
             {t("Keyboard shortcuts")}
           </button>
-          <button type="button" disabled={!host} className={item} onClick={() => inWindow("about")}>
+          <button type="button" disabled={!host} className={item} onClick={() => inWindowView("about")}>
             {t("About CodeDeck")}
           </button>
           <div className="my-1 h-px bg-overlay-line" />
@@ -704,13 +745,15 @@ function MoreMenu({ host }: { host: string | null }) {
             {t("Quit CodeDeck")}
             <span className="ml-auto text-slate-500">{t("all windows")}</span>
           </button>
+          </>
+          )}
         </div>
       )}
     </span>
   );
 }
 
-export default function OverviewApp() {
+export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) {
   const [projects, setProjects] = useOverview();
   // Dragging a project: which one, and where it would land
   // Groups folded away, kept on this machine
@@ -801,14 +844,15 @@ export default function OverviewApp() {
     return () => void (pickListener = null);
   }, []);
   // As the backend names the window (tray.rs), in case the web view's title shows through
-  useEffect(() => void (document.title = t("CodeDeck – Overview")), []);
+  useEffect(() => void (inWindow || (document.title = t("CodeDeck – Overview"))), [inWindow]);
   // ＋ takes a project into my list; its window stays closed until it is needed
   const open = async () => {
     const path = await pickFolder();
     if (path) await addProject(path);
   };
-  // Ctrl+O opens a project from here too
+  // Ctrl+O opens a project from here too (a project window has its own)
   useEffect(() => {
+    if (inWindow) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "o") {
         e.preventDefault();
@@ -817,7 +861,7 @@ export default function OverviewApp() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [inWindow]);
   const host = (projects.find((p) => p.front) ?? projects.find((p) => p.label))?.label ?? null;
   // Today's list: projects with the star and no live session
   const now = useNow();
@@ -842,9 +886,11 @@ export default function OverviewApp() {
     [],
   );
   return (
-    <div className="flex h-screen flex-col bg-panel text-[13px]">
-      <header className="zone-tabs area-ai flex h-10 shrink-0 items-center gap-1 border-b border-line pr-2 pl-3">
-        <img src="/codedeck.svg" alt="" className="size-[18px]" />
+    <InWindowContext.Provider value={inWindow ?? null}>
+    <div className={`flex flex-col bg-panel text-[13px] ${inWindow ? "min-h-0 flex-1" : "h-screen"}`}>
+      {/* In a project window the project bar is above; here only the list's own tools, in one row */}
+      <header className={`flex shrink-0 items-center gap-1 border-b border-line pr-2 pl-3 ${inWindow ? "h-9" : "zone-tabs area-ai h-10"}`}>
+        {inWindow ? <span className="text-[12px] font-semibold tracking-wider text-slate-400 uppercase">{t("Projects")}</span> : <img src="/codedeck.svg" alt="" className="size-[18px]" />}
         <span className="flex-1" />
         {groups.length > 0 && (
           <>
@@ -869,7 +915,7 @@ export default function OverviewApp() {
         <button type="button" title={t("Add a project to my list (Ctrl+O)")} onClick={() => void open()} className={toolButton}>
           <Plus className="size-4" />
         </button>
-        <MoreMenu host={host} />
+        <MoreMenu host={host} inWindow={!!inWindow} />
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto pb-3">
         <Waiting projects={projects} />
@@ -909,5 +955,57 @@ export default function OverviewApp() {
         />
       )}
     </div>
+    </InWindowContext.Provider>
+  );
+}
+
+/**
+ * The folded project list (docs/PLAN.md "Projektliste im Fenster statt Übersicht"): one mark per
+ * project in the order of the list, marked as on the icons (a pill with the number that ask, a dot
+ * for a finished turn), the one shown here on a band. A click shows it here, Ctrl+click in a new
+ * window; `+` adds a project. Groups have no heading here; their projects follow each other.
+ */
+export function ProjectsRail({ inWindow }: { inWindow: InWindow }) {
+  const [projects] = useOverview();
+  const now = useNow();
+  const add = async () => {
+    const path = await pickFolder();
+    if (path) await addProject(path);
+  };
+  return (
+    <ul className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto py-1.5 [scrollbar-width:none]">
+      {sectionsOf(projects).flatMap((section) =>
+        section.items.map((p) => {
+          const sessions = (p.state?.sessions ?? []).filter((s) => relevant(s, now));
+          const asks = sessions.filter((s) => needsYou(s) === "asks").length;
+          const done = sessions.some((s) => needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS);
+          const shown = inWindow.current === p.path;
+          return (
+            <li key={p.path}>
+              <button
+                type="button"
+                title={`${p.name}${asks ? ` · ${t("{n} asking", { n: asks })}` : done ? ` · ${t("A turn is done")}` : ""}\n${t("Show it here · Ctrl+click or middle click: in a new window")}`}
+                onClick={(e) => inWindow.onOpen(p.path, e.ctrlKey || e.metaKey)}
+                onAuxClick={(e) => e.button === 1 && inWindow.onOpen(p.path, true)}
+                className={`relative flex size-8 items-center justify-center rounded-md ${shown ? "bg-raised ring-1 ring-ai" : "hover:bg-raised"}`}
+              >
+                <ProjectMark project={p} size={22} />
+                {asks > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-changed px-0.5 text-[9px] leading-none font-bold text-[#14161a]">
+                    {Math.min(asks, 99)}
+                  </span>
+                )}
+                {!asks && done && <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-white bg-added" />}
+              </button>
+            </li>
+          );
+        }),
+      )}
+      <li>
+        <button type="button" title={t("Add a project to my list (Ctrl+O)")} onClick={() => void add()} className="flex size-8 items-center justify-center rounded-md text-slate-400 hover:bg-raised hover:text-slate-100">
+          <Plus className="size-4" />
+        </button>
+      </li>
+    </ul>
   );
 }

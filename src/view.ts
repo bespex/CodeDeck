@@ -9,6 +9,9 @@ export type ViewId = "activity" | "changes" | "workbench" | "next";
 let current: ViewId = "changes";
 const listeners = new Set<() => void>();
 
+/** The view open now. */
+export const currentView = () => current;
+
 /** Opens a view of the deck. */
 export function openView(view: ViewId) {
   current = view;

@@ -18,6 +18,8 @@ import {
   Search,
   SquarePen,
   Settings2,
+  FolderTree,
+  PanelRightClose,
 } from "lucide-react";
 import { onFsChanged, openPath, readDir, showInFileManager, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
 import type { AssistantState, GitState } from "../backend";
@@ -28,9 +30,10 @@ import { pathItems, useContextMenu } from "./ContextMenu";
 import { AppName, openAs } from "../apps";
 import { useSessionMarks } from "../assistant";
 import { RepoTooltip } from "./RepoTooltip";
-import { PathBar, type OpenProject } from "./ProjectHeader";
+import { type OpenProject } from "./ProjectHeader";
 import { GitStatusBar } from "./StatusBar";
 import { FilesRail } from "./FilesRail";
+import { usePerProject } from "../projectMemory";
 import { inScratch, moveIntoProject, SCRATCH_DRAG } from "../scratch";
 import { plural, T, t } from "../i18n";
 
@@ -85,10 +88,11 @@ type Listings = Record<string, Entry[]>;
 
 export function FilesPanel(props: Props) {
   const [listings, setListings] = useState<Listings>({});
-  const [open, setOpen] = useState<Set<string>>(new Set());
+  // Open folders and the filter come back with the project (projectMemory)
+  const [open, setOpen] = usePerProject<Set<string>>("openFolders", () => new Set());
   const [recent, setRecent] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = usePerProject("fileFilter", () => "");
   // What is loaded, readable from the change listener without re-subscribing
   const loaded = useRef<Set<string>>(new Set());
 
@@ -109,6 +113,8 @@ export function FilesPanel(props: Props) {
 
   useEffect(() => {
     load("");
+    // Folders that were open when the project was left: their listings again
+    open.forEach((dir) => void load(dir));
     return onFsChanged((change) => {
       change.dirs.filter((dir) => loaded.current.has(dir)).forEach(load);
       const now = Date.now();
@@ -154,9 +160,7 @@ export function FilesPanel(props: Props) {
   if (props.folded)
     return (
       <FilesRail
-        project={props.project}
         git={props.git}
-        assistant={props.assistant}
         recent={recentPaths.length}
         onToggleLog={props.onToggleLog}
         logOpen={props.logOpen}
@@ -166,8 +170,21 @@ export function FilesPanel(props: Props) {
     );
 
   return (
-    <aside className="zone-files flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
-      <PathBar project={props.project} onToggleLog={props.onToggleLog} assistant={props.assistant} onFold={() => props.onFold(true)} />
+    <aside className="zone-files flex min-h-0 min-w-0 flex-col border-l border-line bg-panel">
+      {/* As high as the headers beside it. The project and the menus are in the project list at the left */}
+      <header className="zone-tabs flex h-11 shrink-0 items-center gap-2 border-b border-line bg-panel pr-1.5 pl-3">
+        <FolderTree className="size-4 text-slate-500" />
+        <span className="flex-1 text-[12px] font-semibold tracking-wider text-slate-400 uppercase">{t("Files")}</span>
+        <button
+          type="button"
+          aria-label={t("Fold the file list")}
+          title={`${t("Fold the file list")} (${t("Ctrl")}+B)`}
+          onClick={() => props.onFold(true)}
+          className="rounded-md p-1.5 text-slate-400 hover:bg-raised hover:text-slate-100"
+        >
+          <PanelRightClose className="size-4" />
+        </button>
+      </header>
 
       <div className="px-2 pt-2">
         <label className="flex items-center gap-2 rounded-md border border-line bg-base px-2 py-1.5 focus-within:border-ai">

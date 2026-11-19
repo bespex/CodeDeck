@@ -100,7 +100,7 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
 
   return (
     // Ends above the left status bar, which reaches under it (`UNDER_TRAIL` in StatusBar.tsx)
-    <div ref={column} className="relative mb-7 w-11 shrink-0 border-r border-line bg-panel" aria-label={t("Trail")}>
+    <div ref={column} className="relative mb-7 w-11 shrink-0 border-l border-line bg-panel" aria-label={t("Trail")}>
       <div
         onMouseEnter={enter}
         onMouseLeave={leave}

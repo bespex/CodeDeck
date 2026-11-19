@@ -25,11 +25,11 @@ interface GitProps {
  * when the column is narrow. Details are in the tooltips.
  */
 /**
- * The left status bar reaches under the trail (user, 2026-11-19): the trail ends above it, the bar runs
- * on to the trail's right edge (`w-11`, 44 px), so it has more room, and the folded rail's foot too.
- * Above the grips of the lines it crosses; its own right border carries the trail's line down.
+ * The file list's status bar reaches under the trail (user, 2026-11-19): the trail ends above it, the
+ * bar runs on to the trail's left edge (`w-11`, 44 px), so it has more room, and the folded rail's foot
+ * too. Above the grips of the lines it crosses; its own left border carries the trail's line down.
  */
-export const UNDER_TRAIL = "relative z-30 -mr-11 border-r border-line";
+export const UNDER_TRAIL = "relative z-30 -ml-11 border-l border-line";
 
 /** Whether the trail is shown, so the bar reaches under it (without git there is none, see `Deck`) */
 export const trailShown = (git: GitView) => !lacksGit(git);

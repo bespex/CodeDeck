@@ -258,7 +258,8 @@ fn open_project(app: &AppHandle, path: &Path) -> Result<(), String> {
 /// Tells the overview that something it shows changed; it asks for the state again.
 pub fn overview_changed(app: &AppHandle) {
     use tauri::Emitter;
-    let _ = app.emit_to(OVERVIEW, "overview_changed", ());
+    // Every window: the overview, and the project list of every project window
+    let _ = app.emit("overview_changed", ());
     // What waits shows in the tray too
     crate::tray::refresh(app);
 }

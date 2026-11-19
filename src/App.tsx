@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FilesPanel } from "./components/FilesPanel";
 import { GitLog } from "./components/GitLog";
 import { Deck } from "./components/Deck";
 import { SessionsPanel } from "./components/SessionsPanel";
 import { live, onOpenView, openProject, openWindow, projectInfo, toggleOverview, type Entry, type ProjectInfo } from "./backend";
-import { openView, type ViewId } from "./view";
+import { currentView, openView, type ViewId } from "./view";
 import { initialPins } from "./mock";
 import { files, pinFromEntry } from "./files";
-import { clearAttachments, useAttachments } from "./attachments";
+import { switchAttachments, useAttachments } from "./attachments";
+import { recall, remember, showProject, switchTook } from "./projectMemory";
 import { useGit } from "./git";
 import { SessionMarksContext, sessionMarks, touchedFiles, useAssistant } from "./assistant";
 import { RepoActions, type Anchor } from "./components/RepoActions";
@@ -16,7 +17,8 @@ import { setNewsProject } from "./news";
 import { Dialogs } from "./components/Dialogs";
 import { openDialog } from "./dialogs";
 import { projectSwitched } from "./windowIcon";
-import { useLayout } from "./layout";
+import { useLayout, useProjectsFolded } from "./layout";
+import { ProjectsPanel } from "./components/ProjectsPanel";
 import { Splitter } from "./components/Splitter";
 
 // The preview starts with something attached, to show what that looks like
@@ -41,7 +43,8 @@ export default function App() {
   const [actions, setActions] = useState<{ repo: string; anchor: Anchor } | null>(null);
   const [logOpen, setLogOpen] = useState(false);
   // Widths of file list and right column, as the user left them in this project
-  const layout = useLayout(project?.path);
+  const [projectsFolded, foldProjects] = useProjectsFolded();
+  const layout = useLayout(project?.path, projectsFolded);
   const { fold } = layout;
   // Ctrl+Shift+G shows and hides the git commands from anywhere, Ctrl+Shift+L the overview of all
   // projects (docs/UEBERSICHT.md; it replaced the sidebar of each window), Ctrl+B folds the file list
@@ -79,23 +82,53 @@ export default function App() {
     );
 
   useEffect(() => {
-    projectInfo().then(setProject);
+    projectInfo().then((info) => {
+      showProject(info?.path ?? null);
+      setProject(info);
+    });
   }, []);
+
+  // How long a switch takes until files and git are there: the measure for keeping one web view per
+  // window (docs/PLAN.md "Projektliste im Fenster statt Übersicht", step a)
+  const switchStart = useRef<{ at: number; unloaded: boolean } | null>(null);
+  useEffect(() => {
+    const start = switchStart.current;
+    if (!start) return;
+    // Right after the switch `loaded` still tells of the old project: only a load after it counts
+    if (!git.loaded) start.unloaded = true;
+    else if (start.unloaded) {
+      const ms = performance.now() - start.at;
+      switchStart.current = null;
+      switchTook(ms);
+      console.info(`CodeDeck: project switch took ${Math.round(ms)} ms`);
+    }
+  }, [git.loaded, project?.path]);
 
   const pin = async (entry: Entry) => {
     if (files.has(entry.path)) return;
     files.add([await pinFromEntry(entry)]);
   };
-  // Here: everything that belongs to the old project goes; the panels start fresh via `key`
-  const open = async (path: string, newWindow: boolean) => {
+  // Here: the panels start fresh via `key`, but what the window showed of the old project stays with
+  // it and comes back with it (attachments, selection, view, open folders, the deck's point)
+  const open = async (path: string, newWindow: boolean, view?: string) => {
     if (newWindow) return openWindow(path);
+    // The project shown already: only the view the list asked for
+    if (path === project?.path) return void (view && openView(view as ViewId));
+    switchStart.current = { at: performance.now(), unloaded: false };
+    const old = project?.path ?? null;
+    remember(old, "selected", selected);
+    remember(old, "view", currentView());
     const next = await openProject(path);
     projectSwitched();
-    clearAttachments();
-    setSelected(null);
+    showProject(next.path);
+    switchAttachments(old, next.path);
+    setSelected(recall<string | null>(next.path, "selected") ?? null);
+    openView((view as ViewId | undefined) ?? recall<ViewId>(next.path, "view") ?? "changes");
     setActions(null);
     setProject(next);
   };
+  // The preview has no project menu yet: a way to switch for checking with tools/shot.mjs
+  if (!live) (window as unknown as { openProject?: typeof open }).openProject = open;
 
   const unpin = (id: string) => files.remove([id]);
   // Showing a file in the tree needs the tree: a folded list opens first
@@ -108,6 +141,22 @@ export default function App() {
     <SessionMarksContext.Provider value={marks}>
     <div className="flex h-full flex-col">
       <div data-columns className="grid min-h-0 flex-1" style={{ gridTemplateColumns: layout.columns }}>
+        <ProjectsPanel project={project} assistant={assistant} onToggleLog={() => setLogOpen((o) => !o)} onOpen={(path, newWindow, view) => void open(path, newWindow, view)} folded={projectsFolded} onFold={foldProjects} />
+        <SessionsPanel
+          assistant={assistant}
+          pins={pins}
+          onPin={pin}
+          onUnpin={unpin}
+          onClear={files.clear}
+          onShowFile={showFile}
+          git={git}
+          project={project}
+          onOpenProject={open}
+          onToggleLog={() => setLogOpen((o) => !o)}
+        />
+        <Splitter side="right" onResize={layout.resize} />
+        <Deck key={`deck:${project?.path}`} git={git} selected={selected} assistant={assistant} onResize={layout.resize} />
+        <Splitter side="files" onResize={layout.resize} />
         <FilesPanel
           key={`files:${project?.path}`}
           project={project}
@@ -125,21 +174,6 @@ export default function App() {
           touched={touchedFiles(assistant)}
           folded={layout.folded}
           onFold={fold}
-        />
-        <Splitter side="files" onResize={layout.resize} />
-        <Deck key={`deck:${project?.path}`} git={git} selected={selected} assistant={assistant} onResize={layout.resize} />
-        <Splitter side="right" onResize={layout.resize} />
-        <SessionsPanel
-          assistant={assistant}
-          pins={pins}
-          onPin={pin}
-          onUnpin={unpin}
-          onClear={files.clear}
-          onShowFile={showFile}
-          git={git}
-          project={project}
-          onOpenProject={open}
-          onToggleLog={() => setLogOpen((o) => !o)}
         />
       </div>
       {logOpen && <GitLog runs={git.runs} onClose={() => setLogOpen(false)} />}

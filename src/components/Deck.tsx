@@ -18,6 +18,7 @@ import { useView, type ViewId } from "../view";
 import { plural, t } from "../i18n";
 import { Tooltip, ToolTipBody } from "./Tooltip";
 import { Splitter } from "./Splitter";
+import { usePerProject } from "../projectMemory";
 import type { Side } from "../layout";
 
 
@@ -34,13 +35,14 @@ interface Props {
   /** Selected in the file list */
   selected: string | null;
   assistant: AssistantState;
-  /** Resizes the file list: its grip also sits right of the trail, which belongs to the left side */
+  /** Resizes the file list: its grip also sits left of the trail, which goes with the file list */
   onResize: (side: Side, width: number | null, store: boolean) => void;
 }
 
 export function Deck({ git, selected, assistant, onResize }: Props) {
   const [view, setView] = useView();
-  const [point, setPoint] = useState<Point>({ kind: "now" });
+  // The point on the trail and the session filter come back with the project (projectMemory)
+  const [point, setPoint] = usePerProject<Point>("point", () => ({ kind: "now" }));
   const [notices, setNotices] = useState(false);
   const commits = useHistory(git.repos);
   const { snapshots, reload: reloadSnapshots } = useSnapshots(git.repos);
@@ -77,7 +79,7 @@ export function Deck({ git, selected, assistant, onResize }: Props) {
   };
 
   // Snapshots of one session only, when asked for in the snapshot view
-  const [sessionFilter, setSessionFilter] = useState<string | null>(null);
+  const [sessionFilter, setSessionFilter] = usePerProject<string | null>("sessionFilter", () => null);
   const shownSnapshots = sessionFilter ? snapshots.filter((s) => s.session === sessionFilter || s.back) : snapshots;
 
   /** Unix seconds of a point on the trail, to put the older one first. */
@@ -103,7 +105,7 @@ export function Deck({ git, selected, assistant, onResize }: Props) {
         className="block shrink-0"
         content={
           <ToolTipBody
-            says={t("This is where the work happens, from left to right: watch what the sessions do (Activity), check what they changed (Changes), collect what else came up (Workbench) and see what goes with your next prompt (Next prompt). The narrow column on the left is the trail: the history of your project with its commits and CodeDeck's snapshots.")}
+            says={t("This is where the work happens, from left to right: watch what the sessions do (Activity), check what they changed (Changes), collect what else came up (Workbench) and see what goes with your next prompt (Next prompt). The narrow column on the right, beside the file list, is the trail: the history of your project with its commits and CodeDeck's snapshots.")}
             hint={t("A click on a point in the trail shows in Changes what it changed.")}
           />
         }
@@ -171,13 +173,6 @@ export function Deck({ git, selected, assistant, onResize }: Props) {
       </Tooltip>
 
       <div className="flex min-h-0 flex-1">
-        {/* Commits and snapshots are git objects: without a repository the trail would only be empty */}
-        {!lacksGit(git) && (
-          <>
-            <Trail commits={commits} snapshots={shownSnapshots} onCompare={compare} repos={git.repos} point={point} onSelect={select} focusRepo={focusRepo} />
-            <Splitter side="files" onResize={onResize} />
-          </>
-        )}
         <section className="min-w-0 flex-1 overflow-y-auto" role="tabpanel">
           {view === "activity" && <ActivityView assistant={assistant} git={git} snapshots={snapshots} />}
           {view === "changes" && (
@@ -201,6 +196,14 @@ export function Deck({ git, selected, assistant, onResize }: Props) {
           {view === "workbench" && <WorkbenchView marks={marks} assistant={assistant} />}
           {view === "next" && <NextPromptView assistant={assistant} />}
         </section>
+        {/* Commits and snapshots are git objects: without a repository the trail would only be empty.
+            At the right, beside the file list it goes with; it opens to the left, over the deck */}
+        {!lacksGit(git) && (
+          <>
+            <Splitter side="files" onResize={onResize} />
+            <Trail commits={commits} snapshots={shownSnapshots} onCompare={compare} repos={git.repos} point={point} onSelect={select} focusRepo={focusRepo} />
+          </>
+        )}
       </div>
       {notices && <NoticesPanel assistant={assistant} git={git} view={view} onClose={() => setNotices(false)} />}
     </main>
