@@ -264,8 +264,19 @@ zu Desktop und Remote Control erledigt (SITZUNGEN B4, B11).
     (`ProjectsRail`: Zeichen je Projekt mit Pille/Punkt, `+`; oben Projektzeichen, Schnelleinstellungen, `⋯`),
     zugeklappt gilt je Rechner (`useProjectsFolded`, `localStorage`). Der Dateibaum hat dafür eine eigene
     Kopfzeile „Dateien“ mit Knopf zum Zuklappen (`Strg+B` bleibt), seine Leiste nur noch Baum-Symbol, Git-Log und
-    Branch. Backend: `overview_changed` geht an alle Fenster (`app.emit`), nicht nur an die Übersicht; (c) Fenster ohne Projekt =
-    Liste (mit 3.4); (d) Fenster `overview` entfernen, Tray und Kürzel auf das zuletzt benutzte Fenster,
+    Branch. Backend: `overview_changed` geht an alle Fenster (`app.emit`), nicht nur an die Übersicht.
+    Nach dem Praxistest (Nutzer 2026-11-19: Wechsel schnell und gut): Dateibaum anfangs zugeklappt
+    (`filesFolded` fehlt = zu); die Infozeile unter der Kopfleiste der Sitzungsspalte zeigt den Verbrauch der KI
+    (`AssistantLine`, vorher Fußleiste der Spalte) statt Branch, Runden und Zeit; „Projekt hinzufügen“ steht im
+    `⋯` der Liste (mit `Strg+O`), nicht mehr als `+`; beim Überfahren einer Zeile „In einem neuen Fenster öffnen“ und
+    `⋯` statt „Sitzung starten“ und „Neue Sitzung“ (die stehen für das gezeigte Projekt in der Kopfleiste der
+    Sitzungsspalte); Zeile von links: großes Projektzeichen (28 px), Name, KI-Zeichen und Statussymbole (Git, Anhänge,
+    Werkbank, Punkt), die Werkzeuge beim Überfahren rechtsbündig am Rand;
+    (c) ✅ 2026-11-19 gebaut, Praxistest offen: Fenster ohne Projekt = Startseite. Statt `Win` ohne Projekt (tiefer
+    Umbau, gehört zu 3.4) ist es das vorhandene Fenster `overview`: `OverviewApp` mit `START_PAGE` (Liste ohne
+    Sitzungen; Klick holt das Projektfenster nach vorn oder öffnet es, dann tritt die Startseite zurück). Sie wird beim
+    Start verborgen angelegt und zeigt sich nur ohne Projektfenster: Tray, `Ctrl+Alt+L`, und von selbst, wenn das
+    letzte Projektfenster schließt (CodeDeck hört weiter zu). Ihr Platz am rechten Rand bleibt vorerst; (d) Fenster `overview` entfernen, Tray und Kürzel auf das zuletzt benutzte Fenster,
     `docs/UEBERSICHT.md` und `KONZEPT.md` nachziehen. Jeder Schritt mit Praxistest.
   - **Spike zu Weg 2** (eine Webview je Projekt im selben Fenster, `.scratch/spike-webviews/`), als Reserve:
     Ergebnis (2026-11-19, Tauri 2.12.5 mit `unstable`, WebKitGTK unter Xvfb/X11):

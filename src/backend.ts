@@ -1807,7 +1807,7 @@ export function setMachineSetting(key: string, value: unknown): Promise<void> {
 export interface Layout {
   files?: number;
   right?: number;
-  /** The file list is folded to its rail; `files` keeps the width it comes back with */
+  /** The file list is folded to its rail (missing: folded); `files` keeps the width it comes back with */
   filesFolded?: boolean;
 }
 

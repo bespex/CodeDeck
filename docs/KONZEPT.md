@@ -521,7 +521,9 @@ steht links an einem Ort. Die Projektliste (300 px) zeigt oben das Projekt diese
 Farbe mit den Menüs, darunter alle Projekte ohne ihre Sitzungen und „Wartet in anderen Projekten“; ein
 Klick zeigt ein Projekt hier, Strg+Klick in einem neuen Fenster, ein Klick auf das Projektzeichen klappt
 sie auf eine Leiste mit den Zeichen zu (siehe `docs/PLAN.md` „Projektliste im Fenster statt Übersicht“).
-Der Trail gehört zu den Dateien und steht links neben ihnen. Die Sitzungsspalte hat drei Bereiche:
+Ohne offenes Projektfenster zeigt CodeDeck nur die Liste, als Startseite. Der Trail gehört zu den
+Dateien und steht links neben ihnen; der Dateibaum ist anfangs zugeklappt. Unter der Kopfleiste der
+Sitzungsspalte steht in einer Zeile der Verbrauch der KI. Die Sitzungsspalte hat drei Bereiche:
 
 - **Needs you:** alles, was auf dich wartet, mit der Handlung direkt daran. Farbig nur, wenn etwas
   wartet. Eine Sitzung steht dort, wenn sie etwas fragt oder ihre Runde beendet hat; eine beendete

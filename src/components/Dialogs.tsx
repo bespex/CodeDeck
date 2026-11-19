@@ -158,7 +158,7 @@ function Shortcuts() {
         </div>
       </>,
     ]),
-    [t("Ctrl+O"), t("Open a folder as project")],
+    [t("Ctrl+O"), t("Add a project…")],
     [`${t("Ctrl")}+,`, t("Settings")],
     ["F1", t("This overview")],
     [`${t("Ctrl")}+B`, t("Fold or show the file list")],

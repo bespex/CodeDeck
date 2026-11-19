@@ -88,16 +88,17 @@ export function GitStatusBar({ git, onRepoActions, logOpen, onToggleLog, recent 
   );
 }
 
-/** The bar at the foot of the right column: the state of the project's AI account, usage first. */
-export function AssistantStatusBar({ assistant }: { assistant: AssistantState }) {
+/** The line under the session column's header, as high as the bars under the other headers (h-9): the state of the project's AI account, usage first.
+ *  (It was the bar at the column's foot; user, 2026-11-19: up there instead of branch and time.) */
+export function AssistantLine({ assistant }: { assistant: AssistantState }) {
   const look = useProjectLook(undefined);
   const mine = useProjectAccount(assistant, look);
   return (
-    <footer className="zone-bar flex h-7 shrink-0 items-center gap-3 overflow-x-clip border-t border-line bg-panel px-3 text-[12px] whitespace-nowrap text-slate-500">
-      <NotConnected mine={mine} />
-      <span className="ml-auto" />
+    <section aria-label={t("AI usage")} className="flex h-9 shrink-0 items-center gap-3 overflow-x-clip border-b border-line px-3 text-[12px] whitespace-nowrap text-slate-500">
       <UsageChip assistant={assistant} account={mine.account?.dir} />
-    </footer>
+      <span className="ml-auto" />
+      <NotConnected mine={mine} />
+    </section>
   );
 }
 

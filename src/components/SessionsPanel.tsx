@@ -37,7 +37,6 @@ import { usePending, type Pending } from "../pending";
 import { StartCommand, useSessionCommands } from "./SessionCommands";
 import { HoverTools, Tool, ToolGap } from "./RowTools";
 import { useContextMenu } from "./ContextMenu";
-import { AssistantStatusBar } from "./StatusBar";
 import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
 import { SessionBadge } from "./SessionBadge";
 import { HeaderBar } from "./HeaderBar";
@@ -78,13 +77,12 @@ interface Props {
 export function SessionsPanel(props: Props) {
   return (
     <aside
-      className="zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_minmax(0,1fr)_fit-content(40%)_auto] border-r border-line bg-panel"
+      className="zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_minmax(0,1fr)_fit-content(40%)] border-r border-line bg-panel"
     >
       <HeaderBar project={props.project} onOpenProject={props.onOpenProject} assistant={props.assistant} onToggleLog={props.onToggleLog} />
       <SidebarSummary git={props.git} assistant={props.assistant} />
       <Sessions state={props.assistant} onShowFile={props.onShowFile} />
       <NextPrompt {...props} />
-      <AssistantStatusBar assistant={props.assistant} />
     </aside>
   );
 }

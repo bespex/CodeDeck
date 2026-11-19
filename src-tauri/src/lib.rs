@@ -1108,8 +1108,19 @@ pub fn run() {
                 tray::refresh(window.app_handle());
             }
             tauri::WindowEvent::Destroyed => {
-                window.app_handle().state::<Windows>().remove(window.app_handle(), window.label());
-                windows::overview_changed(window.app_handle());
+                let app = window.app_handle();
+                app.state::<Windows>().remove(app, window.label());
+                windows::overview_changed(app);
+                // The last project window closed: the start page shows, CodeDeck goes on hearing its sessions
+                if window.label() != windows::OVERVIEW && app.state::<Windows>().all().is_empty() {
+                    let app = app.clone();
+                    std::thread::spawn(move || {
+                        let shown = app.get_webview_window(windows::OVERVIEW).is_some_and(|o| o.is_visible().unwrap_or(false));
+                        if !shown && let Err(e) = windows::toggle_overview(&app) {
+                            eprintln!("codedeck: start page: {e}");
+                        }
+                    });
+                }
             }
             _ => {}
         })
@@ -1129,10 +1140,12 @@ pub fn run() {
             if let Some(project) = project {
                 windows::open(app.handle(), project)?;
             }
-            // The overview of all projects comes along (docs/UEBERSICHT.md); at login hidden in the tray
+            // The start page, the window without a project (docs/PLAN.md "Projektliste im Fenster statt
+            // Übersicht", step c), is made hidden: every project window has the project list, the start
+            // page shows only while none is open (the tray, the last project window closed)
             let handle = app.handle().clone();
             std::thread::spawn(move || {
-                let made = if tray_only { windows::hidden_overview(&handle) } else { windows::toggle_overview(&handle) };
+                let made = windows::hidden_overview(&handle);
                 if let Err(e) = made {
                     eprintln!("codedeck: overview: {e}");
                 }

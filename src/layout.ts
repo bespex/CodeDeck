@@ -65,7 +65,7 @@ export function useLayout(project: string | undefined, projectsFolded: boolean) 
   const resize = useCallback(
     (side: Side, width: number | null, store: boolean) =>
       update((next) => {
-        if (side === "files") delete next.filesFolded;
+        if (side === "files") next.filesFolded = false;
         if (width === null) delete next[side];
         else next[side] = clamp(side, width);
       }, store),
@@ -76,8 +76,7 @@ export function useLayout(project: string | undefined, projectsFolded: boolean) 
   const fold = useCallback(
     (folded?: boolean) =>
       update((next) => {
-        if (folded ?? !next.filesFolded) next.filesFolded = true;
-        else delete next.filesFolded;
+        next.filesFolded = folded ?? !(next.filesFolded ?? true);
       }, true),
     [update],
   );
@@ -85,7 +84,8 @@ export function useLayout(project: string | undefined, projectsFolded: boolean) 
   // A fixed maximum with a lower minimum: in a narrow window the columns give way before the deck does
   const track = (side: Side, fallback: string) =>
     layout[side] === undefined ? fallback : `minmax(${LIMITS[side].min}px,${layout[side]}px)`;
-  const folded = layout.filesFolded === true;
+  // Folded until opened (user, 2026-11-19): CodeDeck has no editor, the tree is for looking things up
+  const folded = layout.filesFolded ?? true;
   const files = folded ? `${RAIL}px` : track("files", "minmax(220px,20%)");
   // From left to right: projects, sessions, deck (with the trail at its right), file list (user,
   // 2026-11-19: the session list beside what it did, the files as reference at the right edge). `right`
