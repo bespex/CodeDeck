@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Gauge } from "lucide-react";
 import { setUsageConnection, type AssistantState, type Connection } from "../backend";
 import { useConnections } from "../assistant";
@@ -22,6 +22,20 @@ function useAccounts(assistant: AssistantState): Connection[] {
  * time is over (a bar beyond the marker means it is used faster than the time passes), and when it
  * starts over. The figure is the tool's; only the standing is worked out (see `usage.ts`).
  */
+/** A limit as a bar, with the marker for the time that is over: a groove with a domed fill
+ *  (user, 2026-11-20: the thin bars looked too frail). */
+function UsageBar({ limit: l, className = "" }: { limit: Limit; className?: string }) {
+  return (
+    <span className={`relative block h-2.5 rounded-full bg-line shadow-[inset_0_1px_2px_rgb(0_0_0/0.45)] ${className}`}>
+      <span
+        className={`absolute inset-y-0 left-0 rounded-full bg-gradient-to-b from-white/20 via-transparent to-black/20 ${STANDING_FILL[l.standing]}`}
+        style={{ width: `${Math.min(100, l.window.used)}%` }}
+      />
+      <span className="absolute -inset-y-px w-[3px] -translate-x-1/2 rounded-full border border-black/50 bg-slate-100/90" style={{ left: `${Math.round(l.elapsed * 100)}%` }} />
+    </span>
+  );
+}
+
 function LimitRow({ limit: l, now }: { limit: Limit; now: number }) {
   const note = l.standing === "limit" ? t("limit reached") : l.standing === "pace" ? t("at this pace used up before the reset") : "";
   return (
@@ -32,10 +46,7 @@ function LimitRow({ limit: l, now }: { limit: Limit; now: number }) {
           {Math.round(l.window.used)} %{note && ` · ${note}`}
         </span>
       </div>
-      <div className="relative h-1.5 rounded-full bg-line">
-        <div className={`h-1.5 rounded-full ${STANDING_FILL[l.standing]}`} style={{ width: `${Math.min(100, l.window.used)}%` }} />
-        <span className="absolute -top-0.5 -bottom-0.5 w-0.5 bg-slate-100/70" style={{ left: `${Math.round(l.elapsed * 100)}%` }} />
-      </div>
+      <UsageBar limit={l} />
       <div className="flex justify-between gap-3 text-[11px] text-slate-500">
         <span>{t("resets in {time} · {at}", { time: span(l.left), at: resetAt(l.window.resetsAt, now, LOCALE) })}</span>
         <span>{t("{n} % of the time is over", { n: Math.round(l.elapsed * 100) })}</span>
@@ -222,28 +233,30 @@ export function UsageChip({ assistant, account, wide = false }: { assistant: Ass
           chips.map(({ c, i, limits }) => (
             <span key={c.dir} className={`flex items-center gap-3 ${wide ? "min-w-0 flex-1" : ""}`}>
               {accounts.length > 1 && <span className="size-2 rounded-[2px]" style={mark(i)} />}
-              {limits.map((l) => (
+              {limits.map((l, n) => (
+                <Fragment key={l.key}>
+                {/* A rule between the limits: without it the left figure read as the right bar's (user, 2026-11-20) */}
+                {n > 0 && <span className="h-4 w-px shrink-0 bg-line" />}
                 <span
-                  key={l.key}
                   title={`${l.label}: ${Math.round(l.window.used)} % · ${t("resets in {time} · {at}", { time: span(l.left), at: resetAt(l.window.resetsAt, now, LOCALE) })}`}
                   className={`flex items-center gap-1.5 ${wide ? "min-w-0 flex-1" : ""} ${STANDING_TEXT[l.standing]}`}
                 >
                   <span className="font-normal text-slate-500">{l.key}</span>
                   {/* The bar with the marker for the time that is over, as in the details */}
-                  <span className={`relative h-1.5 rounded-full bg-line ${wide ? "min-w-8 flex-1" : "w-16"}`}>
-                    <span className={`absolute inset-y-0 left-0 rounded-full ${STANDING_FILL[l.standing]}`} style={{ width: `${Math.min(100, l.window.used)}%` }} />
-                    <span className="absolute -top-0.5 -bottom-0.5 w-0.5 bg-slate-100/70" style={{ left: `${Math.round(l.elapsed * 100)}%` }} />
-                  </span>
-                  <span className="w-8 text-right tabular-nums">{Math.round(l.window.used)}%</span>
+                  <UsageBar limit={l} className={wide ? "min-w-8 flex-1" : "w-16"} />
+                  {/* Left-aligned, right at its own bar; the width keeps the bars still as the figure changes */}
+                  <span className="w-8 tabular-nums">{Math.round(l.window.used)}%</span>
                 </span>
+                </Fragment>
               ))}
             </span>
           ))
         )}
         {shown.length > chips.length && <span className="font-normal text-slate-500">+{shown.length - chips.length}</span>}
       </button>
+      {/* Below the line: it sits under the column header now, no longer at the column foot */}
       {open && (
-        <div className="surface-overlay absolute right-0 bottom-6 z-30 flex max-h-[70vh] w-[400px] flex-col gap-2 overflow-y-auto rounded-lg p-3 text-[12px] whitespace-normal text-slate-300">
+        <div className="surface-overlay absolute top-8 left-0 z-30 flex max-h-[70vh] w-[400px] max-w-[calc(100vw-1rem)] flex-col gap-2 overflow-y-auto rounded-lg p-3 text-[12px] whitespace-normal text-slate-300">
           <UsageCards assistant={assistant} />
           <span className="text-[11px] text-slate-500">{t("The same as under Activity. The white marker shows how much of the time is over: a bar beyond it means it is used faster than the time passes.")}</span>
         </div>
