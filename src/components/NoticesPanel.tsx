@@ -45,6 +45,9 @@ function abilities(c: Capabilities): { label: string; can: boolean; note?: strin
     { label: t("Start rules for every new session"), can: c.startRules },
     { label: t("Earlier sessions from its logs"), can: c.pastSessions },
     { label: t("How much of the allowance is used"), can: c.usage },
+    { label: t("Start and continue sessions from CodeDeck"), can: c.launch },
+    { label: t("Join sessions it keeps in the background"), can: c.background },
+    { label: t("Open a session in its desktop app"), can: c.desktop },
   ];
 }
 

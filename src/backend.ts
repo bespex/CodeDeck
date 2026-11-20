@@ -595,7 +595,20 @@ export interface Capabilities {
   usage: boolean;
   /** Its desktop app keeps profiles; CodeDeck can make one and start the app with it */
   desktopProfiles: boolean;
+  /** CodeDeck can start and continue its sessions (in tmux) */
+  launch: boolean;
+  /** Sessions it keeps in the background can be joined in a terminal */
+  background: boolean;
+  /** A session reachable remotely can be shown in its desktop app */
+  desktop: boolean;
 }
+
+/** A way into a session: its desktop app, or a terminal (attached to tmux, joining it in the background, or its own window to the front) */
+export type Door = "desktop" | "tmux" | "attach" | "window";
+/** What can be done to a session's process from CodeDeck */
+export type SessionAction = "continue" | "restart" | "stop";
+
+export const isTerminalDoor = (d: Door) => d !== "desktop";
 
 /** A coding tool CodeDeck supports. Its names are the only place texts take a tool's name from. */
 export interface HarnessInfo {
@@ -660,6 +673,12 @@ export interface Session {
   place?: Place | null;
   /** Its process still runs; `null`/missing when that is not known (known from its log only) */
   alive?: boolean | null;
+  /** The ways into it that work now, the default first (double click, the card's main button); decided by the backend */
+  doors: Door[];
+  /** What can be done to its process now */
+  actions: SessionAction[];
+  /** Why a running session has no way in: no terminal program, or its own terminal window cannot be raised here */
+  noDoor: "noTerminal" | "ownTerminal" | null;
 }
 
 /** Where a session runs. Only observed so far; groundwork for starting and finding sessions (`docs/SITZUNGEN.md`) */
@@ -696,6 +715,8 @@ export interface AccountUsage {
 }
 
 export interface AssistantState {
+  /** ▶ can start a session of this project here: its tool starts sessions and tmux is there */
+  canStart: boolean;
   /** An event arrived since this window started */
   heard: boolean;
   /** How much of each account's allowance is used, as the tools last stated it */
@@ -763,20 +784,54 @@ export interface Attachment {
   rev: number;
 }
 
-const MOCK_CAPABILITIES: Capabilities = { liveStatus: true, beforeWrite: true, attach: "withNextPrompt", startRules: true, pastSessions: true, usage: true, desktopProfiles: true };
+const MOCK_CAPABILITIES: Capabilities = { liveStatus: true, beforeWrite: true, attach: "withNextPrompt", startRules: true, pastSessions: true, usage: true, desktopProfiles: true, launch: true, background: true, desktop: true };
+
+/** A second tool for the preview (`?tool=minimal`, docs/SITZUNGEN-PRUEFUNG.md K7): no start, no desktop
+ *  app, no live status. Nothing it cannot do may be offered; the project then runs with it. */
+const MINIMAL: Capabilities = { liveStatus: false, beforeWrite: false, attach: "clipboard", startRules: false, pastSessions: true, usage: false, desktopProfiles: false, launch: false, background: false, desktop: false };
+const withMinimal = new URLSearchParams(window.location.search).get("tool") === "minimal";
+
+/** The mock's stand-in for `doors.rs` `ways`: what is offered for a session on the preview's computer. */
+function mockWays(s: Session, p: Platform): Pick<Session, "doors" | "actions" | "noDoor"> {
+  const c = s.capabilities;
+  const background = !!s.place?.background;
+  const over = s.status === "ended" || s.alive === false || (!c.liveStatus && s.alive !== true);
+  const moved = !!s.movedTo;
+  const none = { doors: [] as Door[], actions: [] as SessionAction[], noDoor: null };
+  if (over) {
+    const can = background ? c.background && !!p.terminal : c.launch && !!p.tmux;
+    return { ...none, actions: can && !moved ? ["continue"] : [] };
+  }
+  if (moved || !s.place) return none;
+  const place = s.place;
+  const doors: Door[] = place.remote && c.desktop ? ["desktop"] : [];
+  const door: Door | null = background ? (c.background && p.terminal ? "attach" : null) : place.tmux ? (p.terminal ? "tmux" : null) : place.pid != null && p.raiseWindows ? "window" : null;
+  if (door) doors.push(door);
+  const noDoor = door ? null : background || place.tmux ? (p.terminal ? null : "noTerminal") : place.pid != null ? "ownTerminal" : null;
+  const ours = !!place.launched && !!place.tmux?.session && s.status !== "working";
+  const actions: SessionAction[] = ours ? [...(c.launch && p.tmux ? (["restart"] as const) : []), "stop"] : [];
+  return { doors, actions, noDoor };
+}
 
 const mockAssistant: AssistantState = {
+  canStart: true,
   heard: true,
   // One account at an easy pace, one that would use its week up before the reset
   usage: [
     { account: "/home/me/.claude", fiveHour: { used: 38, resetsAt: Math.floor(Date.now() / 1000) + 4 * 3600 }, sevenDay: { used: 31, resetsAt: Math.floor(Date.now() / 1000) + 4 * 86400 }, seen: Date.now() - 20_000 },
     { account: "/home/me/.claude-private", fiveHour: { used: 86, resetsAt: Math.floor(Date.now() / 1000) + 3 * 3600 }, sevenDay: { used: 48, resetsAt: Math.floor(Date.now() / 1000) + 3 * 86400 }, seen: Date.now() - 90_000 },
   ],
-  harnesses: [{ id: "claude", name: "Claude Code", shortName: "Claude", capabilities: MOCK_CAPABILITIES }],
+  harnesses: [
+    { id: "claude", name: "Claude Code", shortName: "Claude", capabilities: MOCK_CAPABILITIES },
+    ...(withMinimal ? [{ id: "minimal", name: "Minimal Tool", shortName: "Minimal", capabilities: MINIMAL }] : []),
+  ],
   sessions: [
     {
       id: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a",
       harness: "claude",
+      doors: [],
+      actions: [],
+      noDoor: null,
       capabilities: MOCK_CAPABILITIES,
       color: 1,
       short: "B",
@@ -813,6 +868,9 @@ const mockAssistant: AssistantState = {
     {
       id: "b07e11d4-6c3a-4f2e-8d90-1a2b3c4d5e6f",
       harness: "claude",
+      doors: [],
+      actions: [],
+      noDoor: null,
       capabilities: MOCK_CAPABILITIES,
       color: 0,
       short: "A",
@@ -840,6 +898,9 @@ const mockAssistant: AssistantState = {
     {
       id: "c41d7e02-5b9f-4a3c-8e21-9d0f1a2b3c4d",
       harness: "claude",
+      doors: [],
+      actions: [],
+      noDoor: null,
       capabilities: MOCK_CAPABILITIES,
       color: 2,
       short: "C",
@@ -866,6 +927,9 @@ const mockAssistant: AssistantState = {
     {
       id: "d92a0b13-7c4e-4d5f-9a6b-0e1f2a3b4c5d",
       harness: "claude",
+      doors: [],
+      actions: [],
+      noDoor: null,
       // Known from its log only: nothing that needs it to report
       capabilities: { ...MOCK_CAPABILITIES, liveStatus: false, beforeWrite: false, attach: "none" },
       color: 3,
@@ -895,6 +959,9 @@ const mockAssistant: AssistantState = {
       // Sent to the background (no terminal): its turn ended with a question the tool recorded
       id: "e5b81c24-9d3a-4e7f-8c12-3a4b5c6d7e8f",
       harness: "claude",
+      doors: [],
+      actions: [],
+      noDoor: null,
       capabilities: MOCK_CAPABILITIES,
       color: 4,
       short: "E",
@@ -919,6 +986,43 @@ const mockAssistant: AssistantState = {
       received: [],
       place: { pid: 83595, since: 314_634, tmux: null, launched: null, remote: null, background: "e5b81c24" },
     },
+    ...(withMinimal
+      ? [
+          {
+            // The second tool, started by CodeDeck in tmux, with a remote link: only its terminal is a
+            // way in, it can be stopped but not restarted (its tool does not start)
+            id: "f1a2b3c4-0000-4000-8000-00000000000f",
+            harness: "minimal",
+            doors: [],
+            actions: [],
+            noDoor: null,
+            capabilities: MINIMAL,
+            color: 5,
+            short: "F",
+            renamed: false,
+            cwd: "",
+            status: "idle" as const,
+            started: Date.now() - 30 * 60_000,
+            last: Date.now() - 2 * 60_000,
+            prompt: "Rename the config keys",
+            prompts: 1,
+            title: "Config keys",
+            model: null,
+            message: null,
+            step: null,
+            turnDone: null,
+            seen: false,
+            continues: null,
+            movedTo: null,
+            report: null,
+            turn: [],
+            touched: [],
+            received: [],
+            place: { pid: 91234, since: 1_100_000, tmux: { pane: "%7", session: "work" }, launched: "minimal-mock", remote: "https://example.org/session/f" },
+            alive: true,
+          },
+        ]
+      : []),
   ],
   identities: [
     { id: "e5b81c24-9d3a-4e7f-8c12-3a4b5c6d7e8f", color: 4, short: "E", title: "Initial project layout" },
@@ -970,7 +1074,14 @@ const mockAssistantListeners = new Set<(state: AssistantState) => void>();
 
 export function assistantState(): Promise<AssistantState> {
   if (live) return invoke("assistant_state");
-  return Promise.resolve(mockAssistant);
+  return Promise.resolve(mockWithWays(mockAssistant));
+}
+
+/** The mock state with what the backend works out when it is asked: ways per session, whether ▶ starts. */
+function mockWithWays(state: AssistantState): AssistantState {
+  const p = mockPlatform();
+  // With the second tool the project runs with it, and it cannot start sessions
+  return { ...state, canStart: !!p.tmux && !withMinimal, sessions: state.sessions.map((s) => ({ ...s, ...mockWays(s, p) })) };
 }
 
 export function onAssistantChanged(callback: (state: AssistantState) => void): () => void {
@@ -991,13 +1102,13 @@ function mockChanged() {
   if (mockHeldReceipt) {
     const held = mockHeldReceipt;
     mockHeldReceipt = null;
-    mockAssistantListeners.forEach((cb) => cb(held));
+    mockAssistantListeners.forEach((cb) => cb(mockWithWays(held)));
   }
   const list = mockAssistant.attachments;
   mockAssistant.preview = list.length ? list.map((a) => a.text).join("\n\n") : null;
   if (list.length === 0) Object.assign(mockAssistant, { target: null, any: false, targetLost: null });
   mockAssistant.held = mockHeld();
-  mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+  mockAssistantListeners.forEach((cb) => cb(mockWithWays(mockAssistant)));
 }
 
 /** As the backend decides it: nothing chosen, and more than one running session could take the attachments. */
@@ -1078,7 +1189,7 @@ export function renameSession(id: string, title: string | null, short: string | 
     s.id === id ? { ...s, title: name ?? mockToolTitles.get(id) ?? null, renamed: name !== null, short: short?.trim().slice(0, 4) || s.short } : s,
   );
   mockAssistant.identities = mockAssistant.sessions.map((s) => ({ id: s.id, color: s.color, short: s.short, title: s.title }));
-  mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+  mockAssistantListeners.forEach((cb) => cb(mockWithWays(mockAssistant)));
   return Promise.resolve();
 }
 
@@ -1086,7 +1197,7 @@ export function renameSession(id: string, title: string | null, short: string | 
 export function forgetSession(id: string): Promise<void> {
   if (live) return invoke("forget_session", { id });
   mockAssistant.sessions = mockAssistant.sessions.filter((s) => s.id !== id);
-  mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+  mockAssistantListeners.forEach((cb) => cb(mockWithWays(mockAssistant)));
   return Promise.resolve();
 }
 
@@ -1094,7 +1205,7 @@ export function forgetSession(id: string): Promise<void> {
 export function sessionSeen(id: string): Promise<void> {
   if (live) return invoke("session_seen", { id });
   mockAssistant.sessions = mockAssistant.sessions.map((s) => (s.id === id && s.turnDone != null ? { ...s, seen: true } : s));
-  mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+  mockAssistantListeners.forEach((cb) => cb(mockWithWays(mockAssistant)));
   return Promise.resolve();
 }
 
@@ -1110,7 +1221,7 @@ export function fetchOutside(path: string): Promise<string> {
   const name = path.split("/").pop() ?? "file";
   const copy = `.scratch/${name}`;
   mockAssistant.found = { ...mockAssistant.found, outside: mockAssistant.found.outside.map((f) => (f.path === path ? { ...f, fetched: copy } : f)) };
-  mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+  mockAssistantListeners.forEach((cb) => cb(mockWithWays(mockAssistant)));
   return Promise.resolve(copy);
 }
 
@@ -1128,7 +1239,7 @@ export function forgetFound(key: string): Promise<void> {
     outside: mockAssistant.found.outside.filter((f) => f.path !== key),
     pages: mockAssistant.found.pages.filter((p) => p.url !== key),
   };
-  mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+  mockAssistantListeners.forEach((cb) => cb(mockWithWays(mockAssistant)));
   return Promise.resolve();
 }
 
@@ -1486,10 +1597,14 @@ export interface Platform {
 
 export function platform(): Promise<Platform> {
   if (live) return invoke("platform");
+  return Promise.resolve(mockPlatform());
+}
+
+function mockPlatform(): Platform {
   // In the preview `?platform=wayland,notmux,noterminal,notray` shows what CodeDeck does without them
   const off = (new URLSearchParams(window.location.search).get("platform") ?? "").split(",");
   const wayland = off.includes("wayland");
-  return Promise.resolve({
+  return {
     tmux: off.includes("notmux") ? null : "tmux 3.4",
     terminal: off.includes("noterminal") ? null : "x-terminal-emulator",
     raiseWindows: !wayland,
@@ -1498,7 +1613,7 @@ export function platform(): Promise<Platform> {
     wayland,
     desktop: wayland ? "KDE" : "X-Cinnamon",
     tray: !off.includes("notray"),
-  });
+  };
 }
 
 /** Opens a web address in the browser. */
@@ -1973,13 +2088,15 @@ export interface PendingSession {
   since: number;
   /** The command it was started with, if CodeDeck kept it */
   command: string | null;
+  /** It can be opened in a terminal here (a terminal program was found) */
+  door: boolean;
 }
 
 /** The sessions CodeDeck started in tmux for a project that nothing was heard of yet. */
 export function pendingSessions(project: string): Promise<PendingSession[]> {
   if (live) return invoke("pending_sessions", { project });
   const name = `codedeck-${project.split("/").pop()}-2`;
-  return Promise.resolve([{ name, id: "pending-mock", since: Date.now() - 60_000, command: mockStartCommand(project, name) }]);
+  return Promise.resolve([{ name, id: "pending-mock", since: Date.now() - 60_000, command: mockStartCommand(project, name), door: !!mockPlatform().terminal }]);
 }
 
 function mockStartCommand(project: string, name: string): string {

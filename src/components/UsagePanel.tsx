@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Gauge } from "lucide-react";
 import { setUsageConnection, type AssistantState, type Connection } from "../backend";
-import { useConnections } from "../assistant";
+import { mainHarness, useConnections } from "../assistant";
 import { useNow } from "../attention";
 import { LOCALE, t } from "../i18n";
 import { accountName, limitsOf, resetAt, span, STANDING_FILL, STANDING_TEXT, worst, type Limit } from "../usage";
@@ -175,7 +175,7 @@ export function UsageCards({ assistant, onlySetUp = false }: { assistant: Assist
       {/* Accounts still to set up on top, apart from the ones that report */}
       {pending.length > 0 && (
         <>
-          <span className={heading}>{t("Other Claude configurations: not set up yet")}</span>
+          <span className={heading}>{t("Other {tool} configurations: not set up yet", { tool: (assistant.harnesses.find((h) => h.capabilities.usage) ?? mainHarness(assistant)).shortName })}</span>
           {pending.map(({ c, i }) => card(c, i))}
         </>
       )}

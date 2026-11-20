@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, CircleHelp, Eye, FileText, RotateCcw, SquarePen, ZoomIn, ZoomOut } from "lucide-react";
 import { openFile, type AssistantState, type JournalLine, type Snapshot } from "../../backend";
-import { shortId, touchedFiles, useSessionMarks } from "../../assistant";
+import { mainHarness, shortId, touchedFiles, useSessionMarks } from "../../assistant";
 import type { GitView } from "../../git";
 import { Row, Rows, Section, useFold } from "../blocks";
 import { SessionBadge } from "../SessionBadge";
@@ -54,13 +54,15 @@ export function ActivityView({ assistant, git, snapshots }: { assistant: Assista
   const lines = useJournal(assistant);
   const docs = recentDocs(assistant, lines, marks.writer);
   const button = "rounded p-1 text-slate-500 hover:bg-overlay-hover hover:text-slate-100";
+  // The tool that states the usage, by its name (no tool's name is fixed in the interface)
+  const usageTool = assistant.harnesses.find((h) => h.capabilities.usage) ?? mainHarness(assistant);
   return (
     <div className="flex min-h-full flex-col">
       <Today assistant={assistant} snapshots={snapshots} />
       <Safety git={git} snapshots={snapshots.length} />
       <Section
-        title={t("Claude usage")}
-        help={t("How much of each account's allowance is used, as Claude Code states it to its status line: percent of the limit, and when it starts over. Nothing is estimated; only the warning (amber) is worked out: at the pace so far the limit would be used up before it starts over. The figures are the account's, not this project's, and come with a running session.")}
+        title={t("{tool} usage", { tool: usageTool.shortName })}
+        help={t("How much of each account's allowance is used, as {tool} states it to its status line: percent of the limit, and when it starts over. Nothing is estimated; only the warning (amber) is worked out: at the pace so far the limit would be used up before it starts over. The figures are the account's, not this project's, and come with a running session.", { tool: usageTool.name })}
       >
         {/* Boxes, not text: as much room above them as below, where the next section begins (user, 2026-11-17) */}
         <div className="pt-4">

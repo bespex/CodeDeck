@@ -22,8 +22,20 @@ impl Harness for Fake {
         "Fake"
     }
 
-    fn capabilities(&self) -> Capabilities {
-        Capabilities { live_status: true, before_write: true, attach: Attach::Clipboard, start_rules: true, past_sessions: true, usage: false, desktop_profiles: false }
+    /// No start, no background, no desktop app: what a tool lacks must not be offered
+    fn declared(&self) -> Capabilities {
+        Capabilities {
+            live_status: true,
+            before_write: true,
+            attach: Attach::Clipboard,
+            start_rules: true,
+            past_sessions: true,
+            usage: false,
+            desktop_profiles: false,
+            launch: false,
+            background: false,
+            desktop: false,
+        }
     }
 
     fn connections(&self) -> Vec<Connection> {
@@ -91,6 +103,46 @@ impl Harness for Fake {
 
     fn read_log(&self, _log: &Path) -> Option<SessionInfo> {
         None
+    }
+}
+
+/// The test tool, but one CodeDeck can start: its command is `fake-tool <id>`.
+pub struct Starter;
+
+impl Harness for Starter {
+    fn id(&self) -> &'static str {
+        "starter"
+    }
+    fn name(&self) -> &'static str {
+        "Starter Tool"
+    }
+    fn short_name(&self) -> &'static str {
+        "Starter"
+    }
+    fn declared(&self) -> Capabilities {
+        Fake.declared()
+    }
+    fn connections(&self) -> Vec<Connection> {
+        Vec::new()
+    }
+    fn connect(&self, account: &str, on: bool) -> Result<(), String> {
+        Fake.connect(account, on)
+    }
+    fn translate(&self, raw: &Value) -> Option<Event> {
+        Fake.translate(raw)
+    }
+    fn reply(&self, _event: &Event, _handed: &[String]) -> Option<String> {
+        None
+    }
+    fn past_sessions(&self, _project: &Path) -> Vec<SessionInfo> {
+        Vec::new()
+    }
+    fn read_log(&self, _log: &Path) -> Option<SessionInfo> {
+        None
+    }
+    fn launch(&self, launch: &super::Launch) -> Option<super::Launched> {
+        let env = launch.account.map(|a| ("FAKE_ACCOUNT".to_string(), a.to_string())).into_iter().collect();
+        Some(super::Launched { argv: vec!["fake-tool".into(), launch.id.into()], env })
     }
 }
 

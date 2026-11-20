@@ -33,13 +33,13 @@ import { Tooltip } from "./Tooltip";
 import { changes } from "../changes";
 import { notes } from "../notes";
 import { markers } from "../markers";
-import { pendingSession, forgetSession, openSession, openUrl, resumeSession, stopSession, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
+import { isTerminalDoor, pendingSession, forgetSession, openSession, openUrl, resumeSession, stopSession, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
 import { useProjectAccount, useProjectLook } from "../projectLook";
 import { usePending, type Pending } from "../pending";
 import { StartCommand, useSessionCommands } from "./SessionCommands";
 import { HoverTools, Tool, ToolGap } from "./RowTools";
 import { useContextMenu } from "./ContextMenu";
-import { mainHarness, ownTmux, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
+import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
 import { SessionBadge } from "./SessionBadge";
 import { HeaderBar } from "./HeaderBar";
 import { SidebarSummary } from "./SidebarSummary";
@@ -55,7 +55,6 @@ import { plural } from "../git";
 import { LOCALE } from "./Trail";
 import { blockedUntil, resetAt } from "../usage";
 import { known, T, t } from "../i18n";
-import { canContinue, hasTerminalDoor, usePlatform } from "../platform";
 
 interface Props {
   assistant: AssistantState;
@@ -190,7 +189,6 @@ function askedAbout(s: Session): string | null {
 }
 
 /** It can be continued from here: its process is gone, or never was known to run. */
-const resumable = (s: Session) => s.status === "ended" || s.alive === false || (!s.capabilities.liveStatus && s.alive !== true);
 
 /** How a state's pill is coloured: the status is what one looks for first (user, 2026-11-17). */
 type Tone = "ai" | "wait" | "done" | "quiet" | "problem";
@@ -322,7 +320,7 @@ function PendingItem({ pending, projectPath }: { pending: Pending; projectPath: 
   const commands = useSessionCommands(projectPath, pending.name);
   const act = (end: boolean) => projectPath && pendingSession(projectPath, pending.name, end).catch((e) => setFailed(String(e)));
   // Without a terminal program the tmux command in the tooltip is the way in
-  const terminal = usePlatform().terminal !== null;
+  const terminal = pending.door;
   return (
     <li onDoubleClick={() => terminal && void act(false)} title={terminal ? t("Double-click: open it in a terminal") : undefined} className="group/pending flex items-center gap-2.5 rounded-md py-2 pr-2.5 pl-2.5 hover:bg-raised/40">
       <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-500/60 text-slate-400">
@@ -404,12 +402,10 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
   // Not started by CodeDeck: it cannot be stopped or restarted from here, so it says where it comes from
   const byHand = s.status !== "ended" && !s.place?.launched;
   // Sent to the background, it goes on there: continuing it here would split it a second time
-  const canResume = resumable(s) && !s.movedTo && !!projectPath;
-  // What this computer offers: without tmux nothing continues here, without a terminal (or, for a
-  // session in a terminal of its own, under Wayland) no terminal door
-  const machine = usePlatform();
-  const continuable = canResume && canContinue(s, machine);
-  const terminalDoor = hasTerminalDoor(s, machine);
+  // What is offered comes from the backend (`doors`, `actions`: tool × computer × place × who
+  // started it, docs/SITZUNGEN-PRUEFUNG.md K2); nothing here decides it again
+  const canResume = s.actions.includes("continue") && !!projectPath;
+  const terminalDoor = s.doors.some(isTerminalDoor);
   const background = !!s.place?.background && s.status !== "ended";
   // As in the project list: a double click goes to it (Desktop where reachable there, else its
   // terminal), a middle click always to its terminal
@@ -418,7 +414,7 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
     setFailed(String(e));
     setTimeout(() => setFailed(null), 6000);
   };
-  const door = s.place?.remote ? "desktop" : terminalDoor ? "terminal" : null;
+  const door = s.doors[0] === undefined ? null : s.doors[0] === "desktop" ? "desktop" : "terminal";
   const go = (to: "desktop" | "terminal" | "auto") => {
     if (!projectPath || canResume || (to === "terminal" && !terminalDoor) || (to === "auto" && !door)) return;
     setFailed(null);
@@ -426,7 +422,7 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
   };
   const [resuming, setResuming] = useState(false);
   const resume = () => {
-    if (!projectPath || resuming || !continuable) return;
+    if (!projectPath || resuming || !canResume) return;
     setFailed(null);
     setResuming(true);
     // Its "Starting…" row shows at once; the card turns live when the session reports
@@ -459,7 +455,8 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
   const tmuxName = s.status !== "ended" ? (s.place?.tmux?.session ?? undefined) : undefined;
   const commands = useSessionCommands(projectPath, tmuxName);
   // Only what CodeDeck started: a tmux session the user made would end with all that runs in it
-  const controllable = !!ownTmux(s) && s.status !== "working" && !!projectPath;
+  const canRestart = s.actions.includes("restart") && !!projectPath;
+  const canStop = s.actions.includes("stop") && !!projectPath;
   // Not while its process is known to run: it must stay in sight, or one could never find it again
   // to write its next prompt (user, 2026-11-17). Where the process is not known (a session seen in
   // its log only) CodeDeck cannot promise anything, so it may go
@@ -498,9 +495,7 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
       onAuxClick={(e) => e.button === 1 && go("terminal")}
       title={
         canResume
-          ? continuable
-            ? t("Double-click: continue this conversation")
-            : undefined
+          ? t("Double-click: continue this conversation")
           : door
             ? terminalDoor
               ? t("Double-click: go to it ({door}) · middle click: terminal", { door: door === "desktop" ? t("Desktop") : t("Terminal") })
@@ -587,18 +582,18 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
             <Receipt session={s} aimed={aimed} />
             <span className="flex-1" />
             <HoverTools show="group-hover/session:flex group-has-[:focus-visible]/session:flex" open={!!menu.element}>
-              {!canResume && s.status !== "ended" && (
+              {s.doors.length > 0 && (
                 <>
-                  {s.place?.remote && <Tool icon={Monitor} label={t("Open in the desktop app")} hint={door === "desktop" ? t("Also: double-click the session") : undefined} onClick={() => go("desktop")} />}
+                  {s.doors.includes("desktop") && <Tool icon={Monitor} label={t("Open in the desktop app")} hint={door === "desktop" ? t("Also: double-click the session") : undefined} onClick={() => go("desktop")} />}
                   {terminalDoor && <Tool icon={SquareTerminal} label={t("Open in a terminal")} hint={t("Also: middle-click the session")} onClick={() => go("terminal")} />}
                 </>
               )}
               {/* What changes its process, apart; only in tmux, and not while it works */}
-              {controllable && !canResume && (
+              {(canRestart || canStop) && (
                 <>
                   <ToolGap />
-                  <Tool icon={RotateCcw} label={t("Restart: same conversation, fresh process")} says={commands?.stop && commands.start ? `${commands.stop}\n${commands.start}` : undefined} onClick={() => void stopSession(projectPath!, s.id, true).catch(fail)} />
-                  <Tool icon={Power} danger label={t("Stop (the conversation is kept and can be continued)")} says={commands?.stop} onClick={() => void stopSession(projectPath!, s.id, false).catch(fail)} />
+                  {canRestart && <Tool icon={RotateCcw} label={t("Restart: same conversation, fresh process")} says={commands?.stop && commands.start ? `${commands.stop}\n${commands.start}` : undefined} onClick={() => void stopSession(projectPath!, s.id, true).catch(fail)} />}
+                  {canStop && <Tool icon={Power} danger label={t("Stop (the conversation is kept and can be continued)")} says={commands?.stop} onClick={() => void stopSession(projectPath!, s.id, false).catch(fail)} />}
                 </>
               )}
               {wait === "done" && (
@@ -610,7 +605,7 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
               <ToolGap />
               <Tool icon={Ellipsis} label={t("More (also right click)")} onClick={(e) => openMenu(e)} />
             </HoverTools>
-            {canResume && !continuable ? null : canResume ? (
+            {canResume ? (
               <button
                 type="button"
                 disabled={resuming}
@@ -622,9 +617,9 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
                 {resuming ? <Loader className="size-3 shrink-0 animate-spin" /> : <Play className="size-3 shrink-0" />}
                 {t("Continue")}
               </button>
-            ) : s.status === "ended" || s.movedTo || (!door && s.place?.pid == null && !s.place?.tmux && !s.place?.background) ? null : !door ? (
+            ) : !door && !s.noDoor ? null : !door ? (
               // No way in from here on this computer (e.g. its own terminal under Wayland): said, not offered
-              s.place?.tmux || s.place?.background ? (
+              s.noDoor === "noTerminal" ? (
                 <span title={t("No terminal program was found on this computer (see About CodeDeck)")} className="shrink-0 text-[11px] text-slate-500">
                   {t("no terminal found")}
                 </span>

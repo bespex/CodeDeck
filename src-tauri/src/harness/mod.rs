@@ -20,7 +20,16 @@ pub trait Harness: Send + Sync {
     fn name(&self) -> &'static str;
     /// Its name where space is short: buttons, the status bar.
     fn short_name(&self) -> &'static str;
-    fn capabilities(&self) -> Capabilities;
+    /// What it can do as far as only the adapter knows it. `launch`, `background` (and nothing
+    /// else) need not be set here: [`Self::capabilities`] works them out from the methods.
+    fn declared(&self) -> Capabilities;
+    /// What it can do: the declared abilities, and those that follow from its methods. An adapter
+    /// that cannot say how to start a session ([`Self::launch`]) cannot start one, whatever it
+    /// declares; the same for joining one in the background ([`Self::attach`]).
+    fn capabilities(&self) -> Capabilities {
+        let probe = Launch { id: "probe", resume: false, name: "probe", account: None };
+        Capabilities { launch: self.launch(&probe).is_some(), background: self.attach("probe", None).is_some(), ..self.declared() }
+    }
     /// Whether the tool reports to CodeDeck, per account.
     fn connections(&self) -> Vec<Connection>;
     /// Makes the tool of one account report to CodeDeck, or stops that.
@@ -136,6 +145,13 @@ pub struct Capabilities {
     /// Its desktop app keeps separate profiles, one can be started and made (see
     /// [`Harness::new_desktop_profile`]); without this CodeDeck does not offer profiles at all
     pub desktop_profiles: bool,
+    /// CodeDeck can start and continue its sessions (in tmux). Follows from [`Harness::launch`]
+    pub launch: bool,
+    /// Sessions it keeps in the background can be joined in a terminal. Follows from
+    /// [`Harness::attach`]
+    pub background: bool,
+    /// A session reachable remotely can be shown in its desktop app ([`Harness::desktop_command`])
+    pub desktop: bool,
 }
 
 impl Capabilities {
@@ -369,5 +385,41 @@ pub fn by_id(id: Option<&str>) -> Option<&'static dyn Harness> {
     match id {
         None => all().first().copied(),
         Some(id) => all().iter().copied().find(|h| h.id() == id),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every adapter, the test one included: what the interface is told must match what the
+    /// adapter does (docs/SITZUNGEN-PRUEFUNG.md K7).
+    fn adapters() -> Vec<&'static dyn Harness> {
+        all().iter().copied().chain([&fake::Fake as &'static dyn Harness]).collect()
+    }
+
+    #[test]
+    fn capabilities_match_what_the_adapter_does() {
+        let probe = Launch { id: "probe", resume: false, name: "probe", account: None };
+        for h in adapters() {
+            let c = h.capabilities();
+            assert_eq!(c.launch, h.launch(&probe).is_some(), "{}: launch", h.id());
+            assert_eq!(c.background, h.attach("probe", None).is_some(), "{}: background", h.id());
+            if !c.desktop {
+                assert!(h.desktop_command("https://example.org/x", None).is_none(), "{}: desktop", h.id());
+            }
+            if !c.desktop_profiles {
+                assert!(h.new_desktop_profile("x").is_none(), "{}: desktop profiles", h.id());
+            }
+            // From its log only it can still be continued: that is the tool's doing, not the session's
+            let log = c.from_log_only();
+            assert_eq!((log.launch, log.background, log.desktop), (c.launch, c.background, c.desktop), "{}", h.id());
+        }
+    }
+
+    #[test]
+    fn the_test_tool_starts_nothing() {
+        let c = fake::Fake.capabilities();
+        assert!(!c.launch && !c.background && !c.desktop);
     }
 }

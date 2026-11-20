@@ -17,7 +17,7 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src-tauri/src/accounts.rs`, `src/accounts.ts` | Konten (3.2): Konfigurationen mit Name, Farbe, Desktop-Profil (`accounts.json`), Art laut Adapter (`account_kind`), Papierkorb für Sicherungen; `useAccounts`, `accountLook` |
 | `src-tauri/src/tmux.rs` | Sitzungen in tmux starten (`start`, Befehl vom Adapter `Harness::launch`, über die Login-Shell) und beenden; Startbefehl in `@codedeck-command` (`command_of`); nie `send-keys` |
 | `src/pending.ts`, `src/components/SessionCommands.tsx` | „Starting…“-Zeilen gestarteter, noch stummer Sitzungen (`usePending`, sofort über `sessions_started`); Start- und Stoppbefehl zum Ansehen und Kopieren |
-| `src-tauri/src/projects.rs`, `doors.rs` | Meine Projekte (`projects.json`); Wege in eine Sitzung: Terminal (tmux attach oder Fenster nach vorn), Desktop über `Harness::desktop_command` |
+| `src-tauri/src/projects.rs`, `doors.rs` | Meine Projekte (`projects.json`); Wege in eine Sitzung: Terminal (tmux attach oder Fenster nach vorn), Desktop über `Harness::desktop_command`; `doors::ways` entscheidet je Sitzung `doors`/`actions`/`noDoor` (Frontend zeigt nur diese); `projects::start_with` (Werkzeug des Projektkontos), `can_start` |
 | `src-tauri/src/hub.rs` | Der eine Socket des Prozesses: Hook-Ereignisse an alle Fenster, Nutzung, zweiter Aufruf `codedeck <ordner>` (`hand_over`, Instanz-Datei je Programmpfad) |
 | `src-tauri/src/git.rs` | `Git`: Repos finden (`repos`, `find`), `run`/`execute` (jeder Befehl ins Log), Status, Aktionen-Whitelist `allowed` |
 | `src-tauri/src/history.rs` | Log, Diffs, `ScratchIndex`, `worktree_diff(base)` |
@@ -26,9 +26,9 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src-tauri/src/hook.rs` | `codedeck hook [--harness <id>]`: nur Transport (Rohmeldung → Adapter → Socket jedes laufenden CodeDeck) |
 | `src-tauri/src/platform.rs`, `terminal.rs`, `src/platform.ts`, `src/components/PlatformFacts.tsx` | Was der Rechner bietet, einmal ermittelt (tmux, Terminal, X11/Wayland, Desktop, Tray): `platform::get`, Befehl `platform`; Terminal-Programm mit Argumentform (`terminal::open`); im Frontend `usePlatform`, `canStart`, `hasTerminalDoor`; „Erkannt auf diesem Rechner“ in Glocke und About |
 | `src-tauri/src/place.rs` | Wo eine Sitzung läuft, vom Hook aus gesehen (`Place`: Prozess, tmux, `CODEDECK_SESSION`, Remote-Link über `Harness::remote_link`, im Hintergrund über `Harness::background_job`); nur beobachten, Vorarbeit für `docs/SITZUNGEN.md` |
-| `src-tauri/src/harness/mod.rs` | Trait `Harness`, `Capabilities`, neutrales `Event`, `SessionInfo`, `Connection`; `all()`/`by_id` |
+| `src-tauri/src/harness/mod.rs` | Trait `Harness` (`declared`, abgeleitet `capabilities`), `Capabilities`, neutrales `Event`, `SessionInfo`, `Connection`; `all()`/`by_id` |
 | `src-tauri/src/harness/claude.rs` | Einziger Ort für Claude-Spezifisches: Hook-Ereignisse und -Felder, `settings.json`, Konfigurationen (`config_dirs`), Log-Format, laufende Prozesse (`running`, `<config>/sessions/`), Hintergrund-Sitzungen des Daemons (`parked`: `jobs/*/state.json`, `daemon/roster.json`; `attach`) |
-| `src-tauri/src/harness/fake.rs` | Test-Adapter ohne echtes Werkzeug (nur in Tests) |
+| `src-tauri/src/harness/fake.rs` | Test-Adapter ohne echtes Werkzeug (nur in Tests): `Fake` startet nichts, `Starter` startet `fake-tool` |
 | `src-tauri/src/identity.rs` | Farbe, Kurzname und eigener Titel je Sitzung, je Projekt in `~/.config/codedeck/sessions.json` |
 | `src-tauri/src/markers.rs` | `@ai`-Marker (Regel D18): `git grep` als Vorauswahl, `marker_text` entscheidet, Codeblöcke in Markdown zählen nicht |
 | `src-tauri/src/scratch.rs` | Scratch-Ordner `.scratch/`: Eintrag in `info/exclude` (`Git::exclude_scratch`, ersetzt die alte `.workbench/`-Zeile), Liste, Papierkorb, ins Projekt verschieben |
@@ -72,7 +72,7 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src/files.ts`, `src/markers.ts` | Angehängte Dateien (Pin = Anhang); Marker laden, als Anhang, „erledigt“ erkennen |
 | `src/changes.ts` | Änderungen als Anhang (Git-Befehl statt Diff, neue Dateien als Pfad), `ChangeScopeContext` je Diff-Ansicht |
 | `src/turns.ts`, `src/notes.ts`, `src/reviewed.ts` | Runden aus Snapshots und laufenden Sitzungen, wer welche Datei geändert hat; Zeilenkommentare als Teil der Übergabe; „Viewed“ je Datei mit Stand beim Ansehen („seit dem Ansehen geändert“) |
-| `src/mock.ts` | Beispieldaten für die Vorschau |
+| `src/mock.ts` | Beispieldaten für die Vorschau; in `backend.ts` `?tool=minimal` (zweites Werkzeug mit wenig Fähigkeiten, `mockWays`) und `?platform=…` |
 | `design/click-dummy/` | Zielbild als Click-Dummy (Vorlage für `PLAN.md` „Zielbild“; README dort lesen, nicht die ganze `Main.dc.html`) |
 
 ## Regeln

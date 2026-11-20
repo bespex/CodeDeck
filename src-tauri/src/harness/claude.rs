@@ -59,7 +59,7 @@ impl Harness for Claude {
         "Claude"
     }
 
-    fn capabilities(&self) -> Capabilities {
+    fn declared(&self) -> Capabilities {
         Capabilities {
             live_status: true,
             before_write: true,
@@ -69,6 +69,11 @@ impl Harness for Claude {
             past_sessions: true,
             usage: true,
             desktop_profiles: true,
+            // Worked out from `launch` and `attach`
+            launch: false,
+            background: false,
+            // `claude://` opens a session in the desktop app
+            desktop: true,
         }
     }
 

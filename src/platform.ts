@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { platform, type Platform, type Session } from "./backend";
+import { platform, type Platform } from "./backend";
 
 /**
- * What this computer offers (tmux, a terminal, X11), asked once for the whole window: what it lacks
- * is not offered, rather than failing on a click (docs/SITZUNGEN-PRUEFUNG.md K1, K5).
+ * What this computer offers (tmux, a terminal, X11), asked once for the whole window, to be shown
+ * ("Detected on this computer"). What is offered per session or project the backend decides with it
+ * (`Session.doors`/`actions`, `AssistantState.canStart`, docs/SITZUNGEN-PRUEFUNG.md K2).
  */
 let found: Promise<Platform> | null = null;
 let known: Platform | null = null;
@@ -23,16 +24,3 @@ export function usePlatform(): Platform {
   }, []);
   return p;
 }
-
-/** Starting a session (▶, ＋, today's list) needs tmux. */
-export const canStart = (p: Platform) => p.tmux !== null;
-
-/** Whether a session can be opened in a terminal on this computer: through its tool or tmux a
- *  terminal program opens it; one started by hand in a terminal only has its window raised (X11). */
-export function hasTerminalDoor(s: Session, p: Platform): boolean {
-  if (s.place?.background || s.place?.tmux) return p.terminal !== null;
-  return s.place?.pid != null && p.raiseWindows;
-}
-
-/** Continuing a conversation: in the background its tool opens it in a terminal, else in tmux. */
-export const canContinue = (s: Session, p: Platform) => (s.place?.background ? p.terminal !== null : canStart(p));

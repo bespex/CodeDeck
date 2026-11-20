@@ -855,8 +855,8 @@ fn start_in(app: &AppHandle, root: &Path, fresh: bool) -> Result<Option<String>,
             return Err(format!("{SILENT_START} ({name}) has not reported yet. It probably waits for a question, e.g. whether to trust this folder: open it with  tmux attach -t {name}"));
         }
     }
-    let account = projects::list().into_iter().find(|p| p.path == root).and_then(|p| p.account);
-    let tool = harness::all().first().copied().ok_or("no tool")?;
+    // The project's tool, not simply the first one (docs/SITZUNGEN-PRUEFUNG.md K6)
+    let (tool, account) = projects::start_with(root)?;
     let (_, name) = tmux::start(root, tool, account.as_deref(), if fresh { None } else { resume.as_deref() })?;
     started(app);
     Ok(Some(name))
@@ -882,6 +882,9 @@ async fn start_session(project: String, fresh: bool, app: AppHandle) -> Result<O
 async fn resume_session(project: String, session: String, app: AppHandle) -> Result<String, String> {
     let root = Project::open(Path::new(&project))?.root;
     let bridge = windows::bridge_for(&app, &root);
+    if !bridge.ways_of(&session).unwrap_or_default().actions.contains(&doors::Action::Continue) {
+        return Err("this session cannot be continued from here".into());
+    }
     // One the tool keeps in the background goes on there: joining it brings it back
     if let Some((tool, account, Some(place))) = bridge.session_place(&session).filter(|(_, _, p)| p.as_ref().is_some_and(|p| p.background.is_some())) {
         let job = place.background.clone().unwrap_or_default();
@@ -954,6 +957,11 @@ async fn stop_session(project: String, session: String, restart: bool, app: AppH
     let root = Project::open(Path::new(&project))?.root;
     let bridge = windows::bridge_for(&app, &root);
     let (harness_id, account, place) = bridge.session_place(&session).ok_or("this session is not known (any more)")?;
+    // Only what the interface offers: sessions CodeDeck started, not while they work
+    let actions = bridge.ways_of(&session).unwrap_or_default().actions;
+    if !actions.contains(if restart { &doors::Action::Restart } else { &doors::Action::Stop }) {
+        return Err("CodeDeck did not start this session: end it where it runs".into());
+    }
     let name = place
         .and_then(|p| p.tmux)
         .and_then(|t| t.session)
@@ -981,6 +989,8 @@ struct Pending {
     since: u64,
     /// The command it was started with, if CodeDeck kept it
     command: Option<String>,
+    /// It can be opened in a terminal here (a terminal program was found)
+    door: bool,
 }
 
 /// The sessions started in tmux for a project that nothing was heard of yet.
@@ -992,7 +1002,7 @@ async fn pending_sessions(project: String, app: AppHandle) -> Vec<Pending> {
     tmux::started_for(root)
         .into_iter()
         .filter(|s| !bridge.knows(&s.id))
-        .map(|s| Pending { command: tmux::command_of(&s.name), name: s.name, id: s.id, since: s.since })
+        .map(|s| Pending { command: tmux::command_of(&s.name), name: s.name, id: s.id, since: s.since, door: platform::get().terminal.is_some() })
         .collect()
 }
 
@@ -1060,13 +1070,25 @@ pub(crate) fn enter_session(app: &AppHandle, project: &Path, session: &str, door
     }
     let (harness, account, place) = bridge.session_place(session).ok_or("this session is not known (any more)")?;
     let place = place.ok_or("this session has not said where it runs yet")?;
-    // `auto` (a double click): the desktop app where the session is reachable there, else its terminal
-    let door = match door {
-        "auto" if place.remote.is_some() => "desktop",
-        "auto" => "terminal",
-        _ => door,
+    // The same decision the interface shows (docs/SITZUNGEN-PRUEFUNG.md K2); `auto` (a double
+    // click) takes the first: the desktop app where the session is reachable there, else its terminal
+    let ways = bridge.ways_of(session).unwrap_or_default();
+    let chosen = match door {
+        "auto" => ways.doors.first().copied(),
+        "terminal" => ways.doors.iter().copied().find(|d| d.is_terminal()),
+        "desktop" => ways.doors.iter().copied().find(|d| *d == doors::Door::Desktop),
+        _ => return Err(format!("{door}: no such way in")),
     };
-    match door {
+    let Some(chosen) = chosen else {
+        return Err(match (door, ways.no_door) {
+            ("desktop", _) => "not reachable from the desktop app: Remote Control is off or not connected",
+            (_, Some(doors::NoDoor::NoTerminal)) => "no terminal program was found on this computer",
+            (_, Some(doors::NoDoor::OwnTerminal)) => "its terminal window cannot be brought to the front on this desktop",
+            _ => "there is no way into this session from here",
+        }
+        .into());
+    };
+    match if chosen.is_terminal() { "terminal" } else { "desktop" } {
         "terminal" => {
             // A session in the background is opened by its tool, in its account
             let attach = place.background.as_deref().and_then(|job| harness::by_id(Some(harness))?.attach(job, account.as_deref()));

@@ -106,3 +106,214 @@ fn in_new_terminal(launched: &Launched) -> Result<(), String> {
     let line = format!("exec env {}", env.chain(argv).collect::<Vec<_>>().join(" "));
     crate::terminal::open(&[&shell, "-lc", &line])
 }
+
+/// A way into a session (docs/SITZUNGEN-PRUEFUNG.md K2). The terminal ones say how it opens.
+#[derive(serde::Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum Door {
+    /// Its tool's desktop app, through the session's remote link
+    Desktop,
+    /// A terminal attached to its tmux session, on its pane
+    Tmux,
+    /// A terminal in which its tool joins it in the background
+    Attach,
+    /// The terminal window it was started in by hand, to the front (X11)
+    Window,
+}
+
+impl Door {
+    pub fn is_terminal(self) -> bool {
+        self != Door::Desktop
+    }
+}
+
+/// What can be done to a session's process from CodeDeck.
+#[derive(serde::Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum Action {
+    /// Continue the conversation (in tmux, or by joining it in the background)
+    Continue,
+    /// Same conversation, fresh process
+    Restart,
+    Stop,
+}
+
+/// Why a running session has no door: said on its card instead of a button that fails.
+#[derive(serde::Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum NoDoor {
+    /// It runs in tmux or in the background, but no terminal program was found
+    NoTerminal,
+    /// It runs in a terminal window of its own, which cannot be brought to the front here
+    OwnTerminal,
+}
+
+/// What is offered for a session, decided once for the session card, the project list, the
+/// account switch and the commands that carry it out.
+#[derive(serde::Serialize, Clone, Debug, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Ways {
+    /// The ways in that work now, the default first (double click, the card's main button)
+    pub doors: Vec<Door>,
+    pub actions: Vec<Action>,
+    pub no_door: Option<NoDoor>,
+}
+
+/// What [`ways`] looks at.
+pub struct Facts<'a> {
+    pub place: Option<&'a Place>,
+    pub status: &'a str,
+    pub alive: Option<bool>,
+    pub capabilities: crate::harness::Capabilities,
+    /// It went on in the background as another session: continuing it here would split it again
+    pub moved: bool,
+}
+
+/// Decides the ways for a session: tool (its capabilities) × computer (`platform`) × where it
+/// runs × who started it. Only what works now.
+pub fn ways(f: &Facts, platform: &crate::platform::Platform) -> Ways {
+    let c = f.capabilities;
+    let terminal = platform.terminal.is_some();
+    let background = f.place.and_then(|p| p.background.as_ref()).is_some();
+    // Its process is gone, or cannot be known to run (no live status, nothing says it runs)
+    let over = f.status == "ended" || f.alive == Some(false) || (!c.live_status && f.alive != Some(true));
+    let mut w = Ways::default();
+    if over {
+        let can = if background { c.background && terminal } else { c.launch && platform.tmux.is_some() };
+        if can && !f.moved {
+            w.actions.push(Action::Continue);
+        }
+        return w;
+    }
+    if f.moved {
+        return w;
+    }
+    let Some(place) = f.place else { return w };
+    if place.remote.is_some() && c.desktop {
+        w.doors.push(Door::Desktop);
+    }
+    let in_tmux = place.tmux.is_some();
+    let door = if background {
+        (c.background && terminal).then_some(Door::Attach)
+    } else if in_tmux {
+        terminal.then_some(Door::Tmux)
+    } else if place.pid.is_some() {
+        platform.x11.then_some(Door::Window)
+    } else {
+        None
+    };
+    w.doors.extend(door);
+    if door.is_none() {
+        w.no_door = if background || in_tmux {
+            (!terminal).then_some(NoDoor::NoTerminal)
+        } else {
+            place.pid.is_some().then_some(NoDoor::OwnTerminal)
+        };
+    }
+    // Only what CodeDeck started: a tmux session the user made ends with all that runs in it (K3);
+    // not while it works
+    let ours = place.launched.is_some() && place.tmux.as_ref().is_some_and(|t| t.session.is_some());
+    if ours && f.status != "working" {
+        if c.launch && platform.tmux.is_some() {
+            w.actions.push(Action::Restart);
+        }
+        w.actions.push(Action::Stop);
+    }
+    w
+}
+
+#[cfg(test)]
+mod ways_tests {
+    use super::*;
+    use crate::harness::{Harness, Tmux};
+    use crate::platform::Platform;
+
+    fn machine(tmux: bool, terminal: bool, x11: bool) -> Platform {
+        Platform {
+            tmux: tmux.then(|| "tmux 3.4".into()),
+            terminal: terminal.then(|| crate::terminal::Terminal::for_tests("xterm")),
+            wayland: !x11,
+            x11,
+            desktop: String::new(),
+            tray: true,
+        }
+    }
+
+    fn caps() -> crate::harness::Capabilities {
+        crate::harness::Capabilities { launch: true, background: true, desktop: true, ..crate::harness::fake::Fake.capabilities() }
+    }
+
+    fn facts<'a>(place: Option<&'a Place>, status: &'a str, alive: Option<bool>) -> Facts<'a> {
+        Facts { place, status, alive, capabilities: caps(), moved: false }
+    }
+
+    fn tmux_place(ours: bool) -> Place {
+        Place {
+            pid: Some(10),
+            tmux: Some(Tmux { pane: "%1".into(), session: Some("s".into()) }),
+            launched: ours.then(|| "id".into()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn own_tmux_session_can_be_entered_restarted_and_stopped() {
+        let place = Place { remote: Some("https://x".into()), ..tmux_place(true) };
+        let w = ways(&facts(Some(&place), "idle", Some(true)), &machine(true, true, true));
+        assert_eq!(w.doors, [Door::Desktop, Door::Tmux]);
+        assert_eq!(w.actions, [Action::Restart, Action::Stop]);
+        // Not while it works
+        assert!(ways(&facts(Some(&place), "working", Some(true)), &machine(true, true, true)).actions.is_empty());
+    }
+
+    #[test]
+    fn a_tmux_session_of_the_user_is_not_stopped() {
+        let place = tmux_place(false);
+        let w = ways(&facts(Some(&place), "idle", Some(true)), &machine(true, true, true));
+        assert_eq!(w.doors, [Door::Tmux]);
+        assert!(w.actions.is_empty());
+    }
+
+    #[test]
+    fn without_terminal_no_terminal_door_and_why() {
+        let place = tmux_place(true);
+        let w = ways(&facts(Some(&place), "idle", Some(true)), &machine(true, false, true));
+        assert!(w.doors.is_empty());
+        assert_eq!(w.no_door, Some(NoDoor::NoTerminal));
+    }
+
+    #[test]
+    fn own_terminal_window_only_under_x11() {
+        let place = Place { pid: Some(10), ..Default::default() };
+        assert_eq!(ways(&facts(Some(&place), "idle", Some(true)), &machine(true, true, true)).doors, [Door::Window]);
+        let wayland = ways(&facts(Some(&place), "idle", Some(true)), &machine(true, true, false));
+        assert!(wayland.doors.is_empty());
+        assert_eq!(wayland.no_door, Some(NoDoor::OwnTerminal));
+    }
+
+    #[test]
+    fn continue_needs_tmux_and_a_tool_that_starts() {
+        assert_eq!(ways(&facts(None, "ended", None), &machine(true, true, true)).actions, [Action::Continue]);
+        assert!(ways(&facts(None, "ended", None), &machine(false, true, true)).actions.is_empty());
+        let fake = Facts { capabilities: crate::harness::fake::Fake.capabilities(), ..facts(None, "ended", None) };
+        assert!(ways(&fake, &machine(true, true, true)).actions.is_empty());
+        let moved = Facts { moved: true, ..facts(None, "ended", None) };
+        assert!(ways(&moved, &machine(true, true, true)).actions.is_empty());
+    }
+
+    #[test]
+    fn background_session_is_joined_in_a_terminal() {
+        let place = Place { pid: Some(10), background: Some("job".into()), ..Default::default() };
+        assert_eq!(ways(&facts(Some(&place), "waiting", Some(true)), &machine(true, true, false)).doors, [Door::Attach]);
+        // Its process gone: continuing it means joining it again
+        assert_eq!(ways(&facts(Some(&place), "idle", Some(false)), &machine(false, true, false)).actions, [Action::Continue]);
+        assert!(ways(&facts(Some(&place), "idle", Some(false)), &machine(true, false, true)).actions.is_empty());
+    }
+
+    #[test]
+    fn no_desktop_door_for_a_tool_without_desktop_app() {
+        let place = Place { remote: Some("https://x".into()), ..tmux_place(true) };
+        let f = Facts { capabilities: crate::harness::Capabilities { desktop: false, ..caps() }, ..facts(Some(&place), "idle", Some(true)) };
+        assert_eq!(ways(&f, &machine(true, true, true)).doors, [Door::Tmux]);
+    }
+}

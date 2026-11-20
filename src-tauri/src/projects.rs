@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::harness::Harness;
+
 const FILE: &str = "projects.json";
 
 /// One project on the list.
@@ -30,6 +32,40 @@ fn file() -> Option<PathBuf> {
 /// come back).
 pub fn list() -> Vec<Listed> {
     file().map(|f| load(&f)).unwrap_or_default().into_iter().filter(|p| p.path.is_dir()).collect()
+}
+
+/// The tool and account a project's sessions start with (docs/SITZUNGEN-PRUEFUNG.md K6): the tool
+/// of the project's account, else the only tool CodeDeck can start. A tool without accounts starts
+/// with none (`account` stays `None`: its default configuration).
+pub fn start_with(root: &Path) -> Result<(&'static dyn Harness, Option<String>), String> {
+    let account = list().into_iter().find(|p| p.path == root).and_then(|p| p.account);
+    let tools = crate::harness::all();
+    // With one tool every account is its: no need to read them all on each state
+    let accounts: Vec<(String, &'static str)> = if tools.len() > 1 && account.is_some() {
+        crate::accounts::list().into_iter().map(|a| (a.dir, a.harness)).collect()
+    } else {
+        Vec::new()
+    };
+    pick_tool(account, &accounts, tools)
+}
+
+/// Whether ▶ can start a session of the project here: a tool that starts, and tmux.
+pub fn can_start(root: &Path) -> bool {
+    crate::platform::get().tmux.is_some() && start_with(root).is_ok()
+}
+
+fn pick_tool(account: Option<String>, accounts: &[(String, &'static str)], tools: &[&'static dyn Harness]) -> Result<(&'static dyn Harness, Option<String>), String> {
+    let of_account = account.as_ref().and_then(|dir| accounts.iter().find(|(d, _)| d == dir)).map(|(_, id)| *id);
+    if let Some(id) = of_account {
+        let tool = tools.iter().copied().find(|t| t.id() == id).ok_or("the project's account belongs to an unknown tool")?;
+        return if tool.capabilities().launch { Ok((tool, account)) } else { Err(format!("CodeDeck cannot start sessions of {}", tool.name())) };
+    }
+    let starting: Vec<&'static dyn Harness> = tools.iter().copied().filter(|t| t.capabilities().launch).collect();
+    match starting.as_slice() {
+        [one] => Ok((*one, account)),
+        [] => Err("CodeDeck cannot start sessions of any tool it knows".into()),
+        _ => Err("Which tool should start it? Choose an account for the project first".into()),
+    }
 }
 
 /// Puts a project at the end of the list; whether it was new.
@@ -161,6 +197,24 @@ fn remove_in(file: &Path, root: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::harness::fake::{Fake, Starter};
+
+    #[test]
+    fn starts_with_the_tool_of_the_projects_account() {
+        let tools: &[&'static dyn Harness] = &[&Fake, &Starter];
+        let accounts = [("/cfg/fake".to_string(), "fake"), ("/cfg/starter".to_string(), "starter")];
+        let (tool, account) = pick_tool(Some("/cfg/starter".into()), &accounts, tools).unwrap();
+        assert_eq!(tool.id(), "starter");
+        let launched = tool.launch(&crate::harness::Launch { id: "s1", resume: false, name: "p", account: account.as_deref() }).unwrap();
+        assert_eq!(launched.argv, ["fake-tool", "s1"]);
+        assert_eq!(launched.env, [("FAKE_ACCOUNT".to_string(), "/cfg/starter".to_string())]);
+        // An account of a tool that cannot start: said, not started with another tool
+        assert!(pick_tool(Some("/cfg/fake".into()), &accounts, tools).is_err());
+        // No account: the only tool that starts
+        assert_eq!(pick_tool(None, &accounts, tools).unwrap().0.id(), "starter");
+        // Two that start and no account: which one is the user's to say
+        assert!(pick_tool(None, &accounts, &[&Starter, &Starter]).is_err());
+    }
 
     #[test]
     fn keeps_order_and_adds_once() {

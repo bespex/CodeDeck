@@ -85,6 +85,11 @@ impl Terminal {
         command
     }
 
+    #[cfg(test)]
+    pub fn for_tests(program: &str) -> Self {
+        Terminal { program: program.into(), form: form_of(program) }
+    }
+
     /// The program's name, without its folder: what the user is shown.
     pub fn name(&self) -> String {
         Path::new(&self.program).file_name().map_or_else(|| self.program.clone(), |n| n.to_string_lossy().into_owned())

@@ -3,16 +3,16 @@
 // components: names and what is offered come from `HarnessInfo` and its capabilities.
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { assistantState, harnessConnections, onAssistantChanged, type AssistantState, type Connection, type HarnessInfo, type Session } from "./backend";
+import { assistantState, harnessConnections, onAssistantChanged, type AssistantState, type Connection, type HarnessInfo } from "./backend";
 
-const EMPTY: AssistantState = { heard: false, usage: [], harnesses: [], sessions: [], identities: [], attachments: [], preview: null, delivered: null, target: null, any: false, held: false, targetLost: null, ruled: null, found: { outside: [], pages: [] } };
+const EMPTY: AssistantState = { canStart: false, heard: false, usage: [], harnesses: [], sessions: [], identities: [], attachments: [], preview: null, delivered: null, target: null, any: false, held: false, targetLost: null, ruled: null, found: { outside: [], pages: [] } };
 
 /** Stands in until the backend told which tools there are: no name, nothing on offer. */
 const UNKNOWN: HarnessInfo = {
   id: "",
   name: "The assistant",
   shortName: "Assistant",
-  capabilities: { liveStatus: false, beforeWrite: false, attach: "none", startRules: false, pastSessions: false, usage: false, desktopProfiles: false },
+  capabilities: { liveStatus: false, beforeWrite: false, attach: "none", startRules: false, pastSessions: false, usage: false, desktopProfiles: false, launch: false, background: false, desktop: false },
 };
 
 /** The tool texts and offers go by: the default one. */
@@ -62,15 +62,6 @@ export function useConnections(): Connections {
 }
 
 /** Files the assistant wrote, project-relative, with the time (ms) of the latest write. */
-/**
- * The tmux session CodeDeck started a session in, which it may stop and restart; `undefined` for a
- * session started by hand, even in tmux: its tmux session is the user's and may hold other work of
- * theirs, which stopping would end too. The backend refuses those as well.
- */
-export function ownTmux(s: Session): string | undefined {
-  return (s.status !== "ended" && s.place?.launched && s.place.tmux?.session) || undefined;
-}
-
 export function touchedFiles(state: AssistantState): Map<string, number> {
   const touched = new Map<string, number>();
   for (const s of state.sessions) {

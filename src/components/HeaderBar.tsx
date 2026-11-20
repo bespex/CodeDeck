@@ -18,9 +18,7 @@ import {
   Stethoscope,
   X,
 } from "lucide-react";
-import { canStart, usePlatform } from "../platform";
 import { appInfo, diagnostics, openUrl, setProject, startSession, stopSession, type Account, type AssistantState, type ProjectInfo, closeWindow } from "../backend";
-import { ownTmux } from "../assistant";
 import { useAccounts } from "../accounts";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
@@ -59,7 +57,7 @@ export function HeaderBar(props: Props) {
     <header className="zone-tabs relative flex h-[44px] shrink-0 items-center gap-1 border-b border-line bg-panel pr-1.5 pl-1.5">
       <AccountBlock project={props.project} assistant={props.assistant} />
       <span className="flex-1" />
-      <StartButtons project={props.project} />
+      <StartButtons project={props.project} canStart={props.assistant.canStart} />
     </header>
     </Tooltip>
   );
@@ -169,10 +167,8 @@ export function QuickSettings({ onColor = false }: { onColor?: boolean }) {
  * new tmux session (nothing starts while one runs there already), ＋ begins a new conversation.
  * Both start with the project's account and Remote Control, as in the overview.
  */
-function StartButtons({ project }: { project: ProjectInfo | null }) {
+function StartButtons({ project, canStart }: { project: ProjectInfo | null; canStart: boolean }) {
   const [note, setNote] = useState<string | null>(null);
-  // Sessions start in tmux: without it there is nothing to offer here (the bell says why)
-  const machine = usePlatform();
   useEffect(() => {
     if (!note) return;
     const timer = setTimeout(() => setNote(null), 5000);
@@ -183,7 +179,8 @@ function StartButtons({ project }: { project: ProjectInfo | null }) {
     startSession(project.path, fresh)
       .then((name) => setNote(name ? t("Started in tmux {name}", { name }) : t("A session runs there already")))
       .catch((e) => setNote(String(e)));
-  if (!canStart(machine)) return null;
+  // The backend knows: the project's tool starts sessions, and tmux is there (the bell says what lacks)
+  if (!canStart) return null;
   return (
     <>
       <button type="button" disabled={!project} title={t("Continue the last conversation in a new session (nothing starts while one runs)")} aria-label={t("Continue session")} onClick={() => void start(false)} className={iconButton(false)}>
@@ -221,7 +218,7 @@ function AccountBlock({ project, assistant }: { project: ProjectInfo | null; ass
     if (!look) return;
     try {
       if (stop) {
-        for (const s of runningWith(next.dir).filter((s) => ownTmux(s))) await stopSession(look.path, s.id, false);
+        for (const s of runningWith(next.dir).filter((s) => s.actions.includes("stop"))) await stopSession(look.path, s.id, false);
       }
       await setProject(look.path, "account", next.dir);
       close();
@@ -232,7 +229,7 @@ function AccountBlock({ project, assistant }: { project: ProjectInfo | null; ass
   const pick = (next: Account) => (runningWith(next.dir).length ? setAsking(next) : void choose(next, false));
   const tools = assistant.harnesses.filter((h) => accounts.some((a) => a.harness === h.id));
   const left = asking ? runningWith(asking.dir) : [];
-  const stoppable = left.filter((s) => ownTmux(s)).length;
+  const stoppable = left.filter((s) => s.actions.includes("stop")).length;
   return (
     <div ref={menu.ref} className="min-w-0">
       <button

@@ -99,6 +99,10 @@ pub struct Session {
     /// Its process still runs; `None` when that is not known (a session known from its log only).
     /// Worked out when the state is asked for, not kept
     alive: Option<bool>,
+    /// The ways into it and what can be done to its process, here and now (`doors`, `actions`,
+    /// `noDoor`); worked out when the state is asked for, see [`crate::doors::ways`]
+    #[serde(flatten)]
+    ways: crate::doors::Ways,
 }
 
 /// Something a session got from CodeDeck.
@@ -114,6 +118,13 @@ pub struct Received {
 const RECEIVED_KEPT: usize = 10;
 
 impl Session {
+    /// What can be offered for it now, by tool, computer, place and who started it.
+    fn ways(&self) -> crate::doors::Ways {
+        let alive = self.place.as_ref().and_then(crate::place::alive);
+        let facts = crate::doors::Facts { place: self.place.as_ref(), status: self.status, alive, capabilities: self.capabilities, moved: self.moved_to.is_some() };
+        crate::doors::ways(&facts, crate::platform::get())
+    }
+
     fn got(&mut self, at: u64, labels: Vec<String>) {
         self.received.insert(0, Received { at, labels });
         self.received.truncate(RECEIVED_KEPT);
@@ -171,6 +182,8 @@ pub type Part = (String, String, u64);
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AssistantState {
+    /// ▶ can start a session of this project here: its tool starts sessions, and tmux is there
+    can_start: bool,
     /// An event arrived since this window started
     heard: bool,
     /// How much of each account's allowance is used, as the tools last stated it
@@ -425,6 +438,7 @@ impl Bridge {
         let inner = self.inner.locked();
         let harnesses = harness::all().iter().map(|h| HarnessInfo::of(*h)).collect();
         AssistantState {
+            can_start: crate::projects::can_start(&self.current.get().root),
             heard: inner.heard,
             usage: inner.usage.list(),
             harnesses,
@@ -666,6 +680,11 @@ impl Bridge {
     }
 
     /// What is needed to go into a session: its tool, its account, where it runs.
+    /// What can be done with a session now: the commands go by this, as the interface does.
+    pub fn ways_of(&self, id: &str) -> Option<crate::doors::Ways> {
+        self.inner.locked().sessions.get(id).map(Session::ways)
+    }
+
     pub fn session_place(&self, id: &str) -> Option<(&'static str, Option<String>, Option<Place>)> {
         let inner = self.inner.locked();
         inner.sessions.get(id).map(|s| (s.harness, s.account.clone(), s.place.clone()))
@@ -901,6 +920,7 @@ impl Inner {
         let mut sessions: Vec<Session> = self.sessions.values().filter(|s| !spare(s)).cloned().collect();
         for s in &mut sessions {
             s.alive = s.place.as_ref().and_then(crate::place::alive);
+            s.ways = s.ways();
         }
         sessions.sort_by(|a, b| b.started.cmp(&a.started).then_with(|| a.id.cmp(&b.id)));
         sessions
@@ -1296,6 +1316,7 @@ fn new_session(id: &str, harness: &dyn Harness) -> Session {
         received: Vec::new(),
         place: None,
         alive: None,
+        ways: Default::default(),
     }
 }
 
@@ -1624,7 +1645,7 @@ mod tests {
         fn short_name(&self) -> &'static str {
             Fake.short_name()
         }
-        fn capabilities(&self) -> Capabilities {
+        fn declared(&self) -> Capabilities {
             Capabilities { attach: Way::WithNextPrompt, ..Fake.capabilities() }
         }
         fn connections(&self) -> Vec<harness::Connection> {
@@ -1750,7 +1771,7 @@ mod tests {
             fn id(&self) -> &'static str { "silent" }
             fn name(&self) -> &'static str { "Silent" }
             fn short_name(&self) -> &'static str { "Silent" }
-            fn capabilities(&self) -> Capabilities { Capabilities { start_rules: false, ..Fake.capabilities() } }
+            fn declared(&self) -> Capabilities { Capabilities { start_rules: false, ..Fake.capabilities() } }
             fn connections(&self) -> Vec<harness::Connection> { Vec::new() }
             fn connect(&self, a: &str, on: bool) -> Result<(), String> { Fake.connect(a, on) }
             fn translate(&self, raw: &serde_json::Value) -> Option<Event> { Fake.translate(raw) }
