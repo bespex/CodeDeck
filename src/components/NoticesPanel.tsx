@@ -8,6 +8,8 @@ import { useFold } from "./blocks";
 import type { ViewId } from "../view";
 import type { GitView } from "../git";
 import { GitInitButton, lacksGit } from "./GitInit";
+import { usePlatform } from "../platform";
+import { PlatformFacts, platformFacts } from "./PlatformFacts";
 
 /** Two tips for what is open: what is easy to miss in this view, not what the heading already says. */
 const tips = (view: ViewId, tool: string): string[] =>
@@ -64,6 +66,10 @@ export function NoticesPanel({ assistant, git, view, onClose }: { assistant: Ass
   const Fold = tools.open ? ChevronDown : ChevronRight;
   const hints = useFold("notices.hints", true);
   const HintsFold = hints.open ? ChevronDown : ChevronRight;
+  const machine = usePlatform();
+  // Open by itself while something is missing: that is why a button is not there
+  const machineFold = useFold("notices.machine", platformFacts(machine).some((f) => !f.ok));
+  const MachineFold = machineFold.open ? ChevronDown : ChevronRight;
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", key);
@@ -123,6 +129,13 @@ export function NoticesPanel({ assistant, git, view, onClose }: { assistant: Ass
               ))}
             </div>
           ))}
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <button type="button" aria-expanded={machineFold.open} onClick={machineFold.toggle} className="-ml-1 flex items-center gap-1 self-start rounded px-1 text-left hover:bg-overlay-hover">
+          <MachineFold className="size-3.5 text-slate-400" />
+          <Heading>{t("Detected on this computer")}</Heading>
+        </button>
+        {machineFold.open && <PlatformFacts platform={machine} />}
       </div>
       {lacksGit(git) && (
         <div className="flex flex-col gap-1.5">

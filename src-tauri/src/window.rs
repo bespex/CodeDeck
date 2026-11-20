@@ -479,7 +479,7 @@ pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 /// Tries to hold both shortcuts, now and again later while another program holds them.
 /// Runs in its own thread: registering waits for the main thread.
 pub fn claim_shortcuts(app: AppHandle) {
-    let wayland = std::env::var("XDG_SESSION_TYPE").is_ok_and(|t| t == "wayland");
+    let wayland = !crate::platform::abilities().global_shortcuts;
     std::thread::spawn(move || loop {
         let mut keys = Vec::new();
         for (keys_text, action) in [(SHOW_HIDE, "showHide"), (SIDEBAR, "sidebar")] {

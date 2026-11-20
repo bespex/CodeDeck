@@ -1,9 +1,8 @@
 //! The ways into a session (docs/SITZUNGEN.md B4, "Türen"), as far as they need no tool: its
 //! terminal. A session in tmux gets a terminal attached to its tmux session; one started by hand in
-//! a terminal gets that terminal window brought to the front (X11 only). The tool's own ways in
+//! a terminal gets that terminal window brought to the front (X11 only). Which terminal program
+//! opens is found once, see [`crate::terminal`]. The tool's own ways in
 //! (a desktop app) come from its adapter, see [`crate::harness::Harness::desktop_command`].
-
-use std::process::Command;
 
 use crate::harness::{Launched, Place};
 
@@ -23,11 +22,12 @@ pub fn terminal(place: &Place, attach: Option<Launched>) -> Result<(), String> {
             // A pane that is gone still leaves its tmux session to attach to
             let _ = crate::tmux::show_pane(&tmux.pane);
         }
-        let mut command = Command::new("x-terminal-emulator");
-        command.args(["-e", "tmux", "attach-session", "-t", &target]);
-        return crate::apps::detach(command).map_err(|e| format!("no terminal could be started: {e}"));
+        return crate::terminal::open(&["tmux", "attach-session", "-t", &target]);
     }
     let pid = place.pid.ok_or("CodeDeck does not know where this session runs")?;
+    if !crate::platform::get().x11 {
+        return Err("its terminal window cannot be brought to the front on this desktop (only under X11)".into());
+    }
     if raise_window_of(pid) {
         Ok(())
     } else {
@@ -104,7 +104,5 @@ fn in_new_terminal(launched: &Launched) -> Result<(), String> {
     let env = launched.env.iter().map(|(k, v)| format!("{k}={}", crate::tmux::word(v)));
     let argv = launched.argv.iter().map(|a| crate::tmux::word(a));
     let line = format!("exec env {}", env.chain(argv).collect::<Vec<_>>().join(" "));
-    let mut command = Command::new("x-terminal-emulator");
-    command.args(["-e", &shell, "-lc", &line]);
-    crate::apps::detach(command).map_err(|e| format!("no terminal could be started: {e}"))
+    crate::terminal::open(&[&shell, "-lc", &line])
 }

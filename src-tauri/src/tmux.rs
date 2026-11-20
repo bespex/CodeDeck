@@ -20,6 +20,7 @@ pub fn new_id() -> Result<String, String> {
 /// continues that conversation; else a new one starts under a fresh id. Gives the session's id and
 /// the tmux session's name.
 pub fn start(root: &Path, harness: &dyn Harness, account: Option<&str>, resume: Option<&str>) -> Result<(String, String), String> {
+    crate::platform::need_tmux()?;
     let project = root.file_name().map_or_else(|| "project".into(), |n| n.to_string_lossy().into_owned());
     let id = match resume {
         Some(id) => id.to_string(),

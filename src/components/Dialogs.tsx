@@ -2,6 +2,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Copy, X } from "lucide-react";
 import { appInfo, autostartState, setAutostart, type AutostartState, machineSettings, setMachineSetting, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
 import { useAccounts } from "../accounts";
+import { usePlatform } from "../platform";
+import { PlatformFacts, platformFacts } from "./PlatformFacts";
 import { AccountMark, MarkPicker } from "./ProjectMark";
 import { useConnections } from "../assistant";
 import { closeDialog, openDialog, useDialog, type SettingsSection } from "../dialogs";
@@ -74,6 +76,7 @@ export function Wordmark({ className = "" }: { className?: string }) {
 function About() {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [copied, setCopied] = useState(false);
+  const machine = usePlatform();
   useEffect(() => {
     appInfo().then(setInfo);
   }, []);
@@ -84,7 +87,7 @@ function About() {
     </button>
   );
   return (
-    <Modal title={t("About CodeDeck")} width="w-[380px]" bare>
+    <Modal title={t("About CodeDeck")} width="w-[420px]" bare>
       <div className="relative flex flex-col items-center gap-1.5 px-6 pt-7 pb-4 text-center">
         <button type="button" aria-label={t("Close")} onClick={closeDialog} className="absolute top-3 right-3 rounded p-1 text-slate-400 hover:bg-overlay-hover hover:text-slate-100">
           <X className="size-4" />
@@ -97,6 +100,11 @@ function About() {
         </p>
         <p className="text-[12px] text-slate-500 italic">{t("Your co-deck for AI sessions")}</p>
         <p className="text-[12px] text-slate-500">{t("Version {version}", { version })}</p>
+        {/* What CodeDeck found here: what a missing button is missing (docs/SITZUNGEN-PRUEFUNG.md S3) */}
+        <div className="mt-2 w-full rounded-md bg-panel px-3 py-2 text-left">
+          <div className="mb-1 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{t("Detected on this computer")}</div>
+          <PlatformFacts platform={machine} />
+        </div>
         <div className="mt-1 flex gap-3">
           {link(t("Website"), HOME_URL)}
           {link(t("Source code"), SOURCE_URL)}
@@ -108,7 +116,7 @@ function About() {
           type="button"
           disabled={!info}
           onClick={() => {
-            void navigator.clipboard.writeText(`CodeDeck ${version} · ${info?.os} · ${navigator.userAgent}`);
+            void navigator.clipboard.writeText(`CodeDeck ${version} · ${info?.os} · ${platformFacts(machine).map((f) => `${f.label}: ${f.value}`).join(" · ")} · ${navigator.userAgent}`);
             setCopied(true);
           }}
           className="flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[12px] text-slate-400 hover:bg-overlay-hover hover:text-slate-100"

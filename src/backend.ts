@@ -1467,6 +1467,40 @@ export function appInfo(): Promise<AppInfo> {
   return Promise.resolve({ version: "0.1.1", commit: "fdffba4", os: "Linux Mint 22.1 (preview)" });
 }
 
+/** What this computer offers CodeDeck, found once when it starts (`platform.rs`). */
+export interface Platform {
+  /** tmux version, e.g. "tmux 3.4"; null: sessions cannot be started or continued from CodeDeck */
+  tmux: string | null;
+  /** The terminal program's name; null: no terminal door */
+  terminal: string | null;
+  /** A session started by hand in a terminal can have its window brought to the front (X11) */
+  raiseWindows: boolean;
+  globalShortcuts: boolean;
+  placeWindows: boolean;
+  wayland: boolean;
+  /** `$XDG_CURRENT_DESKTOP`, e.g. "X-Cinnamon" */
+  desktop: string;
+  /** A tray host runs */
+  tray: boolean;
+}
+
+export function platform(): Promise<Platform> {
+  if (live) return invoke("platform");
+  // In the preview `?platform=wayland,notmux,noterminal,notray` shows what CodeDeck does without them
+  const off = (new URLSearchParams(window.location.search).get("platform") ?? "").split(",");
+  const wayland = off.includes("wayland");
+  return Promise.resolve({
+    tmux: off.includes("notmux") ? null : "tmux 3.4",
+    terminal: off.includes("noterminal") ? null : "x-terminal-emulator",
+    raiseWindows: !wayland,
+    globalShortcuts: !wayland,
+    placeWindows: !wayland,
+    wayland,
+    desktop: wayland ? "KDE" : "X-Cinnamon",
+    tray: !off.includes("notray"),
+  });
+}
+
 /** Opens a web address in the browser. */
 export function openUrl(url: string): Promise<void> {
   if (live) return invoke("open_url", { url });

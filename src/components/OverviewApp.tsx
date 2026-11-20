@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { History, AppWindow, ChevronRight, ChevronsDownUp, ChevronsUpDown, Shapes, Eye, EyeOff, ListX, Loader, Check, Copy, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
+import { canStart, hasTerminalDoor, usePlatform } from "../platform";
 import { forgetRecent, toggleOverview, onTodayStarted, sessionCommands, pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
 import { ownTmux } from "../assistant";
 import { accountLook, useAccounts } from "../accounts";
@@ -496,9 +497,14 @@ function ProjectRow({ project, name, drag, inRecent = false }: { project: Overvi
   // A session that runs with another configuration than the project's
   const wrongAccount = (s: Session) => !!project.account && !!s.account && s.account !== project.account;
   const pending = usePending(project.path, (project.state?.sessions ?? []).map((s) => s.id), 5000);
-  const go = (s: Session, door: "desktop" | "terminal" | "auto") => openSession(project.path, s.id, door).catch((e) => tell(String(e)));
-  // Double click: Desktop where the session is reachable there, else its terminal
-  const defaultDoor = (s: Session) => (s.place?.remote ? "desktop" : "terminal");
+  // What this computer offers: no ▶ without tmux, no terminal door without a terminal (docs/SITZUNGEN-PRUEFUNG.md K1)
+  const machine = usePlatform();
+  // Double click: Desktop where the session is reachable there, else its terminal, if there is one here
+  const defaultDoor = (s: Session) => (s.place?.remote ? "desktop" : hasTerminalDoor(s, machine) ? "terminal" : null);
+  const go = (s: Session, door: "desktop" | "terminal" | "auto") => {
+    if ((door === "terminal" && !hasTerminalDoor(s, machine)) || (door === "auto" && !defaultDoor(s))) return;
+    openSession(project.path, s.id, door).catch((e) => tell(String(e)));
+  };
   return (
     <li data-project={drag ? project.path : undefined} data-group={drag?.group} className={`relative border-t border-line/40 py-1 first:border-t-0 ${drag?.dragged ? "opacity-35" : ""}`}>
       {/* Where the dragged project would land */}
@@ -581,6 +587,8 @@ function ProjectRow({ project, name, drag, inRecent = false }: { project: Overvi
             </>
           ) : (
           <>
+          {canStart(machine) && (
+          <>
           <Tool
             icon={Play}
             label={t("Start session (continues the last one)")}
@@ -600,6 +608,8 @@ function ProjectRow({ project, name, drag, inRecent = false }: { project: Overvi
             }
           />
           <ToolGap />
+          </>
+          )}
           <Tool icon={Ellipsis} label={t("More (also right click)")} onClick={() => setMenu((m) => !m)} />
           </>
           )}
@@ -614,7 +624,7 @@ function ProjectRow({ project, name, drag, inRecent = false }: { project: Overvi
           {pending.map((p) => (
             <li
               key={p.name}
-              onDoubleClick={() => void pendingSession(project.path, p.name, false).catch((e) => tell(String(e)))}
+              onDoubleClick={() => machine.terminal !== null && void pendingSession(project.path, p.name, false).catch((e) => tell(String(e)))}
               title={p.waits ? t("Nothing reported yet: it may ask a question, e.g. whether to trust the folder.") : t("In tmux {name}", { name: p.name })}
               className="group/s flex h-7 cursor-default items-center gap-2 pr-2 pl-9 text-[12px] hover-session"
             >
@@ -623,7 +633,7 @@ function ProjectRow({ project, name, drag, inRecent = false }: { project: Overvi
               </span>
               <span className="min-w-0 flex-1 truncate text-slate-400">{t("Starting…")}</span>
               <HoverTools show="group-hover/s:flex">
-                <Tool icon={SquareTerminal} label={t("Open it in a terminal, answer, and leave with Ctrl+B, D")} onClick={() => void pendingSession(project.path, p.name, false).catch((e) => tell(String(e)))} />
+                {machine.terminal !== null && <Tool icon={SquareTerminal} label={t("Open it in a terminal, answer, and leave with Ctrl+B, D")} onClick={() => void pendingSession(project.path, p.name, false).catch((e) => tell(String(e)))} />}
                 {p.command && <Tool icon={Copy} label={t("Copy how it was started")} says={p.command} onClick={() => copyCommand(p.command!)} />}
                 <ToolGap />
                 <Tool icon={Power} label={t("End this session (nothing is lost; it never began)")} onClick={() => void pendingSession(project.path, p.name, true).catch((e) => tell(String(e)))} />
@@ -639,7 +649,13 @@ function ProjectRow({ project, name, drag, inRecent = false }: { project: Overvi
                 onClick={front}
                 onDoubleClick={() => void go(s, "auto")}
                 onAuxClick={(e) => e.button === 1 && void go(s, "terminal")}
-                title={[s.model, !s.place?.launched && t("by hand"), t("Double-click: go to it ({door}) · middle click: terminal", { door: defaultDoor(s) === "desktop" ? t("Desktop") : t("Terminal") })].filter(Boolean).join(" · ")}
+                title={[
+                  s.model,
+                  !s.place?.launched && t("by hand"),
+                  defaultDoor(s) && (hasTerminalDoor(s, machine) ? t("Double-click: go to it ({door}) · middle click: terminal", { door: defaultDoor(s) === "desktop" ? t("Desktop") : t("Terminal") }) : t("Double-click: open in the desktop app")),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
                 className="group/s flex h-7 cursor-default items-center gap-2 pr-2 pl-9 text-[12px] hover-session"
               >
                 <SessionBadge mark={markOf(s)} />
@@ -652,7 +668,7 @@ function ProjectRow({ project, name, drag, inRecent = false }: { project: Overvi
                 <HoverTools show="group-hover/s:flex">
                   {/* Ways into it first, then what changes its process, apart */}
                   {s.place?.remote && <Tool icon={Monitor} label={t("Open in the desktop app")} hint={defaultDoor(s) === "desktop" ? t("Also: double-click the session") : undefined} onClick={() => void go(s, "desktop")} />}
-                  <Tool icon={SquareTerminal} label={t("Open in a terminal")} hint={t("Also: middle-click the session")} onClick={() => void go(s, "terminal")} />
+                  {hasTerminalDoor(s, machine) && <Tool icon={SquareTerminal} label={t("Open in a terminal")} hint={t("Also: middle-click the session")} onClick={() => void go(s, "terminal")} />}
                   {s.place?.tmux?.session && <Tool icon={Copy} label={t("Copy how it was started")} onClick={() => void copyStartOf(project.path, s.place!.tmux!.session!)} />}
                   {/* Sessions CodeDeck started in tmux can be stopped and restarted from here; not while they work */}
                   {ownTmux(s) && s.status !== "working" && (
@@ -954,6 +970,7 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
   const host = (projects.find((p) => p.front) ?? projects.find((p) => p.label))?.label ?? null;
   // Today's list: projects with the star and no live session
   const now = useNow();
+  const machine = usePlatform();
   const toStart = projects.filter((p) => p.daily && !(p.state?.sessions ?? []).some((s) => relevant(s, now) && s.alive !== false && (s.alive === true || s.status === "working" || s.status === "waiting"))).length;
   const told = ([started, skipped]: [string[], string[]]) =>
     tell(
@@ -992,6 +1009,7 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
             <span className="mx-1 h-4 w-px bg-line" />
           </>
         )}
+        {canStart(machine) && (
         <button
           type="button"
           title={toStart ? t("Start today's list: {n} without a running session", { n: toStart }) : t("Start today's list (set in a project's menu)")}
@@ -1001,6 +1019,7 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
           <Play className="size-4" />
           {toStart > 0 && <span className="absolute top-0.5 right-0.5 min-w-3.5 rounded-full bg-ai px-0.5 text-center text-[9px] leading-[14px] font-semibold text-white">{toStart}</span>}
         </button>
+        )}
         {/* Adding a project is in the menu (user, 2026-11-19), with Ctrl+O */}
         <MoreMenu host={host} inWindow={inProject} />
       </header>

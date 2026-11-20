@@ -18,6 +18,7 @@ import {
   Stethoscope,
   X,
 } from "lucide-react";
+import { canStart, usePlatform } from "../platform";
 import { appInfo, diagnostics, openUrl, setProject, startSession, stopSession, type Account, type AssistantState, type ProjectInfo, closeWindow } from "../backend";
 import { ownTmux } from "../assistant";
 import { useAccounts } from "../accounts";
@@ -170,6 +171,8 @@ export function QuickSettings({ onColor = false }: { onColor?: boolean }) {
  */
 function StartButtons({ project }: { project: ProjectInfo | null }) {
   const [note, setNote] = useState<string | null>(null);
+  // Sessions start in tmux: without it there is nothing to offer here (the bell says why)
+  const machine = usePlatform();
   useEffect(() => {
     if (!note) return;
     const timer = setTimeout(() => setNote(null), 5000);
@@ -180,6 +183,7 @@ function StartButtons({ project }: { project: ProjectInfo | null }) {
     startSession(project.path, fresh)
       .then((name) => setNote(name ? t("Started in tmux {name}", { name }) : t("A session runs there already")))
       .catch((e) => setNote(String(e)));
+  if (!canStart(machine)) return null;
   return (
     <>
       <button type="button" disabled={!project} title={t("Continue the last conversation in a new session (nothing starts while one runs)")} aria-label={t("Continue session")} onClick={() => void start(false)} className={iconButton(false)}>

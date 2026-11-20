@@ -22,11 +22,13 @@ mod identity;
 mod journal;
 mod markers;
 mod place;
+mod platform;
 mod project;
 mod projects;
 mod recent;
 mod rules;
 mod snapshot;
+mod terminal;
 mod tmux;
 mod tray;
 mod updates;
@@ -165,6 +167,12 @@ fn app_info() -> AppInfo {
     AppInfo { version: env!("CARGO_PKG_VERSION"), commit: env!("CODEDECK_COMMIT"), os }
 }
 
+/// What this computer offers: tmux, a terminal, X11 or Wayland, shortcuts, tray (found once).
+#[tauri::command]
+fn platform() -> platform::Abilities {
+    platform::abilities()
+}
+
 /// What happened in this project since `since` (Unix milliseconds), oldest first: the material of
 /// the timeline in Activity and of the notices.
 #[tauri::command]
@@ -186,6 +194,15 @@ fn diagnostics(window: WebviewWindow, shortcuts: State<window::Shortcuts>, all: 
     let _ = writeln!(out, "CodeDeck {} ({}) · {} · {} · {}", info.version, info.commit, info.os, env("XDG_SESSION_TYPE"), env("XDG_CURRENT_DESKTOP"));
     let _ = writeln!(out, "Program: {}", std::env::current_exe().map_or_else(|e| e.to_string(), |p| p.display().to_string()));
     let _ = writeln!(out, "Project: {}", root.display());
+    let p = platform::abilities();
+    let _ = writeln!(
+        out,
+        "Detected: tmux {} · terminal {} · {} · tray {}",
+        p.tmux.as_deref().unwrap_or("missing"),
+        p.terminal.as_deref().unwrap_or("missing"),
+        if p.wayland { "Wayland" } else if p.raise_windows { "X11" } else { "no display" },
+        if p.tray { "yes" } else { "no host" }
+    );
     let processes = std::fs::read_dir(hook::socket_dir())
         .into_iter()
         .flatten()
@@ -1278,6 +1295,7 @@ pub fn run() {
             app_info,
             open_url,
             global_shortcuts,
+            platform,
             fetch_outside,
             forget_found,
             open_outside,

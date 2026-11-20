@@ -55,6 +55,7 @@ import { plural } from "../git";
 import { LOCALE } from "./Trail";
 import { blockedUntil, resetAt } from "../usage";
 import { known, T, t } from "../i18n";
+import { canContinue, hasTerminalDoor, usePlatform } from "../platform";
 
 interface Props {
   assistant: AssistantState;
@@ -320,8 +321,10 @@ function PendingItem({ pending, projectPath }: { pending: Pending; projectPath: 
   const [failed, setFailed] = useState<string | null>(null);
   const commands = useSessionCommands(projectPath, pending.name);
   const act = (end: boolean) => projectPath && pendingSession(projectPath, pending.name, end).catch((e) => setFailed(String(e)));
+  // Without a terminal program the tmux command in the tooltip is the way in
+  const terminal = usePlatform().terminal !== null;
   return (
-    <li onDoubleClick={() => void act(false)} title={t("Double-click: open it in a terminal")} className="group/pending flex items-center gap-2.5 rounded-md py-2 pr-2.5 pl-2.5 hover:bg-raised/40">
+    <li onDoubleClick={() => terminal && void act(false)} title={terminal ? t("Double-click: open it in a terminal") : undefined} className="group/pending flex items-center gap-2.5 rounded-md py-2 pr-2.5 pl-2.5 hover:bg-raised/40">
       <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-500/60 text-slate-400">
         <Loader className="size-4 animate-spin [animation-duration:2.5s]" />
       </span>
@@ -343,7 +346,7 @@ function PendingItem({ pending, projectPath }: { pending: Pending; projectPath: 
           </span>
           <span className="flex-1" />
           <HoverTools show="group-hover/pending:flex">
-            <Tool icon={SquareTerminal} label={t("Open it in a terminal, answer, and leave with Ctrl+B, D")} hint={t("Also: double-click")} onClick={() => void act(false)} />
+            {terminal && <Tool icon={SquareTerminal} label={t("Open it in a terminal, answer, and leave with Ctrl+B, D")} hint={t("Also: double-click")} onClick={() => void act(false)} />}
             {commands?.start && <Tool icon={Copy} label={t("Copy how it was started")} says={commands.tool ?? commands.start} onClick={() => void navigator.clipboard.writeText(commands.start!)} />}
             <ToolGap />
             <Tool icon={Power} danger label={t("End this session (nothing is lost; it never began)")} says={commands?.stop} onClick={() => void act(true)} />
@@ -402,6 +405,11 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
   const byHand = s.status !== "ended" && !s.place?.launched;
   // Sent to the background, it goes on there: continuing it here would split it a second time
   const canResume = resumable(s) && !s.movedTo && !!projectPath;
+  // What this computer offers: without tmux nothing continues here, without a terminal (or, for a
+  // session in a terminal of its own, under Wayland) no terminal door
+  const machine = usePlatform();
+  const continuable = canResume && canContinue(s, machine);
+  const terminalDoor = hasTerminalDoor(s, machine);
   const background = !!s.place?.background && s.status !== "ended";
   // As in the project list: a double click goes to it (Desktop where reachable there, else its
   // terminal), a middle click always to its terminal
@@ -410,15 +418,15 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
     setFailed(String(e));
     setTimeout(() => setFailed(null), 6000);
   };
-  const door = s.place?.remote ? "desktop" : "terminal";
+  const door = s.place?.remote ? "desktop" : terminalDoor ? "terminal" : null;
   const go = (to: "desktop" | "terminal" | "auto") => {
-    if (!projectPath || canResume) return;
+    if (!projectPath || canResume || (to === "terminal" && !terminalDoor) || (to === "auto" && !door)) return;
     setFailed(null);
     openSession(projectPath, s.id, to).catch(fail);
   };
   const [resuming, setResuming] = useState(false);
   const resume = () => {
-    if (!projectPath || resuming) return;
+    if (!projectPath || resuming || !continuable) return;
     setFailed(null);
     setResuming(true);
     // Its "Starting…" row shows at once; the card turns live when the session reports
@@ -490,8 +498,14 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
       onAuxClick={(e) => e.button === 1 && go("terminal")}
       title={
         canResume
-          ? t("Double-click: continue this conversation")
-          : t("Double-click: go to it ({door}) · middle click: terminal", { door: door === "desktop" ? t("Desktop") : t("Terminal") })
+          ? continuable
+            ? t("Double-click: continue this conversation")
+            : undefined
+          : door
+            ? terminalDoor
+              ? t("Double-click: go to it ({door}) · middle click: terminal", { door: door === "desktop" ? t("Desktop") : t("Terminal") })
+              : t("Double-click: open in the desktop app")
+            : undefined
       }
       // `data-event`: a theme can make the reason stand out in its colour (docs/STYLING.md, `events`)
       data-event={wait === "asks" ? "waiting" : wait}
@@ -576,7 +590,7 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
               {!canResume && s.status !== "ended" && (
                 <>
                   {s.place?.remote && <Tool icon={Monitor} label={t("Open in the desktop app")} hint={door === "desktop" ? t("Also: double-click the session") : undefined} onClick={() => go("desktop")} />}
-                  <Tool icon={SquareTerminal} label={t("Open in a terminal")} hint={t("Also: middle-click the session")} onClick={() => go("terminal")} />
+                  {terminalDoor && <Tool icon={SquareTerminal} label={t("Open in a terminal")} hint={t("Also: middle-click the session")} onClick={() => go("terminal")} />}
                 </>
               )}
               {/* What changes its process, apart; only in tmux, and not while it works */}
@@ -596,7 +610,7 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
               <ToolGap />
               <Tool icon={Ellipsis} label={t("More (also right click)")} onClick={(e) => openMenu(e)} />
             </HoverTools>
-            {canResume ? (
+            {canResume && !continuable ? null : canResume ? (
               <button
                 type="button"
                 disabled={resuming}
@@ -608,7 +622,18 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
                 {resuming ? <Loader className="size-3 shrink-0 animate-spin" /> : <Play className="size-3 shrink-0" />}
                 {t("Continue")}
               </button>
-            ) : s.status === "ended" || s.movedTo ? null : (
+            ) : s.status === "ended" || s.movedTo || (!door && s.place?.pid == null && !s.place?.tmux && !s.place?.background) ? null : !door ? (
+              // No way in from here on this computer (e.g. its own terminal under Wayland): said, not offered
+              s.place?.tmux || s.place?.background ? (
+                <span title={t("No terminal program was found on this computer (see About CodeDeck)")} className="shrink-0 text-[11px] text-slate-500">
+                  {t("no terminal found")}
+                </span>
+              ) : (
+                <span title={t("CodeDeck cannot bring this session's window to the front on this computer: switch to it where it runs")} className="shrink-0 text-[11px] text-slate-500">
+                  {t("in its own terminal")}
+                </span>
+              )
+            ) : (
               // Going into the session is what one comes for most (user, 2026-11-20): always in sight, not
               // only on a double click; while it asks, as the answer it waits for
               <button
