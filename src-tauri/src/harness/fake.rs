@@ -64,6 +64,7 @@ impl Harness for Fake {
                 ids.iter().filter_map(|v| v.as_str()).map(|id| super::Background { id: id.into(), kind: "shell".into(), text: id.into() }).collect()
             }),
             task_ended: text("ended"),
+            detail: text("detail"),
             account: text("account"),
             place: None,
         })

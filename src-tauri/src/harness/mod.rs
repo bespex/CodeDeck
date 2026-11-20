@@ -173,6 +173,10 @@ pub struct Event {
     pub file: Option<String>,
     /// What writes, in the tool's own words; shown with the snapshot, never interpreted
     pub tool: Option<String>,
+    /// What the tool is about to do, in its own words (a shell command), shortened: shown while
+    /// the session asks for permission to do it, never interpreted
+    #[serde(default)]
+    pub detail: Option<String>,
     pub prompt: Option<String>,
     pub message: Option<String>,
     /// With the end of a turn: what the assistant said last, kept with the turn

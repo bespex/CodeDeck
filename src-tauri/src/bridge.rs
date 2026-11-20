@@ -79,6 +79,11 @@ pub struct Session {
     /// Unix milliseconds: when its latest turn ended, as it reported; `None` while it works
     /// and for a session that never reported
     turn_done: Option<u64>,
+    /// The user saw its finished turn (went into it, opened the turn, put it aside): it waits no
+    /// longer, though nothing happened since. Starts over with the next turn
+    seen: bool,
+    /// What it said at the end of its latest turn, shortened; `None` while it works
+    report: Option<String>,
     /// Where its running turn began, per repository it was about to write in; empty between turns
     turn: Vec<TurnStart>,
     /// Files it wrote, project-relative, newest first
@@ -285,6 +290,8 @@ impl Bridge {
         let git = Arc::new(Git::new());
         let bridge = Arc::new(Self { inner: Mutex::new(inner), snapshotting: Mutex::new(()), label: Mutex::new(None), current, git, journal: Journal::default() });
         bridge.journal.write(&bridge.current.get().root, &journal::Line::opened(now_ms()), now_ms());
+        // From now on every session that asks or finishes a turn is news; there is none yet
+        crate::attention::observe(app, &bridge.current.get().root, Vec::new());
         bridge.load_recent(app);
         // Holds the bridge only weakly: when its window is gone, the loop ends
         let (watcher, watching) = (Arc::downgrade(&bridge), app.clone());
@@ -315,6 +322,9 @@ impl Bridge {
         // The overview shows every project's sessions
         if event == ASSISTANT_CHANGED {
             crate::windows::overview_changed(app);
+            // Told here, for every project of the process, not by the window that shows one of them:
+            // a session in a project no window shows right now asks just as well
+            crate::attention::observe(app, &self.current.get().root, self.waits());
         }
     }
 
@@ -343,6 +353,7 @@ impl Bridge {
                 cwd: None,
                 file: None,
                 tool: None,
+                detail: None,
                 prompt: None,
                 message: None,
                 report: None,
@@ -356,6 +367,34 @@ impl Bridge {
             };
             self.handle(app, &end);
         }
+    }
+
+    /// The sessions that wait for the user, as `needsYou` in the interface sees them: one that asks,
+    /// or one whose turn is over. Only sessions that report count; of one known from its log nothing
+    /// is known but that it was there.
+    pub fn waits(&self) -> Vec<crate::attention::Wait> {
+        let inner = self.inner.locked();
+        inner
+            .sessions
+            .values()
+            .filter(|s| s.capabilities.live_status)
+            .filter_map(|s| {
+                let asks = match (s.status, s.turn_done) {
+                    ("waiting", _) => true,
+                    ("idle", Some(_)) if !s.seen => false,
+                    _ => return None,
+                };
+                Some(crate::attention::Wait {
+                    // A new key is a new reason to tell: each question once, each finished turn once
+                    key: if asks { format!("{}:asks", s.id) } else { format!("{}:done:{}", s.id, s.turn_done.unwrap_or(0)) },
+                    session: s.id.clone(),
+                    asks,
+                    title: s.title.clone().unwrap_or_else(|| format!("Session {}", s.id.chars().take(8).collect::<String>())),
+                    short: s.short.clone(),
+                    text: if asks { s.message.clone() } else { s.prompt.clone() },
+                })
+            })
+            .collect()
     }
 
     pub fn state(&self) -> AssistantState {
@@ -494,6 +533,34 @@ impl Bridge {
         self.tell(app, ASSISTANT_CHANGED, self.state());
     }
 
+    /// The user saw a session's finished turn: it no longer waits for them (until its next turn).
+    pub fn seen(&self, app: &AppHandle, id: &str) {
+        let changed = {
+            let mut inner = self.inner.locked();
+            match inner.sessions.get_mut(id) {
+                Some(s) if s.turn_done.is_some() && !s.seen => {
+                    s.seen = true;
+                    true
+                }
+                _ => false,
+            }
+        };
+        if changed {
+            self.tell(app, ASSISTANT_CHANGED, self.state());
+        }
+    }
+
+    /// What is needed to continue one session: its tool and account; `Err` while it still runs,
+    /// where a second process would only stand beside the first.
+    pub fn resume_info(&self, id: &str) -> Result<(&'static str, Option<String>), String> {
+        let inner = self.inner.locked();
+        let s = inner.sessions.get(id).ok_or("this session is not known (any more)")?;
+        if s.status != "ended" && s.place.as_ref().and_then(crate::place::alive) == Some(true) {
+            return Err("it still runs: go into it instead".into());
+        }
+        Ok((s.harness, s.account.clone()))
+    }
+
     /// Takes a session off the list until it reports again.
     pub fn forget(&self, app: &AppHandle, id: &str) {
         {
@@ -568,7 +635,7 @@ impl Bridge {
         let live = inner.sessions.values().filter(|s| s.capabilities.live_status);
         live.fold((0, 0), |(asks, done), s| match (s.status, s.turn_done) {
             ("waiting", _) => (asks + 1, done),
-            ("idle", Some(at)) if now.saturating_sub(at) < done_for => (asks, done + 1),
+            ("idle", Some(at)) if !s.seen && now.saturating_sub(at) < done_for => (asks, done + 1),
             _ => (asks, done),
         })
     }
@@ -625,6 +692,12 @@ impl Bridge {
             let mut inner = self.inner.locked();
             inner.apply(&e.session, info, harness, root);
             inner.save_identities();
+        }
+        // Kept with the session: what a finished turn shows in the list
+        if let (EventKind::TurnDone, Some(text)) = (e.kind, &said) {
+            if let Some(session) = self.inner.locked().sessions.get_mut(&e.session) {
+                session.report = Some(report_shown(text));
+            }
         }
         // The start rules ask for the link of a page published elsewhere at the end of the turn
         if let (EventKind::TurnDone, Some(text)) = (e.kind, &said) {
@@ -845,6 +918,10 @@ impl Inner {
         if session.prompt.is_none() {
             session.prompt = seen.prompt.as_deref().map(shorten);
         }
+        // Of a session known from its log: how its last turn ended, to tell which one to continue
+        if session.report.is_none() && session.status != "working" {
+            session.report = seen.report.as_deref().map(report_shown);
+        }
         for (file, at) in seen.writes {
             if let Some(path) = relative(root, &file) {
                 if !session.touched.iter().any(|t| t.path == path) {
@@ -958,6 +1035,7 @@ impl Inner {
                 session.message = None;
                 session.step = None;
                 session.turn_done = None;
+                session.report = None;
             }
             EventKind::BeforeWrite | EventKind::AfterWrite => {
                 session.status = "working";
@@ -965,7 +1043,11 @@ impl Inner {
                 session.turn_done = None;
                 session.step = match (&e.tool, file.as_deref()) {
                     (Some(tool), Some(f)) => Some(format!("{tool} {}", relative(root, f).unwrap_or_else(|| f.display().to_string()))),
-                    (Some(tool), None) => Some(tool.clone()),
+                    // A shell command says what it runs: that is what a permission asks about
+                    (Some(tool), None) => Some(match &e.detail {
+                        Some(detail) => format!("{tool} {detail}"),
+                        None => tool.clone(),
+                    }),
                     _ => session.step.take(),
                 };
             }
@@ -979,7 +1061,10 @@ impl Inner {
                 session.status = "idle";
                 session.message = None;
                 // Said twice (the end of the turn, then "waiting for your input"): the first counts
-                session.turn_done.get_or_insert(now);
+                if session.turn_done.is_none() {
+                    session.turn_done = Some(now);
+                    session.seen = false;
+                }
             }
             EventKind::SessionEnded => {
                 session.status = "ended";
@@ -1120,6 +1205,8 @@ fn new_session(id: &str, harness: &dyn Harness) -> Session {
         message: None,
         step: None,
         turn_done: None,
+        seen: false,
+        report: None,
         turn: Vec::new(),
         touched: Vec::new(),
         received: Vec::new(),
@@ -1172,6 +1259,22 @@ fn relative(root: &Path, path: &Path) -> Option<String> {
 fn shorten(text: &str) -> String {
     let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
     if line.chars().count() > 90 { format!("{}…", line.chars().take(89).collect::<String>()) } else { line }
+}
+
+/// A turn's last words as the list shows them: plain text on one line (no headings, emphasis or
+/// code marks, which only take room in three short lines), long enough to fill them.
+fn report_shown(text: &str) -> String {
+    let plain: String = text
+        .lines()
+        .map(|l| l.trim_start_matches(|c: char| c == '#' || c == '>' || c.is_whitespace()))
+        .map(|l| l.strip_prefix("- ").or_else(|| l.strip_prefix("* ")).unwrap_or(l))
+        .filter(|l| !l.starts_with("```") && !l.starts_with("---") && !l.starts_with('|'))
+        .collect::<Vec<_>>()
+        .join(" ")
+        .replace("**", "")
+        .replace('`', "");
+    let line = plain.split_whitespace().collect::<Vec<_>>().join(" ");
+    if line.chars().count() > 400 { format!("{}…", line.chars().take(399).collect::<String>()) } else { line }
 }
 
 /// Where running turns are kept between windows: next to the sockets, so a restart of the
@@ -1244,6 +1347,34 @@ mod tests {
 
     /// Where a session runs comes with each message: the tmux name survives messages that did not
     /// ask for it, and a remote link that is gone is gone (the connection dropped).
+    #[test]
+    fn a_finished_turn_waits_until_seen_and_a_permission_says_what_it_runs() {
+        let root = Path::new("/p");
+        let mut inner = Inner::default();
+        let mut step = |inner: &mut Inner, raw: &str, now: u64| {
+            let event = Fake.translate(&serde_json::from_str(raw).unwrap()).unwrap();
+            inner.take_in(&event, &Fake, root, Vec::new, now);
+        };
+        step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Test it"}"#, 10);
+        step(&mut inner, r#"{"who":"a1","did":"will-write","in":"/p","with":"Bash","detail":"cargo test --all"}"#, 20);
+        step(&mut inner, r#"{"who":"a1","did":"asks","in":"/p","text":"May I?"}"#, 30);
+        assert_eq!(inner.sessions["a1"].step.as_deref(), Some("Bash cargo test --all"));
+        step(&mut inner, r#"{"who":"a1","did":"done","in":"/p"}"#, 40);
+        inner.sessions.get_mut("a1").unwrap().seen = true;
+        // Said again a minute later: still the same turn, still seen
+        step(&mut inner, r#"{"who":"a1","did":"done","in":"/p"}"#, 100);
+        assert_eq!((inner.sessions["a1"].turn_done, inner.sessions["a1"].seen), (Some(40), true));
+        // The next turn waits again
+        step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"More"}"#, 200);
+        step(&mut inner, r#"{"who":"a1","did":"done","in":"/p"}"#, 210);
+        assert_eq!((inner.sessions["a1"].turn_done, inner.sessions["a1"].seen), (Some(210), false));
+    }
+
+    #[test]
+    fn a_report_is_shown_as_one_plain_line() {
+        assert_eq!(report_shown("## Done\n\n- **Fixed** the `limit`\n```rust\nx\n```"), "Done Fixed the limit x");
+    }
+
     #[test]
     fn keeps_where_a_session_runs() {
         use crate::harness::Tmux;

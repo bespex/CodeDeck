@@ -2,7 +2,8 @@
 // between two snapshots of one repository: the one taken before the session's first write and
 // the one taken when it was done. A running turn has no end yet and reaches up to the present.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { openView } from "./view";
 import { gitCompare, type RepoStatus, type Session, type Snapshot } from "./backend";
 
 export interface Turn {
@@ -107,4 +108,31 @@ export function useTurnWriters(repo: string, turns: Turn[]): Map<string, string>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repo, key]);
   return writers;
+}
+
+/* A session's latest turn asked for from outside the Changes view (a session's card: "See the
+   turn"). The view picks it up when it is there, even if it opens only now, and only once. */
+let wanted: string | null = null;
+const wantedListeners = new Set<() => void>();
+
+/** Shows the latest turn of a session in Changes. */
+export function showTurnOf(session: string) {
+  wanted = session;
+  openView("changes");
+  wantedListeners.forEach((l) => l());
+}
+
+/** The session whose latest turn is asked for, until `turnShown` says it is shown. */
+export const useWantedTurn = () =>
+  useSyncExternalStore(
+    (l) => {
+      wantedListeners.add(l);
+      return () => wantedListeners.delete(l);
+    },
+    () => wanted,
+  );
+
+export function turnShown() {
+  wanted = null;
+  wantedListeners.forEach((l) => l());
 }

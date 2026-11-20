@@ -593,6 +593,13 @@ fn forget_session(id: String, app: AppHandle, window: WebviewWindow) -> Result<(
     Ok(())
 }
 
+/// The user saw a session's finished turn: it waits no longer (until its next turn).
+#[tauri::command]
+fn session_seen(id: String, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+    windows::of(&window)?.bridge().seen(&app, &id);
+    Ok(())
+}
+
 /// Whether the coding tools report to CodeDeck, per tool and account.
 #[tauri::command]
 fn harness_connections() -> Vec<Connection> {
@@ -852,6 +859,19 @@ async fn start_session(project: String, fresh: bool, app: AppHandle) -> Result<O
     start_in(&app, &root, fresh)
 }
 
+/// Continues one conversation of a project in tmux, the one the user picked (not, as
+/// [`start_session`] does, the latest): in its own tool and account, else the project's.
+#[tauri::command]
+async fn resume_session(project: String, session: String, app: AppHandle) -> Result<String, String> {
+    let root = Project::open(Path::new(&project))?.root;
+    let (tool, account) = windows::bridge_for(&app, &root).resume_info(&session)?;
+    let tool = harness::by_id(Some(tool)).ok_or("unknown tool")?;
+    let account = account.or_else(|| projects::list().into_iter().find(|p| p.path == root).and_then(|p| p.account));
+    let (_, name) = tmux::start(&root, tool, account.as_deref(), Some(&session))?;
+    started(&app);
+    Ok(name)
+}
+
 /// Starts the sessions of every project on today's list that has none running, one after the
 /// other (docs/SITZUNGEN.md A12). The names of the projects started and of those skipped.
 #[tauri::command]
@@ -1000,20 +1020,27 @@ async fn session_commands(project: String, name: String) -> Option<Commands> {
 // Async, so not on the main thread: it may read the session's log first and starts programs
 #[tauri::command]
 async fn open_session(project: String, session: String, door: String, app: AppHandle) -> Result<(), String> {
-    let bridge = windows::bridge_for(&app, Path::new(&project));
+    enter_session(&app, Path::new(&project), &session, &door)
+}
+
+/// Goes into a session, from the list or from a click on its notification: see [`open_session`].
+pub(crate) fn enter_session(app: &AppHandle, project: &Path, session: &str, door: &str) -> Result<(), String> {
+    let bridge = windows::bridge_for(app, project);
+    // Going into it is looking at it: a finished turn waits no longer
+    bridge.seen(app, session);
     // A fresh session has not told its link yet: its log may have it already
     if door != "terminal" {
-        bridge.discover_remote(&app, &session);
+        bridge.discover_remote(app, session);
     }
-    let (harness, account, place) = bridge.session_place(&session).ok_or("this session is not known (any more)")?;
+    let (harness, account, place) = bridge.session_place(session).ok_or("this session is not known (any more)")?;
     let place = place.ok_or("this session has not said where it runs yet")?;
     // `auto` (a double click): the desktop app where the session is reachable there, else its terminal
-    let door = match door.as_str() {
-        "auto" if place.remote.is_some() => "desktop".to_string(),
-        "auto" => "terminal".to_string(),
+    let door = match door {
+        "auto" if place.remote.is_some() => "desktop",
+        "auto" => "terminal",
         _ => door,
     };
-    match door.as_str() {
+    match door {
         "terminal" => doors::terminal(&place),
         "desktop" => {
             let remote = place.remote.as_deref().ok_or("not reachable from the desktop app: Remote Control is off or not connected")?;
@@ -1225,6 +1252,8 @@ pub fn run() {
             start_rules,
             rename_session,
             forget_session,
+            session_seen,
+            resume_session,
             harness_connections,
             set_harness_connection,
             set_usage_connection,

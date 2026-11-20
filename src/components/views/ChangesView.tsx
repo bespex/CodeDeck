@@ -10,6 +10,7 @@ import {
   gitSnapshotDiff,
   gitWorkingDiff,
   onFsChanged,
+  sessionSeen,
   type AssistantState,
   type Commit,
   type Patch,
@@ -18,7 +19,7 @@ import {
 } from "../../backend";
 import { mainHarness, shortId, useSessionMarks } from "../../assistant";
 import { changedSinceViewed, reviewKey, reviewSlot, toggleReviewed, useReviewed } from "../../reviewed";
-import { turnsOf, useTurnWriters, type Turn } from "../../turns";
+import { turnShown, turnsOf, useTurnWriters, useWantedTurn, type Turn } from "../../turns";
 import { NoteSessionContext } from "../../notes";
 import { ChangeScopeContext, EMPTY_TREE, short, useChangeScope, type ChangeScope } from "../../changes";
 import { Section, Toolbar } from "../blocks";
@@ -98,7 +99,25 @@ export function ChangesView(props: Props) {
   // be looked at on its own; it stays chosen when it ends while it is shown
   const turns = useMemo(() => turnsOf(git.repos, snapshots, props.assistant.sessions), [git.repos, snapshots, props.assistant.sessions]);
   const [scope, setScope] = useState<string | null>(null);
+  // A session's card asked for its latest turn: shown once its snapshots are read
+  const wantedTurn = useWantedTurn();
+  useEffect(() => {
+    if (!wantedTurn) return;
+    const latest = turns.filter((t) => t.session === wantedTurn).sort((a, b) => b.at - a.at)[0];
+    if (!latest) return;
+    onShowNow();
+    setScope(latest.key);
+    turnShown();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantedTurn, turns]);
   const turn = turns.find((t) => t.key === scope);
+  // Looking at a session's finished turn is seeing it: it waits for you no longer
+  const latestOf = turn?.session ? turns.filter((t) => t.session === turn.session).sort((a, b) => b.at - a.at)[0] : undefined;
+  const seenSession = turn?.to && latestOf?.key === turn.key ? turn.session : null;
+  useEffect(() => {
+    const s = props.assistant.sessions.find((x) => x.id === seenSession);
+    if (s && s.turnDone != null && !s.seen) void sessionSeen(s.id);
+  }, [seenSession, props.assistant.sessions]);
   const turnRepo = turn && git.repos.find((r) => r.path === turn.repo);
   // Files a session reported writing in its running turn, project-relative
   const writing = useMemo(() => {

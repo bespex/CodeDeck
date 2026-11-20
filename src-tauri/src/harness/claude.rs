@@ -127,6 +127,7 @@ impl Harness for Claude {
             cwd: cut(&raw["cwd"], usize::MAX),
             file: cut(&input["file_path"], usize::MAX).or_else(|| cut(&input["notebook_path"], usize::MAX)),
             tool: cut(&raw["tool_name"], usize::MAX),
+            detail: input["command"].as_str().map(detail_of),
             prompt: cut(&raw["prompt"], 300).map(|p| plain_prompt(&p)),
             message: cut(&raw["message"], 300),
             report: cut(&raw["last_assistant_message"], REPORT_MAX).filter(|_| kind == EventKind::TurnDone),
@@ -364,6 +365,16 @@ fn account_of(log: Option<&str>) -> String {
 /// What the user asked, as a turn is named after it. Claude Code also hands notices of its own in
 /// as a prompt (a background task finished: `<task-notification>…`); their raw markup would name the
 /// turn and its snapshots, so they get a short name instead.
+/// A shell command as it is shown while the session asks to run it: its first line, shortened.
+fn detail_of(command: &str) -> String {
+    let first = command.trim().lines().next().unwrap_or_default();
+    let mut shown: String = first.chars().take(200).collect();
+    if shown.len() < first.len() || command.trim().lines().nth(1).is_some() {
+        shown.push('…');
+    }
+    shown
+}
+
 fn plain_prompt(prompt: &str) -> String {
     let text = prompt.trim_start();
     if text.starts_with("<task-notification>") {
@@ -933,9 +944,11 @@ mod tests {
         // A shell command names no file: it may change anything
         assert_eq!((event(4).tool.as_deref(), event(4).file), (Some("Bash"), None));
         assert_eq!(event(5).message.as_deref(), Some("Claude needs your permission to use Bash"));
-        // No file contents and no commands leave the hook; of the answers only the turn's last words
+        // A shell command leaves the hook shortened, for the permission it may ask (shown, never kept
+        // in the journal); no file contents, and of the answers only the turn's last words
+        assert_eq!(event(4).detail.as_deref(), Some("touch /tmp/x"));
         let sent = serde_json::to_string(&events).unwrap();
-        assert!(!sent.contains("secret") && !sent.contains("touch"));
+        assert!(!sent.contains("secret") && sent.matches("touch").count() == 1);
         assert_eq!((event(6).report.as_deref(), event(5).report), (Some("Done."), None));
     }
 

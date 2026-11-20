@@ -12,8 +12,9 @@ use tauri::{AppHandle, Manager};
 
 use crate::Locked;
 
-/// How long a finished turn counts as waiting, as in the overview (`DONE_SHOWN_MS`)
-const DONE_SHOWN_MS: u64 = 30 * 60_000;
+/// A finished turn counts as waiting until the user saw it, but no longer than this: by then its
+/// session is under "Earlier" (as `DONE_SHOWN_MS` in `attention.ts`)
+const DONE_SHOWN_MS: u64 = 6 * 3600_000;
 
 /// What the tray shows; it is told again only when this changes.
 #[derive(Clone, PartialEq, Default)]

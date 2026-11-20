@@ -4,7 +4,7 @@ import { forgetRecent, toggleOverview, onTodayStarted, sessionCommands, pendingS
 import { accountLook, useAccounts } from "../accounts";
 import { usePending } from "../pending";
 import { AccountMark, MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
-import { DONE_SHOWN_MS, needsYou, useNow } from "../attention";
+import { needsYou, useNow, waitsForYou } from "../attention";
 import { SessionBadge } from "./SessionBadge";
 import { HoverTools, Tool, ToolGap } from "./RowTools";
 import { plural, t } from "../i18n";
@@ -401,7 +401,7 @@ function GroupSection({ group, projects, first, folded, onFold, children }: { gr
   const closeMenu = useCallback(() => setMenu(false), []);
   const sessions = projects.flatMap((p) => (p.state?.sessions ?? []).filter((s) => relevant(s, now)));
   const asks = sessions.filter((s) => needsYou(s) === "asks").length;
-  const done = sessions.some((s) => needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS);
+  const done = sessions.some((s) => needsYou(s) === "done" && waitsForYou(s, now));
   return (
     <>
       <li
@@ -477,7 +477,7 @@ function ProjectRow({ project, name, drag, inRecent = false }: { project: Overvi
   const accounts = useAccounts();
   const look = (dir: string) => accountLook(accounts, dir);
   const asks = sessions.some((s) => needsYou(s) === "asks");
-  const done = sessions.some((s) => needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS);
+  const done = sessions.some((s) => needsYou(s) === "done" && waitsForYou(s, now));
   const summary = project.summary ?? {};
   const dot = asks ? "bg-changed" : done ? "bg-added" : null;
   // Loaded windows: a click on the row brings it to the front. Not loaded: a double click loads it
@@ -691,14 +691,14 @@ function Told() {
   return <p className="surface-overlay mx-2 mb-2 rounded-md px-2.5 py-1.5 text-[12px] text-changed">{text}</p>;
 }
 
-/** "Needs you" over every project: questions first, then finished turns of the last half hour. */
+/** "Needs you" over every project: questions first, then finished turns not seen yet. */
 function Waiting({ projects }: { projects: OverviewProject[] }) {
   const inWindow = useContext(InWindowContext);
   const now = useNow();
   // In a project window what waits in the project shown is in the session column beside: only the others
   const waiting = projects.filter((p) => !inWindow || p.path !== inWindow.current).flatMap((p) =>
     (p.state?.sessions ?? [])
-      .filter((s) => relevant(s, now) && (needsYou(s) === "asks" || (needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS)))
+      .filter((s) => relevant(s, now) && waitsForYou(s, now))
       .map((s) => ({ project: p, session: s })),
   );
   waiting.sort((a, b) => Number(needsYou(b.session) === "asks") - Number(needsYou(a.session) === "asks"));
@@ -1084,7 +1084,7 @@ export function ProjectsRail({ inWindow }: { inWindow: InWindow }) {
       {[...recent.map((p) => ({ p, key: `recent:${p.path}`, last: p === recent.at(-1) })), ...rest.map((p) => ({ p, key: p.path, last: false }))].map(({ p, key, last }) => {
           const sessions = (p.state?.sessions ?? []).filter((s) => relevant(s, now));
           const asks = sessions.filter((s) => needsYou(s) === "asks").length;
-          const done = sessions.some((s) => needsYou(s) === "done" && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS);
+          const done = sessions.some((s) => needsYou(s) === "done" && waitsForYou(s, now));
           const shown = inWindow.current === p.path;
           return (
             <li key={key} className={last ? "mb-1 border-b border-line/60 pb-2" : ""}>

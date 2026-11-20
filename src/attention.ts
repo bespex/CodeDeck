@@ -1,6 +1,6 @@
 // What needs the user, and telling them when they are not looking (step 2.1a). "Needs you" is
 // worked out here once, for the right column and for the window title, the taskbar and the
-// desktop notification. Which events count and how they are shown is the user's choice
+// desktop notification (sessions: by the backend, for all projects). Which events count and how they are shown is the user's choice
 // (`AttentionSettings`, in the project menu).
 
 import { setWindowWaits } from "./windowIcon";
@@ -10,14 +10,14 @@ import {
   onSettingsChanged,
   notifyAttention,
   setAttentionSettings,
+  sessionSeen,
   setTitleStatus,
   type AssistantState,
   type AttentionSettings,
   type GitRun,
   type Session,
 } from "./backend";
-import { shortId } from "./assistant";
-import { plural, t } from "./i18n";
+import { t } from "./i18n";
 
 /**
  * A session needs you when it asks something, or when its turn is over and it waits for the next
@@ -30,8 +30,15 @@ export function needsYou(s: Session): "asks" | "done" | null {
   return s.status === "idle" && s.turnDone != null ? "done" : null;
 }
 
-/** How long a finished turn stays under "Needs you". To become a setting. */
-export const DONE_SHOWN_MS = 30 * 60_000;
+/**
+ * A finished turn waits until the user saw it (went into the session, opened the turn, put it
+ * aside), but no longer than this: by then its session is under "Earlier" anyway. As `tray.rs`.
+ */
+export const DONE_SHOWN_MS = 6 * 3600_000;
+
+/** It waits for you now: it asks, or its turn is over and you have not seen it yet. */
+export const waitsForYou = (s: Session, now: number) =>
+  needsYou(s) === "asks" || (needsYou(s) === "done" && !s.seen && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS);
 
 /** When the window opened: what needs you from before is not new, and does not light up. */
 export const OPENED_AT = Date.now();
@@ -42,21 +49,10 @@ export const waitsSince = (s: Session) => (needsYou(s) === "asks" ? s.last : (s.
 /** One thing that needs you; a new key is a new reason to say so. */
 export const waitKey = (s: Session) => (needsYou(s) === "asks" ? `${s.id}:asks` : `${s.id}:done:${s.turnDone}`);
 
-/* Finished turns put aside, per turn; shared by the list and the title */
-let aside = new Set<string>();
-const asideListeners = new Set<() => void>();
+/** Seen, in the backend: every window, the project list and the tray stop counting it at once. */
 export function putAside(s: Session) {
-  aside = new Set(aside).add(waitKey(s));
-  asideListeners.forEach((l) => l());
+  void sessionSeen(s.id);
 }
-const useAside = () =>
-  useSyncExternalStore(
-    (l) => {
-      asideListeners.add(l);
-      return () => asideListeners.delete(l);
-    },
-    () => aside,
-  );
 
 /** Renders again every half minute: what is shown depends on how long ago something was. */
 export function useNow(): number {
@@ -71,9 +67,7 @@ export function useNow(): number {
 /** The sessions that need you, questions first: they block a session, a finished turn does not. */
 export function useWaiting(state: AssistantState): Session[] {
   const now = useNow();
-  const put = useAside();
-  const fresh = (s: Session) => now - (s.turnDone ?? s.last) < DONE_SHOWN_MS;
-  const waiting = state.sessions.filter((s) => needsYou(s) === "asks" || (needsYou(s) === "done" && fresh(s) && !put.has(waitKey(s))));
+  const waiting = state.sessions.filter((s) => waitsForYou(s, now));
   return waiting.sort((a, b) => Number(needsYou(b) === "asks") - Number(needsYou(a) === "asks"));
 }
 
@@ -85,7 +79,7 @@ const load = () =>
     settings = s;
     settingsListeners.forEach((l) => l());
   });
-const loaded = load();
+void load();
 // Changed in another window: what is told, and how, is the same in all of them
 onSettingsChanged(() => void load());
 export function useAttentionSettings(): [AttentionSettings | null, (next: AttentionSettings) => void] {
@@ -107,7 +101,6 @@ export function useAttentionSettings(): [AttentionSettings | null, (next: Attent
 /** Things that happen together are told together: a moment to collect them. */
 const GATHER_MS = 1500;
 
-const titleOf = (s: Session) => s.title ?? t("Session {id}", { id: shortId(s.id) });
 /** The window is not looked at: hidden, minimised, or another window has the focus. */
 const unseen = () => document.hidden || !document.hasFocus();
 
@@ -118,9 +111,8 @@ const unseen = () => document.hidden || !document.hasFocus();
  */
 export function useAttention(state: AssistantState, runs: GitRun[], project: string | undefined) {
   const waiting = useWaiting(state);
-  const known = useRef<Set<string> | null>(null);
   const lastRun = useRef<number | null>(null);
-  const pending = useRef<{ sessions: Session[]; failed: GitRun[] }>({ sessions: [], failed: [] });
+  const pending = useRef<{ failed: GitRun[] }>({ failed: [] });
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Asking and finished apart: only a question blocks a session, and a number that mixes both says little
@@ -137,52 +129,21 @@ export function useAttention(state: AssistantState, runs: GitRun[], project: str
     document.documentElement.classList.toggle("attn-done", done > 0);
   }, [asking, done]);
 
+  // Sessions are told by the backend, for every project at once (`attention.rs`, `observe`): here
+  // only what this window ran
   const flush = () => {
-    const { sessions, failed } = pending.current;
-    pending.current = { sessions: [], failed: [] };
-    if (!unseen() || (sessions.length === 0 && failed.length === 0)) return;
+    const { failed } = pending.current;
+    pending.current = { failed: [] };
+    if (!unseen() || failed.length === 0) return;
     const where = project ? ` · ${project}` : "";
-    if (sessions.length === 1 && failed.length === 0) {
-      const s = sessions[0];
-      const asks = needsYou(s) === "asks";
-      const summary = `${titleOf(s)} ${asks ? t("asks") : t("finished its turn")}`;
-      const body = (asks ? (s.message ?? t("Waits for your answer")) : (s.prompt ?? t("Waits for your next prompt"))) + where;
-      void notifyAttention(s.id, summary, body);
-    } else if (sessions.length > 0) {
-      const lines = sessions.map((s) => `${s.short}: ${titleOf(s)} ${needsYou(s) === "asks" ? t("asks") : t("finished its turn")}`);
-      if (failed.length) lines.push(t("A git command failed"));
-      void notifyAttention("sessions", t("{sessions} need you", { sessions: plural(sessions.length, "session") }) + where, lines.join("\n"));
-    } else {
-      const run = failed[failed.length - 1];
-      void notifyAttention("git", t("A git command failed") + where, `git ${run.command}`);
-    }
+    const run = failed[failed.length - 1];
+    void notifyAttention("git", t("A git command failed") + where, `git ${run.command}`);
   };
   const gather = () => {
     clearTimeout(timer.current);
     timer.current = setTimeout(flush, GATHER_MS);
   };
   useEffect(() => () => clearTimeout(timer.current), []);
-
-  // New reasons the sessions need you
-  const keys = waiting.map(waitKey).join("|");
-  useEffect(() => {
-    void loaded.then(() => {
-      const now = new Set(waiting.map(waitKey));
-      const before = known.current;
-      known.current = now;
-      if (!before || !settings) return;
-      // New to this window, and new in time: the list is empty until the first state arrives
-      const fresh = waiting.filter(
-        (s) => !before.has(waitKey(s)) && waitsSince(s) > OPENED_AT && (needsYou(s) === "asks" ? settings!.asks : settings!.done),
-      );
-      if (fresh.length && unseen()) {
-        pending.current.sessions.push(...fresh);
-        gather();
-      }
-    });
-    // `keys` stands for what matters in `waiting`
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keys]);
 
   // Failed git commands, if wanted
   const last = runs.at(-1);

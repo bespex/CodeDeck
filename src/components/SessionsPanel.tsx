@@ -15,6 +15,7 @@ import {
   MessageSquare,
   Paperclip,
   Pencil,
+  Play,
   Eraser,
   Loader,
   Radio,
@@ -31,7 +32,7 @@ import { Tooltip } from "./Tooltip";
 import { changes } from "../changes";
 import { notes } from "../notes";
 import { markers } from "../markers";
-import { pendingSession, forgetSession, openSession, openUrl, stopSession, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
+import { pendingSession, forgetSession, openSession, openUrl, resumeSession, stopSession, renameSession, type AssistantState, type Entry, type ProjectInfo, type Session } from "../backend";
 import { useProjectAccount, useProjectLook } from "../projectLook";
 import { usePending, type Pending } from "../pending";
 import { StartCommand, useSessionCommands } from "./SessionCommands";
@@ -47,6 +48,7 @@ import { needsYou, OPENED_AT, putAside, useNow, useWaiting, waitKey, waitsSince 
 import { files, filesText, type Pin } from "../files";
 import { formatTokens, useAttachedKinds } from "./AttachmentList";
 import { openView } from "../view";
+import { showTurnOf } from "../turns";
 import { AttachTarget, ChooseTarget, TargetLost } from "./AttachTarget";
 import { plural } from "../git";
 import { LOCALE } from "./Trail";
@@ -145,18 +147,48 @@ function StatusDot({ status }: { status: Session["status"] }) {
 }
 
 /**
- * The state in a word or two. At rest it carries the one time that matters: when the session
- * was last active (the end of its turn, its end, the last entry of its log). While it works or
- * asks there is none here; the fold-out says when its last step was.
+ * The state in a word or two, with the time that matters: how long it has been asking, when its
+ * turn ended (today the time, else the day), when it was last active. While it works there is none.
+ * A finished turn you saw is quiet: it no longer waits for you.
  */
-function statusWords(s: Session): { words: string; at: number | null; tone: Tone } {
+function statusWords(s: Session, now: number): { words: string; at: number | null; tone: Tone } {
   if (s.status === "working") return { words: t("working"), at: null, tone: "ai" };
-  if (s.status === "waiting") return { words: t("asks"), at: null, tone: "wait" };
-  if (s.status === "ended") return { words: t("ended"), at: s.last, tone: "quiet" };
+  if (s.status === "waiting") {
+    const minutes = Math.floor((now - s.last) / 60_000);
+    return { words: minutes < 1 ? t("asks") : `${t("asks")} · ${t("{n} min", { n: minutes })}`, at: s.last, tone: "wait" };
+  }
+  if (s.status === "ended") return { words: `${t("ended")} · ${since(s.last, now)}`, at: s.last, tone: "quiet" };
   // Nothing was heard from it: whether it works right now is not known
-  if (!s.capabilities.liveStatus) return { words: t("from its log"), at: s.last, tone: "quiet" };
-  return s.turnDone != null ? { words: t("turn done"), at: s.turnDone, tone: "done" } : { words: t("idle"), at: s.last, tone: "quiet" };
+  if (!s.capabilities.liveStatus) return { words: since(s.last, now), at: s.last, tone: "quiet" };
+  if (s.turnDone != null) return { words: `${t("turn done")} · ${since(s.turnDone, now)}`, at: s.turnDone, tone: s.seen ? "quiet" : "done" };
+  return { words: `${t("idle")} · ${since(s.last, now)}`, at: s.last, tone: "quiet" };
 }
+
+const DAY = 24 * 3600_000;
+
+/** When, as short as it reads: minutes ago within the hour, today the time, then yesterday or the day. */
+function since(at: number, now: number): string {
+  const minutes = Math.floor((now - at) / 60_000);
+  if (minutes < 1) return t("just now");
+  if (minutes < 60) return t("{n} min ago", { n: minutes });
+  const midnight = new Date(now).setHours(0, 0, 0, 0);
+  if (at >= midnight) return time(at);
+  if (at >= midnight - DAY) return t("yesterday {time}", { time: time(at) });
+  return new Date(at).toLocaleDateString(LOCALE, { day: "numeric", month: "short" });
+}
+
+/**
+ * What a permission asks about, if the session said it with its last step: the command or the
+ * file. Only when the question names that step's tool; another question (e.g. a choice) has
+ * nothing to do with the step before it.
+ */
+function askedAbout(s: Session): string | null {
+  const tool = s.step?.split(" ")[0];
+  return s.status === "waiting" && tool && s.step !== tool && s.message?.includes(tool) ? s.step : null;
+}
+
+/** It can be continued from here: its process is gone, or never was known to run. */
+const resumable = (s: Session) => s.status === "ended" || s.alive === false || (!s.capabilities.liveStatus && s.alive !== true);
 
 /** How a state's pill is coloured: the status is what one looks for first (user, 2026-11-17). */
 type Tone = "ai" | "wait" | "done" | "quiet" | "problem";
@@ -190,76 +222,77 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
   // Not the ones you are busy with: ended, never reported (known from the log only), or idle for hours
   const isEarlier = (s: Session) =>
     s.status === "ended" || !s.capabilities.liveStatus || (s.status === "idle" && now - s.last > EARLIER_AFTER_MS);
+  // One list in the order the sessions started: with one to three of them a card that changes its
+  // place each time it asks or finishes costs more than it shows (user, 2026-11-20; replaces the
+  // group "Needs you" of D27). What waits for you says so on its own card
   const current = state.sessions.filter((s) => !isEarlier(s));
   const earlier = state.sessions.filter(isEarlier);
-  const [showEarlier, setShowEarlier] = useState(false);
-  const Fold = showEarlier ? ChevronDown : ChevronRight;
+  // Folded unless nothing runs: then continuing one of them is what one is here for
+  const [showEarlier, setShowEarlier] = useState<boolean | null>(null);
+  const earlierOpen = showEarlier ?? current.length === 0;
+  const Fold = earlierOpen ? ChevronDown : ChevronRight;
   const pending = usePending(look?.path, state.sessions.map((s) => s.id));
-  // Those that ask or finished their turn (see `attention.ts`) head the list, each once: a list of
-  // their own above repeated every one of them below
   const waiting = useWaiting(state);
-  const waits = new Set(waiting.map((s) => s.id));
-  const item = (s: Session, wait?: "asks" | "done") => (
-    <SessionItem key={wait ? waitKey(s) : s.id} session={s} wait={wait} blockedUntil={blockedUntil(state.usage, s.account, now)} onShowFile={onShowFile} toolName={(state.harnesses.find((h) => h.id === s.harness) ?? harness).name} toolShort={(state.harnesses.find((h) => h.id === s.harness) ?? harness).shortName} projectPath={look?.path} projectTool={mine.harness.id} projectAccount={mine.account?.dir} aimed={state.attachments.length > 0 && state.target === s.id} />
-  );
-  const rest = current.filter((s) => !waits.has(s.id));
+  const waits = new Map(waiting.map((s) => [s.id, needsYou(s) ?? undefined]));
+  const asking = waiting.filter((s) => needsYou(s) === "asks").length;
+  const item = (s: Session) => {
+    const tool = state.harnesses.find((h) => h.id === s.harness) ?? harness;
+    const wait = waits.get(s.id);
+    return (
+      <SessionItem
+        key={wait ? waitKey(s) : s.id}
+        session={s}
+        wait={wait}
+        now={now}
+        blockedUntil={blockedUntil(state.usage, s.account, now)}
+        onShowFile={onShowFile}
+        toolName={tool.name}
+        toolShort={tool.shortName}
+        projectPath={look?.path}
+        projectTool={mine.harness.id}
+        projectAccount={mine.account?.dir}
+        aimed={state.attachments.length > 0 && state.target === s.id}
+      />
+    );
+  };
   return (
-    // No tint of its own (user, 2026-11-17); a theme with zones colours the column. One scrolling
-    // list for both groups: the sessions get the room, not two boxes of fixed share
+    // No tint of its own (user, 2026-11-17); a theme with zones colours the column
     <section className="flex min-h-0 flex-col border-b border-line">
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {waiting.length > 0 && (
-          <>
-            <AreaHeader
-              title={t("Needs you")}
-              count={waiting.length}
-              asks={waiting.some((s) => needsYou(s) === "asks")}
-              hint={t("{asking} asking, {done} finished within the last 30 minutes", {
-                asking: waiting.filter((s) => needsYou(s) === "asks").length,
-                done: waiting.filter((s) => needsYou(s) === "done").length,
-              })}
-            />
-            {/* Cards, raised, amber edged while a session asks; what came while the window was open lights up once */}
-            <ul className="flex flex-col gap-2 px-2 pb-2" onMouseLeave={() => marks.hover(null)}>
-              {waiting.map((s) => item(s, needsYou(s) ?? undefined))}
-            </ul>
-          </>
-        )}
-        <AreaHeader title={t("Sessions")} />
-        {pending.length > 0 && (
-          <ul className="divide-y divide-line/70 border-y border-line/70">
-            {pending.map((p) => (
-              <PendingItem key={p.name} pending={p} projectPath={look?.path} />
-            ))}
-          </ul>
-        )}
-        {state.sessions.length > 0 ? (
+        <AreaHeader
+          title={t("Sessions")}
+          count={waiting.length}
+          asks={asking > 0}
+          hint={t("Waiting for you: {asking} asking, {done} finished and not seen yet", { asking, done: waiting.length - asking })}
+        />
+        {state.sessions.length > 0 || pending.length > 0 ? (
           // Left as a whole: between two sessions the highlight stays, so nothing flickers on the way
           <div onMouseLeave={() => marks.hover(null)}>
-            {rest.length > 0 ? (
-              <ul className="divide-y divide-line/70 border-y border-line/70">{rest.map((s) => item(s))}</ul>
-            ) : waiting.length === 0 ? (
-              <p className="px-3 pb-2 text-[12px] text-slate-500">{t("No session is at work here right now.")}</p>
+            {current.length > 0 || pending.length > 0 ? (
+              <ul className="flex flex-col gap-1.5 px-2 pb-2">
+                {current.map(item)}
+                {/* Started last, so at the end, where the session will stand once it reports */}
+                {pending.map((p) => (
+                  <PendingItem key={p.name} pending={p} projectPath={look?.path} />
+                ))}
+              </ul>
             ) : (
-              <p className="px-3 pb-2 text-[12px] text-slate-500">{t("No other session is at work here right now.")}</p>
+              <p className="px-3 pb-2 text-[12px] text-slate-500">{t("No session is at work here right now.")}</p>
             )}
             {earlier.length > 0 && (
               <>
                 <button
                   type="button"
-                  aria-expanded={showEarlier}
-                  onClick={() => setShowEarlier(!showEarlier)}
+                  aria-expanded={earlierOpen}
+                  onClick={() => setShowEarlier(!earlierOpen)}
                   className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold tracking-wider text-slate-500 uppercase hover:text-slate-300"
                 >
                   <Fold className="size-3.5" />
                   {t("Earlier")}
                   <span className="font-normal tracking-normal normal-case">{earlier.length}</span>
                 </button>
-                {showEarlier && (
-                  <ul className="divide-y divide-line/70 border-y border-line/70">
-                    {earlier.filter((s) => !waits.has(s.id)).map((s) => item(s))}
-                  </ul>
-                )}
+                {/* The latest first: the one to continue is most often the one that ran last */}
+                {earlierOpen && <ul className="flex flex-col gap-1.5 px-2 pb-2">{[...earlier].sort((a, b) => b.last - a.last).map(item)}</ul>}
               </>
             )}
           </div>
@@ -287,7 +320,7 @@ function PendingItem({ pending, projectPath }: { pending: Pending; projectPath: 
   const commands = useSessionCommands(projectPath, pending.name);
   const act = (end: boolean) => projectPath && pendingSession(projectPath, pending.name, end).catch((e) => setFailed(String(e)));
   return (
-    <li onDoubleClick={() => void act(false)} title={t("Double-click: open it in a terminal")} className="group/pending flex items-center gap-2.5 py-2 pr-3 pl-3 hover:bg-raised/40">
+    <li onDoubleClick={() => void act(false)} title={t("Double-click: open it in a terminal")} className="group/pending flex items-center gap-2.5 rounded-md py-2 pr-2.5 pl-2.5 hover:bg-raised/40">
       <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-500/60 text-slate-400">
         <Loader className="size-4 animate-spin [animation-duration:2.5s]" />
       </span>
@@ -351,10 +384,11 @@ function Receipt({ session: s, aimed }: { session: Session; aimed: boolean }) {
 }
 
 /**
- * One session. `wait`: it waits for you (asks, or finished its turn) and stands under "Needs you"
- * as a raised card; a finished turn can be put aside there until its next turn.
+ * One session, as a card: who and in which state; what counts now (the question and what it is
+ * about, the turn's last words, the step it works on); then the way into it. `wait`: it waits for
+ * you (asks, or finished a turn you have not seen) and stands out, raised; it keeps its place.
  */
-function SessionItem({ session: s, wait, blockedUntil: reset, onShowFile, toolName, toolShort, projectPath, projectTool, projectAccount, aimed }: { session: Session; wait?: "asks" | "done"; blockedUntil: number | null; onShowFile: (path: string) => void; toolName: string; toolShort: string; projectPath: string | undefined; projectTool: string; projectAccount: string | undefined; aimed: boolean }) {
+function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, toolName, toolShort, projectPath, projectTool, projectAccount, aimed }: { session: Session; wait?: "asks" | "done"; now: number; blockedUntil: number | null; onShowFile: (path: string) => void; toolName: string; toolShort: string; projectPath: string | undefined; projectTool: string; projectAccount: string | undefined; aimed: boolean }) {
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const marks = useSessionMarks();
@@ -362,21 +396,32 @@ function SessionItem({ session: s, wait, blockedUntil: reset, onShowFile, toolNa
   const Chevron = open ? ChevronDown : ChevronRight;
   // Its account's limit is used up: it cannot go on before the reset, whatever else it says
   const blocked = reset !== null && s.status !== "ended";
-  const status = blocked ? { words: `${t("waits for reset")} · ${resetAt(reset, Date.now(), LOCALE)}`, at: null, tone: "problem" as Tone } : statusWords(s);
-  const timed = status.at !== null;
+  const status = blocked ? { words: `${t("waits for reset")} · ${resetAt(reset, Date.now(), LOCALE)}`, at: null, tone: "problem" as Tone } : statusWords(s, now);
   // Not started by CodeDeck: it cannot be stopped or restarted from here, so it says where it comes from
   const byHand = s.status !== "ended" && !s.place?.launched;
-  // As in the overview: a double click goes to it (Desktop where reachable there, else its
+  const canResume = resumable(s) && !!projectPath;
+  // As in the project list: a double click goes to it (Desktop where reachable there, else its
   // terminal), a middle click always to its terminal
   const [failed, setFailed] = useState<string | null>(null);
+  const fail = (e: unknown) => {
+    setFailed(String(e));
+    setTimeout(() => setFailed(null), 6000);
+  };
   const door = s.place?.remote ? "desktop" : "terminal";
   const go = (to: "desktop" | "terminal" | "auto") => {
-    if (!projectPath || s.status === "ended") return;
+    if (!projectPath || canResume) return;
     setFailed(null);
-    openSession(projectPath, s.id, to).catch((e) => {
-      setFailed(String(e));
-      setTimeout(() => setFailed(null), 6000);
-    });
+    openSession(projectPath, s.id, to).catch(fail);
+  };
+  const [resuming, setResuming] = useState(false);
+  const resume = () => {
+    if (!projectPath || resuming) return;
+    setFailed(null);
+    setResuming(true);
+    // Its "Starting…" row shows at once; the card turns live when the session reports
+    resumeSession(projectPath, s.id)
+      .catch(fail)
+      .finally(() => setTimeout(() => setResuming(false), 4000));
   };
   // A click folds out, a double click goes to the session: the fold waits until a second click
   // can no longer come, so a double click leaves the row as it was
@@ -387,8 +432,8 @@ function SessionItem({ session: s, wait, blockedUntil: reset, onShowFile, toolNa
   };
   const fold = (e: React.MouseEvent) => {
     cancelFold();
-    // Keyboard (detail 0) and ended sessions, which a double click does not open, fold at once
-    if (e.detail === 0 || s.status === "ended") return setOpen(!open);
+    // Keyboard (detail 0) and sessions a double click does not open fold at once
+    if (e.detail === 0 || canResume) return setOpen(!open);
     if (e.detail > 1) return;
     pending.current = window.setTimeout(() => {
       pending.current = null;
@@ -396,6 +441,10 @@ function SessionItem({ session: s, wait, blockedUntil: reset, onShowFile, toolNa
     }, 250);
   };
   const head = headline(s);
+  const about = askedAbout(s);
+  // What it said at the end counts more than how many files it wrote; not while it works on the next
+  const report = s.status !== "working" && s.status !== "waiting" ? s.report : null;
+  const finished = s.status === "idle" && s.turnDone != null && s.touched.length > 0;
   const tmuxName = s.status !== "ended" ? (s.place?.tmux?.session ?? undefined) : undefined;
   const commands = useSessionCommands(projectPath, tmuxName);
   const controllable = !!tmuxName && s.status !== "working" && !!projectPath;
@@ -431,99 +480,142 @@ function SessionItem({ session: s, wait, blockedUntil: reset, onShowFile, toolNa
       onContextMenu={openMenu}
       onDoubleClick={() => {
         cancelFold();
-        go("auto");
+        if (canResume) resume();
+        else go("auto");
       }}
       onAuxClick={(e) => e.button === 1 && go("terminal")}
-      title={s.status === "ended" ? undefined : t("Double-click: go to it ({door}) · middle click: terminal", { door: door === "desktop" ? t("Desktop") : t("Terminal") })}
+      title={
+        canResume
+          ? t("Double-click: continue this conversation")
+          : t("Double-click: go to it ({door}) · middle click: terminal", { door: door === "desktop" ? t("Desktop") : t("Terminal") })
+      }
       // `data-event`: a theme can make the reason stand out in its colour (docs/STYLING.md, `events`)
       data-event={wait === "asks" ? "waiting" : wait}
-      className={`group/session ${
+      className={`group/session rounded-md ${
         wait
-          ? `event-row wait-card overflow-hidden rounded-md bg-raised ${wait === "asks" ? "wait-card-asks" : ""} ${waitsSince(s) > OPENED_AT ? "attention-new" : ""}`
+          ? `event-row wait-card bg-raised ${wait === "asks" ? "wait-card-asks" : ""} ${waitsSince(s) > OPENED_AT ? "attention-new" : ""}`
           : open
             ? "bg-raised/60"
             : "hover:bg-raised/40"
-      } ${s.status === "ended" ? "opacity-55" : ""}`}
+      }`}
     >
-      <div className="flex items-start">
-        {/* The badge stands alone, large, across both lines; status and model are what one reads */}
-        <div
-          role="button"
-          tabIndex={0}
-          aria-expanded={open}
-          onClick={fold}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && e.target === e.currentTarget && (e.preventDefault(), setOpen(!open))}
-          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 py-2 pr-3 pl-3 text-left"
-        >
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={fold}
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && e.target === e.currentTarget && (e.preventDefault(), setOpen(!open))}
+        className="flex min-w-0 cursor-pointer items-start gap-2.5 py-2 pr-2.5 pl-2.5 text-left"
+      >
+        {/* The badge stands alone, large; what one reads is beside it */}
+        <span className={`mt-0.5 ${s.status === "ended" ? "opacity-60" : ""}`}>
           <SessionBadge mark={mark} large />
-          <span className="flex min-w-0 flex-1 flex-col gap-1">
-            <span className="flex items-center gap-2">
-              <span className="min-w-0 truncate font-medium text-slate-100">{titleOf(s)}</span>
-              <span
-                title={timed ? t("since {time}", { time: time(status.at!) }) : undefined}
-                data-event={blocked ? "blocked" : s.status === "idle" && s.turnDone != null && s.capabilities.liveStatus ? "done" : s.status}
-                className={`event-chip ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-2 py-px text-[11px] font-medium ${PILL[status.tone]}`}
-              >
-                <StatusDot status={s.status} />
-                {status.words}
-              </span>
-            </span>
-            <span className="flex items-center gap-1.5 text-[12px] text-slate-400">
-              <span className="min-w-0 flex-1 truncate">{head.text}</span>
-              <Chevron className="size-3.5 shrink-0 text-slate-500" />
-            </span>
-            {/* What kind of session it is: the model, where it runs; the tools on the right while the mouse is on
-                it. A line of its own, one height with or without the tools, so nothing moves and the title keeps its room */}
-            <span className="flex h-[22px] items-center gap-1.5 text-[11px] text-slate-500">
-              {s.model && <span className="flex h-[18px] shrink-0 items-center rounded border border-line px-1 leading-none font-medium text-slate-200">{s.model}</span>}
-              {byHand && (
-                <span
-                  title={`${t("by hand")} · ${toolName}: ${t("Started outside CodeDeck: it ends where it runs")}`}
-                  className="flex h-[18px] shrink-0 items-center gap-1 rounded border border-dashed border-slate-500/60 px-1 leading-none text-slate-300"
-                >
-                  <User className="size-3 shrink-0" />
-                  {/* The tool only when it is not the project's own */}
-                  {s.harness !== projectTool && toolShort}
-                </span>
-              )}
-              <Place session={s} />
-              <Receipt session={s} aimed={aimed} />
-              <span className="flex-1" />
-              <HoverTools show="group-hover/session:flex group-has-[:focus-visible]/session:flex" open={!!menu.element}>
-                {s.status !== "ended" && (
-                  <>
-                    {s.place?.remote && <Tool icon={Monitor} label={t("Open in the desktop app")} hint={door === "desktop" ? t("Also: double-click the session") : undefined} onClick={() => go("desktop")} />}
-                    <Tool icon={SquareTerminal} label={t("Open in a terminal")} hint={t("Also: middle-click the session")} onClick={() => go("terminal")} />
-                  </>
-                )}
-                {/* What changes its process, apart; only in tmux, and not while it works */}
-                {controllable && (
-                  <>
-                    <ToolGap />
-                    <Tool icon={RotateCcw} label={t("Restart: same conversation, fresh process")} says={commands?.stop && commands.start ? `${commands.stop}\n${commands.start}` : undefined} onClick={() => void stopSession(projectPath!, s.id, true).catch((e) => setFailed(String(e)))} />
-                    <Tool icon={Power} danger label={t("Stop (the conversation is kept and can be continued)")} says={commands?.stop} onClick={() => void stopSession(projectPath!, s.id, false).catch((e) => setFailed(String(e)))} />
-                  </>
-                )}
-                {wait === "done" && (
-                  <>
-                    <ToolGap />
-                    <Tool icon={X} label={t("Put aside until its next turn")} onClick={() => putAside(s)} />
-                  </>
-                )}
-                {s.status !== "ended" && <ToolGap />}
-                <Tool icon={Ellipsis} label={t("More (also right click)")} onClick={(e) => openMenu(e)} />
-              </HoverTools>
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="flex items-center gap-2">
+            <span className={`min-w-0 truncate font-medium ${s.status === "ended" ? "text-slate-300" : "text-slate-100"}`}>{titleOf(s)}</span>
+            <span
+              title={status.at !== null ? t("since {time}", { time: time(status.at) }) : undefined}
+              // A finished turn you saw is no event any more: quiet, as the pill
+              data-event={blocked ? "blocked" : s.status === "idle" && s.turnDone != null && s.capabilities.liveStatus ? (s.seen ? "idle" : "done") : s.status}
+              className={`event-chip ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-2 py-px text-[11px] font-medium whitespace-nowrap ${PILL[status.tone]}`}
+            >
+              <StatusDot status={s.status} />
+              {status.words}
             </span>
           </span>
-        </div>
+          {/* What counts now, in full width: the question and what it is about; the turn's last words; the step */}
+          {s.status === "waiting" ? (
+            <span className="flex flex-col gap-1 text-[12px]">
+              <span className="line-clamp-2 text-changed">{s.message ?? t("Waits for your answer")}</span>
+              {about && <code className="selectable line-clamp-2 rounded bg-base/70 px-1.5 py-0.5 font-mono text-[11px] break-all text-slate-200">{about}</code>}
+            </span>
+          ) : report ? (
+            <span title={report} className={`line-clamp-3 text-[12px] ${wait ? "text-slate-200" : "text-slate-400"}`}>
+              {report}
+            </span>
+          ) : (
+            <span className="truncate text-[12px] text-slate-400">{head.text}</span>
+          )}
+          {/* The way into it, always in sight; the rarer tools while the mouse is on it. One height with or
+              without them, so nothing moves */}
+          <span className="flex h-[22px] items-center gap-1.5 text-[11px] text-slate-500">
+            <Chevron className="size-3.5 shrink-0 text-slate-500" />
+            {finished && (
+              <button
+                type="button"
+                onClick={(e) => (e.stopPropagation(), cancelFold(), showTurnOf(s.id))}
+                onDoubleClick={(e) => e.stopPropagation()}
+                title={t("Show what this turn changed, under Changes")}
+                className="flex h-[20px] shrink-0 items-center gap-1 rounded px-1 text-slate-300 hover:bg-overlay-hover hover:text-slate-50"
+              >
+                <GitCompareArrows className="size-3.5 shrink-0" />
+                {t("See the turn")}
+              </button>
+            )}
+            <Receipt session={s} aimed={aimed} />
+            <span className="flex-1" />
+            <HoverTools show="group-hover/session:flex group-has-[:focus-visible]/session:flex" open={!!menu.element}>
+              {!canResume && s.status !== "ended" && (
+                <>
+                  {s.place?.remote && <Tool icon={Monitor} label={t("Open in the desktop app")} hint={door === "desktop" ? t("Also: double-click the session") : undefined} onClick={() => go("desktop")} />}
+                  <Tool icon={SquareTerminal} label={t("Open in a terminal")} hint={t("Also: middle-click the session")} onClick={() => go("terminal")} />
+                </>
+              )}
+              {/* What changes its process, apart; only in tmux, and not while it works */}
+              {controllable && !canResume && (
+                <>
+                  <ToolGap />
+                  <Tool icon={RotateCcw} label={t("Restart: same conversation, fresh process")} says={commands?.stop && commands.start ? `${commands.stop}\n${commands.start}` : undefined} onClick={() => void stopSession(projectPath!, s.id, true).catch(fail)} />
+                  <Tool icon={Power} danger label={t("Stop (the conversation is kept and can be continued)")} says={commands?.stop} onClick={() => void stopSession(projectPath!, s.id, false).catch(fail)} />
+                </>
+              )}
+              {wait === "done" && (
+                <>
+                  <ToolGap />
+                  <Tool icon={Check} label={t("Seen: put aside until its next turn")} onClick={() => putAside(s)} />
+                </>
+              )}
+              <ToolGap />
+              <Tool icon={Ellipsis} label={t("More (also right click)")} onClick={(e) => openMenu(e)} />
+            </HoverTools>
+            {canResume ? (
+              <button
+                type="button"
+                disabled={resuming}
+                onClick={(e) => (e.stopPropagation(), cancelFold(), resume())}
+                onDoubleClick={(e) => e.stopPropagation()}
+                title={t("Continue this conversation in a new process, in tmux")}
+                className="flex h-[20px] shrink-0 items-center gap-1 rounded border border-line px-1.5 leading-none font-medium text-slate-300 hover:bg-overlay-hover hover:text-slate-50 disabled:opacity-60"
+              >
+                {resuming ? <Loader className="size-3 shrink-0 animate-spin" /> : <Play className="size-3 shrink-0" />}
+                {t("Continue")}
+              </button>
+            ) : (
+              // Going into the session is what one comes for most (user, 2026-11-20): always in sight, not
+              // only on a double click; while it asks, as the answer it waits for
+              <button
+                type="button"
+                onClick={(e) => (e.stopPropagation(), cancelFold(), go("auto"))}
+                onDoubleClick={(e) => e.stopPropagation()}
+                title={door === "desktop" ? t("Open in the desktop app") : t("Open in a terminal")}
+                className={`flex h-[20px] shrink-0 items-center gap-0.5 rounded px-1.5 leading-none font-medium ${
+                  s.status === "waiting" ? "bg-changed text-[var(--t-on-wait,var(--color-base))] hover:brightness-110" : "border border-line text-slate-300 hover:bg-overlay-hover hover:text-slate-50"
+                }`}
+              >
+                {s.status === "waiting" ? t("Answer") : door === "desktop" ? t("Desktop") : t("Terminal")}
+                <ArrowUpRight className="size-3 shrink-0" />
+              </button>
+            )}
+          </span>
+        </span>
       </div>
       {failed && <p className="selectable px-3 pb-1.5 pl-[54px] text-[11px] text-problem">{failed}</p>}
       {open && renaming && <RenameForm session={s} onClose={() => setRenaming(false)} />}
       {menu.element}
       {open && (
-        <div className="pr-3 pb-1.5 pl-[38px] text-[12px]">
-          {/* Only what the two lines above do not say already */}
-          {s.message && head.from !== "message" && <p className="text-changed">{s.message}</p>}
+        <div className="pr-3 pb-2 pl-[54px] text-[12px]">
+          {/* Only what the card does not say already */}
           {s.prompt && head.from !== "prompt" && <p className="line-clamp-3 text-slate-400 italic">“{s.prompt}”</p>}
           {s.touched.length > 0 && (
             <ul className="mt-1.5 flex flex-col">
@@ -558,10 +650,29 @@ function SessionItem({ session: s, wait, blockedUntil: reset, onShowFile, toolNa
           {/* What one looks up, one fact a line: nothing breaks word by word in a narrow column. Set apart by
               a faint dotted line, quieter than the hairlines between the sessions */}
           <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-0.5 border-t border-dotted border-line/60 pt-1.5 text-[11px]">
+            {/* What kind of session it is: rarely what one looks for, so here rather than on the card */}
+            {(s.model || byHand || s.place) && (
+              <Fact label={t("Kind")}>
+                <span className="inline-flex flex-wrap items-center gap-1.5 align-middle">
+                  {s.model && <span className="flex h-[18px] shrink-0 items-center rounded border border-line px-1 leading-none font-medium text-slate-200">{s.model}</span>}
+                  {byHand && (
+                    <span
+                      title={`${t("by hand")} · ${toolName}: ${t("Started outside CodeDeck: it ends where it runs")}`}
+                      className="flex h-[18px] shrink-0 items-center gap-1 rounded border border-dashed border-slate-500/60 px-1 leading-none text-slate-300"
+                    >
+                      <User className="size-3 shrink-0" />
+                      {/* The tool only when it is not the project's own */}
+                      {s.harness !== projectTool ? toolShort : t("by hand")}
+                    </span>
+                  )}
+                  <Place session={s} />
+                </span>
+              </Fact>
+            )}
             <Fact label={t("Folder")}>{s.cwd === "" ? t("project root") : s.cwd}</Fact>
             <Fact label={t("Last step")}>
               {time(s.last)}
-              {s.step && head.from !== "step" && ` · ${s.step}`}
+              {s.step && ` · ${s.step}`}
             </Fact>
             <AccountFact session={s} projectAccount={projectAccount} />
             {commands && (

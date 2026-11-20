@@ -642,6 +642,10 @@ export interface Session {
   step: string | null;
   /** Unix milliseconds: when its latest turn ended, as it reported; `null` while it works and for a session that never reported */
   turnDone: number | null;
+  /** The user saw its finished turn (went into it, opened the turn, put it aside): it waits no longer. Starts over with the next turn */
+  seen: boolean;
+  /** What it said at the end of its latest turn, plain and shortened; `null` while it works */
+  report: string | null;
   /** Where its running turn began: the snapshot per repository it was about to write in; empty between turns */
   turn: { repo: string; hash: string }[];
   /** Files it wrote, project-relative, newest first */
@@ -782,6 +786,8 @@ const mockAssistant: AssistantState = {
       message: null,
       step: "Edit tests/rate_limit.rs",
       turnDone: null,
+      seen: false,
+      report: null,
       // Its second turn runs; it began where the first one ended
       turn: [{ repo: "", hash: "snap4".padEnd(40, "0") }],
       touched: [
@@ -812,8 +818,10 @@ const mockAssistant: AssistantState = {
       title: "Limiter documentation",
       model: "sonnet-5-5",
       message: "Claude needs your permission to use Bash",
-      step: "Bash",
+      step: "Bash cargo test --all -- --nocapture",
       turnDone: null,
+      seen: false,
+      report: null,
       turn: [],
       touched: [{ path: "docs/api.md", at: Date.now() - 4 * 60_000 }],
       received: [],
@@ -837,6 +845,8 @@ const mockAssistant: AssistantState = {
       message: null,
       step: "Edit src/config.rs",
       turnDone: Date.now() - 6 * 60_000,
+      seen: false,
+      report: "Defaults now come from the environment, with the old values as fallback. README and the config tests are updated. Still open: the migration note for existing deployments.",
       turn: [],
       touched: [{ path: "src/config.rs", at: Date.now() - 7 * 60_000 }],
       received: [],
@@ -860,6 +870,8 @@ const mockAssistant: AssistantState = {
       message: null,
       step: null,
       turnDone: null,
+      seen: false,
+      report: "The layout stands: src/ for the service, tests/ beside it, docs/ for the API. Next would be the first endpoint.",
       turn: [],
       touched: [],
       received: [],
@@ -1032,6 +1044,20 @@ export function forgetSession(id: string): Promise<void> {
   mockAssistant.sessions = mockAssistant.sessions.filter((s) => s.id !== id);
   mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
   return Promise.resolve();
+}
+
+/** The user saw a session's finished turn: it waits no longer (until its next turn). */
+export function sessionSeen(id: string): Promise<void> {
+  if (live) return invoke("session_seen", { id });
+  mockAssistant.sessions = mockAssistant.sessions.map((s) => (s.id === id && s.turnDone != null ? { ...s, seen: true } : s));
+  mockAssistantListeners.forEach((cb) => cb({ ...mockAssistant }));
+  return Promise.resolve();
+}
+
+/** Continues this one conversation in tmux (not the latest, as `startSession` does): the tmux session's name. */
+export function resumeSession(project: string, session: string): Promise<string> {
+  if (live) return invoke("resume_session", { project, session });
+  return Promise.resolve(`codedeck-${project.split("/").pop()}`);
 }
 
 /** Copies a file a session left outside into the scratch folder; the copy's project-relative path. */
@@ -1698,7 +1724,8 @@ export function stopSession(project: string, session: string, restart: boolean):
 /** Goes into a session: its desktop app, its terminal, or `auto` (the desktop app where it is reachable there, its log asked too; else the terminal). */
 export function openSession(project: string, session: string, door: "desktop" | "terminal" | "auto"): Promise<void> {
   if (live) return invoke("open_session", { project, session, door });
-  return Promise.resolve();
+  // As the backend does: going into it is looking at it
+  return sessionSeen(session);
 }
 
 /** Brings a project's window to the front, with a view of its deck open if given. */
