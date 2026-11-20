@@ -1003,7 +1003,10 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
         {/* Adding a project is in the menu (user, 2026-11-19), with Ctrl+O */}
         <MoreMenu host={host} inWindow={inProject} />
       </header>
-      <main className="min-h-0 flex-1 overflow-y-auto pb-3">
+      {/* Only the project list scrolls (user, 2026-11-20: scrolled down, "Recently" was out of sight);
+          what waits and "Recently" stay on top. No overflow on the top part: it would cut off a row's menu */}
+      <main className="flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0">
         <Waiting projects={projects} />
         {/* The projects one moves between, at the top (user, 2026-11-19: with more than 20 they were hard
             to find again); they stay in their groups below too, so nothing there moves when one switches */}
@@ -1022,8 +1025,9 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
             </ul>
           </section>
         )}
+        </div>
         {/* No heading: the projects are what the overview is; only the room below "Waits for you" stays */}
-        <div className="pt-4" />
+        <div className="min-h-0 flex-1 overflow-y-auto pt-4 pb-3">
         {projects.length ? (
           // Nothing here to select; a press that becomes a drag must not mark text on its way
           <ul className="select-none">
@@ -1042,6 +1046,7 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
         ) : (
           <p className="px-3 py-2 text-[12px] text-slate-500">{t("No projects yet. + adds one; its window opens when you click it.")}</p>
         )}
+        </div>
       </main>
       <Told />
       {drag && <DragGhost project={projects.find((p) => p.path === drag.from)} name={dragName(drag.from)} at={drag.ghost} />}
