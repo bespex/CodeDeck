@@ -16,7 +16,7 @@ use std::time::Duration;
 use serde_json::{Value, json};
 
 use crate::usage::{Usage, Window};
-use super::{Attach, Background, Capabilities, Connection, Event, EventKind, Harness, Place, SessionInfo, Tmux};
+use super::{Attach, Background, Capabilities, Connection, Event, EventKind, Harness, Parked, Place, SessionInfo, Tmux};
 
 pub struct Claude;
 
@@ -233,6 +233,25 @@ impl Harness for Claude {
         })
     }
 
+    /// Background sessions (`/background`, `claude --bg`, Claude Code 2.1.32x) run in Claude Code's
+    /// daemon: `CLAUDE_CODE_SESSION_KIND=bg`, and the job folder is named after the handle that
+    /// `claude attach` takes (tried 2026-11-20 with 2.1.329).
+    fn background_job(&self, var: &dyn Fn(&str) -> Option<String>) -> Option<String> {
+        (var("CLAUDE_CODE_SESSION_KIND")? == "bg").then_some(())?;
+        let dir = var("CLAUDE_JOB_DIR")?;
+        Path::new(&dir).file_name()?.to_str().map(String::from)
+    }
+
+    fn parked(&self, project: &Path) -> Vec<Parked> {
+        config_dirs().iter().flat_map(|dir| parked_in(dir, project)).collect()
+    }
+
+    /// `claude attach <handle>` in the session's account. Leaving with Ctrl+Z keeps it running.
+    fn attach(&self, job: &str, account: Option<&str>) -> Option<crate::harness::Launched> {
+        let env = account.map(|dir| ("CLAUDE_CONFIG_DIR".to_string(), dir.to_string())).into_iter().collect();
+        Some(crate::harness::Launched { argv: vec!["claude".into(), "attach".into(), job.into()], env })
+    }
+
     fn remote_link(&self, var: &dyn Fn(&str) -> Option<String>) -> Option<String> {
         let id = var("CLAUDE_CODE_BRIDGE_SESSION_ID")?;
         let plain = id.starts_with("session_") && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
@@ -438,7 +457,40 @@ fn running_entry(v: &Value, project: &Path) -> Option<(String, Place)> {
     });
     let bridge = v.get("bridgeSessionId").and_then(Value::as_str).map(String::from);
     let remote = Claude.remote_link(&|name| (name == "CLAUDE_CODE_BRIDGE_SESSION_ID").then(|| bridge.clone()).flatten());
-    Some((id, Place { pid: Some(pid), since: Some(since), tmux, launched: None, remote }))
+    // A background session's process is the daemon's: `kind` says so, `jobId` is its handle
+    let background = (v.get("kind").and_then(Value::as_str) == Some("bg")).then(|| v.get("jobId").and_then(Value::as_str).map(String::from)).flatten();
+    Some((id, Place { pid: Some(pid), since: Some(since), tmux, launched: None, remote, background }))
+}
+
+/// The background sessions of one configuration for a project, from the daemon's own records:
+/// `jobs/<handle>/state.json` (kept after its process is gone; `state` is `working`, `blocked` with
+/// the question in `needs`, `done` …) and, while the daemon runs, `daemon/roster.json`, whose
+/// `dispatch.launch` names the conversation a `/background` split off from. Neither is a documented
+/// format (2.1.329): what is missing is simply not known.
+fn parked_in(dir: &Path, project: &Path) -> Vec<Parked> {
+    let read = |p: PathBuf| std::fs::read(p).ok().and_then(|b| serde_json::from_slice::<Value>(&b).ok());
+    let roster = read(dir.join("daemon/roster.json"));
+    let origin = |job: &str| -> Option<String> {
+        let launch = &roster.as_ref()?["workers"][job]["dispatch"]["launch"];
+        (launch["mode"] == "resume" && launch["fork"] == true).then_some(())?;
+        // An id, or the path of its log
+        let from = launch["sessionId"].as_str()?;
+        Path::new(from).file_stem()?.to_str().map(String::from)
+    };
+    std::fs::read_dir(dir.join("jobs"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| {
+            let job = entry.file_name().to_str()?.to_string();
+            let state = read(entry.path().join("state.json"))?;
+            Path::new(state["cwd"].as_str()?).starts_with(project).then_some(())?;
+            // Finished for good: nothing to come back to
+            (state["state"] != "done").then_some(())?;
+            let question = (state["state"] == "blocked").then(|| state["needs"].as_str().map(|q| q.chars().take(300).collect())).flatten();
+            Some(Parked { id: state["sessionId"].as_str()?.to_string(), continues: origin(&job), job, question })
+        })
+        .collect()
 }
 
 fn config_dirs() -> Vec<PathBuf> {
@@ -872,6 +924,42 @@ fn iso_ms(text: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn knows_a_session_in_the_background_by_its_environment_and_its_process_file() {
+        let env = |pairs: &'static [(&'static str, &'static str)]| move |k: &str| pairs.iter().find(|(n, _)| *n == k).map(|(_, v)| v.to_string());
+        let bg = env(&[("CLAUDE_CODE_SESSION_KIND", "bg"), ("CLAUDE_JOB_DIR", "/c/jobs/1e4f9035")]);
+        assert_eq!(Claude.background_job(&bg).as_deref(), Some("1e4f9035"));
+        assert_eq!(Claude.background_job(&env(&[("CLAUDE_JOB_DIR", "/c/jobs/1e4f9035")])), None);
+        let v: Value = serde_json::from_str(r#"{"pid":71763,"sessionId":"1e4f9035-e7c9","cwd":"/p","procStart":"318088","kind":"bg","jobId":"1e4f9035"}"#).unwrap();
+        assert_eq!(running_entry(&v, Path::new("/p")).unwrap().1.background.as_deref(), Some("1e4f9035"));
+        let attach = Claude.attach("1e4f9035", Some("/c")).unwrap();
+        assert_eq!((attach.argv.join(" "), attach.env), ("claude attach 1e4f9035".to_string(), vec![("CLAUDE_CONFIG_DIR".to_string(), "/c".to_string())]));
+    }
+
+    #[test]
+    fn reads_the_daemons_records_of_background_sessions() {
+        let dir = std::env::temp_dir().join(format!("codedeck-parked-{}", std::process::id()));
+        let job = |name: &str, state: &str| {
+            std::fs::create_dir_all(dir.join("jobs").join(name)).unwrap();
+            std::fs::write(dir.join("jobs").join(name).join("state.json"), state).unwrap();
+        };
+        job("75de7af3", r#"{"state":"blocked","needs":"Commit now?","sessionId":"75de7af3-24b3","cwd":"/p"}"#);
+        job("aaaa0001", r#"{"state":"done","sessionId":"aaaa0001-x","cwd":"/p"}"#);
+        job("bbbb0002", r#"{"state":"working","sessionId":"bbbb0002-x","cwd":"/elsewhere"}"#);
+        std::fs::create_dir_all(dir.join("daemon")).unwrap();
+        std::fs::write(
+            dir.join("daemon/roster.json"),
+            r#"{"workers":{"75de7af3":{"dispatch":{"launch":{"mode":"resume","fork":true,"sessionId":"/c/projects/-p/ae1ea525-63c9.jsonl"}}}}}"#,
+        )
+        .unwrap();
+        let found = parked_in(&dir, Path::new("/p"));
+        assert_eq!(
+            found,
+            [Parked { id: "75de7af3-24b3".into(), job: "75de7af3".into(), question: Some("Commit now?".into()), continues: Some("ae1ea525-63c9".into()) }]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn a_running_process_tells_its_session_and_where_it_runs() {

@@ -646,6 +646,10 @@ export interface Session {
   seen: boolean;
   /** What it said at the end of its latest turn, plain and shortened; `null` while it works */
   report: string | null;
+  /** The session it was split off from when that one was sent to the background */
+  continues: string | null;
+  /** It was sent to the background: the session that goes on with its conversation there */
+  movedTo: string | null;
   /** Where its running turn began: the snapshot per repository it was about to write in; empty between turns */
   turn: { repo: string; hash: string }[];
   /** Files it wrote, project-relative, newest first */
@@ -670,6 +674,8 @@ export interface Place {
   launched: string | null;
   /** A link that reaches it from another device or the browser, while it is reachable there */
   remote: string | null;
+  /** It runs in the background, hosted by its tool without a terminal: the handle to join it with */
+  background?: string | null;
 }
 
 /** One limit of an account: the percentage used (it can pass 100) and when it starts over. */
@@ -787,6 +793,8 @@ const mockAssistant: AssistantState = {
       step: "Edit tests/rate_limit.rs",
       turnDone: null,
       seen: false,
+      continues: null,
+      movedTo: null,
       report: null,
       // Its second turn runs; it began where the first one ended
       turn: [{ repo: "", hash: "snap4".padEnd(40, "0") }],
@@ -821,6 +829,8 @@ const mockAssistant: AssistantState = {
       step: "Bash cargo test --all -- --nocapture",
       turnDone: null,
       seen: false,
+      continues: null,
+      movedTo: null,
       report: null,
       turn: [],
       touched: [{ path: "docs/api.md", at: Date.now() - 4 * 60_000 }],
@@ -846,6 +856,8 @@ const mockAssistant: AssistantState = {
       step: "Edit src/config.rs",
       turnDone: Date.now() - 6 * 60_000,
       seen: false,
+      continues: null,
+      movedTo: null,
       report: "Defaults now come from the environment, with the old values as fallback. README and the config tests are updated. Still open: the migration note for existing deployments.",
       turn: [],
       touched: [{ path: "src/config.rs", at: Date.now() - 7 * 60_000 }],
@@ -871,13 +883,45 @@ const mockAssistant: AssistantState = {
       step: null,
       turnDone: null,
       seen: false,
+      continues: null,
+      // Sent to the background: it goes on there as E
+      movedTo: "e5b81c24-9d3a-4e7f-8c12-3a4b5c6d7e8f",
       report: "The layout stands: src/ for the service, tests/ beside it, docs/ for the API. Next would be the first endpoint.",
       turn: [],
       touched: [],
       received: [],
     },
+    {
+      // Sent to the background (no terminal): its turn ended with a question the tool recorded
+      id: "e5b81c24-9d3a-4e7f-8c12-3a4b5c6d7e8f",
+      harness: "claude",
+      capabilities: MOCK_CAPABILITIES,
+      color: 4,
+      short: "E",
+      renamed: false,
+      cwd: "",
+      status: "waiting",
+      started: Date.now() - 18 * 3600_000,
+      last: Date.now() - 9 * 60_000,
+      prompt: "Go on with the first endpoint",
+      prompts: 1,
+      title: "Initial project layout",
+      model: "opus-5-5",
+      message: "Shall I make a first commit, or do you want to try the app yourself first?",
+      step: null,
+      turnDone: Date.now() - 9 * 60_000,
+      seen: false,
+      continues: "d92a0b13-7c4e-4d5f-9a6b-0e1f2a3b4c5d",
+      movedTo: null,
+      report: null,
+      turn: [],
+      touched: [{ path: "src/routes/orders.rs", at: Date.now() - 12 * 60_000 }],
+      received: [],
+      place: { pid: 83595, since: 314_634, tmux: null, launched: null, remote: null, background: "e5b81c24" },
+    },
   ],
   identities: [
+    { id: "e5b81c24-9d3a-4e7f-8c12-3a4b5c6d7e8f", color: 4, short: "E", title: "Initial project layout" },
     { id: "c41d7e02-5b9f-4a3c-8e21-9d0f1a2b3c4d", color: 2, short: "C", title: "Config defaults" },
     { id: "d92a0b13-7c4e-4d5f-9a6b-0e1f2a3b4c5d", color: 3, short: "D", title: "Initial project layout" },
     { id: "3f9c2a71-0d2e-4b1c-9a55-7f1e2c3d4b5a", color: 1, short: "B", title: "Per-client rate limit for orders" },

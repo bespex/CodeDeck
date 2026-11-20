@@ -23,12 +23,16 @@ pub fn here(harness: &dyn Harness, with_name: bool) -> Place {
     let process = tool_process(Path::new("/proc"), std::process::id());
     // `TMUX_PANE` alone may be inherited from a shell that left tmux; `TMUX` says we are inside
     let tmux = var("TMUX").and(var("TMUX_PANE")).map(|pane| Tmux { session: if with_name { tmux_session(&pane) } else { None }, pane });
+    let background = harness.background_job(&var);
     Place {
         pid: process.map(|p| p.0),
         since: process.map(|p| p.1),
         tmux,
-        launched: var(LAUNCHED),
+        // A session sent to the background inherits the environment of the one it came from: that
+        // one CodeDeck may have started, this one it did not
+        launched: if background.is_some() { None } else { var(LAUNCHED) },
         remote: harness.remote_link(&var),
+        background,
     }
 }
 

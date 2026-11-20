@@ -103,6 +103,19 @@ pub trait Harness: Send + Sync {
     fn running(&self, _project: &Path) -> Vec<(String, Place)> {
         Vec::new()
     }
+    /// The handle of a session running in the background, read from the environment its hooks run
+    /// in (`var` looks a variable up); `None` for a session in a terminal.
+    fn background_job(&self, _var: &dyn Fn(&str) -> Option<String>) -> Option<String> {
+        None
+    }
+    /// The project's sessions the tool keeps in the background, running or not.
+    fn parked(&self, _project: &Path) -> Vec<Parked> {
+        Vec::new()
+    }
+    /// How to open a session that runs in the background in a terminal, from its handle.
+    fn attach(&self, _job: &str, _account: Option<&str>) -> Option<Launched> {
+        None
+    }
 }
 
 /// What a tool, or one of its sessions, lets CodeDeck do. The interface offers only what is here.
@@ -252,6 +265,23 @@ pub struct Place {
     /// A link that reaches the session from another device or the browser, while it is reachable
     /// there; `None` when the tool offers none or the connection is down
     pub remote: Option<String>,
+    /// It runs in the background, hosted by the tool itself without a terminal: the handle to join
+    /// it with (see [`Harness::attach`]); `None` for a session in a terminal
+    #[serde(default)]
+    pub background: Option<String>,
+}
+
+/// A session the tool keeps in the background (see [`Place::background`]), as the tool records
+/// it: also one whose process is gone, e.g. after the machine was shut down.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct Parked {
+    pub id: String,
+    /// The handle to join it with
+    pub job: String,
+    /// It waits for the answer to this question
+    pub question: Option<String>,
+    /// The session it was split off from when that one was sent to the background
+    pub continues: Option<String>,
 }
 
 /// The tmux pane a session runs in.

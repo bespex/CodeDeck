@@ -139,7 +139,7 @@ fn safe(name: &str) -> String {
 
 /// One word of a command line as a shell reads it: quoted only where it has to be, so the
 /// command stays readable.
-fn word(arg: &str) -> String {
+pub(crate) fn word(arg: &str) -> String {
     let plain = !arg.is_empty() && arg.chars().all(|c| c.is_ascii_alphanumeric() || "-_./=:%@,+".contains(c));
     if plain { arg.to_string() } else { crate::hook::quote(arg) }
 }

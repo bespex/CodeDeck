@@ -332,6 +332,26 @@ zu Desktop und Remote Control erledigt (SITZUNGEN B4, B11).
   ansehen, Quittung, Werkzeuge beim Überfahren, Hauptknopf); Modell, „von Hand“, tmux und Remote stehen in den Details
   unter „Art“. Praxistest: Rückfrage mit Bash zeigt den Befehl; fertige Runde zeigt Schlussworte und verschwindet aus der
   Zahl nach Hineingehen bzw. „Runde ansehen“; beendete Sitzung lässt sich fortsetzen und erscheint als „Wird gestartet…“.
+- **Sitzungen im Hintergrund** ✅ 2026-11-20 gebaut, Praxistest offen (Anlass: Pictorix-Sitzung nach `/background` nicht
+  mehr auffindbar). Befund: `/background` (Claude Code 2.1.32x) übergibt die Unterhaltung als Abzweig mit **neuer ID** an
+  den Daemon des Werkzeugs (kein Terminal, kein tmux); im Terminal läuft eine neue, leere Sitzung weiter; der Daemon hält
+  leere Reserve-Sitzungen bereit. CodeDeck hörte die Hooks, zeigte aber zwei Karten „Pictorix“ ohne Weg hinein.
+  Probe mit `claude --bg`: Prozessdatei `<config>/sessions/<pid>.json` mit `kind: "bg"`, `jobId`; im Hook
+  `CLAUDE_CODE_SESSION_KIND=bg`, `CLAUDE_JOB_DIR=…/jobs/<id>`; hinein mit `claude attach <id>` (Ctrl+Z zurück, läuft
+  weiter); `<config>/jobs/<id>/state.json` überlebt das Herunterfahren (`state` `blocked` mit `needs` = offene Frage),
+  `daemon/roster.json` nennt, solange er läuft, die abgezweigte Unterhaltung (`dispatch.launch`, `fork`). Dokumentiert ist
+  nur `claude agents --json` (zu langsam für den Takt, daher die Dateien; undokumentiert, tolerant gelesen). Gebaut:
+  `Place.background` (Hook: `Harness::background_job`; erbt dort nicht `CODEDECK_SESSION`), `Harness::parked` (Daemon-
+  Dateien, alle 6 s und beim Laden: Herkunft `continues`/`moved_to`, Frage → „fragt“), `Harness::attach` (Terminal-Tür und
+  „Fortsetzen“ öffnen `claude attach`); eine Sitzung, aus deren Prozess eine andere meldet, gilt als beendet (`/clear`,
+  `/background`); Reserve-Sitzungen (Hintergrund ohne Prompt) erscheinen nicht. Karte: Schild „im Hintergrund“, Zeilen
+  „Läuft im Hintergrund weiter als …“ bzw. „Setzt fort: …“, kein Fortsetzen an der abgezweigten Ursprungs-Sitzung.
+  Praxistest: in einer Sitzung `/background`; CodeDeck zeigt die alte als beendet mit Verweis, die neue „im Hintergrund“;
+  „Terminal“ öffnet `claude attach`; eine Frage am Rundenende erscheint als „fragt“; nach Neustart von CodeDeck ist sie
+  wieder da.
+- **Sitzungen: Prüfung und Überarbeitung** ☐ (Nutzer 2026-11-20): Betriebswege, Kapselung je KI-Werkzeug, Fallbacks.
+  Befunde, Konzept K1–K8 und Schritte S1–S9 in `docs/SITZUNGEN-PRUEFUNG.md`. Zuerst S1: Beenden/Neu starten trifft heute
+  auch von Hand gestartete tmux-Sitzungen und beendet die ganze tmux-Sitzung des Nutzers.
 - **TODO: Umgang mit dem Git-Index prüfen und ggf. überarbeiten** (Nutzer, 2026-11-19). Heute: CodeDeck merkt nie
   selbst vor; liegt etwas im Index (aus dem Terminal oder von einer Sitzung, die `git add` ausführte), committet ✓ Commit
   still nur das (`commitSteps` in `src/git.ts`), sonst vorher `git add -A`. Das sagt nur der Tooltip. Das Label „im

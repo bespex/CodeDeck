@@ -5,11 +5,16 @@
 
 use std::process::Command;
 
-use crate::harness::Place;
+use crate::harness::{Launched, Place};
 
-/// Opens the session in a terminal: attached to its tmux session, or its own terminal window to
+/// Opens the session in a terminal: in the background through the tool (`attach`), attached to its
+/// tmux session, or its own terminal window to
 /// the front. Says why not when neither is possible.
-pub fn terminal(place: &Place) -> Result<(), String> {
+pub fn terminal(place: &Place, attach: Option<Launched>) -> Result<(), String> {
+    // In the background there is no terminal to find: the tool opens the session in a new one
+    if let (Some(_), Some(attach)) = (&place.background, attach) {
+        return in_new_terminal(&attach);
+    }
     if let Some(tmux) = &place.tmux {
         // `=name` matches the session's name exactly; the pane id finds its session too
         let target = tmux.session.as_ref().map_or_else(|| tmux.pane.clone(), |name| format!("={name}"));
@@ -85,4 +90,16 @@ mod tests {
         assert!(line.len() >= 2, "a test runs under something");
         assert_eq!(parent_of(std::process::id()), Some(line[1]));
     }
+}
+
+/// Runs a tool's command in a new terminal window, through the user's login shell (started from
+/// the desktop, CodeDeck's own PATH may lack the folder the tool is installed in).
+fn in_new_terminal(launched: &Launched) -> Result<(), String> {
+    let shell = std::env::var("SHELL").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "/bin/sh".into());
+    let env = launched.env.iter().map(|(k, v)| format!("{k}={}", crate::tmux::word(v)));
+    let argv = launched.argv.iter().map(|a| crate::tmux::word(a));
+    let line = format!("exec env {}", env.chain(argv).collect::<Vec<_>>().join(" "));
+    let mut command = Command::new("x-terminal-emulator");
+    command.args(["-e", &shell, "-lc", &line]);
+    crate::apps::detach(command).map_err(|e| format!("no terminal could be started: {e}"))
 }

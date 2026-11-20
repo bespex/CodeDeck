@@ -16,6 +16,7 @@ import {
   Paperclip,
   Pencil,
   Play,
+  Layers,
   Eraser,
   Loader,
   Radio,
@@ -399,7 +400,9 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
   const status = blocked ? { words: `${t("waits for reset")} · ${resetAt(reset, Date.now(), LOCALE)}`, at: null, tone: "problem" as Tone } : statusWords(s, now);
   // Not started by CodeDeck: it cannot be stopped or restarted from here, so it says where it comes from
   const byHand = s.status !== "ended" && !s.place?.launched;
-  const canResume = resumable(s) && !!projectPath;
+  // Sent to the background, it goes on there: continuing it here would split it a second time
+  const canResume = resumable(s) && !s.movedTo && !!projectPath;
+  const background = !!s.place?.background && s.status !== "ended";
   // As in the project list: a double click goes to it (Desktop where reachable there, else its
   // terminal), a middle click always to its terminal
   const [failed, setFailed] = useState<string | null>(null);
@@ -537,10 +540,23 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
           ) : (
             <span className="truncate text-[12px] text-slate-400">{head.text}</span>
           )}
+          {/* Sent to the background, the conversation goes on under another session: both say so */}
+          {s.movedTo && <Related id={s.movedTo} words={t("Goes on in the background as")} />}
+          {s.continues && <Related id={s.continues} words={t("Continues")} />}
           {/* The way into it, always in sight; the rarer tools while the mouse is on it. One height with or
               without them, so nothing moves */}
           <span className="flex h-[22px] items-center gap-1.5 text-[11px] text-slate-500">
             <Chevron className="size-3.5 shrink-0 text-slate-500" />
+            {background && (
+              // Why there is no terminal to go back to: its tool keeps it, a terminal opens it there
+              <span
+                title={t("Runs in the background, without a terminal. “Terminal” opens it there; it keeps running when you leave.")}
+                className="flex h-[18px] shrink-0 items-center gap-1 rounded border border-ai/40 px-1 leading-none text-ai"
+              >
+                <Layers className="size-3 shrink-0" />
+                {t("in the background")}
+              </span>
+            )}
             {finished && (
               <button
                 type="button"
@@ -591,14 +607,14 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
                 {resuming ? <Loader className="size-3 shrink-0 animate-spin" /> : <Play className="size-3 shrink-0" />}
                 {t("Continue")}
               </button>
-            ) : (
+            ) : s.status === "ended" || s.movedTo ? null : (
               // Going into the session is what one comes for most (user, 2026-11-20): always in sight, not
               // only on a double click; while it asks, as the answer it waits for
               <button
                 type="button"
                 onClick={(e) => (e.stopPropagation(), cancelFold(), go("auto"))}
                 onDoubleClick={(e) => e.stopPropagation()}
-                title={door === "desktop" ? t("Open in the desktop app") : t("Open in a terminal")}
+                title={door === "desktop" ? t("Open in the desktop app") : background ? t("Open it in a terminal; it keeps running in the background") : t("Open in a terminal")}
                 className={`flex h-[20px] shrink-0 items-center gap-0.5 rounded px-1.5 leading-none font-medium ${
                   s.status === "waiting" ? "bg-changed text-[var(--t-on-wait,var(--color-base))] hover:brightness-110" : "border border-line text-slate-300 hover:bg-overlay-hover hover:text-slate-50"
                 }`}
@@ -684,6 +700,27 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
         </div>
       )}
     </li>
+  );
+}
+
+/** Another session this one belongs to (sent to the background, or split off from), by its badge and
+ *  title; the mouse on it shows what is that session's on the trail and in the file list. */
+function Related({ id, words }: { id: string; words: string }) {
+  const marks = useSessionMarks();
+  const mark = marks.of(id);
+  return (
+    <span onMouseEnter={(e) => (e.stopPropagation(), marks.hover(id))} className="flex min-w-0 items-center gap-1.5 text-[11px] text-slate-400">
+      <Layers className="size-3 shrink-0 text-ai" />
+      <span className="shrink-0">{words}</span>
+      {mark ? (
+        <>
+          <SessionBadge mark={mark} />
+          <span className="min-w-0 truncate text-slate-300">{mark.title ?? t("Session {id}", { id: shortId(id) })}</span>
+        </>
+      ) : (
+        <span className="text-slate-300">{t("Session {id}", { id: shortId(id) })}</span>
+      )}
+    </span>
   );
 }
 

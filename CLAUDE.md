@@ -24,9 +24,9 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src-tauri/src/snapshot.rs` | Sicherungspunkte unter `refs/codedeck/snapshots/` (Anfang und Ende einer Runde, `end_turn`), Diff, Zurückgehen |
 | `src-tauri/src/bridge.rs` | Je Fenster (Ereignisse mit `emit_to`): Sitzungen aus neutralen Ereignissen (`Inner::take_in`), Snapshot vor erstem Schreiben und am Ende der Runde (`Session.turn`, `Todo.ends`), Übergabe an nächsten Prompt |
 | `src-tauri/src/hook.rs` | `codedeck hook [--harness <id>]`: nur Transport (Rohmeldung → Adapter → Socket jedes laufenden CodeDeck) |
-| `src-tauri/src/place.rs` | Wo eine Sitzung läuft, vom Hook aus gesehen (`Place`: Prozess, tmux, `CODEDECK_SESSION`, Remote-Link über `Harness::remote_link`); nur beobachten, Vorarbeit für `docs/SITZUNGEN.md` |
+| `src-tauri/src/place.rs` | Wo eine Sitzung läuft, vom Hook aus gesehen (`Place`: Prozess, tmux, `CODEDECK_SESSION`, Remote-Link über `Harness::remote_link`, im Hintergrund über `Harness::background_job`); nur beobachten, Vorarbeit für `docs/SITZUNGEN.md` |
 | `src-tauri/src/harness/mod.rs` | Trait `Harness`, `Capabilities`, neutrales `Event`, `SessionInfo`, `Connection`; `all()`/`by_id` |
-| `src-tauri/src/harness/claude.rs` | Einziger Ort für Claude-Spezifisches: Hook-Ereignisse und -Felder, `settings.json`, Konfigurationen (`config_dirs`), Log-Format, laufende Prozesse (`running`, `<config>/sessions/`) |
+| `src-tauri/src/harness/claude.rs` | Einziger Ort für Claude-Spezifisches: Hook-Ereignisse und -Felder, `settings.json`, Konfigurationen (`config_dirs`), Log-Format, laufende Prozesse (`running`, `<config>/sessions/`), Hintergrund-Sitzungen des Daemons (`parked`: `jobs/*/state.json`, `daemon/roster.json`; `attach`) |
 | `src-tauri/src/harness/fake.rs` | Test-Adapter ohne echtes Werkzeug (nur in Tests) |
 | `src-tauri/src/identity.rs` | Farbe, Kurzname und eigener Titel je Sitzung, je Projekt in `~/.config/codedeck/sessions.json` |
 | `src-tauri/src/markers.rs` | `@ai`-Marker (Regel D18): `git grep` als Vorauswahl, `marker_text` entscheidet, Codeblöcke in Markdown zählen nicht |

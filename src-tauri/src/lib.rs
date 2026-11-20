@@ -864,7 +864,15 @@ async fn start_session(project: String, fresh: bool, app: AppHandle) -> Result<O
 #[tauri::command]
 async fn resume_session(project: String, session: String, app: AppHandle) -> Result<String, String> {
     let root = Project::open(Path::new(&project))?.root;
-    let (tool, account) = windows::bridge_for(&app, &root).resume_info(&session)?;
+    let bridge = windows::bridge_for(&app, &root);
+    // One the tool keeps in the background goes on there: joining it brings it back
+    if let Some((tool, account, Some(place))) = bridge.session_place(&session).filter(|(_, _, p)| p.as_ref().is_some_and(|p| p.background.is_some())) {
+        let job = place.background.clone().unwrap_or_default();
+        let attach = harness::by_id(Some(tool)).and_then(|t| t.attach(&job, account.as_deref()));
+        doors::terminal(&place, attach)?;
+        return Ok(job);
+    }
+    let (tool, account) = bridge.resume_info(&session)?;
     let tool = harness::by_id(Some(tool)).ok_or("unknown tool")?;
     let account = account.or_else(|| projects::list().into_iter().find(|p| p.path == root).and_then(|p| p.account));
     let (_, name) = tmux::start(&root, tool, account.as_deref(), Some(&session))?;
@@ -980,7 +988,7 @@ async fn pending_session(project: String, name: String, end: bool) -> Result<(),
     if end {
         return tmux::stop(&name);
     }
-    doors::terminal(&harness::Place { tmux: Some(harness::Tmux { pane: String::new(), session: Some(name) }), ..Default::default() })
+    doors::terminal(&harness::Place { tmux: Some(harness::Tmux { pane: String::new(), session: Some(name) }), ..Default::default() }, None)
 }
 
 /// Whether CodeDeck starts at login (in the tray), and with which program.
@@ -1041,7 +1049,11 @@ pub(crate) fn enter_session(app: &AppHandle, project: &Path, session: &str, door
         _ => door,
     };
     match door {
-        "terminal" => doors::terminal(&place),
+        "terminal" => {
+            // A session in the background is opened by its tool, in its account
+            let attach = place.background.as_deref().and_then(|job| harness::by_id(Some(harness))?.attach(job, account.as_deref()));
+            doors::terminal(&place, attach)
+        }
         "desktop" => {
             let remote = place.remote.as_deref().ok_or("not reachable from the desktop app: Remote Control is off or not connected")?;
             let tool = harness::by_id(Some(harness)).ok_or("unknown tool")?;

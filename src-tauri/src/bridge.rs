@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
 use crate::git::{Git, GitRun};
-use crate::harness::{self, Capabilities, Event, EventKind, Harness, HarnessInfo, Place, SessionInfo};
+use crate::harness::{self, Capabilities, Event, EventKind, Harness, HarnessInfo, Parked, Place, SessionInfo};
 use crate::findings::{self, Found, FoundView};
 use crate::identity::{self, Identities, Listed};
 use crate::journal::{self, Journal};
@@ -84,6 +84,10 @@ pub struct Session {
     seen: bool,
     /// What it said at the end of its latest turn, shortened; `None` while it works
     report: Option<String>,
+    /// The session it was split off from when that one was sent to the background
+    continues: Option<String>,
+    /// It was sent to the background: the session that goes on with its conversation there
+    moved_to: Option<String>,
     /// Where its running turn began, per repository it was about to write in; empty between turns
     turn: Vec<TurnStart>,
     /// Files it wrote, project-relative, newest first
@@ -295,10 +299,17 @@ impl Bridge {
         bridge.load_recent(app);
         // Holds the bridge only weakly: when its window is gone, the loop ends
         let (watcher, watching) = (Arc::downgrade(&bridge), app.clone());
-        std::thread::spawn(move || loop {
-            std::thread::sleep(CUT_SHORT_EVERY);
-            let Some(bridge) = watcher.upgrade() else { return };
-            bridge.end_cut_short(&watching);
+        std::thread::spawn(move || {
+            for tick in 0u64.. {
+                std::thread::sleep(CUT_SHORT_EVERY);
+                let Some(bridge) = watcher.upgrade() else { return };
+                bridge.end_cut_short(&watching);
+                // What the tool records of its background sessions: a question asked, a session
+                // split off. Its files change rarely, a look now and then is enough
+                if tick % 2 == 1 {
+                    bridge.look_at_parked(&watching);
+                }
+            }
         });
         bridge
     }
@@ -331,6 +342,19 @@ impl Bridge {
     /// A turn the user stopped says nothing to the hooks (no `Stop`, no `idle_prompt`), so the
     /// session would stay "working" or "waiting" for good. The tool's log does say it: for the
     /// sessions in such a state it is looked at now and then, and a stopped turn ends like any other.
+    fn look_at_parked(&self, app: &AppHandle) {
+        let changed = {
+            let mut inner = self.inner.locked();
+            if !inner.loaded {
+                return;
+            }
+            inner.take_parked(&self.current.get().root)
+        };
+        if changed {
+            self.tell(app, ASSISTANT_CHANGED, self.state());
+        }
+    }
+
     fn end_cut_short(&self, app: &AppHandle) {
         let open: Vec<(String, &'static str, PathBuf, u64)> = {
             let inner = self.inner.locked();
@@ -446,7 +470,7 @@ impl Bridge {
                 for harness in harness::all() {
                     for (id, mut place) in harness.running(&root) {
                         // Started by CodeDeck? Its process says so, long before its next report
-                        if let Some(pid) = place.pid.filter(|_| place.launched.is_none()) {
+                        if let Some(pid) = place.pid.filter(|_| place.launched.is_none() && place.background.is_none()) {
                             place.launched = crate::place::launched_by(pid);
                         }
                         if let Some(session) = inner.sessions.get_mut(&id) {
@@ -454,6 +478,7 @@ impl Bridge {
                         }
                     }
                 }
+                inner.take_parked(&root);
                 trim(&mut inner);
                 inner.loaded = true;
                 inner.save_identities();
@@ -850,8 +875,30 @@ impl Inner {
     }
 
     /// The sessions in the order they came in, the newest first: a session keeps its place.
+    /// Takes in what the tools record of the project's background sessions (see
+    /// [`Harness::parked`]): which session is one, where it came from, the question it waits for.
+    /// Whether anything changed.
+    fn take_parked(&mut self, root: &Path) -> bool {
+        // In a fixed order: a map's own order may differ between two looks
+        let look = |sessions: &HashMap<String, Session>| {
+            let mut all: Vec<_> = sessions.values().map(|s| (&s.id, &s.status, &s.message, &s.place, &s.continues, &s.moved_to)).collect();
+            all.sort_by(|a, b| a.0.cmp(b.0));
+            serde_json::to_string(&all).unwrap_or_default()
+        };
+        let before = look(&self.sessions);
+        for harness in harness::all() {
+            for parked in harness.parked(root) {
+                apply_parked(&mut self.sessions, parked);
+            }
+        }
+        before != look(&self.sessions)
+    }
+
     fn listed(&self) -> Vec<Session> {
-        let mut sessions: Vec<Session> = self.sessions.values().cloned().collect();
+        // A background session nobody asked anything yet is one the tool keeps ready (a spare of
+        // Claude Code's daemon): nothing to show until it gets its first prompt
+        let spare = |s: &Session| s.place.as_ref().is_some_and(|p| p.background.is_some()) && s.prompts == 0 && s.status != "working";
+        let mut sessions: Vec<Session> = self.sessions.values().filter(|s| !spare(s)).cloned().collect();
         for s in &mut sessions {
             s.alive = s.place.as_ref().and_then(crate::place::alive);
         }
@@ -1019,6 +1066,18 @@ impl Inner {
         if let Some(place) = &e.place {
             session.place = Some(moved_to(session.place.take(), place));
         }
+        // Another session reports from the process this one ran in: it is not there any more (after
+        // `/clear`, or sent to the background, the terminal goes on with a new conversation)
+        let process = e.place.as_ref().and_then(|p| Some((p.pid?, p.since?)));
+        if let Some(process) = process {
+            for other in self.sessions.values_mut().filter(|o| o.id != e.session && o.status != "ended") {
+                if other.place.as_ref().and_then(|p| Some((p.pid?, p.since?))) == Some(process) {
+                    other.status = "ended";
+                    other.message = None;
+                }
+            }
+        }
+        let session = self.sessions.get_mut(&e.session).expect("just looked up");
         // A turn is over when the session says so, or when the next prompt comes without that
         let over = matches!(e.kind, EventKind::TurnDone | EventKind::PromptSubmitted);
         let ends = if over { std::mem::take(&mut session.turn) } else { Vec::new() };
@@ -1183,6 +1242,29 @@ fn moved_to(before: Option<Place>, now: &Place) -> Place {
     place
 }
 
+/// One background session as the tool records it, taken into the sessions CodeDeck knows.
+fn apply_parked(sessions: &mut HashMap<String, Session>, parked: Parked) {
+    let Some(session) = sessions.get_mut(&parked.id) else { return };
+    let place = session.place.get_or_insert_with(Place::default);
+    if place.background.is_none() {
+        place.background = Some(parked.job);
+    }
+    if parked.continues.is_some() {
+        session.continues = parked.continues.clone();
+    }
+    // Its turn ended with a question (the tool tells it apart from a turn that is simply done):
+    // it waits for an answer as much as one that asks for a permission
+    if let Some(question) = parked.question {
+        if session.capabilities.live_status && session.status == "idle" && session.turn_done.is_some() {
+            session.status = "waiting";
+            session.message = Some(question);
+        }
+    }
+    if let Some(origin) = parked.continues.and_then(|o| sessions.get_mut(&o)) {
+        origin.moved_to = Some(parked.id);
+    }
+}
+
 fn new_session(id: &str, harness: &dyn Harness) -> Session {
     Session {
         id: id.to_string(),
@@ -1207,6 +1289,8 @@ fn new_session(id: &str, harness: &dyn Harness) -> Session {
         turn_done: None,
         seen: false,
         report: None,
+        continues: None,
+        moved_to: None,
         turn: Vec::new(),
         touched: Vec::new(),
         received: Vec::new(),
@@ -1371,6 +1455,35 @@ mod tests {
     }
 
     #[test]
+    fn a_session_sent_to_the_background_goes_on_there_and_its_terminal_with_another() {
+        let root = Path::new("/p");
+        let mut inner = Inner::default();
+        let mut step = |inner: &mut Inner, raw: &str, place: Place, now: u64| {
+            let mut event = Fake.translate(&serde_json::from_str(raw).unwrap()).unwrap();
+            event.place = Some(place);
+            inner.take_in(&event, &Fake, root, Vec::new, now);
+        };
+        let terminal = Place { pid: Some(10), since: Some(1), ..Default::default() };
+        let daemon = |pid| Place { pid: Some(pid), since: Some(2), background: Some(format!("job{pid}")), ..Default::default() };
+        step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Port it"}"#, terminal.clone(), 10);
+        // `/background`: the conversation goes on in the daemon under a new id, a spare waits beside
+        // it, and the terminal goes on with a fresh conversation
+        step(&mut inner, r#"{"who":"c3","did":"started","in":"/p"}"#, daemon(20), 20);
+        step(&mut inner, r#"{"who":"d4","did":"started","in":"/p"}"#, daemon(21), 21);
+        step(&mut inner, r#"{"who":"c3","did":"asked","in":"/p","text":"Port it"}"#, daemon(20), 22);
+        step(&mut inner, r#"{"who":"b2","did":"started","in":"/p"}"#, terminal, 30);
+        assert_eq!(inner.sessions["a1"].status, "ended");
+        let listed: Vec<String> = inner.listed().into_iter().map(|s| s.id).collect();
+        assert!(listed.contains(&"c3".to_string()) && !listed.contains(&"d4".to_string()), "the spare is not listed: {listed:?}");
+        // What the daemon records: where it came from, and the question it ended its turn with
+        step(&mut inner, r#"{"who":"c3","did":"done","in":"/p"}"#, daemon(20), 40);
+        apply_parked(&mut inner.sessions, Parked { id: "c3".into(), job: "job20".into(), question: Some("Commit now?".into()), continues: Some("a1".into()) });
+        let (c3, a1) = (&inner.sessions["c3"], &inner.sessions["a1"]);
+        assert_eq!((c3.status, c3.message.as_deref(), c3.continues.as_deref()), ("waiting", Some("Commit now?"), Some("a1")));
+        assert_eq!(a1.moved_to.as_deref(), Some("c3"));
+    }
+
+    #[test]
     fn a_report_is_shown_as_one_plain_line() {
         assert_eq!(report_shown("## Done\n\n- **Fixed** the `limit`\n```rust\nx\n```"), "Done Fixed the limit x");
     }
@@ -1388,7 +1501,7 @@ mod tests {
         };
         let pane = |session: Option<&str>| Some(Tmux { pane: "%3".into(), session: session.map(String::from) });
         let link = Some("https://example.test/s1".to_string());
-        let first = Place { pid: Some(10), since: Some(1), tmux: pane(Some("codedeck-p-A")), launched: None, remote: link.clone() };
+        let first = Place { pid: Some(10), since: Some(1), tmux: pane(Some("codedeck-p-A")), launched: None, remote: link.clone(), background: None };
         assert_eq!(step(r#"{"who":"a1","did":"asked","in":"/p","text":"Go"}"#, first.clone(), 10), first);
         let later = step(r#"{"who":"a1","did":"wrote","in":"/p","path":"/p/a","with":"Write"}"#, Place { tmux: pane(None), remote: None, ..first.clone() }, 20);
         assert_eq!(later.tmux, pane(Some("codedeck-p-A")));
