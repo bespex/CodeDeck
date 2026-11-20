@@ -225,24 +225,38 @@ Jeder Schritt einzeln, mit Praxistest, nach „So läuft jeder Schritt“ in `do
 
 | Schritt | Inhalt | Dateien | Fertig, wenn |
 |---|---|---|---|
-| **S1 Eigentum und Pane** (zuerst: verhindert Schaden) | K3: Neu starten und Beenden nur für von CodeDeck gestartete Sitzungen, an allen drei Stellen (Karte, Projektliste, Kontowechsel) und im Backend (`stop_session` verweigert fremde tmux-Sitzungen). Terminal-Tür zielt in fremdem tmux auf Fenster und Pane | `lib.rs` (`stop_session`), `doors.rs`, `SessionsPanel.tsx`, `OverviewApp.tsx`, `HeaderBar.tsx` | Von Hand: `tmux new -s test`, zweites Fenster, darin `claude`. Kein Beenden an der Karte; Terminal öffnet genau das Pane |
-| **S2 Terminal-Starter** | K4: `terminal.rs` mit Erkennung und Argumentform; Einstellung „Terminal“ im Bereich Benutzeroberfläche | neu `terminal.rs`, `doors.rs`, `config.rs`, `Dialogs.tsx`, `backend.ts` | Unter Mint wie bisher; mit `TERMINAL=kitty` öffnet kitty; ohne jedes Terminal kein Knopf, die Einstellungen sagen es |
-| **S3 Fähigkeiten des Rechners** | K1 (Teil Rechner): `Platform` beim Start ermitteln (tmux, Terminal, X11/Wayland, Kürzel, Positionieren), an die Oberfläche geben; Glocke zeigt sie | neu `platform.rs`, `lib.rs`, `backend.ts`, `NoticesPanel.tsx` | In der Vorschau mit „Wayland, kein tmux“: kein ▶, kein Terminal für Hand-Sitzungen, Hinweise in der Glocke |
+| **S1 Eigentum und Pane** ✅ (Praxistest offen) | K3: Neu starten und Beenden nur für von CodeDeck gestartete Sitzungen, an allen drei Stellen (Karte, Projektliste, Kontowechsel) und im Backend (`stop_session` verweigert fremde tmux-Sitzungen). Terminal-Tür zielt in fremdem tmux auf Fenster und Pane | `lib.rs` (`stop_session`), `doors.rs`, `SessionsPanel.tsx`, `OverviewApp.tsx`, `HeaderBar.tsx` | Von Hand: `tmux new -s test`, zweites Fenster, darin `claude`. Kein Beenden an der Karte; Terminal öffnet genau das Pane |
+| **S2 Terminal-Starter** | K4: `terminal.rs` mit Erkennung und Argumentform (ohne sichtbare Einstellung, Entscheidung 1) | neu `terminal.rs`, `doors.rs`, `backend.ts` | Unter Mint wie bisher; mit `TERMINAL=kitty` öffnet kitty; ohne jedes Terminal kein Knopf, der About-Dialog sagt es |
+| **S3 Fähigkeiten des Rechners** | K1 (Teil Rechner): `Platform` beim Start ermitteln (tmux, Terminal, X11/Wayland, Kürzel, Positionieren), an die Oberfläche geben; Glocke und About-Dialog zeigen sie („Erkannt auf diesem Rechner“) | neu `platform.rs`, `lib.rs`, `backend.ts`, `NoticesPanel.tsx`, `Dialogs.tsx` | In der Vorschau mit „Wayland, kein tmux“: kein ▶, kein Terminal für Hand-Sitzungen, Hinweise in der Glocke |
 | **S4 Fähigkeiten des Werkzeugs vervollständigen** | K1 (Teil Werkzeug): `launch`, `background`, `desktop` in `Capabilities`, aus dem Adapter abgeleitet | `harness/mod.rs`, `harness/claude.rs`, `harness/fake.rs`, `backend.ts` | Konformitätstest grün; der Test-Adapter meldet „kein Start“ |
 | **S5 Türen und Aktionen aus dem Backend** | K2: `Session.doors`, `Session.actions` (Werkzeug × Rechner × Ort × Eigentum); Frontend zeigt nur diese; `enter_session` nutzt dieselbe Entscheidung. Ersetzt die Bedingungen aus S1 im Frontend | `bridge.rs` (oder neu `doors.rs` erweitert), `lib.rs`, `SessionsPanel.tsx`, `OverviewApp.tsx`, `HeaderBar.tsx`, `backend.ts` | Kein Knopf führt zu „geht nicht“; zweites Beispiel-Werkzeug in der Vorschau zeigt nur, was es kann |
 | **S6 Werkzeug je Projekt** | K6: Start mit dem Werkzeug des Projektkontos; Standardkonto für Werkzeuge ohne Konten; Texte über den Namen (K8) | `lib.rs` (`start_in`), `accounts.rs`, `ActivityView.tsx`, `UsagePanel.tsx`, `i18n.de.ts` | Test: Projekt mit dem Konto des Test-Adapters startet dessen Befehl |
-| **S7 Wayland-Wege** | K5: `codedeck --toggle`; keine Positionierung und kein Fenster-nach-vorn unter Wayland; Hilfe zeigt den Kürzel-Weg | `lib.rs` (`run`), `hub.rs`, `window.rs`, `Dialogs.tsx` | Unter einer Wayland-Sitzung (Probe, z. B. GNOME oder KDE in einer VM): keine Fehlermeldungen; Kürzel im Desktop gebunden holt CodeDeck nach vorn |
+| **S7 Wayland-Wege** | K5: `codedeck --toggle`; keine Positionierung und kein Fenster-nach-vorn unter Wayland; Hilfe zeigt den Kürzel-Weg; Hinweisdialog unter Wayland beim Start mit „Weiterhin anzeigen“ (Entscheidung 4, Wahl in den Rechner-Einstellungen) | `lib.rs` (`run`), `hub.rs`, `window.rs`, `config.rs`, `Dialogs.tsx` | Auf dem Wayland-Rechner: Hinweis beim ersten Start, nach Abwahl nicht mehr; keine Fehlermeldungen; Kürzel im Desktop gebunden holt CodeDeck nach vorn |
 | **S8 Vertrag und Vorschau** | K7: Konformitätstests für alle Adapter; zweites Beispiel-Werkzeug in `mock.ts`/`backend.ts`; Doku der Schnittstelle (`docs/KONZEPT.md` Abschnitt Adapter, „So kommt ein Werkzeug dazu“) | `harness/*`, `backend.ts`, `docs/KONZEPT.md` | Neue Entwicklerin kann aus der Doku einen Adapter-Rohbau anlegen |
-| **S9 Probe OpenCode** (nur auf Wunsch) | Ereignisse, Fortsetzen, Logs, Text in den Prompt prüfen; Ergebnis als Tabelle in diesem Dokument; Entscheidung, ob ein Adapter gebaut wird | `.scratch/` | Tabelle 2.3 mit belegten Antworten |
+| **S9 Probe OpenCode** (nach S8, gewollt) | Ereignisse, Fortsetzen, Logs, Text in den Prompt prüfen; Ergebnis als Tabelle in diesem Dokument; Entscheidung, ob ein Adapter gebaut wird | `.scratch/` | Tabelle 2.3 mit belegten Antworten |
 
 **Reihenfolge und Begründung:**
 - **S1 sofort**, weil er Arbeit des Nutzers zerstören kann.
 - **S2 und S3** machen CodeDeck auf anderen Rechnern benutzbar.
 - **S4 bis S6** schaffen die Grundlage für ein zweites Werkzeug.
 - **S7 und S8** runden ab.
-- **S9** nur, wenn ein zweites Werkzeug wirklich gewollt ist.
+- **S9** danach: OpenCode als Erprobung des Konzepts und für Tests.
 
-**Offen für den Nutzer:**
-1. S2: Soll die Terminal-Einstellung sichtbar in den Einstellungen stehen, oder reicht die Erkennung?
-2. S7: Gibt es einen Wayland-Rechner zum Testen, oder soll eine VM dafür her?
-3. S9: Ist OpenCode ein konkretes Ziel oder ein Gedankenspiel?
+**Gruppen (Nutzer 2026-11-20): eine Sitzung je Gruppe, Praxistest am Ende der Gruppe.** Innerhalb einer Gruppe
+nach jedem Schritt `cargo test`, `tsc` und die Vorschau; am Ende eine Praxistest-Liste für die ganze Gruppe.
+
+| Gruppe | Schritte | Warum zusammen | Praxistest am Ende |
+|---|---|---|---|
+| **G1 Rechner** | S2, S3 (+ Praxistest S1 vorher) | Beide fragen den Rechner: Terminal, tmux, X11/Wayland; About zeigt das Erkannte | Auf Mint: Terminal-Türen wie bisher; `TERMINAL=kitty` (o. ä.) öffnet dieses; About „Erkannt auf diesem Rechner“ stimmt; ohne tmux (PATH ohne tmux) kein ▶, verständlicher Hinweis |
+| **G2 Werkzeug** | S4, S5, S6, dazu das zweite Beispiel-Werkzeug aus S8 | S5 braucht die Fähigkeiten aus S3/S4; das Beispiel-Werkzeug ist der Prüfstein für S5 | Jede Tür und Aktion an Karte, Projektliste, Kontowechsel funktioniert wie vorher; Vorschau mit dem Beispiel-Werkzeug zeigt nichts, was nicht geht; Start nutzt das Werkzeug des Projekts |
+| **G3 Wayland und Vertrag** | S7, Rest von S8 (Konformitätstests, Doku „So kommt ein Werkzeug dazu“) | Abrundung; der Wayland-Teil wird auf einem anderen Rechner geprüft | Auf Mint: nichts schlechter, `codedeck --toggle` geht; auf dem Wayland-Rechner: Hinweisdialog, „Weiterhin anzeigen“ abwählbar, keine Fehlermeldungen, Kürzel im Desktop gebunden |
+| **G4 OpenCode** | S9, danach ggf. Adapter | Eigene Erprobung auf fertiger Basis | Tabelle 2.3 belegt; Entscheidung über den Adapter |
+
+**Entscheidungen des Nutzers (2026-11-20):**
+1. S2: Die automatische Erkennung reicht, keine sichtbare Einstellung „Terminal“. Der About-Dialog zeigt, was
+   CodeDeck erkannt hat (Terminal, tmux, X11/Wayland, Desktop, Kürzel, Tray), siehe S3.
+2. S7: Getestet wird auf einem echten Wayland-Rechner (der Tochter des Nutzers), keine VM.
+3. S9: OpenCode ist das Ziel, sobald die Basis (S1 bis S8) steht: als Erprobung des Konzepts und für Tests.
+4. Neu (S7): Unter Wayland erscheint beim ersten Start ein Hinweisdialog, der die Einschränkungen aus Sicht des
+   Nutzers beschreibt (was nicht geht, was stattdessen geht). Er erscheint bei jedem Start wieder, bis der Nutzer
+   „Weiterhin anzeigen“ abwählt.

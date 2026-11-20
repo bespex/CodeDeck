@@ -39,7 +39,7 @@ import { usePending, type Pending } from "../pending";
 import { StartCommand, useSessionCommands } from "./SessionCommands";
 import { HoverTools, Tool, ToolGap } from "./RowTools";
 import { useContextMenu } from "./ContextMenu";
-import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
+import { mainHarness, ownTmux, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
 import { SessionBadge } from "./SessionBadge";
 import { HeaderBar } from "./HeaderBar";
 import { SidebarSummary } from "./SidebarSummary";
@@ -450,7 +450,8 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
   const finished = s.status === "idle" && s.turnDone != null && s.touched.length > 0;
   const tmuxName = s.status !== "ended" ? (s.place?.tmux?.session ?? undefined) : undefined;
   const commands = useSessionCommands(projectPath, tmuxName);
-  const controllable = !!tmuxName && s.status !== "working" && !!projectPath;
+  // Only what CodeDeck started: a tmux session the user made would end with all that runs in it
+  const controllable = !!ownTmux(s) && s.status !== "working" && !!projectPath;
   // Not while its process is known to run: it must stay in sight, or one could never find it again
   // to write its next prompt (user, 2026-11-17). Where the process is not known (a session seen in
   // its log only) CodeDeck cannot promise anything, so it may go
@@ -724,7 +725,7 @@ function Related({ id, words }: { id: string; words: string }) {
   );
 }
 
-/** Where the session runs, as far as it said: in tmux (CodeDeck can stop and restart it there; the
+/** Where the session runs, as far as it said: in tmux (CodeDeck can stop and restart it there if it started it; the
  *  name in the tooltip), and the blue mark when it is reachable from another device or the browser. */
 function Place({ session: s }: { session: Session }) {
   const place = s.place;

@@ -86,8 +86,25 @@ pub struct Started {
 }
 
 /// Ends the tmux session a session runs in. The tool keeps its conversation; it can be continued.
+/// Only a tmux session CodeDeck started: one the user made holds other work of theirs, all of which
+/// would end with it.
 pub fn stop(name: &str) -> Result<(), String> {
+    if !ours(name) {
+        return Err("CodeDeck did not start this tmux session: end the session where it runs".into());
+    }
     run(Command::new("tmux").args(["kill-session", "-t", &format!("={name}")]))
+}
+
+/// Whether CodeDeck started this tmux session: it carries the id CodeDeck gave it.
+pub fn ours(name: &str) -> bool {
+    option(name, "@codedeck").is_some()
+}
+
+/// Makes a pane the one its tmux session shows, so that attaching lands on it and not on whatever
+/// window was last active there (in a tmux session the user made, the tool may run in any window).
+pub fn show_pane(pane: &str) -> Result<(), String> {
+    run(Command::new("tmux").args(["select-window", "-t", pane]))?;
+    run(Command::new("tmux").args(["select-pane", "-t", pane]))
 }
 
 /// The tmux sessions CodeDeck started for a project that still run, with the session id each

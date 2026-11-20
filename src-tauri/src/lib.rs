@@ -929,8 +929,9 @@ fn today(app: &AppHandle) -> Result<(Vec<String>, Vec<String>), String> {
     Ok((started, skipped))
 }
 
-/// Stops a session CodeDeck can reach in tmux; its conversation is kept. With `restart`, the
-/// same conversation starts again in a fresh process (B6).
+/// Stops a session CodeDeck started in tmux; its conversation is kept. With `restart`, the same
+/// conversation starts again in a fresh process (B6). A session in a tmux session the user made is
+/// refused by [`tmux::stop`]: ending it would end the user's other work there.
 #[tauri::command]
 async fn stop_session(project: String, session: String, restart: bool, app: AppHandle) -> Result<(), String> {
     let root = Project::open(Path::new(&project))?.root;

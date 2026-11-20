@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { History, AppWindow, ChevronRight, ChevronsDownUp, ChevronsUpDown, Shapes, Eye, EyeOff, ListX, Loader, Check, Copy, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
 import { forgetRecent, toggleOverview, onTodayStarted, sessionCommands, pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
+import { ownTmux } from "../assistant";
 import { accountLook, useAccounts } from "../accounts";
 import { usePending } from "../pending";
 import { AccountMark, MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
@@ -653,8 +654,8 @@ function ProjectRow({ project, name, drag, inRecent = false }: { project: Overvi
                   {s.place?.remote && <Tool icon={Monitor} label={t("Open in the desktop app")} hint={defaultDoor(s) === "desktop" ? t("Also: double-click the session") : undefined} onClick={() => void go(s, "desktop")} />}
                   <Tool icon={SquareTerminal} label={t("Open in a terminal")} hint={t("Also: middle-click the session")} onClick={() => void go(s, "terminal")} />
                   {s.place?.tmux?.session && <Tool icon={Copy} label={t("Copy how it was started")} onClick={() => void copyStartOf(project.path, s.place!.tmux!.session!)} />}
-                  {/* Sessions in tmux can be stopped and restarted from here; not while they work */}
-                  {s.place?.tmux?.session && s.status !== "working" && (
+                  {/* Sessions CodeDeck started in tmux can be stopped and restarted from here; not while they work */}
+                  {ownTmux(s) && s.status !== "working" && (
                     <>
                       <ToolGap />
                       <Tool icon={RotateCcw} label={t("Restart: same conversation, fresh process")} onClick={() => void stopSession(project.path, s.id, true).catch((e) => tell(String(e)))} />

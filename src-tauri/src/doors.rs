@@ -18,6 +18,11 @@ pub fn terminal(place: &Place, attach: Option<Launched>) -> Result<(), String> {
     if let Some(tmux) = &place.tmux {
         // `=name` matches the session's name exactly; the pane id finds its session too
         let target = tmux.session.as_ref().map_or_else(|| tmux.pane.clone(), |name| format!("={name}"));
+        // Straight to the tool's pane, wherever in the tmux session it is
+        if !tmux.pane.is_empty() {
+            // A pane that is gone still leaves its tmux session to attach to
+            let _ = crate::tmux::show_pane(&tmux.pane);
+        }
         let mut command = Command::new("x-terminal-emulator");
         command.args(["-e", "tmux", "attach-session", "-t", &target]);
         return crate::apps::detach(command).map_err(|e| format!("no terminal could be started: {e}"));

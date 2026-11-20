@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { appInfo, diagnostics, openUrl, setProject, startSession, stopSession, type Account, type AssistantState, type ProjectInfo, closeWindow } from "../backend";
+import { ownTmux } from "../assistant";
 import { useAccounts } from "../accounts";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
@@ -216,7 +217,7 @@ function AccountBlock({ project, assistant }: { project: ProjectInfo | null; ass
     if (!look) return;
     try {
       if (stop) {
-        for (const s of runningWith(next.dir).filter((s) => s.place?.tmux?.session)) await stopSession(look.path, s.id, false);
+        for (const s of runningWith(next.dir).filter((s) => ownTmux(s))) await stopSession(look.path, s.id, false);
       }
       await setProject(look.path, "account", next.dir);
       close();
@@ -227,7 +228,7 @@ function AccountBlock({ project, assistant }: { project: ProjectInfo | null; ass
   const pick = (next: Account) => (runningWith(next.dir).length ? setAsking(next) : void choose(next, false));
   const tools = assistant.harnesses.filter((h) => accounts.some((a) => a.harness === h.id));
   const left = asking ? runningWith(asking.dir) : [];
-  const stoppable = left.filter((s) => s.place?.tmux?.session).length;
+  const stoppable = left.filter((s) => ownTmux(s)).length;
   return (
     <div ref={menu.ref} className="min-w-0">
       <button
@@ -282,11 +283,11 @@ function AccountBlock({ project, assistant }: { project: ProjectInfo | null; ass
               <button
                 type="button"
                 disabled={!stoppable}
-                title={stoppable < left.length ? t("Sessions started by hand end where they run") : undefined}
+                title={stoppable < left.length ? t("Sessions CodeDeck did not start end where they run") : undefined}
                 onClick={() => void choose(asking, true)}
                 className="rounded-md border border-overlay-line px-2.5 py-1 text-left text-[12px] text-slate-200 hover:bg-overlay-hover disabled:opacity-40"
               >
-                {stoppable < left.length ? t("Stop the {n} in tmux now", { n: stoppable }) : t("Stop them now")}
+                {stoppable < left.length ? t("Stop the {n} CodeDeck started now", { n: stoppable }) : t("Stop them now")}
               </button>
               <button type="button" onClick={() => setAsking(null)} className="self-start text-[12px] text-slate-400 hover:text-slate-200">
                 {t("Back")}

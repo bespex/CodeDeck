@@ -350,8 +350,10 @@ zu Desktop und Remote Control erledigt (SITZUNGEN B4, B11).
   „Terminal“ öffnet `claude attach`; eine Frage am Rundenende erscheint als „fragt“; nach Neustart von CodeDeck ist sie
   wieder da.
 - **Sitzungen: Prüfung und Überarbeitung** ☐ (Nutzer 2026-11-20): Betriebswege, Kapselung je KI-Werkzeug, Fallbacks.
-  Befunde, Konzept K1–K8 und Schritte S1–S9 in `docs/SITZUNGEN-PRUEFUNG.md`. Zuerst S1: Beenden/Neu starten trifft heute
-  auch von Hand gestartete tmux-Sitzungen und beendet die ganze tmux-Sitzung des Nutzers.
+  Befunde, Konzept K1–K8, Schritte S1–S9 und die Entscheidungen des Nutzers in `docs/SITZUNGEN-PRUEFUNG.md`.
+  S1 ✅ (Praxistest offen): Beenden/Neu starten nur noch für Sitzungen in einer tmux-Sitzung, die CodeDeck angelegt hat
+  (`ownTmux` in `assistant.ts`; `tmux::stop` verweigert fremde tmux-Sitzungen); die Terminal-Tür wählt vorher Fenster und
+  Pane der Sitzung (`tmux::show_pane`). Weiter in Gruppen G1–G4 (Tabelle im Dokument), eine Sitzung je Gruppe, Praxistest am Ende der Gruppe. Neu in S7: Hinweisdialog unter Wayland mit „Weiterhin anzeigen“.
 - **TODO: Umgang mit dem Git-Index prüfen und ggf. überarbeiten** (Nutzer, 2026-11-19). Heute: CodeDeck merkt nie
   selbst vor; liegt etwas im Index (aus dem Terminal oder von einer Sitzung, die `git add` ausführte), committet ✓ Commit
   still nur das (`commitSteps` in `src/git.ts`), sonst vorher `git add -A`. Das sagt nur der Tooltip. Das Label „im
