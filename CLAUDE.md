@@ -97,6 +97,6 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 - Nie das echte `~/.claude/settings.json` in Tests anfassen; `CLAUDE_CONFIG_DIR` auf ein Temp-Verzeichnis setzen.
 - Name (D26, Regeln in `bespex.github.io/brand/README.md`): ein Name überall, „CodeDeck“ im Text, `codedeck` für
   Befehl, Programm, Paket, Schriftzug, Dateien und Verzeichnisse (`~/.config/codedeck`, `refs/codedeck/`, `CODEDECK_*`)
-  und die Domain `codedeck.bespex.run`. `codeck` gibt es nur noch als Alias und Übergangspaket, nirgends im Text. Teile
+  und die Adresse `bespex.run/codedeck` (keine eigene Subdomain). `codeck` gibt es nur noch als Alias und Übergangspaket, nirgends im Text. Teile
   heißen nach dem, was sie sind (Übersicht, Projektfenster). Im Text „be spex“, nie „be-spex“.
 - Commits nur auf Wunsch, auf `main`, Englisch, Autor aus der Repo-Config, mit KI-Zeilen.

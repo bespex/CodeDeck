@@ -12,7 +12,7 @@ import { ReduceTransparency, ThemeChoice } from "./ThemeChoice";
 import { useWindowHelp, WindowHelp } from "./WindowHelp";
 import { AttentionChoice, QuietChoice } from "./AttentionChoice";
 
-/** The page of the app; the address codedeck.bespex.run follows once the domain is set up. */
+/** The page of the app; bespex.run/codedeck once the website has moved to bespex.run. */
 export const HOME_URL = "https://bespex.github.io/codedeck/";
 export const SOURCE_URL = "https://github.com/bespex/CodeDeck";
 

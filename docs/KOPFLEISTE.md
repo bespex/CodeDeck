@@ -103,7 +103,7 @@ Meldungen und Taskleiste für eine Weile ab; der Fenstertitel zählt weiter.
 ┌──────────────────────────────────────────┐
 │ ⓘ Über CodeDeck                          │  About-Dialog
 │ ⌨ Tastenkürzel                       F1  │  Übersicht als Overlay
-│ ? Hilfe                                  │  codedeck.bespex.run (Website) bzw. README
+│ ? Hilfe                                  │  bespex.run/codedeck (Website) bzw. README
 │ ✦ Neu in 0.2                             │  Änderungen seit der zuletzt gesehenen Version
 ├──────────────────────────────────────────┤
 │ ⌘ Git-Befehle                Ctrl+Shift+G│  wie „git“ in der Statusleiste
@@ -125,7 +125,7 @@ Nach `brand/README.md` §11, als kleiner Dialog über dem Fenster (in der Seiten
               co de ck              ← Schriftzug, „de“ orange
    AI session radar for Linux · sprich „Codeck“
    Version 0.1.1 · Commit fdffba4 · Tauri 2, WebKitGTK 2.48
-   codedeck.bespex.run · Quellcode · Lizenz MIT
+   bespex.run/codedeck · Quellcode · Lizenz MIT
    ───────────────────────────────────────────
    Version kopieren                     be spex
 ```
@@ -190,7 +190,7 @@ Mit 2.1c dazu: der Knopf Seitenleiste ↔ volles Fenster ganz rechts, globale K�
 Offen: Bereiche Sitzungen, Snapshots, Werkbank, Programme, Tastenkürzel im
 Dialog (sobald ihre Werte einstellbar sind; dann auch `settings.json` und `.codedeck.toml`), „Neu in …“ (braucht ein
 Änderungsprotokoll), Startseite, Profile, Konten, Befehlspalette. Die Hilfe öffnet vorerst die README auf GitHub, der
-About-Dialog die Website-Seite `bespex.github.io/codedeck/` (bis `codedeck.bespex.run` eingerichtet ist).
+About-Dialog die Website-Seite `bespex.github.io/codedeck/` (bis die Website nach `bespex.run` umgezogen ist, dann `bespex.run/codedeck/`).
 
 ## Fragen an den Nutzer (beantwortet 2026-11-16)
 
