@@ -416,7 +416,14 @@ fn open_file(path: &str, role: Role, line: Option<u32>, place: Option<Place>, ap
         let scale = window.scale_factor().ok()?;
         let at = window.inner_position().ok()?;
         let px = |v: f64| (v * scale).round() as i64;
-        Some(format!("{}x{}+{}+{}", px(p.width), px(p.height), at.x as i64 + px(p.x), at.y as i64 + px(p.y)))
+        // Qiew sets the size of the content and the position of the whole window: its title bar and
+        // borders come on top of the size. They are what this window has too (the same window
+        // manager draws both), so they are taken off, and the viewer keeps inside the place
+        let (outer, inner) = (window.outer_size().ok()?, window.inner_size().ok()?);
+        let frame_w = i64::from(outer.width.saturating_sub(inner.width));
+        let frame_h = i64::from(outer.height.saturating_sub(inner.height));
+        let (w, h) = ((px(p.width) - frame_w).max(1), (px(p.height) - frame_h).max(1));
+        Some(format!("{w}x{h}+{}+{}", at.x as i64 + px(p.x), at.y as i64 + px(p.y)))
     });
     if apps::open(&full, role, &apps::Launch { line, geometry })? {
         return Ok(());

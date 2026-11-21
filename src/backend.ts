@@ -185,10 +185,19 @@ export interface FileApps {
 }
 
 /** Opens a file (project-relative) in its program for viewing or editing. */
+/** Where a viewer opens over the deck: its content less a margin, at least the smallest size. */
+export function viewerPlace(deck: { x: number; y: number; width: number; height: number }, margin = 20, least = 800) {
+  const width = Math.max(least, deck.width - 2 * margin);
+  const height = Math.max(least, deck.height - 2 * margin);
+  return { x: deck.x + (deck.width - width) / 2, y: deck.y + (deck.height - height) / 2, width, height };
+}
+
 export function openFile(path: string, role: Role, line?: number): Promise<void> {
-  // A be spex viewer opens over the deck, where one was just looking; other programs place themselves
+  // A be spex viewer opens over the deck's content, 20 px inside it all round, where one was just
+  // looking; never smaller than 800 × 800, then centred over the deck (user, 2026-11-21). Other
+  // programs place themselves
   const deck = role === "view" ? document.querySelector('[data-tour="deck-view"]')?.getBoundingClientRect() : undefined;
-  const place = deck && deck.width > 200 ? { x: deck.x, y: deck.y, width: deck.width, height: deck.height } : null;
+  const place = deck ? viewerPlace(deck) : null;
   if (live) return invoke("open_file", { path, role, line: line ?? null, place });
   console.info(`would ${role}`, path);
   return Promise.resolve();
