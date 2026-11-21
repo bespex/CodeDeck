@@ -30,6 +30,8 @@ A project is a directory with an optional `.codedeck.toml`. No index, no project
 its own process with its own project, so several projects can be open side by side; they share only
 the list of recent projects in `~/.config/codedeck/recent.json`.
 
+Hallo Welt
+
 Git runs through the `git` command line, so your configuration, hooks and credentials apply, and
 the command that ran is always shown (status bar, tooltips). A project may hold several
 repositories: the one it lies in, and any found up to three folders below it, e.g. a workspace

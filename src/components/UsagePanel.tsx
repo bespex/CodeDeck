@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Gauge } from "lucide-react";
 import { setUsageConnection, type AssistantState, type Connection } from "../backend";
 import { mainHarness, useConnections } from "../assistant";
@@ -199,17 +200,25 @@ export function UsageChip({ assistant, account, wide = false }: { assistant: Ass
   // The project's account only, once it is known: the figures of another account say nothing here
   const accounts = account && all.some((c) => c.dir === account) ? all.filter((c) => c.dir === account) : all;
   const now = useNow();
-  const [open, setOpen] = useState(false);
+  // Where the button is, while the details are open: they hang on the page itself, so they may reach
+  // beyond the session column (over the deck) instead of being cut off at its edge
+  const [at, setAt] = useState<DOMRect | null>(null);
+  const open = at !== null;
   const box = useRef<HTMLDivElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const close = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
-    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const inside = (e: MouseEvent) => [box.current, pop.current].some((el) => el?.contains(e.target as Node));
+    const close = (e: MouseEvent) => !inside(e) && setAt(null);
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setAt(null);
+    const shut = () => setAt(null);
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", key);
+    window.addEventListener("resize", shut);
     return () => {
       document.removeEventListener("mousedown", close);
       document.removeEventListener("keydown", key);
+      window.removeEventListener("resize", shut);
     };
   }, [open]);
   if (accounts.length === 0) return null;
@@ -226,7 +235,7 @@ export function UsageChip({ assistant, account, wide = false }: { assistant: Ass
   return (
     // `wide`: the whole line under the session column's header, the bars share what is free (user, 2026-11-19)
     <div ref={box} className={`relative ${wide ? "min-w-0 flex-1" : ""}`}>
-      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className={`${wide ? `${CLICKABLE.replace("-mx-1 ", "")} w-full` : CLICKABLE} ${open ? "bg-raised" : ""}`}>
+      <button type="button" aria-expanded={open} onClick={() => setAt(open ? null : (box.current?.getBoundingClientRect() ?? null))} className={`${wide ? `${CLICKABLE.replace("-mx-1 ", "")} w-full` : CLICKABLE} ${open ? "bg-raised" : ""}`}>
         {text !== null ? (
           <>
             <Gauge className="size-3.5 text-slate-500" />
@@ -257,13 +266,24 @@ export function UsageChip({ assistant, account, wide = false }: { assistant: Ass
         )}
         {shown.length > chips.length && <span className="font-normal text-slate-500">+{shown.length - chips.length}</span>}
       </button>
-      {/* Below the line: it sits under the column header now, no longer at the column foot */}
-      {open && (
-        <div className="surface-overlay absolute top-8 left-0 z-30 flex max-h-[70vh] w-[400px] max-w-[calc(100vw-1rem)] flex-col gap-2 overflow-y-auto rounded-lg p-3 text-[12px] whitespace-normal text-slate-300">
-          <UsageCards assistant={assistant} />
-          <span className="text-[11px] text-slate-500">{t("The same as under Activity. The white marker shows how much of the time is over: a bar beyond it means it is used faster than the time passes.")}</span>
-        </div>
-      )}
+      {/* Below the line, on the page itself: the column clips what is wider than it (the details are
+          400 px, the column less), and WebKitGTK cuts a fixed element off inside a clipping container */}
+      {at &&
+        createPortal(
+          <div
+            ref={pop}
+            style={{
+              left: Math.max(8, Math.min(at.left, window.innerWidth - 400 - 8)),
+              top: at.bottom + 4,
+              maxHeight: Math.max(160, Math.min(window.innerHeight * 0.7, window.innerHeight - at.bottom - 12)),
+            }}
+            className="surface-overlay fixed z-40 flex w-[400px] max-w-[calc(100vw-1rem)] flex-col gap-2 overflow-y-auto rounded-lg p-3 text-[12px] whitespace-normal text-slate-300"
+          >
+            <UsageCards assistant={assistant} />
+            <span className="text-[11px] text-slate-500">{t("The same as under Activity. The white marker shows how much of the time is over: a bar beyond it means it is used faster than the time passes.")}</span>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
