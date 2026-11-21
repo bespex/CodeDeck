@@ -1286,5 +1286,5 @@ export const de: Record<string, string> = {
   "Attached to your next prompt": "An deinen nächsten Prompt angehängt",
   "Files with @ai hints": "Dateien mit @ai-Hinweisen",
   "Important": "Wichtig",
-  "all": "alle",
+  "Reset the filters": "Filter zurücksetzen",
 };

@@ -34,6 +34,7 @@ import {
   SquareTerminal,
   Trash2,
   LocateFixed,
+  FilterX,
 } from "lucide-react";
 import { onFsChanged, openPath, openSettings, openTerminalIn, pathCreate, pathRename, pathStats, pathTrash, projectFiles, readDir, showInFileManager, tokensFor, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
 import { hiddenBy, isImportant, onReveal, under, useFileMarks, useFileSettings, type FileSettings } from "../fileView";
@@ -959,9 +960,16 @@ function Chips({ chips, onChange, writers }: { chips: Chip[]; onChange: (chips: 
           </button>
         );
       })}
+      {/* Back to the whole tree: stands out at the right edge while a chip narrows the list (user, 2026-11-21) */}
       {chips.length > 0 && (
-        <button type="button" onClick={() => onChange([])} className="px-1 text-[11px] text-slate-500 hover:text-slate-200">
-          {t("all")}
+        <button
+          type="button"
+          aria-label={t("Reset the filters")}
+          title={t("Reset the filters")}
+          onClick={() => onChange([])}
+          className="ml-auto self-start rounded-full p-0.5 text-brand-soft hover:bg-brand/15 hover:text-brand"
+        >
+          <FilterX className="size-3.5" />
         </button>
       )}
     </div>
