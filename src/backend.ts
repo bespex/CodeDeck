@@ -1674,6 +1674,13 @@ export function openSettings(section?: string): Promise<void> {
   return Promise.resolve();
 }
 
+/** Opens About or the keyboard shortcuts in a window of their own (the start page has no room for them). */
+export function openPanel(view: "about" | "shortcuts"): Promise<void> {
+  if (live) return invoke("open_panel", { view });
+  window.open(`?view=${view}`, "_blank");
+  return Promise.resolve();
+}
+
 /** The tools CodeDeck supports, the default one first, for windows without a project. */
 export function harnessList(): Promise<HarnessInfo[]> {
   if (live) return invoke("harness_list");
@@ -1837,6 +1844,8 @@ export const isOverview = new URLSearchParams(window.location.search).get("view"
 /** The welcome's window (`welcome.rs`) */
 export const isWelcome = new URLSearchParams(window.location.search).get("view") === "welcome";
 export const isSettings = new URLSearchParams(window.location.search).get("view") === "settings";
+/** About or the keyboard shortcuts as a window of their own, opened from the start page; else `null` */
+export const panelView = ((v) => (v === "about" || v === "shortcuts" ? v : null))(new URLSearchParams(window.location.search).get("view"));
 
 const mockOverview = (): Omit<OverviewProject, "recent">[] => [
   { label: "w1", name: "acme-orbit-api", path: "/home/me/projects/acme/acme-orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", uncommitted: 3, next: mockAssistant.attachments.length, news: 0 }, front: true, listed: true, visible: true, daily: true, account: "/home/me/.claude", mark: { kind: "icon", value: "satellite" } },

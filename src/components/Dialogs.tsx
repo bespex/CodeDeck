@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Copy, X } from "lucide-react";
-import { openWelcome, harnessList, onSettingsSection, type HarnessInfo, appInfo, autostartState, setAutostart, type AutostartState, machineSettings, setMachineSetting, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
+import { openWelcome, closeWindow, panelView, harnessList, onSettingsSection, type HarnessInfo, appInfo, autostartState, setAutostart, type AutostartState, machineSettings, setMachineSetting, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
 import { useAccounts } from "../accounts";
 import { usePlatform } from "../platform";
 import { PlatformFacts, platformFacts } from "./PlatformFacts";
@@ -28,13 +28,24 @@ export function Dialogs({ assistant }: { assistant: AssistantState }) {
   return <Shortcuts />;
 }
 
-/** A dialog over a dimmed window; Escape or a click beside it closes it. */
+/** Closes the dialog, or its window where it is a window of its own (About, shortcuts from the start page). */
+export const closeHere = () => (panelView ? void closeWindow() : closeDialog());
+
+/** A dialog over a dimmed window; Escape or a click beside it closes it. As a window of its own it
+ *  fills the window instead. */
 export function Modal(props: { title: string; width: string; children: ReactNode; bare?: boolean }) {
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeDialog();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeHere();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+  if (panelView) {
+    return (
+      <div role="dialog" aria-label={props.title} className="flex h-screen flex-col overflow-y-auto bg-panel text-[13px] text-slate-300">
+        {props.children}
+      </div>
+    );
+  }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 sm:p-6" onMouseDown={(e) => e.target === e.currentTarget && closeDialog()}>
       <div role="dialog" aria-modal="true" aria-label={props.title} className={`surface-overlay flex max-h-full max-w-full flex-col overflow-hidden rounded-xl text-[13px] text-slate-300 ${props.width}`}>
@@ -63,7 +74,7 @@ export function Wordmark({ className = "" }: { className?: string }) {
 }
 
 /** What CodeDeck is, which version, where to find more; the version copied for a bug report. */
-function About() {
+export function About() {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [copied, setCopied] = useState(false);
   const machine = usePlatform();
@@ -79,7 +90,7 @@ function About() {
   return (
     <Modal title={t("About CodeDeck")} width="w-[420px]" bare>
       <div className="relative flex flex-col items-center gap-1.5 px-6 pt-7 pb-4 text-center">
-        <button type="button" aria-label={t("Close")} onClick={closeDialog} className="absolute top-3 right-3 rounded p-1 text-slate-400 hover:bg-overlay-hover hover:text-slate-100">
+        <button type="button" aria-label={t("Close")} onClick={closeHere} className="absolute top-3 right-3 rounded p-1 text-slate-400 hover:bg-overlay-hover hover:text-slate-100">
           <X className="size-4" />
         </button>
         <img src="/codedeck.svg" alt="" className="mb-1 size-16" />
@@ -155,7 +166,7 @@ function UnsupportedShortcut() {
 }
 
 /** The keyboard shortcuts and mouse gestures CodeDeck knows. */
-function Shortcuts() {
+export function Shortcuts() {
   const global = useGlobalShortcuts();
   const rows: [string, ReactNode][] = [
     ...global.map((s): [string, ReactNode] => [

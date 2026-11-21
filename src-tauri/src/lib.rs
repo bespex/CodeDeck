@@ -214,7 +214,7 @@ fn welcome_fit(app: AppHandle, width: f64, height: f64) -> Result<(), String> {
 /// Whether this project window shows the help on its parts now (once per start, a window in sight).
 #[tauri::command]
 fn window_help(window: WebviewWindow) -> bool {
-    window.label() != windows::OVERVIEW && window.label() != welcome::LABEL && window.label() != settings::LABEL && welcome::window_help_due(window.is_visible().unwrap_or(false))
+    window.label() != windows::OVERVIEW && window.label() != welcome::LABEL && !settings::is_panel(window.label()) && welcome::window_help_due(window.is_visible().unwrap_or(false))
 }
 
 /// Opens the welcome (from the app menu).
@@ -227,6 +227,16 @@ fn open_welcome(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 fn open_settings(app: AppHandle, section: Option<String>) -> Result<(), String> {
     settings::open(&app, section.as_deref())
+}
+
+/// Opens About or the keyboard shortcuts in a window of their own: from the start page, which has
+/// no room for them as a dialog.
+#[tauri::command]
+fn open_panel(app: AppHandle, view: String) -> Result<(), String> {
+    if view == settings::LABEL {
+        return settings::open(&app, None);
+    }
+    settings::open_panel(&app, &view, "")
 }
 
 /// The tools CodeDeck supports, the default one first: for windows without a project (settings,
@@ -249,14 +259,14 @@ fn journal_lines(window: WebviewWindow, since: u64) -> Result<Vec<journal::Line>
 #[tauri::command]
 fn diagnostics(window: WebviewWindow, shortcuts: State<window::Shortcuts>, all: State<Windows>) -> Result<String, String> {
     use std::fmt::Write as _;
-    let win = windows::of(&window)?;
+    // The start page and the settings have no project: the rest is the same
+    let root = windows::of(&window).ok().map(|win| win.current.get().root.clone());
     let info = app_info();
     let env = |key: &str| std::env::var(key).unwrap_or_else(|_| "?".into());
-    let root = win.current.get().root.clone();
     let mut out = String::new();
     let _ = writeln!(out, "CodeDeck {} ({}) · {} · {} · {}", info.version, info.commit, info.os, env("XDG_SESSION_TYPE"), env("XDG_CURRENT_DESKTOP"));
     let _ = writeln!(out, "Program: {}", std::env::current_exe().map_or_else(|e| e.to_string(), |p| p.display().to_string()));
-    let _ = writeln!(out, "Project: {}", root.display());
+    let _ = writeln!(out, "Project: {}", root.as_ref().map_or_else(|| format!("none ({})", window.label()), |r| r.display().to_string()));
     let p = platform::abilities();
     let _ = writeln!(
         out,
@@ -287,7 +297,7 @@ fn diagnostics(window: WebviewWindow, shortcuts: State<window::Shortcuts>, all: 
     let keys: Vec<String> = shortcuts.get().keys.iter().map(|k| format!("{} {}", k.keys, k.state)).collect();
     let _ = writeln!(out, "Global shortcuts: {}", if keys.is_empty() { "not registered yet".into() } else { keys.join(", ") });
     let _ = writeln!(out, "Attention: {}", serde_json::to_string(&attention::load()).unwrap_or_default());
-    if let Some(file) = journal::file_for(&root) {
+    if let Some(file) = root.as_ref().and_then(|r| journal::file_for(r)) {
         let _ = writeln!(out, "Journal: {}", file.display());
     }
     // The last hook messages: when, which tool, what, which session, which windows heard it
@@ -1269,7 +1279,7 @@ pub fn run() {
             // The window in front is the one the global shortcuts act on
             // The welcome is beside the work: shortcuts and the overview keep to the project windows
             // So are the settings
-            tauri::WindowEvent::Focused(_) | tauri::WindowEvent::Destroyed if window.label() == welcome::LABEL || window.label() == settings::LABEL => {}
+            tauri::WindowEvent::Focused(_) | tauri::WindowEvent::Destroyed if window.label() == welcome::LABEL || settings::is_panel(window.label()) => {}
             tauri::WindowEvent::Focused(focused) => {
                 window::focus_changed(window.app_handle(), window.label(), *focused);
                 // The overview marks the project window used last
@@ -1410,6 +1420,7 @@ pub fn run() {
             welcome_done,
             open_welcome,
             open_settings,
+            open_panel,
             harness_list,
             welcome_fit,
             window_help,

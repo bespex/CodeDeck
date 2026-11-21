@@ -2,9 +2,9 @@ import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import OverviewApp, { START_PAGE } from "./components/OverviewApp";
-import { isOverview, isSettings, isWelcome } from "./backend";
+import { isOverview, isSettings, isWelcome, panelView } from "./backend";
 import Welcome from "./components/Welcome";
-import { SettingsWindow } from "./components/Dialogs";
+import { About, SettingsWindow, Shortcuts } from "./components/Dialogs";
 import { lang, onLang } from "./i18n";
 import "./index.css";
 import "./theme";
@@ -34,6 +34,8 @@ function Root() {
   // The overview of all projects is a window of its own without a project (docs/UEBERSICHT.md)
   if (isWelcome) return <Welcome key={current} />;
   if (isSettings) return <SettingsWindow key={current} />;
+  if (panelView === "about") return <About key={current} />;
+  if (panelView === "shortcuts") return <Shortcuts key={current} />;
   return isOverview ? <OverviewApp key={current} inWindow={START_PAGE} /> : <App key={current} />;
 }
 

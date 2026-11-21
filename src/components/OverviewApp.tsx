@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { History, AppWindow, ChevronRight, ChevronsDownUp, ChevronsUpDown, Shapes, Eye, EyeOff, ListX, Loader, Check, Copy, Ellipsis, FolderPlus, FolderTree, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
-import { openSettings, isTerminalDoor, forgetRecent, toggleOverview, onTodayStarted, sessionCommands, pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
+import { openPanel, openSettings, openUrl, openWelcome, isTerminalDoor, forgetRecent, toggleOverview, onTodayStarted, sessionCommands, pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
 import { accountLook, useAccounts } from "../accounts";
 import { usePending } from "../pending";
 import { AccountMark, MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
@@ -9,6 +9,8 @@ import { SessionBadge } from "./SessionBadge";
 import { HoverTools, Tool, ToolGap } from "./RowTools";
 import { plural, t } from "../i18n";
 import { loadCollapsed, nameIn, saveCollapsed, sectionsOf } from "../groups";
+import { HOME_URL, MANUAL_URL } from "./Dialogs";
+import { copyDiagnostics, reportProblem } from "./HeaderBar";
 
 // The overview of all projects (docs/UEBERSICHT.md): one window for every project, always there.
 // Calm by default: what waits, the projects with their sessions and status, which windows are
@@ -801,7 +803,7 @@ async function addOne() {
 }
 
 /** The `⋯` menu: what is needed now and then. */
-function MoreMenu({ host, inWindow = false }: { host: string | null; inWindow?: boolean }) {
+function MoreMenu({ inWindow = false }: { inWindow?: boolean }) {
   const [open, setOpen] = useState(false);
   const [sorting, setSorting] = useState(false);
   useEffect(() => void (open || setSorting(false)), [open]);
@@ -812,8 +814,6 @@ function MoreMenu({ host, inWindow = false }: { host: string | null; inWindow?: 
     return () => window.removeEventListener("click", close);
   }, [open]);
   const item = "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] text-slate-200 hover:bg-overlay-hover disabled:opacity-40";
-  // Dialogs open in the project window used last: they need more room than the overview has
-  const inWindowView = (view: string) => host && void focusProject(host, view);
   return (
     <span className="relative">
       <button
@@ -858,15 +858,34 @@ function MoreMenu({ host, inWindow = false }: { host: string | null; inWindow?: 
           {/* In a project window the rest is in the app menu of the project bar above the list */}
           {!inWindow && (
           <>
+          {/* Everything that needs no project, so it is there right after the start, before any
+              project is open (user, 2026-11-21); About and the shortcuts as windows of their own:
+              the start page is too narrow for them */}
           <div className="my-1 h-px bg-overlay-line" />
           <button type="button" className={item} onClick={() => void openSettings()}>
             {t("Settings")}
           </button>
-          <div className="my-1 h-px bg-overlay-line" />
-          <button type="button" disabled={!host} className={item} onClick={() => inWindowView("shortcuts")}>
+          <button type="button" className={item} onClick={() => void openWelcome()}>
+            {t("Welcome and computer check")}
+          </button>
+          <button type="button" className={item} onClick={() => void openPanel("shortcuts")}>
             {t("Keyboard shortcuts")}
           </button>
-          <button type="button" disabled={!host} className={item} onClick={() => inWindowView("about")}>
+          <div className="my-1 h-px bg-overlay-line" />
+          <button type="button" className={item} onClick={() => void openUrl(MANUAL_URL)}>
+            {t("Manual")}
+          </button>
+          <button type="button" className={item} onClick={() => void openUrl(HOME_URL)}>
+            {t("Website")}
+          </button>
+          <div className="my-1 h-px bg-overlay-line" />
+          <button type="button" className={item} onClick={() => void copyDiagnostics().then(() => tell(t("Copied")))}>
+            {t("Copy diagnostics")}
+          </button>
+          <button type="button" className={item} onClick={() => void reportProblem()}>
+            {t("Report a problem…")}
+          </button>
+          <button type="button" className={item} onClick={() => void openPanel("about")}>
             {t("About CodeDeck")}
           </button>
           <div className="my-1 h-px bg-overlay-line" />
@@ -976,7 +995,6 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
   }, []);
   // As the backend names the window (tray.rs), in case the web view's title shows through
   useEffect(() => void (inProject || (document.title = t("CodeDeck – Overview"))), [inProject]);
-  const host = (projects.find((p) => p.front) ?? projects.find((p) => p.label))?.label ?? null;
   // Today's list: projects with the star and no live session
   const now = useNow();
   const toStart = projects.filter((p) => p.daily && !(p.state?.sessions ?? []).some((s) => relevant(s, now) && s.alive !== false && (s.alive === true || s.status === "working" || s.status === "waiting"))).length;
@@ -1029,7 +1047,7 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
         </button>
         )}
         {/* Adding a project is in the menu (user, 2026-11-19); no shortcut, it is rarely done */}
-        <MoreMenu host={host} inWindow={inProject} />
+        <MoreMenu inWindow={inProject} />
       </header>
       {/* Only the project list scrolls (user, 2026-11-20: scrolled down, "Recently" was out of sight);
           what waits and "Recently" stay on top. No overflow on the top part: it would cut off a row's menu */}

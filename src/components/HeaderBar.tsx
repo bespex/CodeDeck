@@ -303,28 +303,36 @@ function AccountBlock({ project, assistant }: { project: ProjectInfo | null; ass
 }
 
 /** Everything about CodeDeck itself. */
+/** What the backend knows, what this window knows and `extra` from the caller, into the clipboard:
+ *  for a bug report or a chat. Also on the start page, without a project. */
+export async function copyDiagnostics(extra: string[] = []) {
+  const window = `Window: ${innerWidth}×${innerHeight}, language ${lang}, focused ${document.hasFocus()}`;
+  await navigator.clipboard.writeText([(await diagnostics()).trimEnd(), ...extra, window, `Web view: ${navigator.userAgent}`].join("\n"));
+}
+
+/** A new issue on GitHub with the version and system filled in. */
+export async function reportProblem() {
+  const info = await appInfo();
+  const body = `\n\n---\nCodeDeck ${info.version}${info.commit ? ` (${info.commit})` : ""} · ${info.os}`;
+  void openUrl(`${SOURCE_URL}/issues/new?body=${encodeURIComponent(body)}`);
+}
+
 export function AppMenu({ assistant, onColor = false }: { assistant: AssistantState; onColor?: boolean }) {
   const menu = usePopover<HTMLDivElement>();
   const [copied, setCopied] = useState(false);
   // What the backend knows, and what only the window knows; for a bug report or a chat
-  const copyDiagnostics = async () => {
+  const copy = async () => {
     const count = (status: string) => assistant.sessions.filter((s) => s.status === status).length;
     const sessions = `Sessions: ${assistant.sessions.length} (working ${count("working")}, waiting ${count("waiting")}, idle ${count("idle")}, ended ${count("ended")}), heard: ${assistant.heard}`;
-    const window = `Window: ${innerWidth}×${innerHeight}, language ${lang}, focused ${document.hasFocus()}`;
     const found = `Found: ${assistant.found.outside.length} left elsewhere, ${assistant.found.pages.length} pages; attachments: ${assistant.attachments.length}`;
     const switched = `Last project switch: ${lastSwitch === null ? "none yet" : `${lastSwitch} ms`}`;
-    await navigator.clipboard.writeText([(await diagnostics()).trimEnd(), sessions, window, found, switched, `Web view: ${navigator.userAgent}`].join("\n"));
+    await copyDiagnostics([sessions, found, switched]);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
   const run = (action: () => void) => () => {
     menu.setOpen(false);
     action();
-  };
-  const report = async () => {
-    const info = await appInfo();
-    const body = `\n\n---\nCodeDeck ${info.version}${info.commit ? ` (${info.commit})` : ""} · ${info.os}`;
-    void openUrl(`${SOURCE_URL}/issues/new?body=${encodeURIComponent(body)}`);
   };
   return (
     <div ref={menu.ref}>
@@ -351,9 +359,9 @@ export function AppMenu({ assistant, onColor = false }: { assistant: AssistantSt
             <Item
               icon={<Stethoscope className="size-4" />}
               label={copied ? t("Copied") : t("Copy diagnostics")}
-              onClick={() => void copyDiagnostics()}
+              onClick={() => void copy()}
             />
-            <Item icon={<Bug className="size-4" />} label={t("Report a problem…")} onClick={run(() => void report())} />
+            <Item icon={<Bug className="size-4" />} label={t("Report a problem…")} onClick={run(() => void reportProblem())} />
           </div>
           {/* Closes the window with its project; the last one leaves the start page */}
           <div className="border-t border-overlay-line p-1">
