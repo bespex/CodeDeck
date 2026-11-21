@@ -67,6 +67,38 @@ pub fn trash(project: &Project, paths: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// Folders not walked when listing the project for the search: what tools build or fetch.
+const NOT_LISTED: &[&str] = &[".git", "node_modules", "target", "dist", "build", ".venv", "venv", "__pycache__", ".gradle", ".idea", ".cache"];
+/// At most this many files: the search must answer at once.
+const LISTED_FILES: usize = 50_000;
+
+/// Every file of the project, project-relative, for the search over the whole project (the tree's
+/// filter only sees opened folders). Without git, so new files are found too; the scratch folder
+/// is in (it can be hidden like anything else).
+pub fn all_files(project: &Project) -> Vec<String> {
+    let mut found = Vec::new();
+    let mut todo = vec![project.root.clone()];
+    while let Some(dir) = todo.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let Ok(meta) = std::fs::symlink_metadata(entry.path()) else { continue };
+            if meta.is_dir() {
+                if !NOT_LISTED.contains(&name.as_str()) {
+                    todo.push(entry.path());
+                }
+            } else if let Some(path) = project.relative(&entry.path()) {
+                found.push(path);
+                if found.len() >= LISTED_FILES {
+                    return found;
+                }
+            }
+        }
+    }
+    found.sort();
+    found
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,6 +129,10 @@ mod tests {
         assert!(rename(&p, "src/new.rs", "b.rs").unwrap_err().contains("already"));
         assert!(trash(&p, &[".git".into()]).is_err());
         assert!(trash(&p, &["../x".into()]).is_err());
+        std::fs::create_dir_all(root.join("node_modules/x")).unwrap();
+        std::fs::write(root.join("node_modules/x/i.js"), "").unwrap();
+        std::fs::write(root.join(".git/HEAD"), "").unwrap();
+        assert_eq!(all_files(&p), ["src/b.rs", "src/new.rs"]);
         let _ = std::fs::remove_dir_all(&root);
     }
 }

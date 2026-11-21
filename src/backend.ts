@@ -348,6 +348,12 @@ export function pathTrash(paths: string[]): Promise<void> {
   return Promise.resolve();
 }
 
+/** Every file of the project, project-relative: the search over the whole project. */
+export function projectFiles(): Promise<string[]> {
+  if (live) return invoke("project_files");
+  return Promise.resolve(mockTree.flatMap((n) => leaves(n)).map((f) => f.path).sort());
+}
+
 /** Opens a terminal in a folder of the project (for a file: its folder). */
 export function openTerminalIn(path: string): Promise<void> {
   if (live) return invoke("open_terminal_in", { path });

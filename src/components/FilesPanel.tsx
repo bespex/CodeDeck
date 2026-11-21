@@ -33,11 +33,14 @@ import {
   SlidersHorizontal,
   SquareTerminal,
   Trash2,
+  LocateFixed,
 } from "lucide-react";
-import { onFsChanged, openPath, openSettings, openTerminalIn, pathCreate, pathRename, pathStats, pathTrash, readDir, showInFileManager, tokensFor, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
+import { onFsChanged, openPath, openSettings, openTerminalIn, pathCreate, pathRename, pathStats, pathTrash, projectFiles, readDir, showInFileManager, tokensFor, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
 import { hiddenBy, isImportant, onReveal, under, useFileMarks, useFileSettings, type FileSettings } from "../fileView";
 import type { FileMarks } from "../backend";
 import { useHintFiles } from "../markers";
+import { search, type Chip } from "../fileFind";
+import { revealInTree } from "../fileView";
 import { openView } from "../view";
 import { usePopover } from "./ProjectHeader";
 import { Heading, Panel } from "./HeaderBar";
@@ -176,6 +179,13 @@ export function FilesPanel(props: Props) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  // Several entries chosen (Ctrl/Shift+click, Shift+arrows); the cursor is where the keys act
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [anchor, setAnchor] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [chips, setChips] = usePerProject<Chip[]>("fileChips", () => []);
+  const [allFiles, setAllFiles] = useState<string[] | null>(null);
+  const sessionMarks = useSessionMarks();
 
   // "Show in tree" from anywhere: the list opens, the folders on the way too, the entry lights up
   const fold = props.onFold;
@@ -195,6 +205,55 @@ export function FilesPanel(props: Props) {
   );
 
   const needle = query.trim().toLowerCase();
+  // A search or a chip: a flat list of what is found in the whole project instead of the tree
+  const listMode = needle !== "" || chips.length > 0;
+  useEffect(() => {
+    if (!listMode) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const read = () => void projectFiles().then(setAllFiles).catch((e) => setError(String(e)));
+    read();
+    // Files come and go while one searches: read again when the folder changes
+    const stop = onFsChanged(() => {
+      clearTimeout(timer);
+      timer = setTimeout(read, 800);
+    });
+    return () => {
+      clearTimeout(timer);
+      stop();
+    };
+  }, [listMode]);
+  const results = useMemo(() => {
+    if (!listMode) return [];
+    const gitFiles = props.git.repos.flatMap((r) => r.files);
+    const state = new Map(gitFiles.map((f) => [f.path, f]));
+    const untrackedDirs = gitFiles.filter((f) => f.dir && f.state === "?").map((f) => f.path);
+    const files = new Set(allFiles ?? []);
+    const universe = new Set<string>([...files, ...gitFiles.filter((f) => f.state === "D").map((f) => f.path), ...props.pinned, ...marks.important]);
+    const test: Record<string, (path: string) => boolean> = {
+      changed: (path) => state.has(path) || untrackedDirs.some((d) => under(path, d)),
+      new: (path) => {
+        const f = state.get(path);
+        return f ? f.state === "?" || f.state === "A" : untrackedDirs.some((d) => under(path, d));
+      },
+      attached: (path) => props.pinned.has(path),
+      hints: (path) => hints.has(path),
+      important: (path) => marks.important.includes(path),
+    };
+    const passes = (path: string) =>
+      chips.every((chip) => (chip.startsWith("session:") ? sessionMarks.writer(path) === chip.slice(8) && state.has(path) : test[chip]?.(path) ?? true));
+    const kept = [...universe].filter(passes).filter((path) => !(fileSettings.look === "hide" && hiddenBy(path, fileSettings, marks, ignored)));
+    const found = needle ? search(kept, needle) : kept.sort().slice(0, 300);
+    return found.map((path): Entry => ({ name: path.slice(path.lastIndexOf("/") + 1), path, isDir: !files.has(path) && !state.has(path) ? true : !!state.get(path)?.dir, size: 0 }));
+  }, [listMode, needle, chips, allFiles, props.git.repos, props.pinned, marks, hints, sessionMarks, fileSettings, ignored]);
+  // The sessions that wrote uncommitted files: a chip each
+  const writers = useMemo(() => {
+    const ids = new Set<string>();
+    for (const path of props.touched.keys()) {
+      const w = sessionMarks.writer(path);
+      if (w && props.git.stateOf(path)) ids.add(w);
+    }
+    return [...ids];
+  }, [props.touched, props.git, sessionMarks]);
   // Changed on disk recently, or written by an assistant recently; with "keep the dots" every file
   // a session wrote that is still uncommitted
   const since = Date.now() - RECENT_MS;
@@ -227,6 +286,97 @@ export function FilesPanel(props: Props) {
     openDir: (dir: string) => {
       if (!open.has(dir) && dir) toggle(dir);
     },
+    chosen,
+    cursor,
+    listMode,
+    choose: (path: string, how: "single" | "toggle" | "range") => choose(path, how),
+    leaveList: () => {
+      setQuery("");
+      setChips([]);
+    },
+  };
+  // What the keys move over, top to bottom: the found list, or the tree as far as it is open
+  const rows = (): Entry[] => {
+    if (listMode) return results;
+    const out: Entry[] = [];
+    const walk = (dir: string) => {
+      for (const e of listings[dir] ?? []) {
+        if (fileSettings.look === "hide" && hiddenOf(e.path, tree) && !(flash && under(flash, e.path))) continue;
+        out.push(e);
+        if (e.isDir && open.has(e.path)) walk(e.path);
+      }
+    };
+    walk("");
+    return out;
+  };
+  function choose(path: string, how: "single" | "toggle" | "range") {
+    setCursor(path);
+    if (how === "toggle") {
+      const next = new Set(chosen.size ? chosen : props.selected ? [props.selected] : []);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      setChosen(next);
+      setAnchor(path);
+    } else if (how === "range" && anchor) {
+      const list = rows().map((e) => e.path);
+      const [a, b] = [list.indexOf(anchor), list.indexOf(path)].sort((x, y) => x - y);
+      if (a >= 0) setChosen(new Set(list.slice(a, b + 1)));
+    } else {
+      setChosen(new Set());
+      setAnchor(path);
+    }
+  }
+  const onKey = (e: React.KeyboardEvent) => {
+    if (tree.editing) return;
+    const list = rows();
+    if (!list.length) return;
+    const at = Math.max(0, list.findIndex((x) => x.path === cursor));
+    const here = list[at];
+    const go = (i: number) => {
+      const next = list[Math.max(0, Math.min(list.length - 1, i))];
+      if (e.shiftKey) choose(next.path, "range");
+      else {
+        choose(next.path, "single");
+        if (!next.isDir) props.onSelect(next.path);
+      }
+      requestAnimationFrame(() => document.querySelector(`[data-tree-path="${CSS.escape(next.path)}"]`)?.scrollIntoView({ block: "nearest" }));
+    };
+    const handled = () => e.preventDefault();
+    if (e.key === "ArrowDown") (handled(), go(cursor ? at + 1 : 0));
+    else if (e.key === "ArrowUp") (handled(), go(at - 1));
+    else if (e.key === "Home") (handled(), go(0));
+    else if (e.key === "End") (handled(), go(list.length - 1));
+    else if (e.key === "ArrowRight" && here.isDir && !listMode) {
+      handled();
+      if (!open.has(here.path)) toggle(here.path);
+      else go(at + 1);
+    } else if (e.key === "ArrowLeft" && !listMode) {
+      handled();
+      if (here.isDir && open.has(here.path)) toggle(here.path);
+      else {
+        const parent = here.path.includes("/") ? here.path.slice(0, here.path.lastIndexOf("/")) : "";
+        if (parent) go(list.findIndex((x) => x.path === parent));
+      }
+    } else if (e.key === "Enter") {
+      handled();
+      if (here.isDir) (listMode ? revealFromList(here.path) : toggle(here.path));
+      else openAs(here.path, e.ctrlKey || e.metaKey ? "edit" : "view");
+    } else if (e.key === " ") {
+      handled();
+      const targets = chosen.size ? list.filter((x) => chosen.has(x.path)) : [here];
+      targets.forEach((x) => (props.pinned.has(x.path) ? props.onUnpin(x.path) : props.onPin(x)));
+    } else if (e.key === "Escape") {
+      setChosen(new Set());
+    } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+      handled();
+      const row = document.querySelector(`[data-tree-path="${CSS.escape(here.path)}"]`)?.getBoundingClientRect();
+      const fake = { clientX: (row?.x ?? 0) + 40, clientY: (row?.bottom ?? 0) - 4, preventDefault() {}, stopPropagation() {} } as unknown as React.MouseEvent;
+      contextMenu.open(fake, here.path, chosen.size > 1 ? manyMenu([...chosen], tree) : entryMenu(here, tree));
+    }
+  };
+  const revealFromList = (path: string) => {
+    tree.leaveList();
+    setTimeout(() => revealInTree(path), 50);
   };
   const [rootDrop, setRootDrop] = useState(false);
 
@@ -270,15 +420,33 @@ export function FilesPanel(props: Props) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("Filter open folders")}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setQuery("");
+              // Down into the found list, to go on with the keys
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                (document.querySelector("[data-file-rows]") as HTMLElement | null)?.focus();
+              }
+            }}
+            placeholder={t("Search the project")}
             className="w-full bg-transparent text-slate-200 outline-none placeholder:text-slate-600"
           />
+          {query && (
+            <button type="button" aria-label={t("Clear the search")} onClick={() => setQuery("")} className="text-slate-500 hover:text-slate-200">
+              ×
+            </button>
+          )}
         </label>
+        <Chips chips={chips} onChange={setChips} writers={writers} />
       </div>
 
       <div
-        className={`min-h-0 flex-1 overflow-y-auto px-1 py-2 ${rootDrop ? "ring-1 ring-ai ring-inset" : ""}`}
+        className={`min-h-0 flex-1 overflow-y-auto px-1 py-2 outline-none ${rootDrop ? "ring-1 ring-ai ring-inset" : ""}`}
         role="tree"
+        aria-multiselectable
+        data-file-rows
+        tabIndex={0}
+        onKeyDown={onKey}
         // A scratch file dropped here, not on a folder: into the project root
         onDragOver={(e) => {
           if (!e.dataTransfer.types.includes(SCRATCH_DRAG)) return;
@@ -304,6 +472,14 @@ export function FilesPanel(props: Props) {
         )}
         {error ? (
           <p className="selectable px-2 text-problem">{error}</p>
+        ) : listMode ? (
+          <>
+            {results.map((entry) => (
+              <Row key={entry.path} entry={entry} depth={0} tree={tree} flat />
+            ))}
+            {allFiles && results.length === 0 && <p className="px-2 text-[12px] text-slate-500">{t("Nothing found.")}</p>}
+            {results.length >= 300 && <p className="px-2 pt-1 text-[11px] text-slate-500">{t("The first 300; type more to narrow it down.")}</p>}
+          </>
         ) : (
           <Rows dir="" depth={0} tree={tree} />
         )}
@@ -340,6 +516,13 @@ interface TreeState extends Props {
   fail: (message: string) => void;
   reload: (dir: string) => void;
   openDir: (dir: string) => void;
+  /** Chosen with Ctrl/Shift; empty: only `selected` */
+  chosen: Set<string>;
+  cursor: string | null;
+  /** A search or a chip: the flat list is shown */
+  listMode: boolean;
+  choose: (path: string, how: "single" | "toggle" | "range") => void;
+  leaveList: () => void;
 }
 
 /** With a filter: files that match, and folders with a match somewhere in what is loaded. */
@@ -381,14 +564,15 @@ function Rows({ dir, depth, tree }: { dir: string; depth: number; tree: TreeStat
 
 const hiddenOf = (path: string, tree: TreeState) => hiddenBy(path, tree.fileSettings, tree.marks, tree.ignored);
 
-function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeState }) {
+function Row({ entry, depth, tree, flat = false }: { entry: Entry; depth: number; tree: TreeState; flat?: boolean }) {
   const marks = useSessionMarks();
   // The session that wrote here: its colour on the dot; hovered in the list, its files stand out
   const writer = marks.writer(entry.path, entry.isDir);
   const dot = marks.of(writer)?.color;
   const faded = marks.hovered !== null && writer !== marks.hovered;
-  const isOpen = entry.isDir && (tree.open.has(entry.path) || (!!tree.needle && !!tree.listings[entry.path]));
-  const isSelected = tree.selected === entry.path;
+  const isOpen = !flat && entry.isDir && tree.open.has(entry.path);
+  const isSelected = tree.chosen.size > 0 ? tree.chosen.has(entry.path) : tree.selected === entry.path;
+  const isCursor = tree.cursor === entry.path;
   const isPinned = tree.pinned.has(entry.path);
   const changed = entry.isDir
     ? !isOpen && tree.recentPaths.some((path) => path.startsWith(`${entry.path}/`))
@@ -443,12 +627,26 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
           leave();
           void moveIntoProject(e.dataTransfer.getData(SCRATCH_DRAG), entry.path);
         }}
-        onClick={() => (entry.isDir ? tree.toggle(entry.path) : tree.onSelect(entry.path))}
+        onClick={(e) => {
+          if (e.ctrlKey || e.metaKey) return tree.choose(entry.path, "toggle");
+          if (e.shiftKey) return tree.choose(entry.path, "range");
+          tree.choose(entry.path, "single");
+          if (entry.isDir) {
+            if (flat) {
+              tree.leaveList();
+              setTimeout(() => revealInTree(entry.path), 50);
+            } else tree.toggle(entry.path);
+          } else tree.onSelect(entry.path);
+        }}
         onDoubleClick={() => !entry.isDir && openAs(entry.path, "view")}
         // Middle button: edit. Its press would otherwise start the scrolling mode
         onMouseDown={(e) => e.button === 1 && !entry.isDir && e.preventDefault()}
         onAuxClick={(e) => e.button === 1 && !entry.isDir && openAs(entry.path, "edit")}
-        onContextMenu={(e) => tree.menu(e, entry.path || entry.name, entryMenu(entry, tree))}
+        onContextMenu={(e) =>
+          tree.chosen.size > 1 && tree.chosen.has(entry.path)
+            ? tree.menu(e, plural(tree.chosen.size, "entry"), manyMenu([...tree.chosen], tree))
+            : tree.menu(e, entry.path || entry.name, entryMenu(entry, tree))
+        }
         data-tree-path={entry.path}
         style={{ paddingLeft: 6 + depth * 14 }}
         className={`group relative flex h-[26px] cursor-default items-center gap-1.5 rounded-md pr-1.5 transition-opacity ${
@@ -459,7 +657,7 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
               : isSelected
                 ? "bg-ai/25 text-slate-50"
                 : "hover:bg-raised"
-        } ${faded || hidden ? "opacity-45" : ""}`}
+        } ${faded || hidden ? "opacity-45" : ""} ${isCursor ? "[[data-file-rows]:focus-visible_&]:ring-1 [[data-file-rows]:focus-visible_&]:ring-slate-400" : ""}`}
         title={
           entry.path === ".scratch"
             ? t("Drafts and scratch files of AI sessions; Git ignores it. See the Workbench view.")
@@ -503,6 +701,7 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
             {entry.name}
           </span>
         )}
+        {flat && entry.path.includes("/") && <span className="truncate text-[11px] text-slate-500">{entry.path.slice(0, entry.path.lastIndexOf("/"))}</span>}
         {inside > 0 && (
           <span className="shrink-0 text-[11px] text-changed" title={t("{changes} inside", { changes: plural(inside, "uncommitted change") })}>
             {inside}
@@ -591,6 +790,18 @@ function entryMenu(entry: Entry, tree: TreeState): MenuItem[] {
   const state = tree.git.stateOf(path);
   // Where it lies: path, name, trash; first for a folder, after opening for a file (user, 2026-11-21)
   const place: MenuItem[] = [
+    ...(tree.listMode
+      ? [
+          {
+            icon: LocateFixed,
+            label: t("Show in tree"),
+            run: () => {
+              tree.leaveList();
+              setTimeout(() => revealInTree(path), 50);
+            },
+          },
+        ]
+      : []),
     {
       icon: FolderSearch,
       label: t("Path"),
@@ -685,6 +896,76 @@ function entryMenu(entry: Entry, tree: TreeState): MenuItem[] {
     );
   }
   return items;
+}
+
+/** For several chosen entries at once: attach, mark, hide, copy their paths, trash (asked first). */
+function manyMenu(paths: string[], tree: TreeState): MenuItem[] {
+  const report = (e: unknown) => tree.fail(String(e));
+  const absolute = (path: string) => (tree.project ? `${tree.project.path}/${path}` : path);
+  const entries = paths.map((path): Entry => ({ path, name: path.slice(path.lastIndexOf("/") + 1), isDir: !!tree.listings[path], size: 0 }));
+  return [
+    { icon: Paperclip, label: t("Attach to next prompt"), run: () => entries.filter((e) => !tree.pinned.has(e.path)).forEach((e) => tree.onPin(e)) },
+    { icon: Highlighter, label: t("Mark as important"), run: () => paths.forEach((path) => tree.setMark("important", path, true)) },
+    { icon: EyeOff, label: t("Hide"), run: () => paths.forEach((path) => tree.setMark("hidden", path, true)) },
+    { icon: Copy, label: t("Copy the paths in the project"), divider: true, run: () => void navigator.clipboard.writeText(paths.join("\n")) },
+    { icon: Copy, label: t("Copy the full paths"), run: () => void navigator.clipboard.writeText(paths.map(absolute).join("\n")) },
+    {
+      icon: Trash2,
+      label: t("Move to trash"),
+      divider: true,
+      run: () => {},
+      more: async () => ({
+        title: t("{entries} into the trash?", { entries: plural(paths.length, "entry") }),
+        items: [
+          { icon: Trash2, label: t("Yes, into the trash"), run: () => void pathTrash(paths).catch(report) },
+          { label: t("Cancel"), run: () => {} },
+        ],
+      }),
+    },
+  ];
+}
+
+/**
+ * Chips under the search field: each narrows the list to one kind of file; several narrow it
+ * further. With one on, the tree gives way to the flat list of what is found (docs/DATEISPALTE.md, C1).
+ */
+function Chips({ chips, onChange, writers }: { chips: Chip[]; onChange: (chips: Chip[]) => void; writers: string[] }) {
+  const marks = useSessionMarks();
+  const all: [Chip, string, string][] = [
+    ["new", t("New"), t("New files, not in git yet")],
+    ["changed", t("Changed"), t("Uncommitted changes")],
+    ...writers.map((id): [Chip, string, string] => [`session:${id}`, marks.of(id)?.short ?? "?", t("Changed by session {short}", { short: marks.of(id)?.title ?? id.slice(0, 8) })]),
+    ["attached", t("Attached"), t("Attached to your next prompt")],
+    ["hints", "@ai", t("Files with @ai hints")],
+    ["important", t("Important"), t("Marked as important")],
+  ];
+  const flip = (chip: Chip) => onChange(chips.includes(chip) ? chips.filter((c) => c !== chip) : [...chips, chip]);
+  return (
+    <div className="flex flex-wrap gap-1 pt-1.5">
+      {all.map(([chip, label, says]) => {
+        const on = chips.includes(chip);
+        const color = chip.startsWith("session:") ? marks.of(chip.slice(8))?.color : undefined;
+        return (
+          <button
+            key={chip}
+            type="button"
+            aria-pressed={on}
+            title={says}
+            onClick={() => flip(chip)}
+            style={color ? ({ borderColor: color } as CSSProperties) : undefined}
+            className={`rounded-full border px-2 py-px text-[11px] ${on ? "border-ai bg-ai/20 text-slate-50" : "border-line text-slate-400 hover:bg-raised hover:text-slate-200"}`}
+          >
+            {label}
+          </button>
+        );
+      })}
+      {chips.length > 0 && (
+        <button type="button" onClick={() => onChange([])} className="px-1 text-[11px] text-slate-500 hover:text-slate-200">
+          {t("all")}
+        </button>
+      )}
+    </div>
+  );
 }
 
 /** A name typed in place: Enter takes it, Escape or a click elsewhere leaves it. */

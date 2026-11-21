@@ -520,6 +520,13 @@ fn path_trash(paths: Vec<String>, window: WebviewWindow) -> Result<(), String> {
     fileops::trash(&*project_of(&window)?, &paths)
 }
 
+/// Every file of the project, for the search over the whole project.
+#[tauri::command]
+async fn project_files(window: WebviewWindow) -> Result<Vec<String>, String> {
+    let project = project_of(&window)?;
+    tauri::async_runtime::spawn_blocking(move || fileops::all_files(&project)).await.map_err(|e| e.to_string())
+}
+
 /// Opens a terminal in a folder of the project (for a file: its folder).
 #[tauri::command]
 fn open_terminal_in(path: String, window: WebviewWindow) -> Result<(), String> {
@@ -1438,6 +1445,7 @@ pub fn run() {
             path_create,
             path_trash,
             open_terminal_in,
+            project_files,
             scratch_move,
             open_window,
             recent_projects,

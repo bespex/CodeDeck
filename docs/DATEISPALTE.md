@@ -146,3 +146,13 @@ nach. Gelöschte Dateien stehen grau und durchgestrichen im Baum.
   zugeklappten Ordnern (heute nur gefärbter Name). **C3:** Steckbrief beim Überfahren eines Ordners (Dateien, Größe,
   Änderungen, Sessions, Tokens; `path_stats` gibt es).
 - Danach eigener Schritt: D1/D2 (eine Datei auf einen Snapshot zurücksetzen, mit Snapshot vergleichen).
+
+## Zweiter Schritt, gebaut 2026-11-21 (Praxistest offen)
+
+Mehrfachauswahl (Strg+Klick, Umschalt+Klick, Umschalt+Pfeil; Menü für mehrere: anhängen, wichtig, ausblenden,
+Pfade kopieren, Papierkorb), Tastatur im Baum (Pfeile, Rechts/Links klappt auf und zu, Enter ansehen bzw. aufklappen,
+Strg+Enter bearbeiten, Leertaste anhängen, Esc hebt die Auswahl auf, Kontextmenü-Taste bzw. Umschalt+F10), Suche über
+das ganze Projekt im Suchfeld (unscharf, Name vor Pfad, höchstens 300 Treffer, ohne Build-Ordner) und Filter-Chips
+(Geändert, Neu, je schreibende Session, Angehängt, @ai, Wichtig; mehrere grenzen weiter ein). Mit Suche oder Chip
+zeigt die Liste flach, was gefunden wurde, mit dem Ordner daneben; „Im Baum zeigen“ führt zurück in den Baum.
+„Diese Runde“ als Chip ist nicht gebaut (die Runde kennt der Baum nicht); dafür je Session ein Chip.
