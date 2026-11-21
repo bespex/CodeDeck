@@ -23,7 +23,8 @@ const wide = [german, "wait:3000", "size:1800x1000", 'eval:(window.dispatchEvent
 
 /** Per chapter: name of the picture → url, the steps of tools/shot.mjs before the one snap, and
  *  optionally a crop (ImageMagick geometry, e.g. "760x520+370+190") for showing one area only and
- *  marks: numbered circles [x, y, label] at places of the uncropped picture, which the text explains. */
+ *  marks: numbered circles [x, y, label] at places of the uncropped picture, which the text explains;
+ *  or parts: several crops of the same picture, side by side on the column's colour. */
 const chapters = {
   einleitung: {
     projektfenster: { url: base, steps: [german, "wait:3000"] },
@@ -31,6 +32,19 @@ const chapters = {
   "session-starten": {
     spalte: { url: base, steps: [german, "wait:3000"], crop: "375x700+300+0" },
     konto: { url: base, steps: [german, "wait:3000", 'click:[title^="Work ·"]', "wait:500"], crop: "395x200+300+0" },
+    // Three cards side by side: working, asking, turn done
+    // The first card with its tools shown (as on hover) and its menu open (as on a right click)
+    werkzeuge: {
+      url: base,
+      steps: [
+        german,
+        "wait:3000",
+        `eval:(() => { const l = [...document.querySelectorAll("li")].find((l) => { const r = l.getBoundingClientRect(); return r.x > 300 && r.x < 700; }); const h = l.querySelector("span.hidden.bg-raised"); h.style.display = "flex"; const r = h.getBoundingClientRect(); l.firstElementChild.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left - 40, clientY: r.bottom + 4, button: 2 })); return 1; })()`,
+        "wait:500",
+      ],
+      crop: "375x215+300+105",
+    },
+    zustaende: { url: base, steps: [german, "wait:3000"], parts: ["366x90+304+112", "366x114+304+200", "366x125+304+312"] },
   },
   vorbereitung: {
     willkommen: { url: `${base}?view=welcome`, steps: [german, "wait:2500", "size:720x820"] },
@@ -63,11 +77,17 @@ const work = mkdtempSync(join(tmpdir(), "codedeck-manual-"));
 try {
   for (const [chapter, shots] of Object.entries(chapters)) {
     if (only.length && !only.includes(chapter)) continue;
-    for (const [name, { url, steps, crop, marks }] of Object.entries(shots)) {
+    for (const [name, { url, steps, crop, marks, parts }] of Object.entries(shots)) {
       const prefix = join(work, `${chapter}-${name}`);
       execFileSync("node", [join(import.meta.dirname, "shot.mjs"), url, prefix, ...steps, "snap:x"], { stdio: "inherit" });
       if (marks) execFileSync("convert", [`${prefix}-x.png`, ...marks.flatMap(mark), `${prefix}-x.png`]);
       if (crop) execFileSync("convert", [`${prefix}-x.png`, "-crop", crop, "+repage", `${prefix}-x.png`]);
+      if (parts) {
+        const gap = ["(", "-size", "16x1", "xc:rgb(36,39,44)", ")"];
+        const pieces = parts.flatMap((p, i) => [...(i ? gap : []), "(", `${prefix}-x.png`, "-crop", p, "+repage", ")"]);
+        // Gravity only for joining: set before the crops it would move them
+        execFileSync("convert", ["-background", "rgb(36,39,44)", ...pieces, "-gravity", "North", "+append", "-bordercolor", "rgb(36,39,44)", "-border", "12", `${prefix}-x.png`]);
+      }
       const target = join(out, `${chapter}-${name}.webp`);
       execFileSync("cwebp", ["-quiet", "-q", "86", `${prefix}-x.png`, "-o", target]);
       console.log(target);
