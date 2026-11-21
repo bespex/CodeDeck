@@ -54,6 +54,50 @@ const chapters = {
     // A project without a repository opens in Changes, which offers git init
     "git-init": { url: `${base}?git=none`, steps: [german, "wait:3000"], crop: "470x240+832+100" },
   },
+  aenderungen: {
+    // Turn 6, finished: what was asked, the closing words, the counts, the tree
+    runde: { url: base, steps: [german, "wait:3000", `eval:[...document.querySelectorAll("button")].find((b) => b.textContent.trim().startsWith("CRunde 6")).click()`, "wait:1000"], crop: "760x420+676+0" },
+    kommentar: {
+      url: base,
+      steps: [
+        german,
+        "wait:3000",
+        `eval:[...document.querySelectorAll("button")].find((b) => b.textContent.trim().startsWith("CRunde 6")).click()`,
+        "wait:1000",
+        "text:Code",
+        "wait:800",
+        `eval:[...document.querySelectorAll("button[aria-label]")].filter((b) => /Zeile \\d+ .*kommentieren/.test(b.getAttribute("aria-label")))[3].click()`,
+        "wait:500",
+        "type:Hier bitte auch den Fall ohne Client-ID abdecken.",
+        "wait:300",
+      ],
+      crop: "760x350+676+250",
+    },
+    // A file row with its tools shown, as on hover
+    werkzeuge: {
+      url: base,
+      steps: [german, "wait:3000", `eval:[...document.querySelectorAll("span.hidden.bg-raised")].find((h) => h.parentElement.getBoundingClientRect().x > 676 && h.closest("li,div").textContent.includes("orders.rs")).style.display = "flex"`, "wait:300"],
+      crop: "735x130+676+520",
+    },
+  },
+  werkbank: {
+    reiter: { url: base, steps: [german, "wait:3000", "text:Werkbank", "wait:1000"], crop: "760x840+676+0" },
+  },
+  "naechster-prompt": {
+    reiter: { url: base, steps: [german, "wait:3000", "text:Nächster Prompt", "wait:1000"], crop: "760x600+676+0" },
+    // The choice of who gets the attachments, open
+    fuer: {
+      url: base,
+      steps: [german, "wait:3000", "text:Nächster Prompt", "wait:800", `eval:[...document.querySelectorAll("button")].find((b) => b.textContent.trim().startsWith("Wählen") && b.getBoundingClientRect().x > 676).click()`, "wait:500"],
+      crop: "300x200+676+30",
+    },
+    // The summary at the bottom of the sessions column
+    zusammenfassung: { url: base, steps: [german, "wait:3000"], crop: "375x150+300+748" },
+  },
+  aktivitaet: {
+    reiter: { url: base, steps: [german, "wait:3000", "text:Aktivität", "wait:1000"], crop: "735x840+676+0" },
+    glocke: { url: base, steps: [german, "wait:3000", "text:Aktivität", "wait:800", 'click:[title="Hinweise und Tipps"]', "wait:600"], crop: "380x620+1076+0" },
+  },
   projektfenster: {
     bereiche: { url: base, steps: wide, marks: [[150, 720, "1"], [525, 730, "2"], [700, 905, "3"], [1090, 975, "4"], [1418, 760, "5"], [1600, 600, "6"]] },
     projektliste: { url: base, steps: [german, "wait:3000"], crop: "300x650+0+0" },
