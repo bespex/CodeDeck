@@ -476,6 +476,18 @@ fn scratch_list(window: WebviewWindow) -> Result<Vec<scratch::WorkFile>, String>
     Ok(files)
 }
 
+/// Scratch files that lie in the project as well, same name and bytes: for tidying up.
+#[tauri::command]
+async fn scratch_twins(window: WebviewWindow) -> Result<Vec<scratch::Twin>, String> {
+    let project = project_of(&window)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let (files, _) = scratch::list(&project);
+        scratch::twins(&project, &files)
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// Moves files of the scratch folder to the trash.
 #[tauri::command]
 fn scratch_trash(paths: Vec<String>, window: WebviewWindow) -> Result<(), String> {
@@ -1378,6 +1390,7 @@ pub fn run() {
             open_project,
             scratch_list,
             scratch_trash,
+            scratch_twins,
             scratch_move,
             open_window,
             recent_projects,

@@ -32,7 +32,7 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src-tauri/src/harness/fake.rs` | Test-Adapter ohne echtes Werkzeug (nur in Tests): `Fake` startet nichts, `Starter` startet `fake-tool` |
 | `src-tauri/src/identity.rs` | Farbe, Kurzname und eigener Titel je Sitzung, je Projekt in `~/.config/codedeck/sessions.json` |
 | `src-tauri/src/markers.rs` | `@ai`-Marker (Regel D18): `git grep` als Vorauswahl, `marker_text` entscheidet, Codeblöcke in Markdown zählen nicht |
-| `src-tauri/src/scratch.rs` | Scratch-Ordner `.scratch/`: Eintrag in `info/exclude` (`Git::exclude_scratch`, ersetzt die alte `.workbench/`-Zeile), Liste, Papierkorb, ins Projekt verschieben |
+| `src-tauri/src/scratch.rs`, `src/tidy.ts` | Scratch-Ordner `.scratch/`: Eintrag in `info/exclude` (`Git::exclude_scratch`, ersetzt die alte `.workbench/`-Zeile), Liste, Papierkorb, ins Projekt verschieben, gleiche Dateien im Projekt (`twins`); „Aufräumen…“ teilt in Kann weg / Erst ansehen / Bleibt (`tidyPlan`, Gründe aus Session, gesehen, angehängt, Art, Alter) |
 | `src-tauri/src/findings.rs` | Woanders Abgelegtes und veröffentlichte Seiten je Projekt (`~/.config/codedeck/findings.json`): was zählt, Holen in `.scratch/`, Links aus dem Schlussbericht |
 | `src-tauri/src/journal.rs` | Was im Projekt geschah, eine Zeile je Ereignis, 7 Tage (`~/.local/state/codedeck/journal/`); Material für 2.3 |
 | `src-tauri/src/rules.rs` | Startregeln: der eine Text für Hook und Reiter Next prompt |

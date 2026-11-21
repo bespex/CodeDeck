@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type HTMLAttributes, type ReactNode } from "react";
 import { NewsTag, newsClass } from "../News";
 import { markSeen, reportNews, scratchKey, useNews } from "../../news";
-import { Check, ChevronDown, ChevronRight, Eye, FileText, Folder, FolderOpen, FolderSearch, GripVertical, SquarePen, Trash2 } from "lucide-react";
-import { onFsChanged, openFile, showInFileManager, scratchList, scratchTrash, type AssistantState, type WorkFile } from "../../backend";
+import { Brush, Check, ChevronDown, ChevronRight, Eye, FileText, Folder, FolderOpen, FolderSearch, GripVertical, SquarePen, Trash2 } from "lucide-react";
+import { onFsChanged, openFile, showInFileManager, scratchList, scratchTrash, scratchTwins, type AssistantState, type WorkFile } from "../../backend";
+import { tidyPlan, type TidyGroup, type TidyItem } from "../../tidy";
+import { files as attachedFiles } from "../../files";
 import { mainHarness, shortId, useSessionMarks } from "../../assistant";
 import type { Markers } from "../../markers";
 import { HintsTile } from "./HintsTile";
@@ -15,7 +17,7 @@ import { age, size } from "./units";
 import { OutsideTile } from "./FoundTiles";
 import { T, t } from "../../i18n";
 
-/** Older than this, a file is offered for clearing away. Fixed for now, a setting later. */
+/** Older than this, a file's age shows in amber: a hint to tidy up. */
 const OLD_DAYS = 7;
 const DAY = 24 * 3600_000;
 /** With more files than this the scratch folder starts closed, until opened once. */
@@ -34,7 +36,7 @@ export function WorkbenchView({ marks, assistant }: { marks: Markers; assistant:
     <div className="flex min-h-full flex-col">
       {(outside.length > 0 || pages.length > 0) && <OutsideTile files={outside} pages={pages} />}
       <HintsTile marks={marks} harness={mainHarness(assistant)} />
-      <ScratchTile />
+      <ScratchTile assistant={assistant} />
     </div>
   );
 }
@@ -86,10 +88,11 @@ function treeOf(files: WorkFile[]): Dir {
  * long piece of work is one line; a folder goes to the trash as a whole. A file becomes part of the
  * project by dragging it onto a folder of the file list.
  */
-function ScratchTile() {
+function ScratchTile({ assistant }: { assistant: AssistantState }) {
   const [files, setFiles] = useState<WorkFile[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cleared, setCleared] = useState<string | null>(null);
+  const [tidying, setTidying] = useState(false);
   const moved = useLastMove();
   const fold = useFold("scratch", (files?.length ?? 0) <= SCRATCH_OPEN_UP_TO);
 
@@ -121,7 +124,6 @@ function ScratchTile() {
 
   const tree = useMemo(() => treeOf(files ?? []), [files]);
   const now = Date.now();
-  const old = (files ?? []).filter((f) => now - f.modified > OLD_DAYS * DAY);
 
   const trash = async (paths: string[], what: string) => {
     try {
@@ -146,15 +148,15 @@ function ScratchTile() {
       help={t("One folder in the project for drafts, mock-ups, throwaway scripts and test data. AI sessions are told to put such things here. Git ignores it, so nothing here is committed by accident. To make a file part of the project, drag it onto a folder in the file list. Double click views a file, middle click edits it.")}
       aside={
         <>
-          {old.length > 0 && (
-            <Tooltip content={<span>{t("Into the trash, where they can still be brought back")}</span>}>
+          {files && files.length > 0 && !tidying && (
+            <Tooltip content={<ToolTipBody label={t("Tidy up…")} says={t("Shows what can probably go, what to look at first and what stays; what you tick goes to the trash")} />}>
               <button
                 type="button"
-                onClick={() => trash(old.map((f) => f.path), plural(old.length, "file"))}
+                onClick={() => setTidying(true)}
                 className="flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-[12px] text-slate-300 hover:bg-raised hover:text-slate-100"
               >
-                <Trash2 className="size-3.5" />
-                {t("Delete {n} older than {days} days ({size})", { n: old.length, days: OLD_DAYS, size: size(old.reduce((n, f) => n + f.size, 0)) })}
+                <Brush className="size-3.5" />
+                {t("Tidy up…")}
               </button>
             </Tooltip>
           )}
@@ -191,6 +193,17 @@ function ScratchTile() {
         </p>
       )}
       {error && <p className="selectable mb-2 text-problem">{error}</p>}
+      {tidying && files && files.length > 0 && (
+        <TidyPanel
+          files={files}
+          assistant={assistant}
+          onCancel={() => setTidying(false)}
+          onTrash={(paths) => {
+            setTidying(false);
+            void trash(paths, plural(paths.length, "file"));
+          }}
+        />
+      )}
       {files && files.length === 0 && <p>{t("The scratch folder is empty.")}</p>}
       {files && files.length > 0 && (
         <ul>
@@ -198,6 +211,105 @@ function ScratchTile() {
         </ul>
       )}
     </Section>
+  );
+}
+
+/**
+ * Tidying up the scratch folder (src/tidy.ts): what can probably go (ticked), what to look at first
+ * (not ticked), what stays (counted only), each with its reason. What is ticked goes to the trash.
+ */
+function TidyPanel({ files, assistant, onCancel, onTrash }: { files: WorkFile[]; assistant: AssistantState; onCancel: () => void; onTrash: (paths: string[]) => void }) {
+  const marks = useSessionMarks();
+  const news = useNews();
+  const pins = attachedFiles.use();
+  const [twins, setTwins] = useState<Map<string, string> | null>(null);
+  useEffect(() => {
+    let alive = true;
+    scratchTwins()
+      .then((list) => alive && setTwins(new Map(list.map((x) => [x.scratch, x.project]))))
+      .catch(() => alive && setTwins(new Map()));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const plan = useMemo(() => {
+    if (!twins) return null;
+    const now = Date.now();
+    return tidyPlan(files, {
+      now,
+      twins,
+      writer: (path) => marks.writer(path),
+      session: (id) => assistant.sessions.find((x) => x.id === id),
+      unseen: (f) => news.of(scratchItem(f)) !== null,
+      attached: new Set(pins.map((p) => p.id)),
+    });
+  }, [files, twins, marks, assistant.sessions, news, pins]);
+  const [chosen, setChosen] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (plan && chosen === null) setChosen(new Set(plan.filter((i) => i.group === "away").map((i) => i.file.path)));
+  }, [plan, chosen]);
+  if (!plan || !chosen) return <p className="mb-2 text-[12px] text-slate-400">{t("Looking…")}</p>;
+  const of = (g: TidyGroup) => plan.filter((i) => i.group === g);
+  const picked = plan.filter((i) => chosen.has(i.file.path));
+  const bytes = picked.reduce((n, i) => n + i.file.size, 0);
+  const toggle = (path: string) =>
+    setChosen((c) => {
+      const next = new Set(c);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  const now = Date.now();
+  const row = (i: TidyItem) => (
+    <li key={i.file.path} className="flex items-start gap-2 py-0.5 text-[12px]">
+      <input type="checkbox" className="mt-0.5" checked={chosen.has(i.file.path)} onChange={() => toggle(i.file.path)} aria-label={i.file.path} />
+      <span className="min-w-0 flex-1">
+        <span className="font-mono text-slate-200">{i.file.path.slice(SCRATCH_DIR.length + 1)}</span>
+        <span className="block text-slate-500">{t(i.reason, { path: i.path ?? "" })}</span>
+      </span>
+      <span className="shrink-0 text-slate-500">{age(i.file.modified, now)}</span>
+      <span className="w-16 shrink-0 text-right text-slate-500">{size(i.file.size)}</span>
+      <button type="button" aria-label={t("View")} title={t("View")} onClick={() => openFile(i.file.path, "view")} className={ACTION}>
+        <Eye className="size-3.5" />
+      </button>
+    </li>
+  );
+  const group = (title: string, items: TidyItem[]) =>
+    items.length > 0 && (
+      <div className="mb-2">
+        <div className="mb-0.5 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+          {title} <span className="font-normal tracking-normal normal-case">{plural(items.length, "file")} · {size(items.reduce((n, i) => n + i.file.size, 0))}</span>
+        </div>
+        <ul>{items.map(row)}</ul>
+      </div>
+    );
+  const keep = of("keep");
+  return (
+    <div className="mb-3 rounded-md border border-line bg-raised/40 px-3 py-2">
+      <p className="mb-2 text-[12px] text-slate-300">{t("A proposal from what CodeDeck knows about each file. What you tick goes to the trash, where it can still be brought back.")}</p>
+      {group(t("Can go"), of("away"))}
+      {group(t("Look first"), of("check"))}
+      {keep.length > 0 && (
+        <p className="mb-2 text-[12px] text-slate-500">
+          {t("{files} stay: new, attached, changed today or in use by an AI session.", { files: plural(keep.length, "file") })}
+        </p>
+      )}
+      {of("away").length + of("check").length === 0 && <p className="mb-2 text-[12px] text-slate-400">{t("Nothing to tidy up right now.")}</p>}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={picked.length === 0}
+          onClick={() => onTrash(picked.map((i) => i.file.path))}
+          className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 text-[12px] font-medium text-on-accent hover:bg-brand-fill-hover disabled:opacity-50"
+        >
+          <Trash2 className="size-3.5" />
+          {t("Move {files} ({size}) to the trash", { files: plural(picked.length, "file"), size: size(bytes) })}
+        </button>
+        <button type="button" onClick={onCancel} className="rounded-md px-2.5 py-1 text-[12px] text-slate-300 hover:bg-raised hover:text-slate-100">
+          {t("Cancel")}
+        </button>
+      </div>
+    </div>
   );
 }
 

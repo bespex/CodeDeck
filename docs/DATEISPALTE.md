@@ -29,7 +29,7 @@ CodeDeck weiß über jede Datei in `.scratch/` mehr als ihr Alter:
 | Angehängt oder gerade offen | Anhänge, Sessions | behalten |
 | Von einer laufenden Session in dieser Runde geschrieben | Sessions | behalten |
 
-### Vorschlag: „Aufräumen…“ statt „älter als 7 Tage“
+### Vorschlag: „Aufräumen…“ statt „älter als 7 Tage“ (gebaut 2026-11-21, Praxistest offen)
 
 Ein Knopf **Aufräumen…** in der Kachel öffnet eine Liste in drei Gruppen, jede mit Grund und Größe:
 
@@ -43,6 +43,12 @@ ein Hinweis in der Kachel, sobald „Kann weg“ eine Schwelle überschreitet (�
 
 Aufwand: mittel. Neu sind der Inhaltsvergleich mit dem Projekt und die Zusammenführung der Anhaltspunkte; alles
 andere ist da.
+
+Umgesetzt so: `src/tidy.ts` (`tidyOf`, erste zutreffende Regel entscheidet: angehängt, Session arbeitet, ungesehen,
+heute geändert → bleibt; gleich im Projekt, Ausgabe → kann weg; Entwurf oder Skript → erst ansehen; älter als
+7 Tage, Session beendet und seitdem unverändert → kann weg; sonst erst ansehen), `scratch.rs` `twins` (gleicher
+Name und gleiche Bytes, ohne Build-Ordner, höchstens 20 000 Dateien). Der Knopf „älter als 7 Tage löschen“ ist darin
+aufgegangen; der Hinweis auf eine Schwelle in der Kachel ist nicht gebaut.
 
 ## Teil B: Die Dateispalte aufwerten
 

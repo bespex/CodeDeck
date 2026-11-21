@@ -113,6 +113,69 @@ pub fn list(project: &Project) -> (Vec<WorkFile>, Vec<PathBuf>) {
     (files, dirs)
 }
 
+/// A scratch file whose content lies in the project as well: taken over by copying, not moving.
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Twin {
+    /// The scratch file, beginning with `.scratch/`
+    scratch: String,
+    /// The file in the project with the same name and the same bytes
+    project: String,
+}
+
+/// Folders not looked into for twins: what tools build or fetch, never a place one copies a draft to.
+const NOT_SEARCHED: &[&str] = &[".git", DIR, "node_modules", "target", "dist", "build", ".venv", "venv", "__pycache__", ".gradle", ".idea", ".cache"];
+/// Files looked at at most, and the largest compared byte for byte: tidying up must stay quick.
+const TWIN_FILES: usize = 20_000;
+const TWIN_BYTES: u64 = 20 * 1024 * 1024;
+
+/// The scratch files that lie in the project as well, same name and same bytes: what is left of a
+/// draft that was copied in. A help for tidying up (docs/DATEISPALTE.md, part A); without git, so
+/// it also sees files not added yet.
+pub fn twins(project: &Project, files: &[WorkFile]) -> Vec<Twin> {
+    use std::collections::HashMap;
+    let mut wanted: HashMap<String, Vec<&WorkFile>> = HashMap::new();
+    for f in files.iter().filter(|f| f.size <= TWIN_BYTES) {
+        if let Some(name) = f.path.rsplit('/').next() {
+            wanted.entry(name.to_string()).or_default().push(f);
+        }
+    }
+    let mut found = Vec::new();
+    if wanted.is_empty() {
+        return found;
+    }
+    let mut seen = 0;
+    let mut todo = vec![project.root.clone()];
+    while let Some(dir) = todo.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let Ok(meta) = std::fs::symlink_metadata(entry.path()) else { continue };
+            if meta.is_dir() {
+                if !NOT_SEARCHED.contains(&name.as_str()) {
+                    todo.push(entry.path());
+                }
+                continue;
+            }
+            seen += 1;
+            if seen > TWIN_FILES {
+                return found;
+            }
+            let Some(candidates) = wanted.get(&name) else { continue };
+            let mut bytes: Option<Vec<u8>> = None;
+            for f in candidates.iter().filter(|f| f.size == meta.len()) {
+                let mine = bytes.get_or_insert_with(|| std::fs::read(entry.path()).unwrap_or_default());
+                if std::fs::read(project.root.join(&f.path)).is_ok_and(|other| &other == mine) {
+                    if let Some(path) = project.relative(&entry.path()) {
+                        found.push(Twin { scratch: f.path.clone(), project: path });
+                    }
+                }
+            }
+        }
+    }
+    found
+}
+
 /// A path that must lie in the scratch folder, as it is on disk.
 fn in_scratch(project: &Project, path: &str) -> Result<PathBuf, String> {
     let full = project.resolve(path)?;
@@ -218,6 +281,23 @@ mod tests {
         assert!(move_into(&p, ".scratch/c.md", ".scratch/d.md").is_err());
         assert!(move_into(&p, "docs/a.md", "a.md").unwrap_err().contains("not in"));
         assert!(trash(&p, &["docs/a.md".to_string()]).is_err());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn finds_scratch_files_that_lie_in_the_project_too() {
+        let (p, root) = project();
+        std::fs::create_dir_all(root.join("docs")).unwrap();
+        std::fs::create_dir_all(root.join("node_modules")).unwrap();
+        std::fs::write(root.join(".scratch/plan.md"), "the plan").unwrap();
+        std::fs::write(root.join(".scratch/sub/other.md"), "draft").unwrap();
+        std::fs::write(root.join(".scratch/data.csv"), "1,2").unwrap();
+        // Copied in unchanged; changed after copying; same bytes in a folder not searched
+        std::fs::write(root.join("docs/plan.md"), "the plan").unwrap();
+        std::fs::write(root.join("docs/other.md"), "draft, edited").unwrap();
+        std::fs::write(root.join("node_modules/data.csv"), "1,2").unwrap();
+        let (files, _) = list(&p);
+        assert_eq!(twins(&p, &files), vec![Twin { scratch: ".scratch/plan.md".into(), project: "docs/plan.md".into() }]);
         let _ = std::fs::remove_dir_all(&root);
     }
 }

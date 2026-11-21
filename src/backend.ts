@@ -284,12 +284,26 @@ let mockScratch: WorkFile[] = [
     modified: Date.now() - (90 + i) * 60_000,
   })),
   { path: ".scratch/shots/old/first.png", size: 51_000, modified: Date.now() - 2 * DAY },
+  // Copied into the project as docs/limits.md, left behind here
+  { path: ".scratch/limits.md", size: 1_800, modified: Date.now() - 3 * DAY },
 ];
 
 /** The files in the scratch folder, newest first; from now on a new one there is reported at once. */
 export function scratchList(): Promise<WorkFile[]> {
   if (live) return invoke("scratch_list");
   return Promise.resolve([...mockScratch]);
+}
+
+/** A scratch file whose content lies in the project as well (`scratch.rs` `twins`). */
+export interface Twin {
+  scratch: string;
+  project: string;
+}
+
+/** Scratch files that lie in the project as well, same name and bytes: for tidying up. */
+export function scratchTwins(): Promise<Twin[]> {
+  if (live) return invoke("scratch_twins");
+  return Promise.resolve(mockScratch.some((f) => f.path === ".scratch/limits.md") ? [{ scratch: ".scratch/limits.md", project: "docs/limits.md" }] : []);
 }
 
 /** Moves files or folders of the scratch folder to the trash. */
