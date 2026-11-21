@@ -1294,6 +1294,8 @@ pub fn run() {
                 let _ = window.hide();
                 tray::refresh(window.app_handle());
             }
+            // Where a project window closes, the start page may have to show next
+            tauri::WindowEvent::CloseRequested { .. } => windows::closing(window),
             tauri::WindowEvent::Destroyed => {
                 let app = window.app_handle();
                 app.state::<Windows>().remove(app, window.label());
@@ -1308,7 +1310,7 @@ pub fn run() {
                         match app.get_webview_window(windows::OVERVIEW) {
                             Some(start) if start.is_visible().unwrap_or(false) => window::obey(&start, window::Request::Front),
                             _ => {
-                                if let Err(e) = windows::toggle_overview(&app) {
+                                if let Err(e) = windows::start_page_after_close(&app) {
                                     eprintln!("codedeck: start page: {e}");
                                 }
                             }

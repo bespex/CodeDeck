@@ -321,7 +321,30 @@ pub fn hidden_overview(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// The monitor of the project window closed last: after the last one, the start page shows there,
+/// not on the monitor it stood on before (user, 2026-11-21: it came up a screen further left).
+static CLOSED_ON: std::sync::Mutex<Option<tauri::Monitor>> = std::sync::Mutex::new(None);
+
+/// Notes where a project window is about to close, before it is gone and has no monitor to ask.
+pub fn closing(window: &tauri::Window) {
+    if let (Ok(Some(monitor)), Ok(mut closed)) = (window.current_monitor(), CLOSED_ON.lock()) {
+        *closed = Some(monitor);
+    }
+}
+
+/// Shows the start page after the last project window closed, on that window's monitor.
+pub fn start_page_after_close(app: &AppHandle) -> Result<(), String> {
+    let monitor = CLOSED_ON.lock().ok().and_then(|mut m| m.take());
+    show_overview(app, monitor)
+}
+
 pub fn toggle_overview(app: &AppHandle) -> Result<(), String> {
+    show_overview(app, None)
+}
+
+/// Hides the start page when it is shown; otherwise shows it, on `monitor` if given, else on the
+/// one it stood on.
+fn show_overview(app: &AppHandle, monitor: Option<tauri::Monitor>) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(OVERVIEW) {
         if window.is_visible().unwrap_or(false) {
             let _ = window.hide();
@@ -332,7 +355,7 @@ pub fn toggle_overview(app: &AppHandle) -> Result<(), String> {
             let width = OVERVIEW_WIDTH;
             let _ = window.show();
             let _ = window.unminimize();
-            crate::window::set_compact(&window, &FullPlace::default(), true, width, None).map_err(|e| e.to_string())?;
+            crate::window::set_compact(&window, &FullPlace::default(), true, width, monitor).map_err(|e| e.to_string())?;
             // To the front as a taskbar asks for it: asked by the window itself, Cinnamon refuses the
             // focus and the start page stayed behind the other windows (user, 2026-11-19: after the last
             // project window closed, it had to be dug out)
@@ -350,7 +373,7 @@ pub fn toggle_overview(app: &AppHandle) -> Result<(), String> {
         .build()
         .map_err(|e| e.to_string())?;
     // At the right edge of the monitor, as high as the panels leave free: the sidebar's place
-    crate::window::set_compact(&window, &FullPlace::default(), true, OVERVIEW_WIDTH, crate::window::start_monitor(app)).map_err(|e| e.to_string())?;
+    crate::window::set_compact(&window, &FullPlace::default(), true, OVERVIEW_WIDTH, monitor.or_else(|| crate::window::start_monitor(app))).map_err(|e| e.to_string())?;
     crate::tray::refresh(app);
     Ok(())
 }
