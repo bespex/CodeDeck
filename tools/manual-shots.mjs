@@ -27,7 +27,8 @@ const wide = [german, "wait:3000", "size:1800x1000", 'eval:(window.dispatchEvent
  *  or parts: several crops of the same picture, side by side on the column's colour. */
 const chapters = {
   einleitung: {
-    projektfenster: { url: base, steps: [german, "wait:3000"] },
+    // The whole window, the file list shown too: the overview shows every part
+    projektfenster: { url: base, steps: wide },
   },
   "session-starten": {
     spalte: { url: base, steps: [german, "wait:3000"], crop: "375x700+300+0" },
