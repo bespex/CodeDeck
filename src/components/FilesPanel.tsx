@@ -458,9 +458,7 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
               ? "bg-ai/20 ring-1 ring-ai"
               : isSelected
                 ? "bg-ai/25 text-slate-50"
-                : important
-                  ? "bg-brand/10 hover:bg-brand/20"
-                  : "hover:bg-raised"
+                : "hover:bg-raised"
         } ${faded || hidden ? "opacity-45" : ""}`}
         title={
           entry.path === ".scratch"
@@ -475,7 +473,11 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
         ) : (
           <span className="w-3.5 shrink-0" />
         )}
-        <Icon className={`size-4 shrink-0 ${entry.isDir ? "text-slate-300" : "text-slate-500"}`} />
+        {/* Important: the name bright and bold; a folder's symbol filled, the same shape (user, 2026-11-21) */}
+        <Icon
+          className={`size-4 shrink-0 ${entry.isDir ? (important ? "text-slate-100" : "text-slate-300") : important ? "text-slate-300" : "text-slate-500"}`}
+          fill={important && entry.isDir && !repo ? "currentColor" : "none"}
+        />
         {renaming ? (
           <NameInput
             initial={entry.name}

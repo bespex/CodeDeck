@@ -118,7 +118,7 @@ für Dateiinhalte im Deck (dafür sind die Qiew-Betrachter da), Funktionen, die 
 
 Umgesetzt wie unten beschrieben, mit diesen Abweichungen: Beim Überfahren Stift (Bearbeiten), Büroklammer und ⋯
 (Nutzer: Mittelklick ist nicht offensichtlich); in Änderungen ebenso, „Im Baum zeigen“, Ansehen, Dirq und Verwerfen
-im ⋯. „Wichtig“ als farbiges Band hinter der Zeile und fetter Name. Verzeichnis in den Papierkorb fragt als Untermenü
+im ⋯. „Wichtig“: heller, fetter Name, bei Verzeichnissen das Ordnersymbol gefüllt (kein farbiges Band, Nutzer 2026-11-21). Verzeichnis in den Papierkorb fragt als Untermenü
 nach. Gelöschte Dateien stehen grau und durchgestrichen im Baum.
 
 - **Begriff „Ausblenden“** (nicht „ignorieren“, das gehört zu Git): Kontextmenü „Ausblenden“ / „Wieder einblenden“ für
