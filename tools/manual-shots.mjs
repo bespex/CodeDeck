@@ -108,7 +108,7 @@ const chapters = {
   },
   dateien: {
     baum: { url: base, steps: wide, crop: "360x300+1440+0" },
-    leiste: { url: base, steps: [german, "wait:3000"], crop: "60x420+1440+0" },
+    leiste: { url: base, steps: [german, "wait:3000"], crop: "44x115+1456+0" },
     aktionen: { url: base, steps: [...wide, 'eval:(window.dispatchEvent(new KeyboardEvent("keydown",{key:"g",ctrlKey:true})),1)', "wait:800"], crop: "390x370+1335+40" },
     commit: { url: base, steps: [german, "wait:3000"], crop: "736x120+675+90" },
   },
