@@ -106,6 +106,38 @@ const chapters = {
     dokumente: { url: base, steps: [german, "wait:3000", "text:Aktivität", "wait:1000"], crop: "736x146+675+702" },
     glocke: { url: base, steps: [german, "wait:3000", "text:Aktivität", "wait:800", 'click:[title="Hinweise und Tipps"]', "wait:600"], crop: "380x620+1076+0" },
   },
+  trail: {
+    zu: { url: base, steps: [german, "wait:3000"], crop: "100x640+1360+0" },
+    // Opened by resting the mouse on it
+    offen: { url: base, steps: [german, "wait:3000", 'hover:[data-tour="trail"]', "wait:1200"], crop: "420x640+1050+0" },
+    // A snapshot chosen (the folded run opened first), then "Go back to here"
+    snapshot: {
+      url: base,
+      steps: [
+        german,
+        "wait:3000",
+        'eval:document.querySelector("[data-tour=trail] button[aria-label*=\\"gefaltet\\"]").click()',
+        "wait:500",
+        'eval:[...document.querySelectorAll("[data-tour=trail] button")].find((b) => /Snapshot/.test(b.getAttribute("aria-label") || "") && !/gefaltet/.test(b.getAttribute("aria-label"))).click()',
+        "wait:800",
+      ],
+      crop: "760x290+676+0",
+    },
+    zurueckgehen: {
+      url: base,
+      steps: [
+        german,
+        "wait:3000",
+        'eval:document.querySelector("[data-tour=trail] button[aria-label*=\\"gefaltet\\"]").click()',
+        "wait:500",
+        'eval:[...document.querySelectorAll("[data-tour=trail] button")].find((b) => /Snapshot/.test(b.getAttribute("aria-label") || "") && !/gefaltet/.test(b.getAttribute("aria-label"))).click()',
+        "wait:800",
+        "text:Hierher zurückgehen",
+        "wait:400",
+      ],
+      crop: "760x290+676+0",
+    },
+  },
   projektfenster: {
     bereiche: { url: base, steps: wide, marks: [[150, 720, "1"], [525, 730, "2"], [700, 905, "3"], [1090, 975, "4"], [1418, 760, "5"], [1600, 600, "6"]] },
     projektliste: { url: base, steps: [german, "wait:3000"], crop: "300x650+0+0" },
