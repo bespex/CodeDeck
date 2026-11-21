@@ -944,7 +944,8 @@ function Chips({ chips, onChange }: { chips: Chip[]; onChange: (chips: Chip[]) =
     <div className="flex flex-wrap items-start gap-1 pt-1.5">
       {CHIP_KINDS.map((kind, k) => (
         // The kinds stand apart: within one a chip adds, between them it narrows
-        <span key={k} className={`flex flex-wrap gap-1 ${k > 0 ? "ml-1.5" : ""}`}>
+        <span key={k} className="flex flex-wrap items-center gap-1">
+          {k > 0 && <span aria-hidden className="mx-1 h-4 w-px bg-slate-500" />}
           {kind.map((chip) => {
             const on = valid.includes(chip);
             const [label, says] = all[chip];
