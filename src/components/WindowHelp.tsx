@@ -58,7 +58,7 @@ const STEPS: Step[] = [
     says: () => t("At the top is the *name of the project* of this window.\n\nBelow it you see the *list of all your projects*. It also shows what is happening in the other projects: whether an AI session there asks you something, is working or has finished.\n\nA click on a project shows it in this window; *Ctrl+Tab* takes you back to the previous one."),
     points: () => [
       [logo, t("The CodeDeck logo opens the CodeDeck menu: welcome, this tour, keyboard shortcuts, manual, close project")],
-      [icon(SlidersHorizontal), t("Quick settings: do not disturb, notifications, language, all settings")],
+      [icon(SlidersHorizontal), t("Quick settings: do not disturb, notifications, all settings")],
       [icon(Ellipsis), t("With ⋯ beside “Projects” you add projects and sort them")],
       [icon(Keyboard), <>{key(t("Ctrl+Shift+L"))} {t("folds the column and opens it again")}</>],
     ],

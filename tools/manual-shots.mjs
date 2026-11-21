@@ -19,8 +19,12 @@ const base = "http://localhost:5391/";
 const german = `eval:(localStorage.setItem("codedeck.mockSettings",JSON.stringify({language:"de",windowHelp:false,welcome:false})),location.reload(),1)`;
 const settings = (section) => [german, "wait:3000", 'click:[title="Schnelleinstellungen"]', "wait:500", "text:Alle Einstellungen", "wait:800", `text:${section}`, "wait:800"];
 
+// The project window with every column open: the file list starts folded in the preview.
+const wide = [german, "wait:3000", "size:1800x1000", 'eval:(window.dispatchEvent(new KeyboardEvent("keydown",{key:"b",ctrlKey:true})),1)', "wait:800"];
+
 /** Per chapter: name of the picture → url, the steps of tools/shot.mjs before the one snap, and
- *  optionally a crop (ImageMagick geometry, e.g. "760x520+370+190") for showing one area only. */
+ *  optionally a crop (ImageMagick geometry, e.g. "760x520+370+190") for showing one area only and
+ *  marks: numbered circles [x, y, label] at places of the uncropped picture, which the text explains. */
 const chapters = {
   einleitung: {
     projektfenster: { url: base, steps: [german, "wait:3000"] },
@@ -30,8 +34,29 @@ const chapters = {
     "deine-projekte": { url: `${base}?view=welcome`, steps: [german, "wait:2500", "size:720x820", "text:Erzähl mir mehr", "wait:800"] },
     "coding-agents": { url: base, steps: settings("Coding-Agents"), crop: "760x520+370+190" },
     "leere-liste": { url: `${base}?view=overview&projects=none`, steps: [german, "wait:2500", "size:440x420"], crop: "440x330+0+0" },
+    // The bell of a project without a repository, scrolled to its offer of git init
+    "git-init": {
+      url: `${base}?git=none`,
+      steps: [german, "wait:3000", "size:1800x1000", 'click:[title="Hinweise und Tipps"]', "wait:800", `eval:[...document.querySelectorAll("*")].find((e) => !e.children.length && e.textContent.trim() === "Dieser Ordner hat kein Git-Repository").scrollIntoView({ block: "center" })`, "wait:400"],
+      crop: "360x256+1381+740",
+    },
+  },
+  projektfenster: {
+    bereiche: { url: base, steps: wide, marks: [[150, 720, "1"], [525, 730, "2"], [700, 905, "3"], [1090, 975, "4"], [1418, 760, "5"], [1600, 600, "6"]] },
+    projektliste: { url: base, steps: [german, "wait:3000"], crop: "300x650+0+0" },
+    menue: { url: base, steps: [german, "wait:3000", 'click:[title="CodeDeck-Menü"]', "wait:600"], crop: "300x380+0+0" },
+    schnelleinstellungen: { url: base, steps: [german, "wait:3000", 'click:[title="Schnelleinstellungen"]', "wait:600"], crop: "305x285+0+0" },
   },
 };
+
+/** ImageMagick arguments for one numbered circle in the brand's orange. */
+function mark([x, y, label]) {
+  return [
+    "-fill", "#f26500", "-stroke", "white", "-strokewidth", "3", "-draw", `circle ${x},${y} ${x + 20},${y}`,
+    "-fill", "white", "-stroke", "none", "-font", "DejaVu-Sans-Bold", "-pointsize", "24", "-gravity", "NorthWest",
+    "-annotate", `+${x - 8}+${y - 15}`, label,
+  ];
+}
 
 const out = join(site, "public/codedeck/manual/de");
 execFileSync("mkdir", ["-p", out]);
@@ -39,9 +64,10 @@ const work = mkdtempSync(join(tmpdir(), "codedeck-manual-"));
 try {
   for (const [chapter, shots] of Object.entries(chapters)) {
     if (only.length && !only.includes(chapter)) continue;
-    for (const [name, { url, steps, crop }] of Object.entries(shots)) {
+    for (const [name, { url, steps, crop, marks }] of Object.entries(shots)) {
       const prefix = join(work, `${chapter}-${name}`);
       execFileSync("node", [join(import.meta.dirname, "shot.mjs"), url, prefix, ...steps, "snap:x"], { stdio: "inherit" });
+      if (marks) execFileSync("convert", [`${prefix}-x.png`, ...marks.flatMap(mark), `${prefix}-x.png`]);
       if (crop) execFileSync("convert", [`${prefix}-x.png`, "-crop", crop, "+repage", `${prefix}-x.png`]);
       const target = join(out, `${chapter}-${name}.webp`);
       execFileSync("cwebp", ["-quiet", "-q", "86", `${prefix}-x.png`, "-o", target]);

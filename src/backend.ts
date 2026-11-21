@@ -340,8 +340,12 @@ function mockInfo(path: string): ProjectInfo {
 }
 
 /** Status of every repository in the project; `rescan` looks for repositories again. */
+/** `?git=none`: the project folder is no repository yet (offers git init; pictures of the manual) */
+const withoutGit = new URLSearchParams(window.location.search).get("git") === "none";
+
 export function gitStatus(rescan: boolean): Promise<RepoStatus[]> {
   if (live) return invoke("git_status", { rescan });
+  if (withoutGit) return Promise.resolve([]);
   const files = mockTree
     .flatMap((n) => leaves(n))
     .filter((f) => f.git)

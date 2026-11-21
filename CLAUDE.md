@@ -73,7 +73,7 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src/files.ts`, `src/markers.ts` | Angehängte Dateien (Pin = Anhang); Marker laden, als Anhang, „erledigt“ erkennen |
 | `src/changes.ts` | Änderungen als Anhang (Git-Befehl statt Diff, neue Dateien als Pfad), `ChangeScopeContext` je Diff-Ansicht |
 | `src/turns.ts`, `src/notes.ts`, `src/reviewed.ts` | Runden aus Snapshots und laufenden Sitzungen, wer welche Datei geändert hat; Zeilenkommentare als Teil der Übergabe; „Viewed“ je Datei mit Stand beim Ansehen („seit dem Ansehen geändert“) |
-| `src/mock.ts` | Beispieldaten für die Vorschau; in `backend.ts` `?tool=minimal` (zweites Werkzeug mit wenig Fähigkeiten, `mockWays`) und `?platform=…` |
+| `src/mock.ts` | Beispieldaten für die Vorschau; in `backend.ts` `?tool=minimal` (zweites Werkzeug mit wenig Fähigkeiten, `mockWays`), `?platform=…` und `?git=none` (Projekt ohne Repository) |
 | `design/click-dummy/` | Zielbild als Click-Dummy (Vorlage für `PLAN.md` „Zielbild“; README dort lesen, nicht die ganze `Main.dc.html`) |
 
 ## Regeln
