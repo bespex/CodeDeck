@@ -2,9 +2,10 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { Gauge } from "lucide-react";
 import { setUsageConnection, type AssistantState, type Connection } from "../backend";
 import { mainHarness, useConnections } from "../assistant";
+import { accountLook, useAccounts as useNamedAccounts } from "../accounts";
 import { useNow } from "../attention";
 import { LOCALE, t } from "../i18n";
-import { accountName, limitsOf, resetAt, span, STANDING_FILL, STANDING_TEXT, worst, type Limit } from "../usage";
+import { limitsOf, resetAt, span, STANDING_FILL, STANDING_TEXT, worst, type Limit } from "../usage";
 import { CLICKABLE } from "./StatusBar";
 
 /** A small square in the colour of the account's place in the list, to tell the accounts apart (the sessions' colours). */
@@ -113,6 +114,7 @@ function Connect({ account, onDone }: { account: Connection; onDone: (c: Connect
  */
 export function UsageCards({ assistant, onlySetUp = false }: { assistant: AssistantState; onlySetUp?: boolean }) {
   const accounts = useAccounts(assistant);
+  const named = useNamedAccounts();
   const hooks = useConnections();
   const now = useNow();
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +135,8 @@ export function UsageCards({ assistant, onlySetUp = false }: { assistant: Assist
         <div className="flex items-center gap-2">
           <span className="size-2.5 shrink-0 rounded-[3px]" style={mark(i)} />
           <span className="min-w-0 truncate font-semibold text-slate-100" title={c.dir}>
-            {accountName(c.dir)}
+            {/* The name given under Settings → Coding agents, as everywhere else; the folder if none */}
+            {accountLook(named, c.dir).name}
           </span>
           {/* Taken off in the status bar's pop-up; Activity only shows the figures */}
           {c.usage && !onlySetUp && (

@@ -73,7 +73,6 @@ export function resetAt(resetsAt: number, now: number, locale: string): string {
 }
 
 /** The name of an account: the folder the tool keeps its configuration in, without the path. */
-export const accountName = (account: string) => account.split("/").filter(Boolean).at(-1) ?? account;
 
 /** The session cannot go on until its account's limit starts over: when that is, else `null`. */
 export function blockedUntil(usage: AccountUsage[], account: string | null | undefined, now: number): number | null {
