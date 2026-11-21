@@ -181,7 +181,7 @@ Abschnitt). Vor jeder Seite zuerst die Regeln „Für alle Seiten des Handbuchs 
 (mit dem Bilder-Skript `tools/manual-shots.mjs`, beim ersten Kapitel anlegen), Nachschlagen, Anhang, dann die Geschichte
 auf der Startseite und das Glossar, zuletzt die englische Fassung. Die Entwürfe sind nirgends verlinkt und für
 Suchmaschinen gesperrt (`draft`). Adresse: `bespex.run/codedeck/manual/de/` (Nutzer 2026-11-21; keine Subdomain `codedeck.bespex.run`), bis zum
-Umzug der Website `bespex.github.io/codedeck/manual/de/`. Menüpunkt „Handbuch“ zeigt noch auf die README, umstellen, sobald die ersten Seiten stehen.
+Umzug der Website `bespex.github.io/codedeck/manual/de/`. Menüpunkt „Handbuch“ zeigt noch auf die README, umstellen, sobald die ersten Seiten stehen. Stand 2026-11-21: Einleitung fertig (fünf Seiten unter `einleitung/`, veröffentlicht, nicht verlinkt); Bilder mit `tools/manual-shots.mjs`. Das ganze Handbuch bleibt für Suchmaschinen gesperrt, bis `listed` in `Manual.astro` auf `true` steht (zusammen mit dem Menüpunkt).
 
 ### Später
 
