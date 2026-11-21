@@ -106,6 +106,12 @@ const chapters = {
     dokumente: { url: base, steps: [german, "wait:3000", "text:Aktivität", "wait:1000"], crop: "736x146+675+702" },
     glocke: { url: base, steps: [german, "wait:3000", "text:Aktivität", "wait:800", 'click:[title="Hinweise und Tipps"]', "wait:600"], crop: "380x620+1076+0" },
   },
+  dateien: {
+    baum: { url: base, steps: wide, crop: "360x300+1440+0" },
+    leiste: { url: base, steps: [german, "wait:3000"], crop: "60x420+1440+0" },
+    aktionen: { url: base, steps: [...wide, 'eval:(window.dispatchEvent(new KeyboardEvent("keydown",{key:"g",ctrlKey:true})),1)', "wait:800"], crop: "390x370+1335+40" },
+    commit: { url: base, steps: [german, "wait:3000"], crop: "736x120+675+90" },
+  },
   trail: {
     zu: { url: base, steps: [german, "wait:3000"], crop: "100x640+1360+0" },
     // Opened by resting the mouse on it
