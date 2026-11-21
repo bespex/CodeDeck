@@ -28,6 +28,10 @@ const chapters = {
   einleitung: {
     projektfenster: { url: base, steps: [german, "wait:3000"] },
   },
+  "session-starten": {
+    spalte: { url: base, steps: [german, "wait:3000"], crop: "375x700+300+0" },
+    konto: { url: base, steps: [german, "wait:3000", 'click:[title^="Work ·"]', "wait:500"], crop: "395x200+300+0" },
+  },
   vorbereitung: {
     willkommen: { url: `${base}?view=welcome`, steps: [german, "wait:2500", "size:720x820"] },
     "deine-projekte": { url: `${base}?view=welcome`, steps: [german, "wait:2500", "size:720x820", "text:Erzähl mir mehr", "wait:800"] },
