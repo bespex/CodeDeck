@@ -11,7 +11,6 @@ import { t } from "../i18n";
 interface Props {
   project: ProjectInfo | null;
   assistant: AssistantState;
-  onToggleLog: () => void;
   /** Shows a project in this window or a new one (App's `open`) */
   onOpen: InWindow["onOpen"];
   folded: boolean;
@@ -24,18 +23,18 @@ interface Props {
  * overview listed them, without their sessions. A click on the project's mark folds the column to a
  * rail of marks, where the same mark opens it again.
  */
-export function ProjectsPanel({ project, assistant, onToggleLog, onOpen, folded, onFold }: Props) {
+export function ProjectsPanel({ project, assistant, onOpen, folded, onFold }: Props) {
   const inWindow: InWindow = { current: project?.path ?? null, onOpen };
-  if (folded) return <FoldedProjects project={project} assistant={assistant} onToggleLog={onToggleLog} inWindow={inWindow} onOpen={() => onFold(false)} />;
+  if (folded) return <FoldedProjects project={project} assistant={assistant} inWindow={inWindow} onOpen={() => onFold(false)} />;
   return (
     <aside data-tour="projects" className="zone-side flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
-      <PathBar project={project} onToggleLog={onToggleLog} assistant={assistant} onFold={() => onFold(true)} foldLabel={t("Fold the project list")} />
+      <PathBar project={project} assistant={assistant} onFold={() => onFold(true)} foldLabel={t("Fold the project list")} />
       <OverviewApp inWindow={inWindow} />
     </aside>
   );
 }
 
-function FoldedProjects({ project, assistant, onToggleLog, inWindow, onOpen }: { project: ProjectInfo | null; assistant: AssistantState; onToggleLog: () => void; inWindow: InWindow; onOpen: () => void }) {
+function FoldedProjects({ project, assistant, inWindow, onOpen }: { project: ProjectInfo | null; assistant: AssistantState; inWindow: InWindow; onOpen: () => void }) {
   const look = useProjectLook(project?.path);
   const fill = look ? (look.mark?.color ?? look.color) : null;
   const name = project?.crumbs[project.crumbs.length - 1]?.label ?? project?.root ?? "";
@@ -54,7 +53,7 @@ function FoldedProjects({ project, assistant, onToggleLog, inWindow, onOpen }: {
           <QuickSettings />
         </div>
         <div className="relative">
-          <AppMenu onToggleLog={onToggleLog} assistant={assistant} />
+          <AppMenu assistant={assistant} />
         </div>
       </div>
       <ProjectsRail inWindow={inWindow} />

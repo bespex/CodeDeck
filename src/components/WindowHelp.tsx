@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Anchor, ArrowLeft, ArrowRight, ArrowUpRight, AtSign, Bell, ChevronDown, CircleCheck, Ellipsis, Globe, Keyboard, MessageSquarePlus, MousePointerClick, Paperclip, Play, Plus, Reply, SlidersHorizontal, Users } from "lucide-react";
 import { machineSettings, setMachineSetting, windowHelp, type AssistantState } from "../backend";
 import { closeDialog, openDialog } from "../dialogs";
 import { t } from "../i18n";
+import { mainHarness } from "../assistant";
 import { currentView, openView, type ViewId } from "../view";
 
 /** A guided tour through the real project window (docs/KONZEPT.md 4.8 "Tutorial"): one part after
@@ -48,15 +49,15 @@ const STEPS: Step[] = [
   {
     area: null,
     title: () => t("A round with CodeDeck"),
-    says: () => t("CodeDeck runs beside your coding agent and keeps an eye on your AI sessions. You go on writing your prompts in the chat of each session. CodeDeck shows you what the sessions do, what they changed and how safe your work is. It also gathers what you want to give them next. Come along on one round of work, from the first prompt to the commit."),
+    says: () => t("CodeDeck runs beside your coding agent and keeps an eye on your *AI sessions*. You go on writing your prompts in the *chat* of each session.\n\nCodeDeck shows you what the sessions do, what they changed and how safe your work is. It also gathers what you want to give them next.\n\nCome along on one *round of work*, from the first prompt to the commit."),
   },
   {
     area: () => rectOf("projects"),
     title: () => t("Your projects"),
     question: () => t("Where am I, and is something going on elsewhere?"),
-    says: () => t("At the top is the name of the project of this window. Below it you see the list of all your projects. It also shows what is happening in the other projects: whether an AI session there asks you something, is working or has finished. A click on a project shows it in this window; Ctrl+Tab takes you back to the previous one."),
+    says: () => t("At the top is the *name of the project* of this window.\n\nBelow it you see the *list of all your projects*. It also shows what is happening in the other projects: whether an AI session there asks you something, is working or has finished.\n\nA click on a project shows it in this window; *Ctrl+Tab* takes you back to the previous one."),
     points: () => [
-      [logo, t("The CodeDeck logo opens the CodeDeck menu: help, this tour, keyboard shortcuts, git commands, close project")],
+      [logo, t("The CodeDeck logo opens the CodeDeck menu: welcome, this tour, keyboard shortcuts, manual, close project")],
       [icon(SlidersHorizontal), t("Quick settings: do not disturb, notifications, language, all settings")],
       [icon(Ellipsis), t("With ⋯ beside “Projects” you add projects and sort them")],
       [icon(Keyboard), <>{key(t("Ctrl+Shift+L"))} {t("folds the column and opens it again")}</>],
@@ -71,7 +72,7 @@ const STEPS: Step[] = [
     },
     title: () => t("Start an AI session"),
     question: () => t("How do I get the AI working, and what is it doing?"),
-    says: () => t("Here you see all AI sessions of this project with their status, in the order they were started. You start a session with the buttons at the top, or as usual in your terminal. Either way it shows up here with its first step. Each session shows whether it is working, asks you something or has finished its turn, together with its question or what it said last. Sessions that have ended are under “Earlier”."),
+    says: () => t("Here you see all *AI sessions* of this project with their status, in the order they were started.\n\nYou start a session with the *buttons at the top*, or as usual in your terminal. Either way it shows up here with its first step.\n\nEach session shows whether it is working, asks you something or has finished its turn, together with its question or what it said last. Sessions that have ended are under *“Earlier”*."),
     points: () => [
       [icon(Plus), t("starts an AI session with a new conversation")],
       [icon(Play), t("continues the last conversation in a new AI session. While a session is still running, it starts nothing.")],
@@ -85,7 +86,7 @@ const STEPS: Step[] = [
     view: "activity",
     title: () => t("While it works: Activity"),
     question: () => t("What have the sessions done?"),
-    says: () => t("The deck in the middle has four tabs, one for each question of a round. The tab Activity gives you an overview of the last hours. You see every AI session on a timeline: when it worked and when it waited for you. Below it you see how safe your work is right now."),
+    says: () => t("The deck in the middle has *four tabs*, one for each question of a round.\n\nThe tab *Activity* gives you an overview of the last hours. You see every AI session on a *timeline*: when it worked and when it waited for you.\n\nBelow it you see *how safe your work is* right now and, if your coding agent states it, its *usage*: how much of your account's allowance is used and when it starts over."),
     points: () => [[icon(Bell), t("The bell beside the tabs shows the latest events, tips for the open tab and what CodeDeck found on this computer.")]],
   },
   {
@@ -93,7 +94,7 @@ const STEPS: Step[] = [
     view: "changes",
     title: () => t("When a turn is done: Changes"),
     question: () => t("What did the AI change?"),
-    says: () => t("Here you see as a diff what the AI sessions changed. At first these are all changes that are not committed yet. When you pick a point on the trail, you see exactly what that turn, commit or snapshot changed. Every file carries the colour of the session that wrote it."),
+    says: () => t("A *turn* is everything an AI session does on one of your prompts, until it has finished and waits for you again.\n\nHere you see as a *diff* what the AI sessions changed. At first these are all changes that are not committed yet. When you pick a point on the *trail*, you see exactly what that turn, commit or snapshot changed.\n\nEvery file carries the *colour* of the session that wrote it."),
     points: () => [
       [icon(MessageSquarePlus), t("With the speech bubble at a line you write a comment for the AI. It goes along with your next prompt.")],
       [icon(CircleCheck), t("With “Viewed” you mark a file you have looked at. If it changes again afterwards, CodeDeck tells you.")],
@@ -105,35 +106,38 @@ const STEPS: Step[] = [
     view: "workbench",
     title: () => t("What else came up: Workbench"),
     question: () => t("What did the AI leave beside the project?"),
-    says: () => t("CodeDeck tells the AI to put drafts, test data and throwaway scripts into a folder of their own: the scratch folder .scratch/ of the project. Here you see these files. They are not part of the changes in the project, but often worth a look. What you want to keep you drag into the project's file tree."),
+    says: () => t("CodeDeck tells the AI to put drafts, test data and throwaway scripts into a folder of their own: the *scratch folder .scratch/* of the project.\n\nHere you see these files. They are not part of the changes in the project, but often worth a look. What you want to keep you drag into the project's *file tree*."),
     points: () => [
       [icon(Globe), t("You also see pages the AI sessions published and files they put elsewhere, such as in /tmp.")],
       [icon(AtSign), t("When you write @ai into a file, that is an instruction for the AI. Such hints are listed here, and the paperclip attaches them.")],
     ],
   },
   {
-    area: () => rectOf("next"),
-    title: () => t("Hand over: Next prompt"),
-    question: () => t("What does the AI get with my next prompt?"),
-    says: () => t("Along the way you attach what the AI should get: files, changes, comments on lines and @ai hints. This area sums up what is attached and which AI session it is for. You write the prompt itself in the session's chat as usual. CodeDeck adds what is attached."),
-    points: () => [
-      [icon(Paperclip), t("You attach with the paperclip: files in the file list, turns and files in Changes, @ai hints in the Workbench. Comments you write with the speech bubble at a line.")],
-      [icon(ArrowUpRight), t("“Open” on the right opens the tab Next prompt. It shows everything the AI session gets with your next prompt.")],
-      [icon(Users), t("When several AI sessions are running, you choose which one the attachments are for.")],
-    ],
-  },
-  {
+    // First all four tabs of the deck, then the summary beside the sessions (user, 2026-11-21)
     area: () => around("deck-tabs", "deck-view"),
     view: "next",
-    title: () => t("Next prompt in full"),
-    question: () => t("What exactly goes along?"),
-    says: () => t("This tab shows the summary from the session list in full: everything attached with where it comes from, and the exact text the AI session gets with your next prompt. What should not go along you take off here. At the bottom are the start rules every new session gets once."),
+    title: () => t("Hand over: Next prompt"),
+    question: () => t("What does the AI get with my next prompt?"),
+    says: () => t("*Attaching* means: you gather here what the AI should know for its next turn, and CodeDeck hands it over with your next prompt. You do not copy anything into the chat.\n\nYou can attach *files*, *changes* (a turn, a commit or single files of them), *comments on lines* of a diff and *@ai hints* from your files.\n\nWhen you send your next prompt in the *session's chat*, your coding agent tells CodeDeck, and CodeDeck adds the attachments to that prompt as text: files as their path, which the agent reads itself when it needs them, changes as the git command that shows them, comments with file and line. Then the list is empty again, and a receipt says which session got it.\n\nThis tab shows the *exact text* that goes along; what should not go along you *remove* here. At the bottom are the *start rules* every new session gets once."),
+    points: () => [
+      [icon(Paperclip), t("You attach with the paperclip: files in the file list, turns and files in Changes, @ai hints in the Workbench. Comments you write with the speech bubble at a line.")],
+      [icon(Users), t("When several AI sessions are running, you choose which one the attachments are for.")],
+    ],
+    // Only for a coding agent that cannot take text with a prompt: what happens there instead
+    extra: (assistant) => <AttachNote assistant={assistant} />,
+  },
+  {
+    area: () => rectOf("next"),
+    title: () => t("Next prompt at a glance"),
+    question: () => t("What goes along right now?"),
+    says: () => t("Below the sessions you see a *summary* of the tab Next prompt: what is attached and which AI session it is for.\n\nSo you always see what is attached for the next AI session, without leaving the session list. After processing it shows when and to which session the attachments went."),
+    points: () => [[icon(ArrowUpRight), t("“Open” on the right opens the tab Next prompt with everything in full.")]],
   },
   {
     area: () => rectOf("trail"),
     title: () => t("Keeping it safe: Trail"),
     question: () => t("How safe is my work?"),
-    says: () => t("The trail shows the git history of the repository in the project's folder as one line, the newest on top. If there are more repositories in folders of the project, it shows them too. The colour of the line tells you how safe your work is:"),
+    says: () => t("The trail shows the *git history* of the repository in the project's folder as one line, the newest on top. If there are more repositories in folders of the project, it shows them too.\n\nThe *colour of the line* tells you how safe your work is:"),
     extra: () => <TrailColours />,
     points: () => [
       [icon(MousePointerClick), t("Hover over it and it opens as a timeline. A click on a point shows what that commit changed.")],
@@ -145,8 +149,9 @@ const STEPS: Step[] = [
     area: () => rectOf("files"),
     title: () => t("Files and commit"),
     question: () => t("Where is what, and how does the work get into git?"),
-    says: () => t("Here you see the project's file tree. Files an AI session changed carry its colour. At the folder of a repository are its branch and the git actions: commit, pull, push and fetch. With the commit the round ends."),
+    says: () => t("Here you see the project's *file tree*. Files an AI session changed carry its colour.\n\nAt the top beside “Files” is the *branch* of the project with the number of uncommitted changes and of commits not pushed yet. A click on it opens the *git actions*: fetch, pull, commit and push. Repositories in folders of the project have their branch at their folder.\n\nWith the commit the round of work ends."),
     points: () => [
+      [icon(Keyboard), <>{key(`${t("Ctrl")}+G`)} {t("opens the git actions of the project's repository")}</>],
       [icon(Keyboard), <>{key(t("Ctrl+B"))} {t("folds the file list and opens it again")}</>],
       [icon(MousePointerClick), t("When the file list is folded, a narrow rail remains. A click on it opens the list again.")],
     ],
@@ -154,9 +159,20 @@ const STEPS: Step[] = [
   {
     area: null,
     title: () => t("That's the round"),
-    says: () => t("You start an AI session, follow it, look at what it changed, hand over the next prompt and commit: that is a round with CodeDeck. Every symbol explains itself in its tooltip when you point at it. The keyboard shortcuts, this tour and the welcome are always in the CodeDeck menu behind the logo at the top left."),
+    says: () => t("You start an AI session, follow it, look at what it changed, hand over the next prompt and commit: that is a *round with CodeDeck*.\n\nEvery symbol explains itself in its *tooltip* when you point at it.\n\nThe keyboard shortcuts, this tour and the welcome are always in the *CodeDeck menu* behind the logo at the top left."),
   },
 ];
+
+/** A text in its paragraphs, parted by an empty line; anything else as one paragraph. A term in
+ *  `*…*` stands out a little, so the eye finds the topic it looks for (user, 2026-11-21). */
+function paragraphs(text: ReactNode) {
+  if (typeof text !== "string") return <p>{text}</p>;
+  return text.split("\n\n").map((part, i) => (
+    <p key={i}>
+      {part.split(/\*([^*]+)\*/).map((piece, j) => (j % 2 ? <span key={j} className="font-medium text-slate-50">{piece}</span> : piece))}
+    </p>
+  ));
+}
 
 /** In the first project window of a start: once, until turned off. A hidden window asks again when it gets the focus. */
 export function useWindowHelp() {
@@ -186,6 +202,13 @@ export function WindowHelp({ assistant }: { assistant: AssistantState }) {
   const [at, setAt] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [off, setOff] = useState(false);
+  // The card's height, measured: beside a part it moves up as far as it must to stay in the window
+  const card = useRef<HTMLElement>(null);
+  const [cardHeight, setCardHeight] = useState(460);
+  useLayoutEffect(() => {
+    const h = card.current?.offsetHeight;
+    if (h && h !== cardHeight) setCardHeight(h);
+  });
   const step = STEPS[at];
   const last = at === STEPS.length - 1;
   const parts = STEPS.filter((s) => s.area && present(s));
@@ -239,7 +262,7 @@ export function WindowHelp({ assistant }: { assistant: AssistantState }) {
   if (rect) {
     if (W - rect.right >= CARD_WIDTH + 2 * GAP) left = rect.right + GAP;
     else if (rect.left >= CARD_WIDTH + 2 * GAP) left = rect.left - GAP - CARD_WIDTH;
-    top = Math.max(GAP, Math.min(rect.top + 24, H - 460));
+    top = Math.max(GAP, Math.min(rect.top + 24, H - cardHeight - GAP));
   }
 
   return (
@@ -254,6 +277,7 @@ export function WindowHelp({ assistant }: { assistant: AssistantState }) {
         }
       />
       <section
+        ref={card}
         style={{ left, width: CARD_WIDTH, ...(top === undefined ? { top: "50%", transform: "translateY(-50%)" } : { top }) }}
         className="surface-overlay fixed flex max-h-[calc(100vh-32px)] flex-col overflow-hidden rounded-xl text-[13px] text-slate-300 shadow-2xl transition-[left,top] duration-300"
       >
@@ -265,7 +289,8 @@ export function WindowHelp({ assistant }: { assistant: AssistantState }) {
           )}
           <h2 className="text-[16px] font-semibold text-slate-50">{step.title()}</h2>
           {step.question && <p className="-mt-1.5 text-slate-400 italic">{step.question()}</p>}
-          <p>{step.says()}</p>
+          {/* A new aspect, a new paragraph: the texts part them with an empty line (user, 2026-11-21) */}
+          {paragraphs(step.says())}
           {step.extra?.(assistant)}
           {last && (
             <label className="mt-1 flex cursor-pointer items-center gap-2 text-[12px] text-slate-300">
@@ -326,6 +351,20 @@ function SampleSession() {
       </div>
       <span className="text-[11px] text-slate-500">{t("This is how an AI session looks in the list once it runs.")}</span>
     </div>
+  );
+}
+
+/** For a coding agent that does not take attachments with the next prompt (asked of its
+ *  capabilities, never its name): how they reach it instead, or that they do not. */
+function AttachNote({ assistant }: { assistant: AssistantState }) {
+  const { name, capabilities } = mainHarness(assistant);
+  if (capabilities.attach === "withNextPrompt") return null;
+  return (
+    <p className="rounded-md border border-changed/40 bg-changed/10 px-2.5 py-1.5 text-[12px] text-slate-200">
+      {capabilities.attach === "clipboard"
+        ? t("{tool} cannot take text with a prompt. CodeDeck then offers to copy the attachments to the clipboard, and you paste them into the chat yourself.", { tool: name })
+        : t("{tool} cannot take attachments. What you gather here is only for you to look at.", { tool: name })}
+    </p>
   );
 }
 

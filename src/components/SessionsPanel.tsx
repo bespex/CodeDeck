@@ -905,7 +905,7 @@ function NextPrompt({ assistant, onPin }: Props) {
         {count > 0 && (
           <button
             type="button"
-            title={t("Take everything off: files, changes, line comments and hints")}
+            title={t("Remove everything: files, changes, line comments and hints")}
             aria-label={t("Clear the next prompt")}
             onClick={() => [files, changes, notes, markers].forEach((part) => part.clear())}
             className="flex items-center gap-0.5 rounded px-1 text-[11px] text-slate-400 hover:bg-raised hover:text-slate-100"

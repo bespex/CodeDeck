@@ -164,7 +164,7 @@ export default function App() {
     <SessionMarksContext.Provider value={marks}>
     <div className="flex h-full flex-col">
       <div data-columns className="grid min-h-0 flex-1" style={{ gridTemplateColumns: layout.columns }}>
-        <ProjectsPanel project={project} assistant={assistant} onToggleLog={() => setLogOpen((o) => !o)} onOpen={(path, newWindow, view) => void open(path, newWindow, view)} folded={projectsFolded} onFold={foldProjects} />
+        <ProjectsPanel project={project} assistant={assistant} onOpen={(path, newWindow, view) => void open(path, newWindow, view)} folded={projectsFolded} onFold={foldProjects} />
         {/* Made anew for each project, as the deck and the file list: its parts read the project's account
             once (usage, the sessions' tool) and would otherwise keep the old project's */}
         <SessionsPanel

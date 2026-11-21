@@ -2,12 +2,13 @@ import { Tooltip, ToolTipBody } from "./Tooltip";
 import { lastSwitch } from "../projectMemory";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
+  BookOpen,
   Bug,
   Check,
   Play,
   Plus,
   ChevronDown,
-  CircleHelp,
+  Globe,
   Hand,
   Info,
   Keyboard,
@@ -15,7 +16,6 @@ import {
   Settings,
   SlidersHorizontal,
   Sparkles,
-  SquareTerminal,
   Stethoscope,
   X,
 } from "lucide-react";
@@ -25,7 +25,7 @@ import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
 import { lang, t } from "../i18n";
 import { AttentionChoice, isQuiet, QuietChoice } from "./AttentionChoice";
-import { SOURCE_URL } from "./Dialogs";
+import { HOME_URL, SOURCE_URL } from "./Dialogs";
 import { usePopover, type OpenProject } from "./ProjectHeader";
 import { useProjectAccount, useProjectLook } from "../projectLook";
 import { AccountMark } from "./ProjectMark";
@@ -303,7 +303,7 @@ function AccountBlock({ project, assistant }: { project: ProjectInfo | null; ass
 }
 
 /** Everything about CodeDeck itself. */
-export function AppMenu({ onToggleLog, assistant, onColor = false }: { onToggleLog: () => void; assistant: AssistantState; onColor?: boolean }) {
+export function AppMenu({ assistant, onColor = false }: { assistant: AssistantState; onColor?: boolean }) {
   const menu = usePopover<HTMLDivElement>();
   const [copied, setCopied] = useState(false);
   // What the backend knows, and what only the window knows; for a bug report or a chat
@@ -334,25 +334,30 @@ export function AppMenu({ onToggleLog, assistant, onColor = false }: { onToggleL
       </button>
       {menu.open && (
         <Panel width="w-[270px]">
+          {/* Order and names: user, 2026-11-21; git's commands stay at the status bar and Ctrl+Shift+G */}
           <div className="p-1">
             <Item icon={<Info className="size-4" />} label={t("About CodeDeck")} onClick={run(() => openDialog({ kind: "about" }))} />
-            <Item icon={<Keyboard className="size-4" />} label={t("Keyboard shortcuts")} onClick={run(() => openDialog({ kind: "shortcuts" }))} />
-            <Item icon={<Hand className="size-4" />} label={t("Welcome and checkup")} onClick={run(() => void openWelcome())} />
-            <Item icon={<LayoutDashboard className="size-4" />} label={t("Your project window")} onClick={run(() => openDialog({ kind: "windowHelp" }))} />
-            <Item icon={<CircleHelp className="size-4" />} label={t("Help")} onClick={run(() => void openUrl(`${SOURCE_URL}#readme`))} />
-          </div>
-          {/* Closes the window with its project; the last one leaves the start page */}
-          <div className="border-t border-overlay-line p-1">
-            <Item icon={<X className="size-4" />} label={t("Close project")} aside={<Key>{`${t("Ctrl")}+W`}</Key>} onClick={run(() => void closeWindow())} />
           </div>
           <div className="border-t border-overlay-line p-1">
-            <Item icon={<SquareTerminal className="size-4" />} label={t("Git commands")} aside={<Key>{t("Ctrl+Shift+G")}</Key>} onClick={run(onToggleLog)} />
-            <Item icon={<Bug className="size-4" />} label={t("Report a problem…")} onClick={run(() => void report())} />
+            <Item icon={<Hand className="size-4" />} label={t("Welcome and computer check")} onClick={run(() => void openWelcome())} />
+            <Item icon={<LayoutDashboard className="size-4" />} label={t("Tutorial: project window")} onClick={run(() => openDialog({ kind: "windowHelp" }))} />
+            <Item icon={<Keyboard className="size-4" />} label={t("Tutorial: keyboard shortcuts")} onClick={run(() => openDialog({ kind: "shortcuts" }))} />
+          </div>
+          <div className="border-t border-overlay-line p-1">
+            <Item icon={<BookOpen className="size-4" />} label={t("Manual")} onClick={run(() => void openUrl(`${SOURCE_URL}#readme`))} />
+            <Item icon={<Globe className="size-4" />} label={t("Website")} onClick={run(() => void openUrl(HOME_URL))} />
+          </div>
+          <div className="border-t border-overlay-line p-1">
             <Item
               icon={<Stethoscope className="size-4" />}
               label={copied ? t("Copied") : t("Copy diagnostics")}
               onClick={() => void copyDiagnostics()}
             />
+            <Item icon={<Bug className="size-4" />} label={t("Report a problem…")} onClick={run(() => void report())} />
+          </div>
+          {/* Closes the window with its project; the last one leaves the start page */}
+          <div className="border-t border-overlay-line p-1">
+            <Item icon={<X className="size-4" />} label={t("Close project")} aside={<Key>{`${t("Ctrl")}+W`}</Key>} onClick={run(() => void closeWindow())} />
           </div>
         </Panel>
       )}

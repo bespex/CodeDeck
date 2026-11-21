@@ -126,11 +126,10 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
         : repo.ahead > 0
           ? t("{commits} not pushed yet", { commits: plural(repo.ahead, "commit") })
           : t("Nothing to push: in sync with {upstream}", { upstream: repo.upstream });
-  const pushSays = noRemote
-    ? t("Needs a remote first: add one below.")
-    : !repo.upstream && repo.branch
-      ? t("Publishes the branch on {remote}, so your commits are safe there too.", { remote: remoteOf(repo) })
-      : t("Sends your commits to {upstream}, so they are safe on the remote too.", { upstream: repo.upstream ?? remoteOf(repo) });
+  // Only asked while there is something to push (`canPush`)
+  const pushSays = !repo.upstream
+    ? t("Publishes the branch on {remote}, so your commits are safe there too.", { remote: remoteOf(repo) })
+    : t("Sends your commits to {upstream}, so they are safe on the remote too.", { upstream: repo.upstream });
 
   // Pull only when it can do something (user, 2026-11-21): new commits there and none of your own
   // that are not pushed; with both, `--ff-only` would stop, and CodeDeck does not merge. The numbers
@@ -238,7 +237,8 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
       <section className="flex flex-col gap-1.5 border-b border-overlay-line px-3 py-2">
         {/* The branch stands at the top already (user, 2026-11-21) */}
         <div className={`font-semibold ${repo.ahead > 0 ? "text-changed" : "text-slate-400"}`}>{toPush}</div>
-        <ActionRow icon={ArrowUp} label="Push" says={pushSays} disabled={!canPush || running} onClick={() => run(push)} {...showing(push)} />
+        {/* Nothing to push: only the line above, as for no uncommitted changes (user, 2026-11-21) */}
+        {canPush && <ActionRow icon={ArrowUp} label="Push" says={pushSays} disabled={running} onClick={() => run(push)} {...showing(push)} />}
         {noRemote && <AddRemote running={running} onRun={(steps) => run(steps)} showing={showing} />}
       </section>
 

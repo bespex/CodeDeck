@@ -39,7 +39,7 @@ export function usePopover<T extends HTMLElement>() {
  * name and below it, quiet, where it lives; at the right the menus about CodeDeck itself (quick
  * settings, the app menu). Projects are opened in the overview.
  */
-export function PathBar({ project, onToggleLog, assistant, onFold, foldLabel }: { project: ProjectInfo | null; onToggleLog: () => void; assistant: AssistantState; onFold: () => void; foldLabel: string }) {
+export function PathBar({ project, assistant, onFold, foldLabel }: { project: ProjectInfo | null; assistant: AssistantState; onFold: () => void; foldLabel: string }) {
   const crumbs = project?.crumbs ?? [];
   const look = useProjectLook(project?.path);
   const name = crumbs[crumbs.length - 1]?.label ?? project?.root ?? "";
@@ -85,7 +85,7 @@ export function PathBar({ project, onToggleLog, assistant, onFold, foldLabel }: 
         )}
         <span className="flex-1" />
         <QuickSettings onColor={!!fill} />
-        <AppMenu onToggleLog={onToggleLog} assistant={assistant} onColor={!!fill} />
+        <AppMenu assistant={assistant} onColor={!!fill} />
       </div>
     </header>
     </Tooltip>
