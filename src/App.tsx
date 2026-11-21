@@ -70,6 +70,11 @@ export default function App() {
       } else if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") {
         e.preventDefault();
         fold();
+      } else if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "g") {
+        // The git actions of the project's repository, as a click on git's button in the file column
+        // (branch in its header, or the folded rail) does; again closes them (user, 2026-11-21)
+        e.preventDefault();
+        document.querySelector<HTMLElement>("[data-git-actions]")?.click();
       } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "g") {
         e.preventDefault();
         setLogOpen((o) => !o);

@@ -445,7 +445,7 @@ export function AttachChange({ path, added, scope: given }: { path?: string; add
 export function You() {
   return (
     <span
-      title={t("No session reported changing it since the last commit")}
+      title={t("No AI session reported changing it since the last commit")}
       className="shrink-0 rounded-full border border-line px-1.5 text-[10px] leading-4 text-slate-400"
     >
       {t("You")}

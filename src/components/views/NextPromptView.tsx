@@ -119,10 +119,10 @@ function StartRules({ assistant }: { assistant: AssistantState }) {
       }
     >
       <p className="mb-2 text-[12px]">
-        {t("Not an attachment: every new session gets them once when it starts while this project is open in CodeDeck, and again after its context was cleared or compacted. Short, fixed and always on.")}
+        {t("Not an attachment: every new AI session gets them once when it starts while this project is open in CodeDeck, and again after its context was cleared or compacted. Short, fixed and always on.")}
       </p>
       {!harness.capabilities.startRules && (
-        <p className="mb-2 text-[12px] text-changed">{t("{tool} cannot take text when a session starts, so these rules do not reach it.", { tool: harness.name })}</p>
+        <p className="mb-2 text-[12px] text-changed">{t("{tool} cannot take text when an AI session starts, so these rules do not reach it.", { tool: harness.name })}</p>
       )}
       <RulesText text={rules} />
     </Section>

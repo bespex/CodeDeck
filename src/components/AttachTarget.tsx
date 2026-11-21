@@ -112,7 +112,7 @@ export function ChooseTarget({ state }: { state: AssistantState }) {
   return (
     <div className="flex flex-col gap-1 rounded-md border border-changed/60 bg-changed/10 px-2 py-1.5 text-[12px]">
       {/* Why it waits in the tooltip: the column is narrow, the sessions need the room */}
-      <span title={t("Several sessions are running. Nothing goes out until you choose one.")} className="flex items-center gap-1.5 font-medium text-changed">
+      <span title={t("Several AI sessions are running. Nothing goes out until you choose one.")} className="flex items-center gap-1.5 font-medium text-changed">
         <span className="size-1.5 shrink-0 rounded-full bg-changed" />
         {t("Waiting: who should get it?")}
       </span>

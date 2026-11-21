@@ -964,7 +964,7 @@ function SnapshotChanges(props: {
               </span>
             ))}
           {s.session && (
-            <Tooltip content={<span>{props.filtered ? t("Show the snapshots of every session again") : t("Show only this session's snapshots on the trail")}</span>}>
+            <Tooltip content={<span>{props.filtered ? t("Show the snapshots of every AI session again") : t("Show only this AI session's snapshots on the trail")}</span>}>
               <button
                 type="button"
                 onClick={() => props.onFilter(!props.filtered)}

@@ -59,6 +59,14 @@ impl Harness for Claude {
         "Claude"
     }
 
+    fn homepage(&self) -> Option<&'static str> {
+        Some("https://claude.com/product/claude-code")
+    }
+
+    fn installed(&self) -> Option<String> {
+        crate::platform::find_program("claude")
+    }
+
     fn declared(&self) -> Capabilities {
         Capabilities {
             live_status: true,
@@ -252,6 +260,11 @@ impl Harness for Claude {
     }
 
     /// `claude attach <handle>` in the session's account. Leaving with Ctrl+Z keeps it running.
+    #[cfg(test)]
+    fn samples(&self) -> Vec<Value> {
+        tests::RECORDED.iter().filter_map(|r| serde_json::from_str(r).ok()).collect()
+    }
+
     fn attach(&self, job: &str, account: Option<&str>) -> Option<crate::harness::Launched> {
         let env = account.map(|dir| ("CLAUDE_CONFIG_DIR".to_string(), dir.to_string())).into_iter().collect();
         Some(crate::harness::Launched { argv: vec!["claude".into(), "attach".into(), job.into()], env })
@@ -986,7 +999,7 @@ mod tests {
 
     /// Raw hook messages as Claude Code 2.1 sent them in the field test of step 1.1, rebuilt from
     /// its notes (the recording itself was not kept): the fields named there, with made-up values.
-    const RECORDED: &[&str] = &[
+    pub(super) const RECORDED: &[&str] = &[
         r#"{"session_id":"3f9c2a71","transcript_path":"/c/projects/-p/3f9c2a71.jsonl","cwd":"/p","permission_mode":"default","hook_event_name":"SessionStart","source":"startup","model":"claude-haiku-5-5"}"#,
         r#"{"session_id":"3f9c2a71","transcript_path":"/c/projects/-p/3f9c2a71.jsonl","cwd":"/p","permission_mode":"default","hook_event_name":"UserPromptSubmit","prompt":"Add a note to the readme"}"#,
         r#"{"session_id":"3f9c2a71","transcript_path":"/c/projects/-p/3f9c2a71.jsonl","cwd":"/p","permission_mode":"default","hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"/p/README.md","content":"secret text"}}"#,

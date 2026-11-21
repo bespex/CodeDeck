@@ -19,8 +19,10 @@ export function Tooltip(props: {
   area?: boolean;
   /** Opens at the mouse pointer instead of at the element: for large things and areas */
   pointer?: boolean;
+  /** Milliseconds before it opens; 0 for an info icon, which is there to be read */
+  delay?: number;
 }) {
-  const { content, children, side = "below", area, pointer = area } = props;
+  const { content, children, side = "below", area, pointer = area, delay = DELAY_MS } = props;
   const mouse = useRef({ x: 0, y: 0 });
   const [at, setAt] = useState<DOMRect | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -33,7 +35,7 @@ export function Tooltip(props: {
   const show = () => {
     clearTimeout(timer.current);
     if (clicked.current) return;
-    timer.current = setTimeout(() => box.current?.isConnected && setAt(pointer ? new DOMRect(mouse.current.x, mouse.current.y + 8, 0, 0) : box.current.getBoundingClientRect()), DELAY_MS);
+    timer.current = setTimeout(() => box.current?.isConnected && setAt(pointer ? new DOMRect(mouse.current.x, mouse.current.y + 8, 0, 0) : box.current.getBoundingClientRect()), delay);
   };
   const hide = () => {
     clearTimeout(timer.current);

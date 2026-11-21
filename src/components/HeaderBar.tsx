@@ -8,9 +8,10 @@ import {
   Plus,
   ChevronDown,
   CircleHelp,
-  Ellipsis,
+  Hand,
   Info,
   Keyboard,
+  LayoutDashboard,
   Settings,
   SlidersHorizontal,
   Sparkles,
@@ -18,7 +19,7 @@ import {
   Stethoscope,
   X,
 } from "lucide-react";
-import { appInfo, diagnostics, openUrl, setProject, startSession, stopSession, type Account, type AssistantState, type ProjectInfo, closeWindow } from "../backend";
+import { appInfo, diagnostics, openUrl, openWelcome, setProject, startSession, stopSession, type Account, type AssistantState, type ProjectInfo, closeWindow } from "../backend";
 import { useAccounts } from "../accounts";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
@@ -49,7 +50,7 @@ export function HeaderBar(props: Props) {
       className="block shrink-0"
       content={
         <ToolTipBody
-          says={t("The control room beside your AI tool. At the top you see the AI account of this project. Below: the sessions that wait for you, all sessions of the project with what they are doing, and a summary of what goes with your next prompt.")}
+          says={t("The control room beside your coding agent. At the top you see the AI account of this project. Below: the AI sessions that wait for you, all sessions of the project with what they are doing, and a summary of what goes with your next prompt.")}
           hint={t("The account at the top can be switched.")}
         />
       }
@@ -149,7 +150,6 @@ export function QuickSettings({ onColor = false }: { onColor?: boolean }) {
               strong
               icon={<Settings className="size-4" />}
               label={t("All settings…")}
-              aside={<Key>{`${t("Ctrl")}+,`}</Key>}
               onClick={() => {
                 menu.setOpen(false);
                 openDialog({ kind: "settings", section: "general" });
@@ -183,7 +183,7 @@ function StartButtons({ project, canStart }: { project: ProjectInfo | null; canS
   if (!canStart) return null;
   return (
     <>
-      <button type="button" disabled={!project} title={t("Continue the last conversation in a new session (nothing starts while one runs)")} aria-label={t("Continue session")} onClick={() => void start(false)} className={iconButton(false)}>
+      <button type="button" disabled={!project} title={t("Continue the last conversation in a new AI session (nothing starts while one runs)")} aria-label={t("Continue session")} onClick={() => void start(false)} className={iconButton(false)}>
         <Play className="size-4" />
       </button>
       <button type="button" disabled={!project} title={t("Start a new conversation")} aria-label={t("New session")} onClick={() => void start(true)} className={iconButton(false)}>
@@ -276,7 +276,7 @@ function AccountBlock({ project, assistant }: { project: ProjectInfo | null; ass
             <div className="flex flex-col gap-2 p-2">
               <p className="font-medium text-slate-100">{t("Use {account} for this project?", { account: asking.name })}</p>
               <p className="text-[12px] text-slate-400">
-                {t(left.length === 1 ? "1 session still runs with another account. New sessions start with {account}." : "{n} sessions still run with another account. New sessions start with {account}.", { n: left.length, account: asking.name })}
+                {t(left.length === 1 ? "1 AI session still runs with another account. New sessions start with {account}." : "{n} AI sessions still run with another account. New sessions start with {account}.", { n: left.length, account: asking.name })}
               </p>
               <button type="button" onClick={() => void choose(asking, false)} className="rounded-md bg-brand-fill px-2.5 py-1 text-left text-[12px] font-medium text-on-accent hover:bg-brand-fill-hover">
                 {t("Let them run until they end")}
@@ -284,7 +284,7 @@ function AccountBlock({ project, assistant }: { project: ProjectInfo | null; ass
               <button
                 type="button"
                 disabled={!stoppable}
-                title={stoppable < left.length ? t("Sessions CodeDeck did not start end where they run") : undefined}
+                title={stoppable < left.length ? t("AI sessions CodeDeck did not start end where they run") : undefined}
                 onClick={() => void choose(asking, true)}
                 className="rounded-md border border-overlay-line px-2.5 py-1 text-left text-[12px] text-slate-200 hover:bg-overlay-hover disabled:opacity-40"
               >
@@ -328,14 +328,17 @@ export function AppMenu({ onToggleLog, assistant, onColor = false }: { onToggleL
   };
   return (
     <div ref={menu.ref}>
-      <button type="button" aria-haspopup="menu" aria-expanded={menu.open} title="CodeDeck" onClick={() => menu.setOpen(!menu.open)} className={iconButton(menu.open, onColor)}>
-        <Ellipsis className="size-[18px]" />
+      <button type="button" aria-haspopup="menu" aria-expanded={menu.open} title={t("CodeDeck menu")} onClick={() => menu.setOpen(!menu.open)} className={iconButton(menu.open, onColor)}>
+        {/* The logo, not a second ⋯: the project list has its own ⋯ menu right below (user, 2026-11-21) */}
+        <img src="/codedeck.svg" alt="" className="size-[18px]" />
       </button>
       {menu.open && (
         <Panel width="w-[270px]">
           <div className="p-1">
             <Item icon={<Info className="size-4" />} label={t("About CodeDeck")} onClick={run(() => openDialog({ kind: "about" }))} />
-            <Item icon={<Keyboard className="size-4" />} label={t("Keyboard shortcuts")} aside={<Key>F1</Key>} onClick={run(() => openDialog({ kind: "shortcuts" }))} />
+            <Item icon={<Keyboard className="size-4" />} label={t("Keyboard shortcuts")} onClick={run(() => openDialog({ kind: "shortcuts" }))} />
+            <Item icon={<Hand className="size-4" />} label={t("Welcome and checkup")} onClick={run(() => void openWelcome())} />
+            <Item icon={<LayoutDashboard className="size-4" />} label={t("Your project window")} onClick={run(() => openDialog({ kind: "windowHelp" }))} />
             <Item icon={<CircleHelp className="size-4" />} label={t("Help")} onClick={run(() => void openUrl(`${SOURCE_URL}#readme`))} />
           </div>
           {/* Closes the window with its project; the last one leaves the start page */}

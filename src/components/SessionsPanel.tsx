@@ -80,6 +80,7 @@ interface Props {
 export function SessionsPanel(props: Props) {
   return (
     <aside
+      data-tour="sessions"
       className="zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_minmax(0,1fr)_fit-content(40%)] border-r border-line bg-panel"
     >
       <HeaderBar project={props.project} onOpenProject={props.onOpenProject} assistant={props.assistant} onToggleLog={props.onToggleLog} />
@@ -277,7 +278,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
                 ))}
               </ul>
             ) : (
-              <p className="px-3 pb-2 text-[12px] text-slate-500">{t("No session is at work here right now.")}</p>
+              <p className="px-3 pb-2 text-[12px] text-slate-500">{t("No AI session is at work here right now.")}</p>
             )}
             {earlier.length > 0 && (
               <>
@@ -302,7 +303,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
           </div>
         ) : (
           <p className="grid h-full place-items-center px-6 text-center text-slate-500">
-            {t("No {tool} session has worked in this project since CodeDeck opened it. Start one in the project's folder: it shows up here with its first step.", { tool: harness.name })}
+            {t("No AI session of {tool} has worked in this project since CodeDeck opened it. Start one in the project's folder: it shows up here with its first step.", { tool: harness.name })}
           </p>
         )}
       </div>
@@ -347,7 +348,7 @@ function PendingItem({ pending, projectPath }: { pending: Pending; projectPath: 
             {terminal && <Tool icon={SquareTerminal} label={t("Open it in a terminal, answer, and leave with Ctrl+B, D")} hint={t("Also: double-click")} onClick={() => void act(false)} />}
             {commands?.start && <Tool icon={Copy} label={t("Copy how it was started")} says={commands.tool ?? commands.start} onClick={() => void navigator.clipboard.writeText(commands.start!)} />}
             <ToolGap />
-            <Tool icon={Power} danger label={t("End this session (nothing is lost; it never began)")} says={commands?.stop} onClick={() => void act(true)} />
+            <Tool icon={Power} danger label={t("End this AI session (nothing is lost; it never began)")} says={commands?.stop} onClick={() => void act(true)} />
           </HoverTools>
         </span>
         {failed && <span className="selectable text-[11px] text-problem">{failed}</span>}
@@ -624,7 +625,7 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
                   {t("no terminal found")}
                 </span>
               ) : (
-                <span title={t("CodeDeck cannot bring this session's window to the front on this computer: switch to it where it runs")} className="shrink-0 text-[11px] text-slate-500">
+                <span title={t("CodeDeck cannot bring this AI session's window to the front on this computer: switch to it where it runs")} className="shrink-0 text-[11px] text-slate-500">
                   {t("in its own terminal")}
                 </span>
               )
@@ -834,7 +835,7 @@ function RenameForm({ session: s, onClose }: { session: Session; onClose: () => 
         {s.renamed && (
           <button
             type="button"
-            title={t("Back to the title the tool gave the session")}
+            title={t("Back to the title the coding agent gave the AI session")}
             onClick={() => renameSession(s.id, null, short).then(onClose)}
             className={`${button} ml-auto text-slate-400 hover:bg-overlay-hover hover:text-slate-100`}
           >
@@ -888,6 +889,7 @@ function NextPrompt({ assistant, onPin }: Props) {
 
   return (
     <section
+      data-tour="next"
       className={`flex min-h-0 flex-col transition-shadow ${over ? "shadow-[inset_0_0_0_1px_var(--color-ai)]" : ""}`}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes(DRAG_TYPE)) {

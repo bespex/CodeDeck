@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Copy, X } from "lucide-react";
-import { appInfo, autostartState, setAutostart, type AutostartState, machineSettings, setMachineSetting, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
+import { openWelcome, appInfo, autostartState, setAutostart, type AutostartState, machineSettings, setMachineSetting, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
 import { useAccounts } from "../accounts";
 import { usePlatform } from "../platform";
 import { PlatformFacts, platformFacts } from "./PlatformFacts";
@@ -9,6 +9,7 @@ import { useConnections } from "../assistant";
 import { closeDialog, openDialog, useDialog, type SettingsSection } from "../dialogs";
 import { lang, setLang, t, T } from "../i18n";
 import { ReduceTransparency, ThemeChoice } from "./ThemeChoice";
+import { useWindowHelp, WindowHelp } from "./WindowHelp";
 import { AttentionChoice, QuietChoice } from "./AttentionChoice";
 
 /** The page of the app; the address codedeck.bespex.run follows once the domain is set up. */
@@ -18,28 +19,16 @@ export const SOURCE_URL = "https://github.com/bespex/CodeDeck";
 /** The open dialog, over the whole window. */
 export function Dialogs({ assistant }: { assistant: AssistantState }) {
   const dialog = useDialog();
-  // Ctrl+, opens the settings, F1 the keyboard shortcuts, from anywhere
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === ",") {
-        e.preventDefault();
-        openDialog({ kind: "settings", section: "general" });
-      } else if (e.key === "F1") {
-        e.preventDefault();
-        openDialog({ kind: "shortcuts" });
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  useWindowHelp();
   if (!dialog) return null;
   if (dialog.kind === "about") return <About />;
+  if (dialog.kind === "windowHelp") return <WindowHelp assistant={assistant} />;
   if (dialog.kind === "shortcuts") return <Shortcuts />;
   return <Settings section={dialog.section} assistant={assistant} />;
 }
 
 /** A dialog over a dimmed window; Escape or a click beside it closes it. */
-function Modal(props: { title: string; width: string; children: ReactNode; bare?: boolean }) {
+export function Modal(props: { title: string; width: string; children: ReactNode; bare?: boolean }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeDialog();
     window.addEventListener("keydown", onKey);
@@ -143,14 +132,25 @@ function useGlobalShortcuts(): GlobalShortcut[] {
   return keys;
 }
 
-const shortcutAction = (s: GlobalShortcut) =>
-  s.action === "showHide" ? t("Show CodeDeck, or hide it when it is in front") : t("CodeDeck to the front from anywhere, or away when it is in front; without a project window the start page");
+/** What the global shortcut does (there is one, Ctrl+Alt+L). */
+const shortcutAction = () => t("CodeDeck to the front from anywhere, or away when it is in front; without a project window the start page");
 
 /** Says when a global shortcut does not work; CodeDeck holds it for all its windows. */
 function ShortcutState({ shortcut }: { shortcut: GlobalShortcut }) {
   if (shortcut.state === "taken") return <span className="text-changed">{t("Taken by another program: it does nothing.")}</span>;
-  if (shortcut.state === "unsupported") return <span className="text-slate-500">{t("This desktop has no global shortcuts (Wayland).")}</span>;
+  if (shortcut.state === "unsupported") return <UnsupportedShortcut />;
   return null;
+}
+
+/** Under Wayland: the way that works instead, a key bound in the desktop to `codedeck --toggle`. */
+function UnsupportedShortcut() {
+  const command = usePlatform().toggleCommand;
+  return (
+    <span className="text-slate-500">
+      {t("This desktop has no global shortcuts (Wayland). Instead, bind this to a key in its keyboard settings:")}{" "}
+      <code className="selectable rounded bg-base/70 px-1 font-mono text-[11px] text-slate-300">{command}</code>
+    </span>
+  );
 }
 
 /** The keyboard shortcuts and mouse gestures CodeDeck knows. */
@@ -160,18 +160,16 @@ function Shortcuts() {
     ...global.map((s): [string, ReactNode] => [
       s.keys.replace("Ctrl", t("Ctrl")),
       <>
-        {shortcutAction(s)} <span className="text-slate-500">· {t("also when CodeDeck has no focus")}</span>
+        {shortcutAction()} <span className="text-slate-500">· {t("also when CodeDeck has no focus")}</span>
         <div className="text-[12px]">
           <ShortcutState shortcut={s} />
         </div>
       </>,
     ]),
-    [t("Ctrl+O"), t("Add a project…")],
-    [`${t("Ctrl")}+,`, t("Settings")],
-    ["F1", t("This overview")],
     [`${t("Ctrl")}+B`, t("Fold or show the file list")],
     [`${t("Ctrl")}+W`, t("Close project (its window; the last one leaves the start page)")],
     [`${t("Ctrl")}+Tab`, t("Back to the project shown before")],
+    [`${t("Ctrl")}+G`, t("Git actions of the project's repository: commit, pull, push, fetch")],
     [t("Ctrl+Shift+G"), t("Git commands CodeDeck ran")],
     [t("Ctrl+Shift+L"), t("Fold or show the project list")],
     [t("Ctrl+click"), t("On a project or folder: open it in a new window. On the trail: compare with the point shown")],
@@ -202,7 +200,7 @@ const SECTIONS: [SettingsSection, string][] = [
   ["general", "General"],
   ["interface", "Interface"],
   ["notifications", "Notifications"],
-  ["tools", "AI tools"],
+  ["tools", "Coding agents"],
 ];
 
 /**
@@ -374,17 +372,22 @@ function General() {
       <h3 className="mb-1 font-semibold text-slate-100">{t("General")}</h3>
       <Setting
         label={t("At login")}
-        note={t("CodeDeck starts without a window and hears your sessions from the start; the tray icon brings it to the front.")}
+        note={t("CodeDeck starts without a window and hears your AI sessions from the start; the tray icon brings it to the front.")}
         scope="machine"
       >
         <AtLogin />
       </Setting>
       <Setting
         label={t("Today's list")}
-        note={t("When CodeDeck starts (also at login), every project on today's list without a running session starts its session, as ▶ in the project list does. Nothing starts twice.")}
+        note={t("When CodeDeck starts (also at login), every project on today's list without a running AI session starts its session, as ▶ in the project list does. Nothing starts twice.")}
         scope="machine"
       >
         <TodayAtStart />
+      </Setting>
+      <Setting label={t("Welcome")} note={t("What CodeDeck looked for on this computer and what it does for CodeDeck; shown at every start until you turn it off there.")} scope="machine">
+        <button type="button" onClick={() => void openWelcome()} className="rounded px-1.5 py-0.5 text-[12px] text-brand-soft hover:underline">
+          {t("Show")}
+        </button>
       </Setting>
       <Setting label={t("Starts on")} note={t("The screen CodeDeck opens on. Windows opened later follow the start page.")} scope="machine">
         <StartScreen />
@@ -399,7 +402,7 @@ function General() {
             <div key={s.keys} className="flex flex-col">
               <span className="flex items-center gap-2 whitespace-nowrap">
                 <kbd className="rounded border border-overlay-line bg-base px-1.5 py-0.5 font-mono text-[11px] text-slate-200">{s.keys.replace("Ctrl", t("Ctrl"))}</kbd>
-                <span className="text-slate-300">{s.action === "showHide" ? t("show / hide") : t("to the front")}</span>
+                <span className="text-slate-300">{t("to the front")}</span>
               </span>
               <ShortcutState shortcut={s} />
             </div>
@@ -573,7 +576,7 @@ function AccountRow({ account, profiles, connection, hasProfiles }: { account: A
           color={account.color}
           mark={account.mark ? { ...account.mark, color: account.color } : { kind: "letter", color: account.color }}
           shape="hexagon"
-          note={t("Shows at the projects and sessions of this account")}
+          note={t("Shows at the projects and AI sessions of this account")}
           onCancel={() => setPicking(false)}
           onDone={(mark) => {
             // The colour is the account's own, the mark keeps only its sign
@@ -607,7 +610,7 @@ function Tools({ assistant }: { assistant: AssistantState }) {
             <p className="text-[12px] text-slate-500">
               {t("Each configuration of {tool} is an account: its name, mark and colour show at projects and sessions.", { tool: h.name })}{" "}
               <T
-                text="Connecting adds hooks to its settings that run {command}: they tell CodeDeck which session works where and which files it writes, and let CodeDeck keep a snapshot before the first write of a turn. Nothing else in the file changes; the file as it was is kept next to it."
+                text="Connecting adds hooks to its settings that run {command}: they tell CodeDeck which AI session works where and which files it writes, and let CodeDeck keep a snapshot before the first write of a turn. Nothing else in the file changes; the file as it was is kept next to it."
                 command={<code className="font-mono text-[11px]">{command ?? "codedeck hook"}</code>}
               />
             </p>

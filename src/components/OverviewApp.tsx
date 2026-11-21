@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { History, AppWindow, ChevronRight, ChevronsDownUp, ChevronsUpDown, Shapes, Eye, EyeOff, ListX, Loader, Check, Copy, Ellipsis, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
+import { History, AppWindow, ChevronRight, ChevronsDownUp, ChevronsUpDown, Shapes, Eye, EyeOff, ListX, Loader, Check, Copy, Ellipsis, FolderPlus, FolderTree, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
 import { isTerminalDoor, forgetRecent, toggleOverview, onTodayStarted, sessionCommands, pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
 import { accountLook, useAccounts } from "../accounts";
 import { usePending } from "../pending";
@@ -252,7 +252,7 @@ function RowMenu({ project, onClose }: { project: OverviewProject; onClose: () =
       {project.listed && accounts.length > 0 && (
         <>
           {line}
-          <p className="px-2 pt-0.5 pb-1 text-[11px] text-slate-500">{t("AI configuration its sessions run with")}</p>
+          <p className="px-2 pt-0.5 pb-1 text-[11px] text-slate-500">{t("AI configuration its AI sessions run with")}</p>
           {accounts.map((a) => (
             <button key={a.dir} type="button" title={a.dir} className={item} onClick={() => (onClose(), void setProject(project.path, "account", a.dir))}>
               <MenuIcon>
@@ -347,7 +347,7 @@ function GroupMenu({ group, projects, onClose }: { group: string; projects: Over
       {accounts.length > 0 && (
         <>
           {menuLine}
-          <p className="px-2 pt-0.5 pb-1 text-[11px] text-slate-500">{t("AI configuration their sessions run with")}</p>
+          <p className="px-2 pt-0.5 pb-1 text-[11px] text-slate-500">{t("AI configuration their AI sessions run with")}</p>
           {accounts.map((a) => (
             <button key={a.dir} type="button" title={a.dir} className={menuItem} onClick={() => all("account", a.dir)}>
               <MenuIcon>
@@ -589,7 +589,7 @@ function ProjectRow({ project, name, drag, inRecent = false }: { project: Overvi
           <>
           <Tool
             icon={Play}
-            label={t("Start session (continues the last one)")}
+            label={t("Start AI session (continues the last one)")}
             onClick={() =>
               void startSession(project.path, false)
                 .then((name) => tell(name ? t("Started in tmux {name}", { name }) : t("A session runs there already")))
@@ -634,7 +634,7 @@ function ProjectRow({ project, name, drag, inRecent = false }: { project: Overvi
                 {p.door && <Tool icon={SquareTerminal} label={t("Open it in a terminal, answer, and leave with Ctrl+B, D")} onClick={() => void pendingSession(project.path, p.name, false).catch((e) => tell(String(e)))} />}
                 {p.command && <Tool icon={Copy} label={t("Copy how it was started")} says={p.command} onClick={() => copyCommand(p.command!)} />}
                 <ToolGap />
-                <Tool icon={Power} label={t("End this session (nothing is lost; it never began)")} onClick={() => void pendingSession(project.path, p.name, true).catch((e) => tell(String(e)))} />
+                <Tool icon={Power} label={t("End this AI session (nothing is lost; it never began)")} onClick={() => void pendingSession(project.path, p.name, true).catch((e) => tell(String(e)))} />
               </HoverTools>
               <span className={`shrink-0 text-[11px] ${p.waits ? "text-changed" : "text-slate-400"}`}>{p.waits ? t("may be asking") : t("starting")}</span>
             </li>
@@ -770,6 +770,30 @@ async function addAllIn() {
   }
 }
 
+/** The list without projects explains itself where it is needed: what a project is, and the two
+ *  ways to add projects as buttons (the same as in the ⋯ menu beside "Projects"). */
+function EmptyList() {
+  const button = "flex w-full items-center gap-2 rounded-md border border-line px-2.5 py-1.5 text-left text-[12px] text-slate-200 hover:bg-overlay-hover";
+  return (
+    <div className="mx-3 my-2 flex flex-col gap-2.5 rounded-lg border border-dashed border-line px-3 py-3">
+      <div className="flex items-center gap-2 font-semibold text-slate-100">
+        <FolderPlus className="size-4 text-brand-soft" />
+        {t("No projects yet")}
+      </div>
+      <p className="text-[12px] text-slate-400">{t("A project is a folder you work on with a coding agent, usually a git repository. CodeDeck follows the AI sessions of every project on this list, even while its window is closed.")}</p>
+      <button type="button" className={button} onClick={() => void addOne()}>
+        <Plus className="size-3.5 shrink-0" />
+        {t("Add a project…")}
+      </button>
+      <button type="button" className={button} title={t("Choose a folder: every folder in it goes on the list")} onClick={() => void addAllIn()}>
+        <FolderTree className="size-3.5 shrink-0" />
+        {t("All projects in a folder…")}
+      </button>
+      <p className="text-[11px] text-slate-500">{t("Later the same is in the ⋯ menu beside “Projects”. A click on a project opens it.")}</p>
+    </div>
+  );
+}
+
 /** Takes a project into my list; its window stays closed until it is needed. */
 async function addOne() {
   const path = await pickFolder();
@@ -807,7 +831,6 @@ function MoreMenu({ host, inWindow = false }: { host: string | null; inWindow?: 
         <div className="surface-overlay absolute top-9 right-0 z-20 flex w-64 flex-col rounded-lg p-1">
           <button type="button" className={item} onClick={() => void addOne()}>
             {t("Add a project…")}
-            <span className="ml-auto text-slate-500">{t("Ctrl+O")}</span>
           </button>
           <button type="button" className={item} title={t("Choose a folder: every folder in it goes on the list")} onClick={() => void addAllIn()}>
             {t("All projects in a folder…")}
@@ -953,18 +976,6 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
   }, []);
   // As the backend names the window (tray.rs), in case the web view's title shows through
   useEffect(() => void (inProject || (document.title = t("CodeDeck – Overview"))), [inProject]);
-  const open = addOne;
-  // Ctrl+O adds a project, here and in the project list of a project window
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "o") {
-        e.preventDefault();
-        void open();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
   const host = (projects.find((p) => p.front) ?? projects.find((p) => p.label))?.label ?? null;
   // Today's list: projects with the star and no live session
   const now = useNow();
@@ -1009,7 +1020,7 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
         {projects.some((p) => p.state?.canStart) && (
         <button
           type="button"
-          title={toStart ? t("Start today's list: {n} without a running session", { n: toStart }) : t("Start today's list (set in a project's menu)")}
+          title={toStart ? t("Start today's list: {n} without a running AI session", { n: toStart }) : t("Start today's list (set in a project's menu)")}
           onClick={startAll}
           className={`${toolButton} relative`}
         >
@@ -1017,7 +1028,7 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
           {toStart > 0 && <span className="absolute top-0.5 right-0.5 min-w-3.5 rounded-full bg-ai px-0.5 text-center text-[9px] leading-[14px] font-semibold text-white">{toStart}</span>}
         </button>
         )}
-        {/* Adding a project is in the menu (user, 2026-11-19), with Ctrl+O */}
+        {/* Adding a project is in the menu (user, 2026-11-19); no shortcut, it is rarely done */}
         <MoreMenu host={host} inWindow={inProject} />
       </header>
       {/* Only the project list scrolls (user, 2026-11-20: scrolled down, "Recently" was out of sight);
@@ -1061,7 +1072,7 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
             )}
           </ul>
         ) : (
-          <p className="px-3 py-2 text-[12px] text-slate-500">{t("No projects yet. + adds one; its window opens when you click it.")}</p>
+          <EmptyList />
         )}
         </div>
       </main>

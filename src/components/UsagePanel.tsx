@@ -74,7 +74,7 @@ function Connect({ account, onDone }: { account: Connection; onDone: (c: Connect
   const button = "rounded-md px-2.5 py-1 font-medium disabled:opacity-40";
   return (
     <div className="flex flex-col gap-2 rounded-md border border-line bg-panel px-3 py-2">
-      <span className="text-slate-300">{t("Not set up yet. The figures come with the tool's status line.")}</span>
+      <span className="text-slate-300">{t("Not set up yet. The figures come with the coding agent's status line.")}</span>
       {confirming ? (
         <>
           <span className="text-[12px] text-slate-400">
@@ -82,7 +82,7 @@ function Connect({ account, onDone }: { account: Connection; onDone: (c: Connect
           </span>
           {/* Only when there is none of the user's own: then something new shows up in the tool */}
           {!account.usageKeeps && (
-            <span className="text-[12px] text-slate-400">{t("The tool has no status line yet; it will show the figures, like \"5h 38% · wk 31%\".")}</span>
+            <span className="text-[12px] text-slate-400">{t("The coding agent has no status line yet; it will show the figures, like \"5h 38% · wk 31%\".")}</span>
           )}
           <span className="text-[12px] text-slate-400">{t("Remove puts it back as it was.")}</span>
           <div className="flex gap-2">
@@ -150,7 +150,7 @@ export function UsageCards({ assistant, onlySetUp = false }: { assistant: Assist
           <span className="text-slate-500">
             {usage
               ? t("Nothing current: the limits started over since {time}.", { time: new Date(usage.seen).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" }) })
-              : t("No figures yet. The tool states them with a running session, after its first answer.")}
+              : t("No figures yet. The coding agent states them with a running AI session, after its first answer.")}
           </span>
         )}
       </div>

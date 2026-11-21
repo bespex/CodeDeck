@@ -3,7 +3,6 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
-  FolderGit2,
   GitBranch,
   GitFork,
   RefreshCw,
@@ -21,12 +20,8 @@ import {
   pushSteps,
   remoteOf,
   addRemoteSteps,
-  stateMeaning,
-  stateSymbol,
-  syncSummary,
   type Steps,
 } from "../git";
-import { stateColor } from "./FilesPanel";
 import { plural, t } from "../i18n";
 
 /** Where the panel hangs: below a badge in the tree, above the branch in the status bar. */
@@ -42,8 +37,7 @@ interface Done {
   output: string;
 }
 
-const FILES_SHOWN = 6;
-const WIDTH = 340;
+const WIDTH = 380;
 
 /**
  * The common Git actions for one repository, right where its branch is shown. Every action is
@@ -118,21 +112,37 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
     ? { bottom: window.innerHeight - anchor.rect.top + 6, left }
     : { top: anchor.rect.bottom + 6, left };
 
-  const files = repo.files.slice(0, FILES_SHOWN);
-  const inRepo = (path: string) => (repo.path ? path.slice(repo.path.length + 1) : path);
   const pull = pullSteps();
   const push = pushSteps(repo);
   const fetch = fetchSteps();
   const noRemote = repo.remotes.length === 0;
-  const pushTitle = noRemote
-    ? t("No remote to push to: add one below")
-    : !repo.branch
+  const canPush = !noRemote && !!repo.branch && (!repo.upstream || repo.ahead > 0);
+  const toPush = !repo.branch
     ? t("No branch checked out")
-    : !repo.upstream
-      ? t("Publish branch {branch} to {remote}", { branch: repo.branch, remote: remoteOf(repo) })
+    : noRemote
+      ? t("Local only: no remote to push to yet")
+      : !repo.upstream
+        ? t("Not published yet: the branch has no upstream")
+        : repo.ahead > 0
+          ? t("{commits} not pushed yet", { commits: plural(repo.ahead, "commit") })
+          : t("Nothing to push: in sync with {upstream}", { upstream: repo.upstream });
+  const pushSays = noRemote
+    ? t("Needs a remote first: add one below.")
+    : !repo.upstream && repo.branch
+      ? t("Publishes the branch on {remote}, so your commits are safe there too.", { remote: remoteOf(repo) })
+      : t("Sends your commits to {upstream}, so they are safe on the remote too.", { upstream: repo.upstream ?? remoteOf(repo) });
+
+  // Pull only when it can do something (user, 2026-11-21): new commits there and none of your own
+  // that are not pushed; with both, `--ff-only` would stop, and CodeDeck does not merge. The numbers
+  // are as of the last fetch, which is why Fetch stands right above
+  const canPull = !!repo.upstream && repo.behind > 0 && repo.ahead === 0;
+  const pullSays = !repo.upstream
+    ? t("No upstream to pull from.")
+    : repo.behind === 0
+      ? t("Nothing to get, as of the last fetch. Fetch looks whether there is something new.")
       : repo.ahead > 0
-        ? t("Send {commits} to {upstream}", { commits: plural(repo.ahead, "commit"), upstream: repo.upstream })
-        : t("Nothing to push");
+        ? t("There are new commits here and there. CodeDeck does not merge them; that works in the terminal, e.g. with git pull --rebase.")
+        : t("Brings {commits} from {upstream} into your files.", { commits: plural(repo.behind, "new commit"), upstream: repo.upstream });
 
   return (
     <div
@@ -142,56 +152,55 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
       style={{ ...position, width: WIDTH }}
       className="surface-overlay fixed z-30 flex flex-col overflow-hidden rounded-lg text-[12px]"
     >
-      <header className="flex items-start gap-2 border-b border-overlay-line px-3 py-2">
-        {repo.worktreeOf ? (
-          <GitFork className="mt-0.5 size-4 shrink-0 text-slate-400" />
-        ) : (
-          <FolderGit2 className="mt-0.5 size-4 shrink-0 text-slate-400" />
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-slate-100">{repo.name}</span>
-            <span className="flex min-w-0 items-center gap-1 font-mono text-[11px] text-slate-400">
-              <GitBranch className="size-3 shrink-0" />
-              <span className="truncate">{repo.branch ?? "detached"}</span>
-            </span>
-          </div>
-          <div className="text-[11px] text-slate-500">{syncSummary(repo)}</div>
-          {repo.worktreeOf && (
-            <div className="text-[11px] text-slate-500">Worktree of {repo.worktreeOf}: shares its history</div>
-          )}
+      {/* The heading with its shortcut, the branch right-aligned beside it, in bold (user, 2026-11-21) */}
+      <header className="flex flex-col gap-0.5 border-b border-overlay-line px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 font-semibold text-slate-100">{t("Git actions ({key})", { key: `${t("Ctrl")}+G` })}</span>
+          <span className="ml-auto flex min-w-0 items-center gap-1 text-[12px]">
+            {repo.worktreeOf ? <GitFork className="size-3.5 shrink-0 text-brand-soft" /> : <GitBranch className="size-3.5 shrink-0 text-brand-soft" />}
+            <span className="truncate font-mono font-semibold text-brand-soft">{repo.branch ?? t("detached")}</span>
+          </span>
+          <button
+            type="button"
+            aria-label={t("Close")}
+            onClick={props.onClose}
+            disabled={running}
+            className="shrink-0 rounded p-0.5 text-slate-500 hover:bg-overlay-hover hover:text-slate-200"
+          >
+            <X className="size-3.5" />
+          </button>
         </div>
-        <button
-          type="button"
-          aria-label={t("Close")}
-          onClick={props.onClose}
-          disabled={running}
-          className="rounded p-0.5 text-slate-500 hover:bg-overlay-hover hover:text-slate-200"
-        >
-          <X className="size-3.5" />
-        </button>
+        {/* A repository in a folder of the project: which one */}
+        {repo.path && <div className="text-[11px] text-slate-500">{repo.name}</div>}
+        {repo.worktreeOf && <div className="text-[11px] text-slate-500">{t("Worktree of {repo}: shares its history", { repo: repo.worktreeOf })}</div>}
       </header>
 
-      <section className="border-b border-overlay-line px-3 py-2">
-        <div className="mb-1 text-[11px] text-slate-500">{changeSummary(repo)}</div>
-        {files.map((f) => (
-          <div key={f.path} className="flex h-5 items-center gap-2" title={t(stateMeaning[f.state])}>
-            <span className={`w-3 text-center font-mono text-[11px] ${stateColor[f.state]}`}>
-              {stateSymbol(f.state)}
-            </span>
-            <span className="truncate font-mono text-[11px] text-slate-300">{inRepo(f.path)}</span>
-            {f.staged && <span className="ml-auto shrink-0 text-[11px] text-slate-500">{t("staged")}</span>}
-          </div>
-        ))}
-        {repo.files.length > FILES_SHOWN && (
-          <div className="text-[11px] text-slate-500">and {repo.files.length - FILES_SHOWN} more</div>
-        )}
+      {/* Fetch and pull: what is new on the remote */}
+      <section className="flex flex-col gap-1.5 border-b border-overlay-line px-3 py-2">
+        <ActionRow
+          icon={RefreshCw}
+          label="Fetch"
+          says={noRemote ? t("No remote to fetch from.") : t("Looks for new commits on the remote. Your files stay as they are.")}
+          disabled={noRemote || running}
+          onClick={() => run(fetch)}
+          {...showing(fetch)}
+        />
+        <ActionRow
+          icon={ArrowDown}
+          label="Pull"
+          says={pullSays}
+          disabled={!canPull || running}
+          onClick={() => run(pull)}
+          {...showing(pull)}
+        />
       </section>
 
-      <section className="flex flex-col gap-2 border-b border-overlay-line px-3 py-2">
+      {/* Commit: the uncommitted changes, the message, the button */}
+      <section className="flex flex-col gap-1.5 border-b border-overlay-line px-3 py-2">
+        <div className={`font-semibold ${repo.files.length > 0 ? "text-changed" : "text-slate-400"}`}>{changeSummary(repo)}</div>
         {repo.files.length > 0 && (
           <form
-            className="flex gap-2"
+            className="flex flex-col gap-1.5"
             onSubmit={(e) => {
               e.preventDefault();
               if (canCommit && !running) run(commit, () => setMessage(""));
@@ -203,54 +212,33 @@ export function RepoActions(props: { repo: RepoStatus; anchor: Anchor; onClose: 
               onChange={(e) => setMessage(e.target.value)}
               placeholder={t("Commit message")}
               disabled={running}
-              className="selectable min-w-0 flex-1 rounded-md border border-overlay-line bg-base px-2 py-1 text-slate-200 outline-none placeholder:text-slate-600 focus:border-brand"
+              className="selectable min-w-0 rounded-md border border-overlay-line bg-base px-2 py-1 text-slate-200 outline-none placeholder:text-slate-600 focus:border-brand"
             />
-            <button
-              type="submit"
-              aria-disabled={!canCommit || running}
-              title={
-                staged > 0
-                  ? t("Commit the {changes} staged (staged before, the rest stays)", { changes: plural(staged, "change") })
-                  : t("Commit all {changes} shown above", { changes: plural(repo.files.length, "change") })
-              }
-              {...showing(commit)}
-              className="flex items-center gap-1 rounded-md bg-brand-fill px-2.5 py-1 font-medium text-on-accent not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
-            >
-              <Check className="size-3.5" />
-              {t("Commit")}
-            </button>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="submit"
+                aria-disabled={!canCommit || running}
+                {...showing(commit)}
+                className="flex w-[76px] shrink-0 items-center justify-center gap-1 rounded-md bg-brand-fill py-1 font-medium text-on-accent not-aria-disabled:hover:bg-brand-fill-hover aria-disabled:cursor-default aria-disabled:opacity-40"
+              >
+                <Check className="size-3.5" />
+                {t("Commit")}
+              </button>
+              <span className="text-[11px] text-slate-400">
+                {staged > 0
+                  ? t("Saves the {changes} staged before as one commit in your repository; the rest stays.", { changes: plural(staged, "change") })
+                  : t("Saves all {changes} as one commit in your repository.", { changes: plural(repo.files.length, "change") })}
+              </span>
+            </div>
           </form>
         )}
-        <div className="flex gap-1">
-          <ActionButton
-            icon={ArrowDown}
-            label="Pull"
-            title={
-              !repo.upstream
-                ? t("No upstream to pull from")
-                : t("Get new commits from {upstream}. Fast-forward only: never creates a merge commit", { upstream: repo.upstream })
-            }
-            disabled={!repo.upstream || running}
-            onClick={() => run(pull)}
-            {...showing(pull)}
-          />
-          <ActionButton
-            icon={ArrowUp}
-            label="Push"
-            title={pushTitle}
-            disabled={noRemote || !repo.branch || (!!repo.upstream && repo.ahead === 0) || running}
-            onClick={() => run(push)}
-            {...showing(push)}
-          />
-          <ActionButton
-            icon={RefreshCw}
-            label="Fetch"
-            title={noRemote ? t("No remote to fetch from") : t("Look for new commits on the remote; your files stay as they are")}
-            disabled={noRemote || running}
-            onClick={() => run(fetch)}
-            {...showing(fetch)}
-          />
-        </div>
+      </section>
+
+      {/* Push: what is not pushed yet, the button */}
+      <section className="flex flex-col gap-1.5 border-b border-overlay-line px-3 py-2">
+        {/* The branch stands at the top already (user, 2026-11-21) */}
+        <div className={`font-semibold ${repo.ahead > 0 ? "text-changed" : "text-slate-400"}`}>{toPush}</div>
+        <ActionRow icon={ArrowUp} label="Push" says={pushSays} disabled={!canPush || running} onClick={() => run(push)} {...showing(push)} />
         {noRemote && <AddRemote running={running} onRun={(steps) => run(steps)} showing={showing} />}
       </section>
 
@@ -336,10 +324,11 @@ function AddRemote(props: {
   );
 }
 
-function ActionButton(props: {
+/** One action in a row: its button, and beside it in words what it does (user, 2026-11-21). */
+function ActionRow(props: {
   icon: typeof ArrowDown;
   label: string;
-  title: string;
+  says: string;
   disabled: boolean;
   onClick: () => void;
   onMouseEnter: () => void;
@@ -347,18 +336,21 @@ function ActionButton(props: {
   onFocus: () => void;
   onBlur: () => void;
 }) {
-  const { icon: Icon, label, disabled, onClick, ...rest } = props;
-  // aria-disabled instead of disabled: the tooltip must still say why it is not available
+  const { icon: Icon, label, says, disabled, onClick, ...rest } = props;
+  // aria-disabled instead of disabled: hovering still shows the command it would run
   return (
-    <button
-      type="button"
-      aria-disabled={disabled}
-      onClick={() => !disabled && onClick()}
-      {...rest}
-      className="flex items-center gap-1 rounded-md border border-overlay-line px-2 py-1 text-slate-300 not-aria-disabled:hover:bg-overlay-hover not-aria-disabled:hover:text-slate-100 aria-disabled:cursor-default aria-disabled:opacity-40"
-    >
-      <Icon className="size-3.5" />
-      {label}
-    </button>
+    <div className="flex items-center gap-2.5">
+      <button
+        type="button"
+        aria-disabled={disabled}
+        onClick={() => !disabled && onClick()}
+        {...rest}
+        className="flex w-[76px] shrink-0 items-center justify-center gap-1 rounded-md border border-overlay-line py-1 text-slate-300 not-aria-disabled:hover:bg-overlay-hover not-aria-disabled:hover:text-slate-100 aria-disabled:cursor-default aria-disabled:opacity-40"
+      >
+        <Icon className="size-3.5" />
+        {label}
+      </button>
+      <span className="text-[11px] text-slate-400">{says}</span>
+    </div>
   );
 }

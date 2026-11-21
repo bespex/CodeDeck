@@ -72,10 +72,10 @@ export function ActivityView({ assistant, git, snapshots }: { assistant: Assista
       <Section
         title={t("Documents written")}
         note={t("last 24 hours")}
-        help={t("Documents (Markdown, HTML, text) that sessions wrote in this project, newest first: usually the result of a turn, so you can read it before you look at the changes. It does not matter whether they are committed. Only writes CodeDeck has seen count; work from before it was connected is not in the list.")}
+        help={t("Documents (Markdown, HTML, text) that AI sessions wrote in this project, newest first: usually the result of a turn, so you can read it before you look at the changes. It does not matter whether they are committed. Only writes CodeDeck has seen count; work from before it was connected is not in the list.")}
       >
         {docs.length === 0 ? (
-          <p>{t("None seen yet. Documents that a session writes while CodeDeck is connected show up here, so you can read the result of a turn first.")}</p>
+          <p>{t("None seen yet. Documents that an AI session writes while CodeDeck is connected show up here, so you can read the result of a turn first.")}</p>
         ) : (
           <Rows>
             {docs.map(({ path, at, session }) => {
@@ -196,7 +196,7 @@ function Today({ assistant, snapshots }: { assistant: AssistantState; snapshots:
           <span className="ml-1">{dayTitle(day)}</span>
         </span>
       }
-      note={t("what each session did, and when")}
+      note={t("what each AI session did, and when")}
       aside={
         <>
           <Legend />
@@ -223,8 +223,8 @@ function Today({ assistant, snapshots }: { assistant: AssistantState; snapshots:
       {lanes.length === 0 ? (
         <p>
           {back === 0
-            ? t("No session has done anything today yet. Each one that works shows up here, with the time it worked and the time it waited for you.")
-            : t("No session did anything on this day.")}
+            ? t("No AI session has done anything today yet. Each one that works shows up here, with the time it worked and the time it waited for you.")
+            : t("No AI session did anything on this day.")}
         </p>
       ) : (
         // No frame: the timeline is the content of the section like any other, so the spacing is the same all round
@@ -320,8 +320,8 @@ function Today({ assistant, snapshots }: { assistant: AssistantState; snapshots:
                             b.phase !== "background"
                               ? undefined
                               : b.end === "known"
-                                ? t("The turn was over, but a job it started was still running. When the job ended, the session began a new turn by itself.")
-                                : t("The turn is over, but a job it started is still running. When it ends, the session begins a new turn by itself. CodeDeck is not told when, so the bar fades out.")
+                                ? t("The turn was over, but a job it started was still running. When the job ended, the AI session began a new turn by itself.")
+                                : t("The turn is over, but a job it started is still running. When it ends, the AI session begins a new turn by itself. CodeDeck is not told when, so the bar fades out.")
                           }
                         />
                       }
@@ -452,10 +452,10 @@ function TimelineHelp() {
   );
   return (
     <div className="mb-3 flex flex-col gap-2 border-l-2 border-line pl-3 text-[12px] leading-relaxed text-slate-300">
-      {term(t("Turn"), t("One prompt of yours, until the session reports that it is done."))}
+      {term(t("Turn"), t("One prompt of yours, until the AI session reports that it is done."))}
       {term(
         t("Snapshot"),
-        t("A saved copy of your project files. CodeDeck takes one just before a session first writes in a turn, and one at the end of the turn if files changed. What lies between the two is what the turn changed."),
+        t("A saved copy of your project files. CodeDeck takes one just before an AI session first writes in a turn, and one at the end of the turn if files changed. What lies between the two is what the turn changed."),
       )}
       {term(
         t("Going back"),
@@ -466,7 +466,7 @@ function TimelineHelp() {
         t("A snapshot is a commit of the working folder under its own ref, refs/codedeck/snapshots/, like the one git stash makes but on no branch and never pushed. It needs a Git repository."),
       )}
       <p className="pt-1 font-semibold text-slate-100">{t("The signs")}</p>
-      {sign(SWATCH_WORKING, t("Working"), t("The session is busy with a turn."))}
+      {sign(SWATCH_WORKING, t("Working"), t("The AI session is busy with a turn."))}
       {sign(SWATCH_WAITING, t("Waiting for you"), t("It asked you something or needs your permission."))}
       {sign(SWATCH_BACKGROUND, t("Running in the background"), t("The turn is over, but something it started goes on (a build, a helper) and may wake the session. A hard end: it announced that it finished. A fading one: nothing says when."))}
       {sign(SWATCH_GAP, t("Gap"), t("Nothing runs: it waits for your next prompt."))}

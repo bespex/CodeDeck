@@ -31,7 +31,7 @@ import { AppName, openAs } from "../apps";
 import { useSessionMarks } from "../assistant";
 import { RepoTooltip } from "./RepoTooltip";
 import { type OpenProject } from "./ProjectHeader";
-import { GitStatusBar } from "./StatusBar";
+import { BranchButton, GitStatusBar } from "./StatusBar";
 import { FilesRail } from "./FilesRail";
 import { usePerProject } from "../projectMemory";
 import { inScratch, moveIntoProject, SCRATCH_DRAG } from "../scratch";
@@ -170,11 +170,15 @@ export function FilesPanel(props: Props) {
     );
 
   return (
-    <aside className="zone-files flex min-h-0 min-w-0 flex-col border-l border-line bg-panel">
+    <aside data-tour="files" className="zone-files flex min-h-0 min-w-0 flex-col border-l border-line bg-panel">
       {/* As high as the headers beside it. The project and the menus are in the project list at the left */}
       <header className="zone-tabs flex h-11 shrink-0 items-center gap-2 border-b border-line bg-panel pr-1.5 pl-3">
         <FolderTree className="size-4 text-slate-500" />
-        <span className="flex-1 text-[12px] font-semibold tracking-wider text-slate-400 uppercase">{t("Files")}</span>
+        <span className="shrink-0 text-[12px] font-semibold tracking-wider text-slate-400 uppercase">{t("Files")}</span>
+        {/* The branch in the middle between the title and the fold button */}
+        <span className="flex min-w-0 flex-1 justify-center">
+          <BranchButton git={props.git} onRepoActions={props.onRepoActions} />
+        </span>
         <button
           type="button"
           aria-label={t("Fold the file list")}
@@ -224,7 +228,7 @@ export function FilesPanel(props: Props) {
         {contextMenu.element}
       </div>
 
-      <GitStatusBar recent={recentPaths.length} git={props.git} onRepoActions={props.onRepoActions} logOpen={props.logOpen} onToggleLog={props.onToggleLog} />
+      <GitStatusBar recent={recentPaths.length} git={props.git} logOpen={props.logOpen} onToggleLog={props.onToggleLog} />
     </aside>
   );
 }
@@ -328,7 +332,7 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
         className={`group relative flex h-[26px] cursor-default items-center gap-1.5 rounded-md pr-1.5 transition-opacity ${
           dropping ? "bg-ai/20 ring-1 ring-ai" : isSelected ? "bg-ai/25 text-slate-50" : "hover:bg-raised"
         } ${faded ? "opacity-40" : inScratch(entry.path) ? "opacity-55" : ""}`}
-        title={entry.path === ".scratch" ? t("Drafts and scratch files of sessions; Git ignores it. See the Workbench view.") : undefined}
+        title={entry.path === ".scratch" ? t("Drafts and scratch files of AI sessions; Git ignores it. See the Workbench view.") : undefined}
       >
         {entry.isDir ? (
           <Chevron className="size-3.5 shrink-0 text-slate-500" />

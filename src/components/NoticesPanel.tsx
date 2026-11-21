@@ -16,7 +16,7 @@ const tips = (view: ViewId, tool: string): string[] =>
   ({
     activity: [
       t("Before {tool} writes, CodeDeck saves a snapshot. Click it on the trail to see or undo the whole turn.", { tool }),
-      t("The timeline shows when each session worked and when it waited for you. Point at a block to see the prompt."),
+      t("The timeline shows when each AI session worked and when it waited for you. Point at a block to see the prompt."),
     ],
     changes: [
       t("Point at a diff line and click the bubble to leave a note for {tool}, right where it belongs.", { tool }),
@@ -42,12 +42,12 @@ function abilities(c: Capabilities): { label: string; can: boolean; note?: strin
       can: c.attach === "withNextPrompt",
       note: c.attach === "clipboard" ? t("only by copy and paste") : undefined,
     },
-    { label: t("Start rules for every new session"), can: c.startRules },
+    { label: t("Start rules for every new AI session"), can: c.startRules },
     { label: t("Earlier sessions from its logs"), can: c.pastSessions },
     { label: t("How much of the allowance is used"), can: c.usage },
-    { label: t("Start and continue sessions from CodeDeck"), can: c.launch },
-    { label: t("Join sessions it keeps in the background"), can: c.background },
-    { label: t("Open a session in its desktop app"), can: c.desktop },
+    { label: t("Start and continue AI sessions from CodeDeck"), can: c.launch },
+    { label: t("Join AI sessions it keeps in the background"), can: c.background },
+    { label: t("Open an AI session in its desktop app"), can: c.desktop },
   ];
 }
 
@@ -117,7 +117,7 @@ export function NoticesPanel({ assistant, git, view, onClose }: { assistant: Ass
       <div className="flex flex-col gap-1.5">
         <button type="button" aria-expanded={tools.open} onClick={tools.toggle} className="-ml-1 flex items-center gap-1 self-start rounded px-1 text-left hover:bg-overlay-hover">
           <Fold className="size-3.5 text-slate-400" />
-          <Heading>{t("What each AI tool can do with CodeDeck")}</Heading>
+          <Heading>{t("What each coding agent can do with CodeDeck")}</Heading>
         </button>
         {tools.open &&
           assistant.harnesses.map((h) => (

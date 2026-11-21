@@ -25,6 +25,16 @@ struct Open {
     open: PathBuf,
 }
 
+/// `codedeck --toggle` asks the running one to come to the front, or go away when it is in front:
+/// what a desktop binds to a key where programs cannot hold global shortcuts (Wayland, K5).
+#[derive(Serialize, Deserialize)]
+struct Toggle {
+    toggle: bool,
+}
+
+/// The argument for it.
+pub const TOGGLE: &str = "--toggle";
+
 pub struct Hub {
     socket: PathBuf,
     instance: Option<PathBuf>,
@@ -80,6 +90,17 @@ fn serve(app: &AppHandle, mut stream: UnixStream) {
         let _ = stream.write_all(reply.to_string().as_bytes());
         return;
     }
+    if let Ok(Toggle { toggle: true }) = serde_json::from_str::<Toggle>(&text) {
+        // Showing a window waits for the main thread: not on the socket's
+        let app = app.clone();
+        std::thread::spawn(move || {
+            if let Err(e) = crate::windows::front_or_away(&app) {
+                eprintln!("codedeck: to the front: {e}");
+            }
+        });
+        let _ = stream.write_all(json!({ "done": true }).to_string().as_bytes());
+        return;
+    }
     // The usage a tool's status line states
     if let Ok(message) = serde_json::from_str::<crate::usage::Message>(&text) {
         bridges.iter().for_each(|b| b.take_usage(app, message.usage.clone()));
@@ -105,17 +126,29 @@ pub fn running() -> bool {
 
 /// Hands the folder to a CodeDeck already running from this same program; whether one took it.
 pub fn hand_over(folder: &Path) -> bool {
-    let Some(file) = instance_file() else { return false };
-    let Some(pid) = std::fs::read_to_string(&file).ok().and_then(|t| t.trim().parse::<u32>().ok()) else { return false };
+    let line = serde_json::to_string(&Open { open: folder.to_path_buf() }).unwrap_or_default();
+    ask_running(&line).is_some_and(|answer| answer["opened"].as_bool().unwrap_or(false))
+}
+
+/// Asks a CodeDeck already running from this same program to come to the front or go away;
+/// whether one runs.
+pub fn toggle() -> bool {
+    let line = serde_json::to_string(&Toggle { toggle: true }).unwrap_or_default();
+    ask_running(&line).is_some()
+}
+
+/// Sends one message to the CodeDeck running from this program; its answer, `None` without one.
+fn ask_running(line: &str) -> Option<serde_json::Value> {
+    let file = instance_file()?;
+    let pid = std::fs::read_to_string(&file).ok().and_then(|t| t.trim().parse::<u32>().ok())?;
     if !Path::new(&format!("/proc/{pid}")).exists() {
-        return false;
+        return None;
     }
     let socket = crate::hook::socket_dir().join(format!("{pid}.sock"));
-    let Ok(mut stream) = UnixStream::connect(&socket) else { return false };
+    let mut stream = UnixStream::connect(&socket).ok()?;
     let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
-    let line = serde_json::to_string(&Open { open: folder.to_path_buf() }).unwrap_or_default();
     if stream.write_all(line.as_bytes()).is_err() || stream.shutdown(std::net::Shutdown::Write).is_err() {
-        return false;
+        return None;
     }
     let mut answer = String::new();
     let _ = stream.read_to_string(&mut answer);
@@ -123,7 +156,7 @@ pub fn hand_over(folder: &Path) -> bool {
     if let Some(error) = answer["error"].as_str() {
         eprintln!("codedeck: {error}");
     }
-    answer["opened"].as_bool().unwrap_or(false)
+    Some(answer)
 }
 
 /// Where the running process of this program notes itself: one file per program path.

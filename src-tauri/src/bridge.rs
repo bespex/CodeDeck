@@ -531,6 +531,11 @@ impl Bridge {
         self.tell(app, ASSISTANT_CHANGED, self.state());
     }
 
+    /// Tells the windows the sessions again: what the computer offers changed, so do their doors.
+    pub fn notify(&self, app: &AppHandle) {
+        self.tell(app, ASSISTANT_CHANGED, self.state());
+    }
+
     /// The user's title and short name for a session, kept for the project.
     pub fn rename(&self, app: &AppHandle, id: &str, title: Option<&str>, short: Option<&str>) {
         {

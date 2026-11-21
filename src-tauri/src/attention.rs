@@ -192,7 +192,7 @@ fn tell_sessions(app: &AppHandle) {
         (first.session.clone(), format!("{} {}", first.title, what(&first)), format!("{text} · {}", name(&root)), Some(first.session.clone()))
     } else {
         let lines: Vec<String> = gathered.iter().map(|(r, w)| format!("{}: {} {} · {}", w.short, w.title, what(w), name(r))).collect();
-        let summary = if de { format!("{} Sitzungen warten auf dich", gathered.len()) } else { format!("{} sessions need you", gathered.len()) };
+        let summary = if de { format!("{} KI-Sessions warten auf dich", gathered.len()) } else { format!("{} AI sessions need you", gathered.len()) };
         // Several: the one that asks first, or the first of them, is the one a click goes into
         ("sessions".to_string(), summary, lines.join("\n"), first.asks.then(|| first.session.clone()))
     };

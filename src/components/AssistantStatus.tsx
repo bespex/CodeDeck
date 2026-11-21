@@ -31,10 +31,10 @@ export function HookPanel({ hooks, harness, heard }: { hooks: Connections; harne
           ? t("{tool} tells CodeDeck what it does through hooks in its settings.", { tool: harness.name })
           : t("Connecting adds hooks to the settings of {tool} for every session.", { tool: harness.name })}{" "}
         <T
-          text="They run {command}, which tells the open CodeDeck windows which session works where and which files it writes, and lets CodeDeck keep a snapshot before an assistant's first write in a turn. Nothing else in the file changes; the file as it was is kept next to it."
+          text="They run {command}, which tells the open CodeDeck windows which AI session works where and which files it writes, and lets CodeDeck keep a snapshot before an assistant's first write in a turn. Nothing else in the file changes; the file as it was is kept next to it."
           command={<code className="font-mono text-[11px]">{command}</code>}
         />
-        {hooks.connected && !heard && ` ${t("Sessions started before connecting report from their next step on.")}`}
+        {hooks.connected && !heard && ` ${t("AI sessions started before connecting report from their next step on.")}`}
       </p>
       <ul className="mt-2 flex flex-col gap-1.5">
         {hooks.setups.map((s) => (

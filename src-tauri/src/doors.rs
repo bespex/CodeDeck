@@ -230,6 +230,7 @@ mod ways_tests {
 
     fn machine(tmux: bool, terminal: bool, x11: bool) -> Platform {
         Platform {
+            git: Some("git version 2.43.0".into()),
             tmux: tmux.then(|| "tmux 3.4".into()),
             terminal: terminal.then(|| crate::terminal::Terminal::for_tests("xterm")),
             wayland: !x11,

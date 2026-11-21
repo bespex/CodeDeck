@@ -362,7 +362,8 @@ export function gitStatus(rescan: boolean): Promise<RepoStatus[]> {
     error: null,
   });
   return Promise.resolve([
-    { ...sub("", mockProject.branch, []), name: mockProject.name, files },
+    // Two commits not pushed yet, so the preview shows the numbers in the file column and the git actions
+    { ...sub("", mockProject.branch, []), name: mockProject.name, files, ahead: 2 },
     sub("fixtures", "main", []),
     sub("docs", "gh-pages", ["api.md"]),
   ]);
@@ -1593,6 +1594,87 @@ export interface Platform {
   desktop: string;
   /** A tray host runs */
   tray: boolean;
+  /** What a desktop binds to a key to bring CodeDeck to the front: this program with `--toggle` */
+  toggleCommand: string;
+}
+
+/** One thing CodeDeck looked for on this computer, for the welcome (`welcome.rs`). */
+export interface Check {
+  id: string;
+  kind: "tool" | "git" | "tmux" | "terminal" | "windows" | "tray" | "viewer";
+  name: string;
+  url: string | null;
+  status: "found" | "missing" | "limited";
+  /** What was found: a version, a program, the window system */
+  detail: string | null;
+  urgency: "essential" | "helpful" | "niceToHave";
+  /** The command that installs it, where known */
+  install: string | null;
+}
+
+/** What CodeDeck looked for; `fresh` looks again first and tells every window. */
+export function checkup(fresh: boolean): Promise<Check[]> {
+  if (live) return invoke("checkup", { fresh });
+  const p = mockPlatform();
+  const off = (new URLSearchParams(window.location.search).get("platform") ?? "").split(",");
+  const viewer = (name: string, program: string, here: boolean): Check => ({ id: program, kind: "viewer", name, url: `https://bespex.github.io/${program}/`, status: here ? "found" : "missing", detail: null, urgency: "niceToHave", install: null });
+  return Promise.resolve([
+    { id: "tool:claude", kind: "tool", name: "Claude Code", url: "https://claude.com/product/claude-code", status: off.includes("notool") ? "missing" : "found", detail: null, urgency: "essential", install: null },
+    { id: "git", kind: "git", name: "git", url: "https://git-scm.com", status: "found", detail: "2.43.0", urgency: "essential", install: null },
+    { id: "tmux", kind: "tmux", name: "tmux", url: "https://github.com/tmux/tmux/wiki", status: p.tmux ? "found" : "missing", detail: p.tmux?.replace("tmux ", "") ?? null, urgency: "essential", install: p.tmux ? null : "sudo apt install tmux" },
+    { id: "terminal", kind: "terminal", name: "Terminal", url: null, status: p.terminal ? "found" : "missing", detail: p.terminal, urgency: "helpful", install: null },
+    { id: "windows", kind: "windows", name: "X11 / Wayland", url: null, status: p.raiseWindows ? "found" : "limited", detail: p.wayland ? "Wayland" : "X11", urgency: "helpful", install: null },
+    { id: "tray", kind: "tray", name: "Tray", url: null, status: p.tray ? "found" : "missing", detail: null, urgency: "helpful", install: null },
+    viewer("Marq", "marq", true),
+    viewer("Dirq", "dirq", true),
+    viewer("Hyqe", "hyqe", false),
+    viewer("Jayq", "jayq", true),
+    viewer("Xaq", "xaq", false),
+  ]);
+}
+
+/** Whether the welcome shows at the start (its checkbox). */
+export function welcomeAtStart(): Promise<boolean> {
+  if (live) return invoke("welcome_at_start");
+  return Promise.resolve(localStorage.getItem("codedeck.mockWelcomeOff") !== "1");
+}
+
+/** The welcome was closed; `off`: not at the next starts. */
+export function welcomeDone(off: boolean): Promise<void> {
+  if (live) return invoke("welcome_done", { off });
+  localStorage.setItem("codedeck.mockWelcomeOff", off ? "1" : "0");
+  return Promise.resolve();
+}
+
+/** The welcome's window takes the size its page needs (in the preview the browser window stays). */
+export function welcomeFit(width: number, height: number): Promise<void> {
+  if (live) return invoke("welcome_fit", { width: Math.ceil(width), height: Math.ceil(height) });
+  return Promise.resolve();
+}
+
+/** Opens the welcome in its window (in the preview: this page as the welcome). */
+export function openWelcome(): Promise<void> {
+  if (live) return invoke("open_welcome");
+  window.open("?view=welcome", "_blank");
+  return Promise.resolve();
+}
+
+/** Whether this project window shows the help on its parts now: once per start, in a window in sight, until turned off. */
+let mockWindowHelpGiven = false;
+export function windowHelp(): Promise<boolean> {
+  if (live) return invoke("window_help");
+  const due = !isOverview && JSON.parse(localStorage.getItem("codedeck.mockSettings") ?? "{}").windowHelp !== false && !mockWindowHelpGiven;
+  mockWindowHelpGiven = true;
+  return Promise.resolve(due);
+}
+
+/** What the computer offers was looked at again (`checkup` with `fresh`). */
+export function onPlatformChanged(callback: (p: Platform) => void): () => void {
+  if (live) {
+    const unlisten = listen<Platform>("platform_changed", (event) => callback(event.payload));
+    return () => void unlisten.then((stop) => stop());
+  }
+  return () => {};
 }
 
 export function platform(): Promise<Platform> {
@@ -1613,6 +1695,7 @@ function mockPlatform(): Platform {
     wayland,
     desktop: wayland ? "KDE" : "X-Cinnamon",
     tray: !off.includes("notray"),
+    toggleCommand: "/usr/bin/codedeck --toggle",
   };
 }
 
@@ -1712,6 +1795,8 @@ export function onProjectChanged(callback: (path: string) => void): () => void {
 
 /** The overview window shows this instead of a project. */
 export const isOverview = new URLSearchParams(window.location.search).get("view") === "overview";
+/** The welcome's window (`welcome.rs`) */
+export const isWelcome = new URLSearchParams(window.location.search).get("view") === "welcome";
 
 const mockOverview = (): Omit<OverviewProject, "recent">[] => [
   { label: "w1", name: "acme-orbit-api", path: "/home/me/projects/acme/acme-orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", uncommitted: 3, next: mockAssistant.attachments.length, news: 0 }, front: true, listed: true, visible: true, daily: true, account: "/home/me/.claude", mark: { kind: "icon", value: "satellite" } },
@@ -1734,6 +1819,8 @@ const mockOverview = (): Omit<OverviewProject, "recent">[] => [
 
 export function overviewState(): Promise<OverviewProject[]> {
   if (live) return invoke("overview_state");
+  // `?projects=none`: the first start, an empty list
+  if (new URLSearchParams(window.location.search).get("projects") === "none") return Promise.resolve([]);
   const all = mockOverview().map((p) => ({ ...p, recent: mockRecent.indexOf(p.path) >= 0 ? mockRecent.indexOf(p.path) : null }));
   // The preview keeps a dragged or sorted order as the backend would
   const rank = (p: OverviewProject) => (mockOrder.indexOf(p.path) + 1 || Infinity) + (p.listed ? 0 : 1e6);
@@ -1952,16 +2039,17 @@ export function onOpenView(callback: (view: string) => void): () => void {
 /** A global shortcut and who holds it (docs/SEITENLEISTE.md, "Tastenkürzel"). */
 export interface GlobalShortcut {
   keys: string;
-  action: "showHide" | "sidebar";
+  /** The one global shortcut left (Ctrl+Alt+L) */
+  action: "sidebar";
   /** here: CodeDeck holds it (for all its windows) · taken: another program · unsupported: Wayland */
   state: "here" | "taken" | "unsupported";
 }
 
 export function globalShortcuts(): Promise<GlobalShortcut[]> {
   if (live) return invoke<{ keys: GlobalShortcut[] }>("global_shortcuts").then((s) => s.keys);
+  const state = mockPlatform().wayland ? "unsupported" : "here";
   return Promise.resolve([
-    { keys: "Ctrl+Alt+C", action: "showHide", state: "here" },
-    { keys: "Ctrl+Alt+L", action: "sidebar", state: "here" },
+    { keys: "Ctrl+Alt+L", action: "sidebar", state },
   ]);
 }
 
@@ -2025,7 +2113,7 @@ export function journalLines(since: number): Promise<JournalLine[]> {
 export function diagnostics(): Promise<string> {
   if (live) return invoke("diagnostics");
   return Promise.resolve(
-    "CodeDeck 0.1.1 (fdffba4) · Preview · x11 · X-Cinnamon\nProject: ~/projects/orbit-api\nWindows: 1\nConnections:\n  claude ~/.claude: connected\nGlobal shortcuts: Ctrl+Alt+C here, Ctrl+Alt+L here\nLast hook messages (0 of 0):\n",
+    "CodeDeck 0.1.1 (fdffba4) · Preview · x11 · X-Cinnamon\nProject: ~/projects/orbit-api\nWindows: 1\nConnections:\n  claude ~/.claude: connected\nGlobal shortcuts: Ctrl+Alt+L here\nLast hook messages (0 of 0):\n",
   );
 }
 

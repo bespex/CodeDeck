@@ -86,6 +86,14 @@ impl Harness for Fake {
         None
     }
 
+    #[cfg(test)]
+    fn samples(&self) -> Vec<Value> {
+        ["started", "asked", "will-write", "wrote", "asks", "done", "left"]
+            .iter()
+            .map(|did| serde_json::json!({ "who": "a1", "did": did, "in": "/p", "path": "/p/a.rs", "text": "x" }))
+            .collect()
+    }
+
     /// One session that worked in the project's `docs` folder before.
     fn past_sessions(&self, project: &Path) -> Vec<SessionInfo> {
         vec![SessionInfo {

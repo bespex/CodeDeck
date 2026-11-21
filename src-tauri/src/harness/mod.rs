@@ -20,6 +20,14 @@ pub trait Harness: Send + Sync {
     fn name(&self) -> &'static str;
     /// Its name where space is short: buttons, the status bar.
     fn short_name(&self) -> &'static str;
+    /// The tool's web page, linked from its name in the welcome.
+    fn homepage(&self) -> Option<&'static str> {
+        None
+    }
+    /// Where the tool is installed on this computer; `None`: not found (the welcome says so).
+    fn installed(&self) -> Option<String> {
+        None
+    }
     /// What it can do as far as only the adapter knows it. `launch`, `background` (and nothing
     /// else) need not be set here: [`Self::capabilities`] works them out from the methods.
     fn declared(&self) -> Capabilities;
@@ -124,6 +132,12 @@ pub trait Harness: Send + Sync {
     /// How to open a session that runs in the background in a terminal, from its handle.
     fn attach(&self, _job: &str, _account: Option<&str>) -> Option<Launched> {
         None
+    }
+    /// Raw messages as the tool sends them, one or more per kind of event it reports: the
+    /// conformance test checks that [`Self::translate`] makes each into an event.
+    #[cfg(test)]
+    fn samples(&self) -> Vec<Value> {
+        Vec::new()
     }
 }
 
@@ -414,6 +428,31 @@ mod tests {
             // From its log only it can still be continued: that is the tool's doing, not the session's
             let log = c.from_log_only();
             assert_eq!((log.launch, log.background, log.desktop), (c.launch, c.background, c.desktop), "{}", h.id());
+        }
+    }
+
+    /// A tool that reports live must report every kind of event, and say whose session it is.
+    #[test]
+    fn translate_gives_every_kind_of_event() {
+        use EventKind::*;
+        for h in adapters() {
+            let c = h.capabilities();
+            let events: Vec<Event> = h.samples().iter().filter_map(|raw| h.translate(raw)).collect();
+            for e in &events {
+                assert_eq!(e.harness, h.id(), "{}: harness", h.id());
+                assert!(!e.session.is_empty(), "{}: session", h.id());
+            }
+            let has = |kind: EventKind| events.iter().any(|e| e.kind == kind);
+            if c.live_status {
+                for kind in [SessionStarted, PromptSubmitted, Waiting, TurnDone, SessionEnded] {
+                    assert!(has(kind), "{}: no sample becomes {kind:?}", h.id());
+                }
+            }
+            if c.before_write {
+                assert!(has(BeforeWrite) && has(AfterWrite), "{}: writes", h.id());
+            }
+            // Something it does not use is no event, not an error
+            assert!(h.translate(&serde_json::json!({ "nothing": true })).is_none(), "{}: unknown message", h.id());
         }
     }
 

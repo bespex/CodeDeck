@@ -28,7 +28,7 @@ export function ProjectsPanel({ project, assistant, onToggleLog, onOpen, folded,
   const inWindow: InWindow = { current: project?.path ?? null, onOpen };
   if (folded) return <FoldedProjects project={project} assistant={assistant} onToggleLog={onToggleLog} inWindow={inWindow} onOpen={() => onFold(false)} />;
   return (
-    <aside className="zone-side flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
+    <aside data-tour="projects" className="zone-side flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
       <PathBar project={project} onToggleLog={onToggleLog} assistant={assistant} onFold={() => onFold(true)} foldLabel={t("Fold the project list")} />
       <OverviewApp inWindow={inWindow} />
     </aside>
@@ -40,7 +40,7 @@ function FoldedProjects({ project, assistant, onToggleLog, inWindow, onOpen }: {
   const fill = look ? (look.mark?.color ?? look.color) : null;
   const name = project?.crumbs[project.crumbs.length - 1]?.label ?? project?.root ?? "";
   return (
-    <aside className="zone-side flex min-h-0 min-w-0 flex-col items-center border-r border-line bg-panel">
+    <aside data-tour="projects" className="zone-side flex min-h-0 min-w-0 flex-col items-center border-r border-line bg-panel">
       <Tooltip area className="block w-full shrink-0" content={<ToolTipBody says={project ? `${name} · ${placeOf(project.root)}` : t("No project open")} hint={t("Show the project list")} />}>
         <header className="zone-tabs flex h-11 w-full items-center justify-center border-b border-line bg-panel" style={fill ? { background: fill, color: inkOn(fill) } : undefined}>
           <button type="button" aria-label={t("Show the project list")} onClick={onOpen} className="rounded-md p-0.5 hover:bg-black/15">

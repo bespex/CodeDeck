@@ -35,6 +35,7 @@ mod updates;
 mod usage;
 mod watch;
 mod scratch;
+mod welcome;
 mod window;
 mod windows;
 
@@ -171,6 +172,54 @@ fn app_info() -> AppInfo {
 #[tauri::command]
 fn platform() -> platform::Abilities {
     platform::abilities()
+}
+
+/// What CodeDeck looked for on this computer, for the welcome; `fresh` looks again first (the user
+/// may have installed something meanwhile) and tells every window what changed.
+#[tauri::command(async)]
+fn checkup(app: AppHandle, fresh: bool) -> Vec<welcome::Check> {
+    let found = if fresh { platform::refresh() } else { platform::get() };
+    if fresh {
+        let _ = app.emit(PLATFORM_CHANGED, platform::abilities());
+        // ▶ and the doors follow what is there now
+        for bridge in app.state::<windows::Bridges>().all() {
+            bridge.notify(&app);
+        }
+    }
+    welcome::checks(found)
+}
+
+/// Event to every window when what the computer offers was looked at again; payload [`platform::Abilities`].
+const PLATFORM_CHANGED: &str = "platform_changed";
+
+/// Whether the welcome shows at the start (its checkbox).
+#[tauri::command]
+fn welcome_at_start() -> bool {
+    welcome::shown_at_start()
+}
+
+/// The welcome was closed; `off`: not at the next starts.
+#[tauri::command]
+fn welcome_done(off: bool) -> Result<(), String> {
+    welcome::done(off)
+}
+
+/// The welcome's window takes the size its page needs.
+#[tauri::command]
+fn welcome_fit(app: AppHandle, width: f64, height: f64) -> Result<(), String> {
+    welcome::fit(&app, width, height)
+}
+
+/// Whether this project window shows the help on its parts now (once per start, a window in sight).
+#[tauri::command]
+fn window_help(window: WebviewWindow) -> bool {
+    window.label() != windows::OVERVIEW && window.label() != welcome::LABEL && welcome::window_help_due(window.is_visible().unwrap_or(false))
+}
+
+/// Opens the welcome (from the app menu).
+#[tauri::command]
+fn open_welcome(app: AppHandle) -> Result<(), String> {
+    welcome::open(&app)
 }
 
 /// What happened in this project since `since` (Unix milliseconds), oldest first: the material of
@@ -761,7 +810,13 @@ fn set_window_icon(rgba: Vec<u8>, size: u32, window: WebviewWindow) -> Result<()
     }
     let win = windows::of(&window)?;
     *win.drawn_icon.locked() = true;
-    window.set_icon(tauri::image::Image::new_owned(rgba, size, size)).map_err(|e| e.to_string())
+    let set = window.set_icon(tauri::image::Image::new_owned(rgba, size, size));
+    // Under Wayland the taskbar takes the icon from the desktop file: a mark that is not shown is no
+    // error (title and attention still tell what waits)
+    if platform::get().wayland {
+        return Ok(());
+    }
+    set.map_err(|e| e.to_string())
 }
 
 /// Opens the window of one of my projects, or brings it to the front.
@@ -1160,7 +1215,13 @@ pub(crate) const GIT_RAN: &str = "git_ran";
 pub fn run() {
     // At login (`--tray`): no window, the overview waits in the tray; nothing to do if CodeDeck runs
     let tray_only = std::env::args().nth(1).as_deref() == Some(autostart::TRAY);
-    let project = if tray_only {
+    // `--toggle` (bound to a key in the desktop, where CodeDeck cannot hold one): the running one
+    // comes to the front or goes away; without one, CodeDeck starts and shows the start page
+    let toggle = std::env::args().nth(1).as_deref() == Some(hub::TOGGLE);
+    if toggle && hub::toggle() {
+        return;
+    }
+    let project = if tray_only || toggle {
         if hub::running() {
             return;
         }
@@ -1189,6 +1250,8 @@ pub fn run() {
         .plugin(window::plugin())
         .on_window_event(|window, event| match event {
             // The window in front is the one the global shortcuts act on
+            // The welcome is beside the work: shortcuts and the overview keep to the project windows
+            tauri::WindowEvent::Focused(_) | tauri::WindowEvent::Destroyed if window.label() == welcome::LABEL => {}
             tauri::WindowEvent::Focused(focused) => {
                 window::focus_changed(window.app_handle(), window.label(), *focused);
                 // The overview marks the project window used last
@@ -1251,8 +1314,14 @@ pub fn run() {
                 let made = windows::hidden_overview(&handle);
                 if let Err(e) = made {
                     eprintln!("codedeck: overview: {e}");
+                } else if toggle {
+                    let _ = windows::front_or_away(&handle);
                 }
             });
+            // The welcome, at a start with a window (not at login in the tray)
+            if !tray_only {
+                welcome::at_start(app.handle());
+            }
             updates::check_in_background(app.handle());
             window::claim_shortcuts(app.handle().clone());
             // Hooks of this installation that still run the old `codedeck` (or a program that is
@@ -1318,6 +1387,12 @@ pub fn run() {
             open_url,
             global_shortcuts,
             platform,
+            checkup,
+            welcome_at_start,
+            welcome_done,
+            open_welcome,
+            welcome_fit,
+            window_help,
             fetch_outside,
             forget_found,
             open_outside,

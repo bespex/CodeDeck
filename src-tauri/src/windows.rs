@@ -175,7 +175,6 @@ pub fn open(app: &AppHandle, project: Project) -> Result<String, String> {
         });
     }
     crate::set_title(app, &win);
-    crate::window::shown(app);
     crate::exclude_scratch(app, &win);
     overview_changed(app);
     Ok(label)

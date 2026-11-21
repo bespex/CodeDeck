@@ -398,7 +398,65 @@ Live-Kanal. Damit ein anderes Werkzeug genauso eingebunden ist, braucht es:
 
 Die Ereignisse, die CodeDeck intern verarbeitet, sind schon unabhängig von Claude formuliert. Für
 ein weiteres Werkzeug käme nur ein Übersetzer dazu, der dessen Hooks in diese Ereignisse übersetzt
-(im Plan: „Kapselung der KI-Anbindung“, Schritt 1.2 und „Später“).
+(im Plan: „Kapselung der KI-Anbindung“, Schritt 1.2 und „Später“). Wie das genau geht, steht in 2.8.
+
+## 2.8 So kommt ein Werkzeug dazu
+
+Für Entwicklerinnen und Entwickler. Ein Werkzeug ist ein **Adapter**: eine Datei `src-tauri/src/harness/<id>.rs`
+mit einer Struktur, die den Trait `Harness` (`harness/mod.rs`) erfüllt. Adapter werden mitkompiliert, es gibt keine
+Plugins. Alles Werkzeugspezifische steht nur dort: Namen von Ereignissen und Feldern, Konfigurationsdateien,
+Logformat, Programmname. Der Rest von CodeDeck kennt nur neutrale Ereignisse und Fähigkeiten.
+
+**Der Weg der Ereignisse.** Das Werkzeug ruft bei jedem Schritt `codedeck hook --harness <id>` auf und gibt seine
+Rohmeldung als JSON auf stdin. Der Adapter übersetzt sie (`translate`) in ein `Event`; der Socket verteilt es an
+alle Fenster. Was stdout des Hooks bekommt (Übergabe, Startregeln), baut `reply`. Kennt das Werkzeug keine Hooks,
+sondern Plugins oder einen Server, ruft ein kleines Plugin des Werkzeugs `codedeck hook --harness <id>` auf. Der Weg
+bleibt derselbe.
+
+**Rohbau in fünf Schritten:**
+
+1. `harness/<id>.rs` anlegen, `mod <id>;` in `harness/mod.rs`, den Adapter in `all()` eintragen. Als Vorlage dient
+   `harness/fake.rs` (`Fake`: nur das Nötigste, `Starter`: mit Startbefehl).
+2. **Pflicht:** `id` (für `--harness`), `name` und `short_name` (Texte, Knöpfe), `declared` (Fähigkeiten, siehe
+   unten), `connections`/`connect` (Hooks je Konto ein- und austragen), `translate`, `reply`, `past_sessions`,
+   `read_log`. Wer nichts davon kann, gibt leer zurück; `connect` sagt dann in Worten, warum nicht.
+3. **Nach Bedarf**, alle mit leerem Rückfall: `launch` (Befehl und Umgebung zum Starten und Fortsetzen; tmux
+   übernimmt der Kern), `attach` (Sitzung im Hintergrund in einem Terminal öffnen), `desktop_command` (Sitzung in
+   der Desktop-App), `remote_link`, `running`, `background_job`, `parked`, `cut_short`, `translate_usage`/
+   `connect_usage`, `account_kind`, `desktop_profiles`/`new_desktop_profile`, `is_own_file`, `page_hosts`.
+4. `samples()` (nur in Tests) mit Rohmeldungen, wie das Werkzeug sie schickt, mindestens eine je Ereignisart.
+5. `cargo test`: Der Konformitätstest in `harness/mod.rs` prüft jeden Adapter.
+
+**Fähigkeiten.** Die Oberfläche bietet nur an, was in `Capabilities` steht; ein fehlendes Angebot fällt leise weg.
+
+| Fähigkeit | Woher | Ohne sie |
+|---|---|---|
+| `live_status` | erklärt: meldet Start, Prompt, Warten, Rundenende, Ende | Sitzungen nur aus dem Log, unter „Früher“ |
+| `before_write` | erklärt: meldet vor dem Schreiben und wartet | keine Snapshots vor der Runde |
+| `attach` | erklärt: `WithNextPrompt`, `Clipboard` oder `None` | Kopieren statt Anhängen |
+| `start_rules` | erklärt | keine Startregeln |
+| `past_sessions` | erklärt | nur Sitzungen ab dem Verbinden |
+| `usage` | erklärt | kein Verbrauch |
+| `desktop_profiles` | erklärt | keine Profile in den Einstellungen |
+| `desktop` | erklärt: `desktop_command` öffnet eine Sitzung | kein Knopf „Desktop“ |
+| `launch` | **abgeleitet:** `launch()` liefert einen Befehl | kein ▶, ＋, „Fortsetzen“, „Neu starten“ |
+| `background` | **abgeleitet:** `attach()` liefert einen Befehl | keine Terminal-Tür für Hintergrund-Sitzungen |
+
+Abgeleitete Fähigkeiten trägt der Adapter nicht ein: `capabilities()` fragt die Methode. Was eine Sitzung konkret
+anbietet (Türen, Aktionen), entscheidet `doors::ways` aus Werkzeug, Rechner (`platform.rs`), Ort und Eigentum.
+
+**Konten.** Ein Konto ist bei Claude Code ein Konfigurationsordner (`connections`). Ein Werkzeug ohne Konten liefert
+keine; seine Sitzungen starten dann ohne Konto, mit der Standardkonfiguration des Werkzeugs. Gestartet wird mit dem
+Werkzeug des Projektkontos, sonst mit dem einzigen startfähigen (`projects::start_with`).
+
+**Regeln.**
+
+- Außerhalb des Adapters kommen weder der Name des Werkzeugs noch Feldnamen seiner Meldungen vor. Texte nehmen
+  `name`/`short_name`.
+- Der Adapter beobachtet und übersetzt nur. Er tippt nie in eine Sitzung, und er startet nichts selbst.
+- Der Hook gibt außer `reply` nichts aus und endet immer mit Exit-Code 0.
+- In der Browser-Vorschau zeigt `?tool=minimal` ein Werkzeug mit wenigen Fähigkeiten. So ist zu sehen, dass nichts
+  angeboten wird, was es nicht kann.
 
 ---
 
@@ -627,6 +685,10 @@ Beides ist schlank: eine Seite zum Einrichten, fünf Schritte zum Verstehen, all
 später aus *Notices and tips* wieder aufrufbar.
 
 **Ersteinrichtung.** CodeDeck sieht selbst nach und zeigt das Ergebnis, statt zu fragen:
+
+> **Stand 2026-11-20:** Der erste Teil steht als Willkommensfenster (`welcome.rs`): Programme mit Status,
+> Dringlichkeit und Erläuterung, „Erneut prüfen“, Installationsbefehl zum Kopieren, Wayland-Warnkasten,
+> „Erzähl mir mehr“ führt vorerst auf die Webseite. Konten, Verknüpfen der Viewer und Projekte fehlen noch.
 
 | Block | Was CodeDeck tut |
 |---|---|

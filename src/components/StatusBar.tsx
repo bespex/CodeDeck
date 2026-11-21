@@ -1,25 +1,24 @@
-import { GitBranch, GitFork, Plug, SquareTerminal } from "lucide-react";
-import { aheadBehind, changeSummary, type GitView } from "../git";
+import { ArrowDown, ArrowUp, FilePen, GitBranch, GitFork, Plug, SquareTerminal } from "lucide-react";
+import { changeSummary, type GitView } from "../git";
 import { Tooltip, TooltipHint } from "./Tooltip";
 import { RepoTooltip } from "./RepoTooltip";
 import { GitInitButton, lacksGit } from "./GitInit";
-import type { AssistantState, GitRun } from "../backend";
+import type { AssistantState, GitRun, RepoStatus } from "../backend";
 import { openDialog } from "../dialogs";
 import { useProjectAccount, useProjectLook, type ProjectAccount } from "../projectLook";
 import { UsageChip } from "./UsagePanel";
 import { plural, t } from "../i18n";
 
 interface GitProps {
-  /** Files changed lately (on disk or by a session): one quiet note beside the git button */
+  /** Files changed lately (on disk or by a session): one quiet note in the bar */
   recent: number;
   git: GitView;
-  onRepoActions: (repo: string, at: HTMLElement, above: boolean) => void;
   logOpen: boolean;
   onToggleLog: () => void;
 }
 
 /**
- * The bar at the foot of the file column: the branch and git (user, 2026-11-17: one bar per column
+ * The bar at the foot of the file column: what changed lately and git (user, 2026-11-17: one bar per column
  * instead of one across the window; the middle has none). One line, never two: what can be clicked
  * is bright, with an icon and a short word; what only informs stays quiet grey and gives way first
  * when the column is narrow. Details are in the tooltips.
@@ -34,27 +33,74 @@ export const UNDER_TRAIL = "relative z-30 -ml-11 border-l border-line";
 /** Whether the trail is shown, so the bar reaches under it (without git there is none, see `Deck`) */
 export const trailShown = (git: GitView) => !lacksGit(git);
 
-export function GitStatusBar({ git, onRepoActions, logOpen, onToggleLog, recent }: GitProps) {
+/**
+ * The branch of the project's repository, as text in the header of the file list, between its title
+ * and the fold button (user, 2026-11-21: at the foot it went under). Tinted while there are
+ * uncommitted changes; a click opens the git actions below it.
+ */
+
+export function BranchButton({ git, onRepoActions }: { git: GitView; onRepoActions: (repo: string, at: HTMLElement, above: boolean) => void }) {
+  const root = git.rootRepo;
+  if (!root) return null;
+  return (
+    <Tooltip className="flex min-w-0" content={<RepoTooltip repo={root} runs={git.runs} />}>
+      <button
+        type="button"
+        data-git-actions
+        aria-label={t("Git actions, branch {branch}", { branch: root.branch ?? t("detached") })}
+        onClick={(e) => onRepoActions(root.path, e.currentTarget, false)}
+        className={`${CLICKABLE.replace("shrink-0", "min-w-0")} text-[12px] ${root.error ? "text-problem" : root.files.length > 0 ? "text-changed" : "text-slate-200"}`}
+      >
+        {root.worktreeOf ? <GitFork className="size-3.5 shrink-0" /> : <GitBranch className="size-3.5 shrink-0" />}
+        <span className="min-w-0 truncate">{root.branch ?? t("detached")}</span>
+        <RepoCounts repo={root} />
+      </button>
+    </Tooltip>
+  );
+}
+
+/**
+ * Two numbers with a sign each, short enough for the header (user, 2026-11-21): a document for the
+ * files with uncommitted changes, the least safe work, so in the colour of changes; the arrows for
+ * commits not pushed (↑) or not pulled (↓), quiet. The repository's tooltip says it in words.
+ */
+export function RepoCounts({ repo, stacked = false }: { repo: RepoStatus; stacked?: boolean }) {
+  const changed = repo.files.length;
+  // Stacked in the folded rail only the numbers stand, one below the other, without signs; there
+  // only the commits to push count, the ones to pull would be a third number nobody could tell apart
+  // (user, 2026-11-21). In the header the arrows are icons: the text ↑ read like a 1
+  const counts: [number, typeof ArrowUp][] = [
+    [repo.ahead, ArrowUp],
+    [stacked ? 0 : repo.behind, ArrowDown],
+  ];
+  if (!changed && !counts.some(([n]) => n > 0)) return null;
+  return (
+    <span className={`flex shrink-0 items-center ${stacked ? "flex-col gap-1 text-[11px] leading-none font-medium" : "gap-2 font-normal"}`}>
+      {changed > 0 && (
+        <span className="flex items-center gap-0.5 text-changed">
+          {!stacked && <FilePen className="size-3.5" />}
+          {changed}
+        </span>
+      )}
+      {counts
+        .filter(([n]) => n > 0)
+        .map(([n, Icon], i) => (
+          <span key={i} className="flex items-center text-slate-400">
+            {!stacked && <Icon className="size-3.5" strokeWidth={2.5} />}
+            {n}
+          </span>
+        ))}
+    </span>
+  );
+}
+
+export function GitStatusBar({ git, logOpen, onToggleLog, recent }: GitProps) {
   const root = git.rootRepo;
   const inFolders = git.repos.filter((r) => r.path);
   const withChanges = inFolders.filter((r) => r.files.length > 0).length;
 
   return (
     <footer className={`zone-bar @container flex h-7 shrink-0 items-center gap-3 overflow-x-clip border-t border-line bg-panel px-3 text-[12px] whitespace-nowrap text-slate-500 ${trailShown(git) ? UNDER_TRAIL : ""}`}>
-      {root && (
-        <Tooltip className="flex min-w-0" content={<RepoTooltip repo={root} runs={git.runs} />}>
-          <button
-            type="button"
-            aria-label={t("Git actions, branch {branch}", { branch: root.branch ?? t("detached") })}
-            onClick={(e) => onRepoActions(root.path, e.currentTarget, true)}
-            className={`${CLICKABLE.replace("shrink-0", "min-w-0")} ${root.error ? "text-problem" : root.files.length > 0 ? "text-changed" : "text-slate-200"}`}
-          >
-            {root.worktreeOf ? <GitFork className="size-3.5 shrink-0" /> : <GitBranch className="size-3.5 shrink-0" />}
-            <span className="min-w-0 max-w-56 truncate">{root.branch ?? t("detached")}</span>
-            {aheadBehind(root) && <span className="text-slate-500">{aheadBehind(root)}</span>}
-          </button>
-        </Tooltip>
-      )}
       {lacksGit(git) && (
         <>
           <span className="shrink-0">{t("No git repository")}</span>

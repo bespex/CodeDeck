@@ -73,6 +73,11 @@ fn settle(mut done: impl FnMut() -> tauri::Result<bool>) -> tauri::Result<()> {
 /// landed on the next monitor first; these three steps stay on the monitor, about a frame each.)
 /// Then checks, and sets again what the desktop still moved. Says where it ended up.
 fn place(window: &WebviewWindow, x: i32, y: i32, w: u32, h: u32) -> tauri::Result<String> {
+    // Under Wayland the compositor places windows and ignores (or refuses) a position: only the size
+    if !crate::platform::abilities().place_windows {
+        window.set_size(PhysicalSize::new(w, h))?;
+        return Ok(format!("size only {w}x{h} (the desktop places windows)"));
+    }
     let now = window.inner_size()?;
     let resize = |w: u32, h: u32| -> tauri::Result<()> {
         window.set_size(PhysicalSize::new(w, h))?;
@@ -236,19 +241,17 @@ pub fn set_compact(window: &WebviewWindow, kept: &FullPlace, on: bool, width: f6
 
 // ── Global shortcuts ───────────────────────────────────────────────────────────
 //
-// The process holds both shortcuts for all its windows (D25). Which window was used last it knows
-// from their focus events; whether a press hid CodeDeck it keeps itself.
+// The process holds the shortcut for all its windows (D25). Which window was used last it knows
+// from their focus events.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutEvent, ShortcutState};
 
-/// Shows CodeDeck, brings it to the front, or hides it when it is in front already.
-const SHOW_HIDE: &str = "Ctrl+Alt+C";
-/// Brings CodeDeck to the front, or away when it is in front: the project window used last, without
+/// The one global shortcut (Ctrl+Alt+C, show or hide, did nearly the same and is gone, user
+/// 2026-11-20). Brings CodeDeck to the front, or away when it is in front: the project window used last, without
 /// one the start page.
 const SIDEBAR: &str = "Ctrl+Alt+L";
 /// How often the process tries again to hold a shortcut another program holds.
@@ -257,7 +260,6 @@ const RETRY: Duration = Duration::from_secs(15);
 /// What a shortcut asks of one window.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Request {
-    Show,
     Hide,
     /// Show and take the focus
     Front,
@@ -274,7 +276,7 @@ pub struct ShortcutStatus {
 #[serde(rename_all = "camelCase")]
 pub struct ShortcutInfo {
     pub keys: &'static str,
-    /// "showHide" or "sidebar"
+    /// "sidebar" (the one left; the name is kept for the interface)
     pub action: &'static str,
     /// "here": CodeDeck holds it · "taken": another program holds it · "unsupported": the desktop
     /// has no global shortcuts (Wayland)
@@ -286,8 +288,6 @@ pub struct Shortcuts {
     status: Mutex<ShortcutStatus>,
     /// The window used last: the one a shortcut brings back
     last: Mutex<Option<String>>,
-    /// Set while a press has hidden CodeDeck: the next one brings it back
-    hidden: AtomicBool,
     /// When each window last lost the focus: a click on the tray icon takes it a moment before the
     /// click arrives, and the window counts as in front still (`in_front`)
     lost: Mutex<std::collections::HashMap<String, std::time::Instant>>,
@@ -308,7 +308,6 @@ pub fn focus_changed(app: &AppHandle, label: &str, focused: bool) {
     if focused {
         let shortcuts = app.state::<Shortcuts>();
         *shortcuts.last.locked() = Some(label.to_string());
-        shortcuts.hidden.store(false, Ordering::Relaxed);
     }
 }
 
@@ -322,20 +321,9 @@ pub fn in_front(app: &AppHandle, window: &WebviewWindow) -> bool {
         || app.state::<Shortcuts>().lost.locked().get(window.label()).is_some_and(|at| at.elapsed() < Duration::from_millis(700))
 }
 
-/// A window that opens is shown: CodeDeck is no longer hidden.
-pub fn shown(app: &AppHandle) {
-    app.state::<Shortcuts>().hidden.store(false, Ordering::Relaxed);
-}
-
 /// The label of the project window used last, if it is still there.
 pub fn last_label(app: &AppHandle) -> Option<String> {
     app.state::<Shortcuts>().last.locked().clone().filter(|l| l != crate::windows::OVERVIEW && app.get_webview_window(l).is_some())
-}
-
-/// The window used last; any window when that one is gone.
-fn last_used(app: &AppHandle) -> Option<WebviewWindow> {
-    let last = app.state::<Shortcuts>().last.locked().clone();
-    last.and_then(|l| app.get_webview_window(&l)).or_else(|| app.webview_windows().into_values().next())
 }
 
 /// Where each window was when it was hidden. Shown again, X11 window managers sometimes place a
@@ -356,7 +344,7 @@ fn show(window: &WebviewWindow) {
     let _ = window.show();
     let _ = window.unminimize();
     let at = HIDDEN_AT.locked().remove(window.label());
-    if let (true, Some(at)) = (was_hidden, at) {
+    if let (true, Some(at), true) = (was_hidden, at, crate::platform::abilities().place_windows) {
         let _ = window.set_position(at);
         // The window manager may place it once more right after mapping it: set it again then
         let window = window.clone();
@@ -373,7 +361,6 @@ fn show(window: &WebviewWindow) {
 pub fn obey(window: &WebviewWindow, request: Request) {
     match request {
         Request::Hide => hide(window),
-        Request::Show => show(window),
         Request::Front => {
             show(window);
             let _ = window.set_focus();
@@ -401,6 +388,10 @@ pub fn settings_changed(app: &AppHandle) {
 /// Asks the window manager to activate the window of this process with this title the way a pager
 /// or taskbar does (`_NET_ACTIVE_WINDOW` with source 2). X11 only; elsewhere nothing happens.
 fn activate_as_pager(title: &str) -> Option<()> {
+    // Under Wayland only XWayland answers, and it cannot raise native windows
+    if !crate::platform::get().x11 {
+        return None;
+    }
     use x11rb::connection::Connection;
     use x11rb::protocol::xproto::{AtomEnum, ClientMessageEvent, ConnectionExt, EventMask};
     let (conn, screen) = x11rb::connect(None).ok()?;
@@ -433,39 +424,25 @@ fn activate_as_pager(title: &str) -> Option<()> {
     conn.flush().ok()
 }
 
-/// A shortcut was pressed.
+/// The shortcut was pressed: CodeDeck to the front from anywhere, or away when it is in front
+/// (docs/PLAN.md "Projektliste im Fenster statt Übersicht", step d).
 fn pressed(app: &AppHandle, shortcut: &Shortcut) {
-    let Some(last) = last_used(app) else { return };
-    // CodeDeck to the front from anywhere, or away when it is in front (docs/PLAN.md "Projektliste im
-    // Fenster statt Übersicht", step d)
-    if shortcut.id() == parse(SIDEBAR).id() {
-        let app = app.clone();
-        std::thread::spawn(move || {
-            if let Err(e) = crate::windows::front_or_away(&app) {
-                eprintln!("codedeck: to the front: {e}");
-            }
-        });
+    if shortcut.id() != parse(SIDEBAR).id() {
         return;
     }
-    // Shown, a press hides it, hidden, a press brings it back. Not "in front": with several
-    // monitors CodeDeck is often in sight without the focus, and bringing it "to the front" then
-    // changed nothing one could see (user, 2026-11-16)
-    let shortcuts = app.state::<Shortcuts>();
-    let all = app.webview_windows();
-    if shortcuts.hidden.swap(false, Ordering::Relaxed) {
-        all.values().filter(|w| w.label() != last.label()).for_each(|w| obey(w, Request::Show));
-        obey(&last, Request::Front);
-    } else {
-        shortcuts.hidden.store(true, Ordering::Relaxed);
-        all.values().for_each(|w| obey(w, Request::Hide));
-    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        if let Err(e) = crate::windows::front_or_away(&app) {
+            eprintln!("codedeck: to the front: {e}");
+        }
+    });
 }
 
 fn parse(keys: &str) -> Shortcut {
     keys.parse().expect("a valid shortcut")
 }
 
-/// The plugin, with the handler for both shortcuts.
+/// The plugin, with the handler for the shortcut.
 pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri_plugin_global_shortcut::Builder::new()
         .with_handler(|app, shortcut, event: ShortcutEvent| {
@@ -476,13 +453,13 @@ pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
         .build()
 }
 
-/// Tries to hold both shortcuts, now and again later while another program holds them.
+/// Tries to hold the shortcut, now and again later while another program holds them.
 /// Runs in its own thread: registering waits for the main thread.
 pub fn claim_shortcuts(app: AppHandle) {
     let wayland = !crate::platform::abilities().global_shortcuts;
     std::thread::spawn(move || loop {
         let mut keys = Vec::new();
-        for (keys_text, action) in [(SHOW_HIDE, "showHide"), (SIDEBAR, "sidebar")] {
+        for (keys_text, action) in [(SIDEBAR, "sidebar")] {
             let shortcut = parse(keys_text);
             let manager = app.global_shortcut();
             let state = if wayland {

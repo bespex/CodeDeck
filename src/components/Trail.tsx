@@ -100,7 +100,7 @@ export function Trail({ commits, snapshots, repos, point, onSelect, onCompare, f
 
   return (
     // Ends above the left status bar, which reaches under it (`UNDER_TRAIL` in StatusBar.tsx)
-    <div ref={column} className="relative mb-7 w-11 shrink-0 border-l border-line bg-panel" aria-label={t("Trail")}>
+    <div ref={column} data-tour="trail" className="relative mb-7 w-11 shrink-0 border-l border-line bg-panel" aria-label={t("Trail")}>
       <div
         onMouseEnter={enter}
         onMouseLeave={leave}
@@ -432,9 +432,9 @@ function SnapshotSymbol({ snapshot }: { snapshot: Snapshot }) {
   return snapshot.back ? (
     <PointTip name={t("Went back (turning arrow)")} meaning={t("Someone went back to an earlier point here; what was there before is kept in this snapshot.")} />
   ) : snapshot.turnFrom ? (
-    <PointTip name={t("End of a turn (flag)")} meaning={t("Snapshot when a session finished its turn, in the session's colour. It shows what the turn changed.")} />
+    <PointTip name={t("End of a turn (flag)")} meaning={t("Snapshot when an AI session finished its turn, in the session's colour. It shows what the turn changed.")} />
   ) : (
-    <PointTip name={t("Before writing")} meaning={t("Snapshot just before a session first wrote in a turn, in the session's colour. To go back to.")} />
+    <PointTip name={t("Before writing")} meaning={t("Snapshot just before an AI session first wrote in a turn, in the session's colour. To go back to.")} />
   );
 }
 

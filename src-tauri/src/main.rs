@@ -24,6 +24,8 @@ Usage:
   codedeck [DIR]       open DIR in a window (default: the current directory);
                        a running CodeDeck opens it in a new window
   codedeck --tray      start in the tray without a window (what the login start runs)
+  codedeck --toggle    CodeDeck to the front, or away when it is in front; bind it to a
+                       key in your desktop's keyboard settings (needed under Wayland)
   codedeck hook        what a coding tool's hooks run; CodeDeck sets this up itself
   codedeck statusline  what a coding tool's status line runs to tell the usage; set up on request
   codedeck --version

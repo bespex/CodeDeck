@@ -192,7 +192,7 @@ export function formatTokens(n: number): string {
  */
 export function NothingAttached({ tool }: { tool: string }) {
   const ways: [LucideIcon, string, string][] = [
-    [Paperclip, t("Files"), t("the paperclip in the file list, or drag them onto Next prompt in the session list")],
+    [Paperclip, t("Files"), t("the paperclip in the file list, or drag them onto Next prompt in the AI session list")],
     [GitCompareArrows, t("Changes"), t("the paperclip at a turn, commit or file in Changes")],
     [MessageSquare, t("Line comments"), t("the speech bubble at a line of a diff")],
     [AtSign, t("Hints"), t("write @ai into a file, then attach it in the Workbench")],

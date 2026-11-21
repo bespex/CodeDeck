@@ -231,8 +231,8 @@ Jeder Schritt einzeln, mit Praxistest, nach „So läuft jeder Schritt“ in `do
 | **S4 Fähigkeiten des Werkzeugs vervollständigen** ✅ (Praxistest offen) | K1 (Teil Werkzeug): `launch`, `background`, `desktop` in `Capabilities`, aus dem Adapter abgeleitet | `harness/mod.rs`, `harness/claude.rs`, `harness/fake.rs`, `backend.ts` | Konformitätstest grün; der Test-Adapter meldet „kein Start“ |
 | **S5 Türen und Aktionen aus dem Backend** ✅ (Praxistest offen) | K2: `Session.doors`, `Session.actions` (Werkzeug × Rechner × Ort × Eigentum); Frontend zeigt nur diese; `enter_session` nutzt dieselbe Entscheidung. Ersetzt die Bedingungen aus S1 im Frontend | `bridge.rs` (oder neu `doors.rs` erweitert), `lib.rs`, `SessionsPanel.tsx`, `OverviewApp.tsx`, `HeaderBar.tsx`, `backend.ts` | Kein Knopf führt zu „geht nicht“; zweites Beispiel-Werkzeug in der Vorschau zeigt nur, was es kann |
 | **S6 Werkzeug je Projekt** ✅ (Praxistest offen) | K6: Start mit dem Werkzeug des Projektkontos; Standardkonto für Werkzeuge ohne Konten; Texte über den Namen (K8) | `lib.rs` (`start_in`), `accounts.rs`, `ActivityView.tsx`, `UsagePanel.tsx`, `i18n.de.ts` | Test: Projekt mit dem Konto des Test-Adapters startet dessen Befehl |
-| **S7 Wayland-Wege** | K5: `codedeck --toggle`; keine Positionierung und kein Fenster-nach-vorn unter Wayland; Hilfe zeigt den Kürzel-Weg; Hinweisdialog unter Wayland beim Start mit „Weiterhin anzeigen“ (Entscheidung 4, Wahl in den Rechner-Einstellungen) | `lib.rs` (`run`), `hub.rs`, `window.rs`, `config.rs`, `Dialogs.tsx` | Auf dem Wayland-Rechner: Hinweis beim ersten Start, nach Abwahl nicht mehr; keine Fehlermeldungen; Kürzel im Desktop gebunden holt CodeDeck nach vorn |
-| **S8 Vertrag und Vorschau** | K7: Konformitätstests für alle Adapter; zweites Beispiel-Werkzeug in `mock.ts`/`backend.ts`; Doku der Schnittstelle (`docs/KONZEPT.md` Abschnitt Adapter, „So kommt ein Werkzeug dazu“) | `harness/*`, `backend.ts`, `docs/KONZEPT.md` | Neue Entwicklerin kann aus der Doku einen Adapter-Rohbau anlegen |
+| **S7 Wayland-Wege** ✅ (Praxistest offen) | K5: `codedeck --toggle`; keine Positionierung und kein Fenster-nach-vorn unter Wayland; Hilfe zeigt den Kürzel-Weg; Hinweisdialog unter Wayland beim Start mit „Weiterhin anzeigen“ (Entscheidung 4, Wahl in den Rechner-Einstellungen) | `lib.rs` (`run`), `hub.rs`, `window.rs`, `config.rs`, `Dialogs.tsx` | Auf dem Wayland-Rechner: Hinweis beim ersten Start, nach Abwahl nicht mehr; keine Fehlermeldungen; Kürzel im Desktop gebunden holt CodeDeck nach vorn |
+| **S8 Vertrag und Vorschau** ✅ | K7: Konformitätstests für alle Adapter; zweites Beispiel-Werkzeug in `mock.ts`/`backend.ts`; Doku der Schnittstelle (`docs/KONZEPT.md` Abschnitt Adapter, „So kommt ein Werkzeug dazu“) | `harness/*`, `backend.ts`, `docs/KONZEPT.md` | Neue Entwicklerin kann aus der Doku einen Adapter-Rohbau anlegen |
 | **S9 Probe OpenCode** (nach S8, gewollt) | Ereignisse, Fortsetzen, Logs, Text in den Prompt prüfen; Ergebnis als Tabelle in diesem Dokument; Entscheidung, ob ein Adapter gebaut wird | `.scratch/` | Tabelle 2.3 mit belegten Antworten |
 
 **Reihenfolge und Begründung:**
@@ -249,7 +249,7 @@ nach jedem Schritt `cargo test`, `tsc` und die Vorschau; am Ende eine Praxistest
 |---|---|---|---|
 | **G1 Rechner** ✅ gebaut 2026-11-20, Praxistest offen | S2, S3 (+ Praxistest S1 vorher) | Beide fragen den Rechner: Terminal, tmux, X11/Wayland; About zeigt das Erkannte | Auf Mint: Terminal-Türen wie bisher; `TERMINAL=kitty` (o. ä.) öffnet dieses; About „Erkannt auf diesem Rechner“ stimmt; ohne tmux (PATH ohne tmux) kein ▶, verständlicher Hinweis |
 | **G2 Werkzeug** ✅ gebaut 2026-11-20, Praxistest offen | S4, S5, S6, dazu das zweite Beispiel-Werkzeug aus S8 | S5 braucht die Fähigkeiten aus S3/S4; das Beispiel-Werkzeug ist der Prüfstein für S5 | Jede Tür und Aktion an Karte, Projektliste, Kontowechsel funktioniert wie vorher; Vorschau mit dem Beispiel-Werkzeug zeigt nichts, was nicht geht; Start nutzt das Werkzeug des Projekts |
-| **G3 Wayland und Vertrag** | S7, Rest von S8 (Konformitätstests, Doku „So kommt ein Werkzeug dazu“) | Abrundung; der Wayland-Teil wird auf einem anderen Rechner geprüft | Auf Mint: nichts schlechter, `codedeck --toggle` geht; auf dem Wayland-Rechner: Hinweisdialog, „Weiterhin anzeigen“ abwählbar, keine Fehlermeldungen, Kürzel im Desktop gebunden |
+| **G3 Wayland und Vertrag** ✅ gebaut 2026-11-20, Praxistest offen | S7, Rest von S8 (Konformitätstests, Doku „So kommt ein Werkzeug dazu“) | Abrundung; der Wayland-Teil wird auf einem anderen Rechner geprüft | Auf Mint: nichts schlechter, `codedeck --toggle` geht; auf dem Wayland-Rechner: Hinweisdialog, „Weiterhin anzeigen“ abwählbar, keine Fehlermeldungen, Kürzel im Desktop gebunden |
 | **G4 OpenCode** | S9, danach ggf. Adapter | Eigene Erprobung auf fertiger Basis | Tabelle 2.3 belegt; Entscheidung über den Adapter |
 
 **Entscheidungen des Nutzers (2026-11-20):**
@@ -259,7 +259,12 @@ nach jedem Schritt `cargo test`, `tsc` und die Vorschau; am Ende eine Praxistest
 3. S9: OpenCode ist das Ziel, sobald die Basis (S1 bis S8) steht: als Erprobung des Konzepts und für Tests.
 4. Neu (S7): Unter Wayland erscheint beim ersten Start ein Hinweisdialog, der die Einschränkungen aus Sicht des
    Nutzers beschreibt (was nicht geht, was stattdessen geht). Er erscheint bei jedem Start wieder, bis der Nutzer
-   „Weiterhin anzeigen“ abwählt.
+   „Weiterhin anzeigen“ abwählt. **Abgelöst 2026-11-20 (Nutzer):** Der Hinweis ist jetzt ein Warnkasten im
+   Willkommensfenster (`welcome.rs`, `Welcome.tsx`), das bei jedem Start mit Fenster erscheint, bis „Beim Start
+   nicht mehr zeigen“ gesetzt ist, und wieder, wenn danach etwas Essenzielles fehlt. Es listet je Programm Name
+   (mit Webseite), Status, Dringlichkeit (essenziell: KI-Werkzeug, git, tmux; hilfreich: Terminal, Fenstersystem,
+   Tray; nice to have: Marq, Dirq, Hyqe, Jayq, Xaq) und als Tooltip, was es für CodeDeck tut; „Erneut prüfen“
+   ermittelt den Rechner neu (`platform::refresh`).
 
 **Umsetzung G1 (2026-11-20):**
 - S2: `terminal.rs` sucht `$TERMINAL`, `xdg-terminal-exec`, `x-terminal-emulator`, dann bekannte Programme (die des
@@ -290,3 +295,16 @@ nach jedem Schritt `cargo test`, `tsc` und die Vorschau; am Ende eine Praxistest
   `mockWays` nach.
 - Geändert: Beim Kontowechsel werden nur noch eigene Sitzungen beendet, die gerade nicht arbeiten (wie an der Karte);
   eine arbeitende läuft mit dem alten Konto zu Ende.
+
+**Umsetzung G3 (2026-11-20):**
+- S7: `codedeck --toggle` (über den Socket an die laufende Instanz, `hub::toggle`; ohne laufende startet CodeDeck mit
+  der Startseite). Unter Wayland: keine Fensterposition (`window::place` setzt nur die Größe, `show` keine alte
+  Stelle), kein X11-Aktivieren (`activate_as_pager`), Icon-Fehler sind keine Fehler. Hilfe (F1) und „Erkannt auf
+  diesem Rechner“ nennen den Befehl zum Binden (`Platform.toggleCommand`, mit Pfad des Programms).
+  Der Hinweisdialog „CodeDeck unter Wayland“ ist inzwischen im Willkommensfenster aufgegangen (Entscheidung 4).
+  Vorschau: `?view=welcome&platform=wayland`.
+- S8: Konformitätstest `translate_gives_every_kind_of_event` über `Harness::samples()` (nur Tests); Doku
+  `docs/KONZEPT.md` 2.8 „So kommt ein Werkzeug dazu“; das Beispiel-Werkzeug der Vorschau kam mit G2.
+- Echt geprüft (xvfb, eigene Konfiguration): zweiter Aufruf mit `--toggle` erreicht die laufende Instanz in 0,2 s,
+  die Startseite erscheint. Auf Wayland nicht geprüft: ob der Compositor CodeDeck dabei wirklich nach vorn lässt
+  (R3); sonst zeigt er nur „möchte Aufmerksamkeit“.

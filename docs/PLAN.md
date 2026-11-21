@@ -383,33 +383,9 @@ Es gibt zwei Nähte:
    fertig. `codedeck hook` ist heute schon so ein Übersetzer für Claude. Für ein anderes Werkzeug kann das
    derselbe Befehl mit anderem Übersetzer sein (`codedeck hook --harness codex`) oder ein fremdes Programm,
    das dieselben Zeilen schickt.
-2. **Hinaus, als Schnittstelle.** Was CodeDeck von sich aus tut, läuft über einen Trait je Werkzeug:
-
-```rust
-// src-tauri/src/harness/mod.rs (Stand nach 1.2; `launch` kommt mit 3.1, `usage` mit 2.4,
-// `accounts` mit dem Schritt, der Konten braucht)
-pub trait Harness {
-    fn id(&self) -> &'static str;                          // "claude"
-    fn name(&self) -> &'static str;                        // "Claude Code", für Texte
-    fn short_name(&self) -> &'static str;                  // "Claude", für Knöpfe
-    fn capabilities(&self) -> Capabilities;
-    fn connections(&self) -> Vec<Connection>;              // je Konfiguration: verbunden?
-    fn connect(&self, account: &str, on: bool) -> Result<(), String>; // Hooks ein-/austragen
-    fn translate(&self, raw: &Value) -> Option<Event>;     // rohe Meldung → neutrales Ereignis
-    fn reply(&self, event: &Event, handed: &[String]) -> Option<String>; // Zustellung der Übergabe
-    fn past_sessions(&self, project: &Path) -> Vec<SessionInfo>; // aus Logs
-    fn read_log(&self, log: &Path) -> Option<SessionInfo>; // ein Log (Titel, Modell, Writes)
-}
-
-pub struct Capabilities {
-    pub live_status: bool,
-    pub before_write: bool,        // Anker vor der Änderung möglich
-    pub handover: Handover,        // WithNextPrompt | Clipboard | None
-    pub start_rules: bool,
-    pub past_sessions: bool,
-    pub usage: bool,
-}
-```
+2. **Hinaus, als Schnittstelle.** Was CodeDeck von sich aus tut, läuft über den Trait `Harness` je Werkzeug
+   (`src-tauri/src/harness/mod.rs`). Stand, Fähigkeiten und Rohbau eines neuen Adapters: `docs/KONZEPT.md` 2.8
+   „So kommt ein Werkzeug dazu“.
 
 **Regeln für die Trennung:**
 

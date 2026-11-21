@@ -4,7 +4,7 @@
 import { useSyncExternalStore } from "react";
 
 export type SettingsSection = "general" | "interface" | "notifications" | "tools";
-export type DialogState = { kind: "settings"; section: SettingsSection } | { kind: "about" } | { kind: "shortcuts" } | null;
+export type DialogState = { kind: "settings"; section: SettingsSection } | { kind: "about" } | { kind: "shortcuts" } | { kind: "windowHelp" } | null;
 
 let current: DialogState = null;
 const listeners = new Set<() => void>();
