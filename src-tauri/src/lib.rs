@@ -11,6 +11,8 @@ mod attention;
 mod bridge;
 mod config;
 mod doors;
+mod filemarks;
+mod fileops;
 mod findings;
 mod git;
 mod harness;
@@ -486,6 +488,45 @@ async fn scratch_twins(window: WebviewWindow) -> Result<Vec<scratch::Twin>, Stri
     })
     .await
     .map_err(|e| e.to_string())
+}
+
+/// What the user marked in this project's file list: hidden, shown again, important.
+#[tauri::command]
+fn file_marks(window: WebviewWindow) -> Result<filemarks::FileMarks, String> {
+    Ok(filemarks::of(&project_of(&window)?.root))
+}
+
+/// Marks a path of the project (`hidden`, `shown`, `important`) or takes the mark off.
+#[tauri::command]
+fn set_file_mark(kind: String, path: String, on: bool, window: WebviewWindow) -> Result<filemarks::FileMarks, String> {
+    filemarks::set(&project_of(&window)?.root, &kind, &path, on)
+}
+
+/// Renames a file or folder of the project in place; its new path.
+#[tauri::command]
+fn path_rename(path: String, name: String, window: WebviewWindow) -> Result<String, String> {
+    fileops::rename(&*project_of(&window)?, &path, &name)
+}
+
+/// Makes an empty file or folder in a folder of the project; its path.
+#[tauri::command]
+fn path_create(dir: String, name: String, folder: bool, window: WebviewWindow) -> Result<String, String> {
+    fileops::create(&*project_of(&window)?, &dir, &name, folder)
+}
+
+/// Moves files or folders of the project to the trash.
+#[tauri::command]
+fn path_trash(paths: Vec<String>, window: WebviewWindow) -> Result<(), String> {
+    fileops::trash(&*project_of(&window)?, &paths)
+}
+
+/// Opens a terminal in a folder of the project (for a file: its folder).
+#[tauri::command]
+fn open_terminal_in(path: String, window: WebviewWindow) -> Result<(), String> {
+    let project = project_of(&window)?;
+    let full = if path.is_empty() { project.root.clone() } else { project.resolve(&path)? };
+    let dir = if full.is_dir() { full } else { full.parent().map(Path::to_path_buf).ok_or("no folder")? };
+    terminal::open_in(&dir)
 }
 
 /// Moves files of the scratch folder to the trash.
@@ -1391,6 +1432,12 @@ pub fn run() {
             scratch_list,
             scratch_trash,
             scratch_twins,
+            file_marks,
+            set_file_mark,
+            path_rename,
+            path_create,
+            path_trash,
+            open_terminal_in,
             scratch_move,
             open_window,
             recent_projects,

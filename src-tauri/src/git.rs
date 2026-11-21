@@ -102,6 +102,9 @@ pub struct RepoStatus {
     ahead: u32,
     pub(crate) behind: u32,
     pub(crate) files: Vec<FileStatus>,
+    /// What git ignores, project-relative; a folder as a whole stands for all in it (the file list
+    /// can show it faded or not at all, docs/DATEISPALTE.md)
+    ignored: Vec<String>,
     /// The status command failed; the rest is empty then
     error: Option<String>,
 }
@@ -241,13 +244,14 @@ impl Git {
             ahead: 0,
             behind: 0,
             files: Vec::new(),
+            ignored: Vec::new(),
             error: None,
         };
         if let (true, out, _) = self.execute_logged(report, repo, &["remote"], &[], Logged::OnFailure) {
             status.remotes = String::from_utf8_lossy(&out).lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect();
         }
         // The status is read every few seconds: only a failure is worth a line in the log
-        match self.execute_logged(report, repo, &["status", "--porcelain=v2", "--branch", "-z"], &[], Logged::OnFailure) {
+        match self.execute_logged(report, repo, &["status", "--porcelain=v2", "--branch", "--ignored", "-z"], &[], Logged::OnFailure) {
             (true, out, _) => parse_status(&out, repo, &mut status),
             (false, _, err) => status.error = Some(String::from_utf8_lossy(&err).trim().to_string()),
         }
@@ -619,10 +623,12 @@ fn parse_status(out: &[u8], repo: &Repo, status: &mut RepoStatus) {
             }
             "u" => (Some("UU"), rest.splitn(11, ' ').nth(10)),
             "?" => (Some("??"), rest.get(1..)),
+            "!" => (Some("!!"), rest.get(1..)),
             _ => continue,
         };
         let (Some(xy), Some(path)) = (xy, path) else { continue };
         let (x, y) = (xy.as_bytes()[0], xy.as_bytes()[1]);
+        let ignored = x == b'!';
         let state = match (x, y) {
             (b'?', _) => "?",
             (b'U', _) | (_, b'U') => "U",
@@ -649,6 +655,10 @@ fn parse_status(out: &[u8], repo: &Repo, status: &mut RepoStatus) {
         } else {
             format!("{}/{path}", repo.path)
         };
+        if ignored {
+            status.ignored.push(path);
+            continue;
+        }
         status.files.push(FileStatus { path, state, staged: x != b'.' && x != b'?', dir });
     }
 }
@@ -671,6 +681,7 @@ mod tests {
             ahead: 0,
             behind: 0,
             files: Vec::new(),
+            ignored: Vec::new(),
             error: None,
         };
         parse_status(out.as_bytes(), repo, &mut status);
@@ -720,6 +731,14 @@ mod tests {
         let s = status_of("? src/\0? other/\0", &repo);
         let files: Vec<_> = s.files.iter().map(|f| (f.path.as_str(), f.dir)).collect();
         assert_eq!(files, [("", true)]);
+    }
+
+    #[test]
+    fn ignored_entries_are_kept_apart_from_the_changes() {
+        let repo = Repo { top: PathBuf::from("/r"), path: "app".into(), prefix: String::new(), worktree_of: None };
+        let s = status_of("1 .M N... 100644 100644 100644 a a src/x.rs\0! node_modules/\0! debug.log\0", &repo);
+        assert_eq!(s.files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(), ["app/src/x.rs"]);
+        assert_eq!(s.ignored, ["app/node_modules", "app/debug.log"]);
     }
 
     #[test]

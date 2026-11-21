@@ -140,6 +140,15 @@ pub fn open(argv: &[&str]) -> Result<(), String> {
     crate::apps::detach(terminal.command(argv)).map_err(|e| format!("{} could not be started: {e}", terminal.name()))
 }
 
+/// Opens a terminal with the user's shell in `dir` (the file list's "Path → Open in terminal").
+pub fn open_in(dir: &Path) -> Result<(), String> {
+    let terminal = crate::platform::get().terminal.as_ref().ok_or("no terminal program was found on this computer")?;
+    let shell = std::env::var("SHELL").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "/bin/sh".into());
+    let mut command = terminal.command(&[&shell]);
+    command.current_dir(dir);
+    crate::apps::detach(command).map_err(|e| format!("{} could not be started: {e}", terminal.name()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
