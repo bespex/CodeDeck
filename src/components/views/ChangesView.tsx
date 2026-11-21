@@ -32,6 +32,7 @@ import { stateColor } from "../FilesPanel";
 import { Tooltip, TooltipHint } from "../Tooltip";
 import { AttachChange, AttachedAtRest, Commands, DiffBody, FileTools, inUntrackedDir, LineCounts, useDirq, Viewed, ChangedSinceViewed, You, type Working } from "./DiffParts";
 import { StructureTree } from "./StructureTree";
+import { NoRepository } from "../GitInit";
 import { known, snapshotLabel, t } from "../../i18n";
 
 /** Diffs longer than this open collapsed. */
@@ -225,7 +226,7 @@ export function ChangesView(props: Props) {
     title = turns.length > 0 ? <Scopes turns={turns} scope={null} onScope={setScope} repos={git.repos} /> : t("Uncommitted changes");
     body =
       git.repos.length === 0 ? (
-        <Empty>{t("No Git repository in this project.")}</Empty>
+        <NoRepository git={git} tool={mainHarness(props.assistant).shortName} />
       ) : dirty.length === 0 ? (
         <Empty>
           {t("Nothing uncommitted: every file is as in its last commit.")}

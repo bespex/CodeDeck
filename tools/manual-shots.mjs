@@ -34,12 +34,8 @@ const chapters = {
     "deine-projekte": { url: `${base}?view=welcome`, steps: [german, "wait:2500", "size:720x820", "text:Erzähl mir mehr", "wait:800"] },
     "coding-agents": { url: base, steps: settings("Coding-Agents"), crop: "760x520+370+190" },
     "leere-liste": { url: `${base}?view=overview&projects=none`, steps: [german, "wait:2500", "size:440x420"], crop: "440x330+0+0" },
-    // The bell of a project without a repository, scrolled to its offer of git init
-    "git-init": {
-      url: `${base}?git=none`,
-      steps: [german, "wait:3000", "size:1800x1000", 'click:[title="Hinweise und Tipps"]', "wait:800", `eval:[...document.querySelectorAll("*")].find((e) => !e.children.length && e.textContent.trim() === "Dieser Ordner hat kein Git-Repository").scrollIntoView({ block: "center" })`, "wait:400"],
-      crop: "360x256+1381+740",
-    },
+    // A project without a repository opens in Changes, which offers git init
+    "git-init": { url: `${base}?git=none`, steps: [german, "wait:3000"], crop: "470x240+832+100" },
   },
   projektfenster: {
     bereiche: { url: base, steps: wide, marks: [[150, 720, "1"], [525, 730, "2"], [700, 905, "3"], [1090, 975, "4"], [1418, 760, "5"], [1600, 600, "6"]] },

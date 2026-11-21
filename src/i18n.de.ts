@@ -178,7 +178,6 @@ export const de: Record<string, string> = {
   "Between": "Zwischen",
   "That repository is no longer in the project.": "Dieses Repo gehört nicht mehr zum Projekt.",
   "Uncommitted changes": "Nicht committete Änderungen",
-  "No Git repository in this project.": "Kein Git-Repo in diesem Projekt.",
   "Nothing uncommitted: every file is as in its last commit.": "Nichts offen: Jede Datei ist wie in ihrem letzten Commit.",
   "Pick a point on the trail to see what a commit changed.": "Wähle einen Punkt im Trail, um zu sehen, was ein Commit geändert hat.",
   "Which changes to show": "Welche Änderungen gezeigt werden",

@@ -7,7 +7,7 @@ import { noticesOf, useJournal } from "../timeline";
 import { useFold } from "./blocks";
 import type { ViewId } from "../view";
 import type { GitView } from "../git";
-import { GitInitButton, lacksGit } from "./GitInit";
+import { GitInitButton, lacksGit, WhyGit } from "./GitInit";
 import { usePlatform } from "../platform";
 import { PlatformFacts, platformFacts } from "./PlatformFacts";
 
@@ -144,8 +144,7 @@ export function NoticesPanel({ assistant, git, view, onClose }: { assistant: Ass
         <div className="flex flex-col gap-1.5">
           <Heading>{t("This folder has no git repository")}</Heading>
           <div className="flex flex-col gap-2 rounded-md bg-panel px-2.5 py-2">
-            <span>{t("With a local repository (no server, no account) CodeDeck can keep a snapshot before {tool} writes, show what changed in each turn and go back to any earlier state.", { tool })}</span>
-            <span className="text-slate-400">{t("Without one, none of that is possible: the trail, the changes per turn and Go back stay empty.")}</span>
+            <WhyGit tool={tool} />
             <GitInitButton git={git} className="flex items-center gap-1.5 self-start rounded-md bg-raised px-2 py-1 font-medium text-slate-100 hover:bg-overlay-hover" />
           </div>
         </div>
