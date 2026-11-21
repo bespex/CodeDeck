@@ -577,8 +577,9 @@ const hiddenWhy = (why: ReturnType<typeof hiddenBy>) =>
   why === "git" ? t("Hidden: git ignores it") : why === "default" ? t("Hidden in every project (Settings)") : t("Hidden by you");
 
 /**
- * Everything one can do with a file or folder, in groups: open, then what it is to CodeDeck
- * (attached, important, hidden), then where it lies (path, name, trash). The right mouse button and ⋯.
+ * Everything one can do with a file or folder, in groups: where it lies (path, name, trash), opening
+ * a file, what it is to CodeDeck (attached, important, hidden), for a folder something new in it and
+ * opening it as a project. The right mouse button and ⋯.
  */
 function entryMenu(entry: Entry, tree: TreeState): MenuItem[] {
   const path = entry.path;
@@ -588,60 +589,11 @@ function entryMenu(entry: Entry, tree: TreeState): MenuItem[] {
   const important = isImportant(path, tree.marks);
   const pinned = tree.pinned.has(path);
   const state = tree.git.stateOf(path);
-  const items: MenuItem[] = [];
-  if (!entry.isDir) {
-    const [view, edit, viewWith, editWith] = pathItems(path, false);
-    items.push({ ...view, hint: t("double-click") }, { ...edit, hint: t("middle click") }, viewWith, editWith);
-    if (state && state !== "D") {
-      items.push({
-        icon: FileDiff,
-        label: t("Show the change"),
-        hint: t("in Changes"),
-        run: () => {
-          tree.onSelect(path);
-          openView("changes");
-        },
-      });
-    }
-  } else if (tree.project) {
-    const open = (newWindow: boolean) => void tree.onOpenProject(absolute, newWindow).catch(() => {});
-    items.push(
-      { icon: FolderInput, label: t("Open as project"), run: () => open(false) },
-      { icon: AppWindow, label: t("Open as project in a new window"), run: () => open(true) },
-      {
-        icon: FilePlus,
-        label: t("New file…"),
-        divider: true,
-        run: () => {
-          tree.openDir(path);
-          tree.setEditing({ kind: "create", dir: path, folder: false });
-        },
-      },
-      {
-        icon: FolderPlus,
-        label: t("New folder…"),
-        run: () => {
-          tree.openDir(path);
-          tree.setEditing({ kind: "create", dir: path, folder: true });
-        },
-      },
-    );
-  }
-  items.push(
-    {
-      icon: Paperclip,
-      label: pinned ? t("Remove from next prompt") : t("Attach to next prompt"),
-      divider: true,
-      run: () => (pinned ? tree.onUnpin(path) : tree.onPin(entry)),
-    },
-    { icon: Highlighter, label: important ? t("Remove the important mark") : t("Mark as important"), run: () => tree.setMark("important", path, !important) },
-    why
-      ? { icon: Eye, label: t("Show again"), hint: hiddenWhy(why), run: () => (why === "mark" ? tree.setMark("hidden", path, false) : tree.setMark("shown", path, true)) }
-      : { icon: EyeOff, label: t("Hide"), run: () => tree.setMark("hidden", path, true) },
+  // Where it lies: path, name, trash; first for a folder, after opening for a file (user, 2026-11-21)
+  const place: MenuItem[] = [
     {
       icon: FolderSearch,
       label: t("Path"),
-      divider: true,
       run: () => {},
       more: async () => ({
         title: path || absolute,
@@ -675,7 +627,63 @@ function entryMenu(entry: Entry, tree: TreeState): MenuItem[] {
           }),
         }
       : { icon: Trash2, label: t("Move to trash"), hint: t("can be brought back"), run: () => void pathTrash([path]).catch(report) },
+  ];
+  // A file: opening it comes first
+  const items: MenuItem[] = [];
+  if (!entry.isDir) {
+    const [view, edit, viewWith, editWith] = pathItems(path, false);
+    items.push({ ...view, hint: t("double-click") }, { ...edit, hint: t("middle click") }, viewWith, editWith);
+    if (state && state !== "D") {
+      items.push({
+        icon: FileDiff,
+        label: t("Show the change"),
+        hint: t("in Changes"),
+        run: () => {
+          tree.onSelect(path);
+          openView("changes");
+        },
+      });
+    }
+  }
+  items.push(...place.map((item, i) => (i === 0 ? { ...item, divider: true } : item)));
+  // What it is to CodeDeck
+  items.push(
+    {
+      icon: Paperclip,
+      label: pinned ? t("Remove from next prompt") : t("Attach to next prompt"),
+      divider: true,
+      run: () => (pinned ? tree.onUnpin(path) : tree.onPin(entry)),
+    },
+    { icon: Highlighter, label: important ? t("Remove the important mark") : t("Mark as important"), run: () => tree.setMark("important", path, !important) },
+    why
+      ? { icon: Eye, label: t("Show again"), hint: hiddenWhy(why), run: () => (why === "mark" ? tree.setMark("hidden", path, false) : tree.setMark("shown", path, true)) }
+      : { icon: EyeOff, label: t("Hide"), run: () => tree.setMark("hidden", path, true) },
   );
+  // A folder: something new in it, then as a project of its own, at the end
+  if (entry.isDir && tree.project) {
+    const open = (newWindow: boolean) => void tree.onOpenProject(absolute, newWindow).catch(() => {});
+    items.push(
+      {
+        icon: FilePlus,
+        label: t("New file…"),
+        divider: true,
+        run: () => {
+          tree.openDir(path);
+          tree.setEditing({ kind: "create", dir: path, folder: false });
+        },
+      },
+      {
+        icon: FolderPlus,
+        label: t("New folder…"),
+        run: () => {
+          tree.openDir(path);
+          tree.setEditing({ kind: "create", dir: path, folder: true });
+        },
+      },
+      { icon: FolderInput, label: t("Open as project"), divider: true, run: () => open(false) },
+      { icon: AppWindow, label: t("Open as project in a new window"), run: () => open(true) },
+    );
+  }
   return items;
 }
 
