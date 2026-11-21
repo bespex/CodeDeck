@@ -81,10 +81,13 @@ const chapters = {
     },
   },
   werkbank: {
-    reiter: { url: base, steps: [german, "wait:3000", "text:Werkbank", "wait:1000"], crop: "760x840+676+0" },
+    ausserhalb: { url: base, steps: [german, "wait:3000", "text:Werkbank", "wait:1000"], crop: "736x308+675+0" },
+    hinweise: { url: base, steps: [german, "wait:3000", "text:Werkbank", "wait:1000"], crop: "736x202+675+308" },
+    scratch: { url: base, steps: [german, "wait:3000", "text:Werkbank", "wait:1000"], crop: "736x265+675+510" },
   },
   "naechster-prompt": {
-    reiter: { url: base, steps: [german, "wait:3000", "text:Nächster Prompt", "wait:1000"], crop: "760x600+676+0" },
+    liste: { url: base, steps: [german, "wait:3000", "text:Nächster Prompt", "wait:1000"], crop: "736x350+675+0" },
+    startregeln: { url: base, steps: [german, "wait:3000", "text:Nächster Prompt", "wait:1000"], crop: "736x262+675+350" },
     // The choice of who gets the attachments, open
     fuer: {
       url: base,
@@ -95,7 +98,11 @@ const chapters = {
     zusammenfassung: { url: base, steps: [german, "wait:3000"], crop: "375x150+300+748" },
   },
   aktivitaet: {
-    reiter: { url: base, steps: [german, "wait:3000", "text:Aktivität", "wait:1000"], crop: "735x840+676+0" },
+    // One picture per section, each shown where the text explains it (user, 2026-11-21)
+    zeitleiste: { url: base, steps: [german, "wait:3000", "text:Aktivität", "wait:1000"], crop: "736x264+675+0" },
+    sicherheit: { url: base, steps: [german, "wait:3000", "text:Aktivität", "wait:1000"], crop: "736x169+675+264" },
+    verbrauch: { url: base, steps: [german, "wait:3000", "text:Aktivität", "wait:1000"], crop: "736x269+675+433" },
+    dokumente: { url: base, steps: [german, "wait:3000", "text:Aktivität", "wait:1000"], crop: "736x146+675+702" },
     glocke: { url: base, steps: [german, "wait:3000", "text:Aktivität", "wait:800", 'click:[title="Hinweise und Tipps"]', "wait:600"], crop: "380x620+1076+0" },
   },
   projektfenster: {
