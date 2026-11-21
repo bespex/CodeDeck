@@ -124,10 +124,21 @@ fn qiew_app(path: &Path) -> Option<gio::AppInfo> {
 }
 
 /// The program of a be spex viewer, if the app is one: it is started with the options then.
-fn qiew_program(app: &gio::AppInfo) -> Option<std::path::PathBuf> {
+/// Also its name, for the options only one viewer understands.
+fn qiew_program(app: &gio::AppInfo) -> Option<(&'static str, std::path::PathBuf)> {
     let id = app.id()?;
     let (program, ..) = QIEW.iter().find(|(_, desktop, _)| *desktop == id.as_str())?;
-    viewer(program)
+    Some((program, viewer(program)?))
+}
+
+/// The options a be spex viewer gets beyond `how`: Marq may write comments on the blocks of a
+/// project file (`<!-- @ai: … -->`, `--annotate`, for this file only); CodeDeck finds the `@ai`
+/// ones as hints (`markers.rs`). Text shown from standard input never gets it (`pipe_to`).
+fn own_options(program: &str) -> &'static [&'static str] {
+    match program {
+        "marq" => &["--annotate"],
+        _ => &[],
+    }
 }
 
 /// How a viewer of be spex opens a file: one window reused while stepping through files, at a
@@ -204,9 +215,9 @@ pub fn open(path: &Path, role: Role, how: &Launch) -> Result<bool, String> {
         .or_else(|| if role == Role::View { qiew_app(path) } else { None })
         .or_else(|| system_default(&mime_of(path)));
     let Some(app) = app else { return Ok(false) };
-    if let Some(program) = qiew_program(&app) {
+    if let Some((name, program)) = qiew_program(&app) {
         let mut command = std::process::Command::new(program);
-        command.arg(path).arg("--reuse");
+        command.arg(path).arg("--reuse").args(own_options(name));
         if let Some(line) = how.line {
             command.args(["--line", &line.to_string()]);
         }
@@ -306,6 +317,14 @@ fn pipe_to(viewer: &Path, text: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_marq_may_annotate_and_only_the_file_opened() {
+        assert_eq!(own_options("marq"), ["--annotate"]);
+        for other in ["jayq", "xaq", "hyqe", "cusq", "dirq", "maiqe", "trisq"] {
+            assert!(own_options(other).is_empty(), "{other}");
+        }
+    }
 
     #[test]
     fn a_detached_program_is_tied_to_nothing() {

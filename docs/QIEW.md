@@ -16,6 +16,14 @@ Qiew `crates/frame/src/launch.rs`); alles Zusätzliche wirkt nur, wenn CodeDeck 
   Runde Runde, Session, Prompt und Schlussworte; bei einem Commit dessen Betreff, Autor, Datum, Nachricht; bei einem
   Snapshot, beim nicht Committeten und beim Vergleich, was es ist.
 - **Rechner-Check:** alle acht Betrachter mit ihrem Zweck für CodeDeck.
+- **Kommentare in Marq (`--annotate`):** Öffnet CodeDeck eine Datei in Marq, gibt es `--annotate` mit (`apps.rs`
+  `own_options`); Marq darf dann Kommentare an Blöcke dieser Datei schreiben (`<!-- @ai: … -->`, `@me`, `@you`;
+  Qiew `apps/marq/IDEEN.md`). „In Marq lesen“ (Standardeingabe) bleibt ohne. Ein älteres Marq übergeht den Schalter.
+  Die `@ai`-Kommentare sind gewöhnliche Hinweise (D18, `markers.rs`); in Markdown zählen dafür auch die Formen, die
+  Marq in Listeneinträgen und Zitaten schreibt (`- <!-- @ai: … -->`, `> <!-- @ai: … -->`), und ein Kommentar über
+  mehrere Zeilen kommt mit seinem ganzen Text. Abgehakte (`@ai#erledigt`) sind keine Hinweise. Der Auftrag an die KI
+  sagt, dass ein solcher Kommentar dem folgenden Block gilt und danach entfernt wird (Nutzer, 2026-11-21: nicht
+  abhaken, das ließe Unnützes im Text).
 
 ## Geplant
 

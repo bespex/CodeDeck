@@ -18,6 +18,7 @@ export function markerTask(markers: Marker[]): string {
   const lines = markers.map((m) => `- ${m.path}:${m.line}: ${m.text}`);
   return [
     "Work in these comments that I left for you in files of this project (lines beginning with `@ai`, or with a comment that begins with it).",
+    "In Markdown, a comment like `<!-- @ai: … -->` on a line of its own is about the block that follows it (a paragraph, a list item, a table …).",
     "Change the text around each one as it asks, then remove the comment. Leave a comment in place if you are unsure, and tell me why.",
     "",
     ...lines,
