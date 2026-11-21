@@ -11,7 +11,9 @@ import {
   TextSelect,
   X,
   type LucideIcon,
+  LocateFixed,
 } from "lucide-react";
+import { revealInTree } from "../fileView";
 import { files, pinDetail, type Pin } from "../files";
 import { changes } from "../changes";
 import { notes, removeNote } from "../notes";
@@ -47,6 +49,7 @@ export function AttachmentSections() {
                 </>
               }
               aside={t("≈ {tokens} tokens", { tokens: formatTokens(pin.tokens) })}
+              reveal={pin.kind === "snippet" ? undefined : pin.id}
               onRemove={() => files.remove([pin.id])}
             />
           ))}
@@ -159,7 +162,7 @@ function Kind(props: { title: string; count: number; onClear: () => void; source
   );
 }
 
-function Item(props: { icon: typeof File; name: string; title: ReactNode; detail: ReactNode; aside?: ReactNode; onRemove: () => void }) {
+function Item(props: { icon: typeof File; name: string; title: ReactNode; detail: ReactNode; aside?: ReactNode; reveal?: string; onRemove: () => void }) {
   const Icon = props.icon;
   return (
     <Row className="min-h-12 gap-3 py-2">
@@ -169,6 +172,17 @@ function Item(props: { icon: typeof File; name: string; title: ReactNode; detail
         <span className="truncate text-[12px] text-slate-500">{props.detail}</span>
       </div>
       {props.aside && <span className="shrink-0 text-[12px] text-slate-500 tabular-nums">{props.aside}</span>}
+      {props.reveal !== undefined && (
+        <button
+          type="button"
+          aria-label={t("Show in tree")}
+          title={t("Show in tree")}
+          onClick={() => revealInTree(props.reveal!)}
+          className="shrink-0 rounded p-1 text-slate-500 opacity-0 group-hover:opacity-100 hover:bg-raised hover:text-slate-100 focus-visible:opacity-100"
+        >
+          <LocateFixed className="size-4" />
+        </button>
+      )}
       <button
         type="button"
         aria-label={t("Remove {name} from the next prompt", { name: props.name })}

@@ -9,7 +9,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 pub const LABEL: &str = "settings";
 
 /// The areas of the settings, as the interface names them (`SettingsSection` in src/dialogs.ts).
-const SECTIONS: &[&str] = &["general", "interface", "notifications", "tools"];
+const SECTIONS: &[&str] = &["general", "interface", "notifications", "files", "tools"];
 
 /// The windows this module opens: label (also the `view` of the page), size, title in English and German.
 const PANELS: &[(&str, f64, f64, &str, &str)] = &[

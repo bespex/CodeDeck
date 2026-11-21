@@ -80,6 +80,8 @@ export interface RepoStatus {
   ahead: number;
   behind: number;
   files: FileStatus[];
+  /** What git ignores, project-relative; a folder stands for all in it */
+  ignored: string[];
   error: string | null;
 }
 
@@ -294,6 +296,65 @@ export function scratchList(): Promise<WorkFile[]> {
   return Promise.resolve([...mockScratch]);
 }
 
+/** What the user marked in the project's file list (`filemarks.rs`). */
+export interface FileMarks {
+  hidden: string[];
+  /** Hidden by default (the scratch folder, the list in the settings) and shown again */
+  shown: string[];
+  important: string[];
+}
+
+let mockMarks: FileMarks = { hidden: [], shown: [], important: ["docs"] };
+
+export function fileMarks(): Promise<FileMarks> {
+  if (live) return invoke("file_marks");
+  return Promise.resolve(mockMarks);
+}
+
+/** Marks a path (`hidden`, `shown`, `important`) or takes the mark off; the marks afterwards. */
+export function setFileMark(kind: "hidden" | "shown" | "important", path: string, on: boolean): Promise<FileMarks> {
+  if (live) return invoke("set_file_mark", { kind, path, on });
+  const without = (list: string[]) => list.filter((p) => p !== path);
+  const add = (list: string[]) => (on ? [...list, path].sort() : list);
+  let { hidden, shown, important } = mockMarks;
+  if (kind === "important") important = add(without(important));
+  else {
+    // Hiding takes it off the shown again, and the other way round
+    hidden = without(hidden);
+    shown = without(shown);
+    if (kind === "hidden") hidden = add(hidden);
+    else shown = add(shown);
+  }
+  mockMarks = { hidden, shown, important };
+  return Promise.resolve(mockMarks);
+}
+
+/** Renames a file or folder in place; its new project-relative path. */
+export function pathRename(path: string, name: string): Promise<string> {
+  if (live) return invoke("path_rename", { path, name });
+  return Promise.resolve(path.includes("/") ? `${path.slice(0, path.lastIndexOf("/"))}/${name}` : name);
+}
+
+/** Makes an empty file or folder in `dir` (`""`: the top); its path. */
+export function pathCreate(dir: string, name: string, folder: boolean): Promise<string> {
+  if (live) return invoke("path_create", { dir, name, folder });
+  return Promise.resolve(dir ? `${dir}/${name}` : name);
+}
+
+/** Moves files or folders of the project to the trash. */
+export function pathTrash(paths: string[]): Promise<void> {
+  if (live) return invoke("path_trash", { paths });
+  console.info("trash", paths);
+  return Promise.resolve();
+}
+
+/** Opens a terminal in a folder of the project (for a file: its folder). */
+export function openTerminalIn(path: string): Promise<void> {
+  if (live) return invoke("open_terminal_in", { path });
+  console.info("terminal in", path);
+  return Promise.resolve();
+}
+
 /** A scratch file whose content lies in the project as well (`scratch.rs` `twins`). */
 export interface Twin {
   scratch: string;
@@ -377,6 +438,7 @@ export function gitStatus(rescan: boolean): Promise<RepoStatus[]> {
     ahead: changed.length ? 1 : 0,
     behind: 0,
     files: changed.map((p) => ({ path: `${path}/${p}`, state: "M", staged: false, dir: false })),
+    ignored: path ? [] : ["target", "Cargo.lock"],
     error: null,
   });
   return Promise.resolve([

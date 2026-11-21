@@ -56,6 +56,28 @@ export interface Markers {
   done: Set<string>;
 }
 
+// The files with hints, from the last search of any view: the file list marks them without
+// searching again (each search is a git grep in the log)
+let hintFiles = new Map<string, number>();
+const hintListeners = new Set<(files: Map<string, number>) => void>();
+function publishHints(found: Marker[]) {
+  const files = new Map<string, number>();
+  for (const m of found) files.set(m.path, (files.get(m.path) ?? 0) + 1);
+  hintFiles = files;
+  hintListeners.forEach((l) => l(files));
+}
+
+/** Project-relative path → number of @ai hints in it, as the Workbench last found them. */
+export function useHintFiles(): Map<string, number> {
+  const [files, setFiles] = useState(hintFiles);
+  useEffect(() => {
+    hintListeners.add(setFiles);
+    setFiles(hintFiles);
+    return () => void hintListeners.delete(setFiles);
+  }, []);
+  return files;
+}
+
 export function useMarkers(): Markers {
   const [found, setFound] = useState<Marker[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +87,7 @@ export function useMarkers(): Markers {
     let timer: ReturnType<typeof setTimeout>;
     const load = () =>
       findMarkers()
-        .then((m) => (setFound(m), setError(null)))
+        .then((m) => (setFound(m), setError(null), publishHints(m)))
         .catch((e) => setError(String(e)));
     load();
     const stop = onFsChanged(() => {

@@ -7,7 +7,7 @@
 //   Document  the subject itself (a diff, a timeline, the attachments' text): the one framed element
 //   Decision  something you have to decide: lighter, with a shadow, there only when needed
 
-import { useState, type ReactNode } from "react";
+import { useState, type ReactNode, type MouseEvent as ReactMouseEvent } from "react";
 import { ChevronDown, ChevronRight, CircleHelp } from "lucide-react";
 import { Tooltip } from "./Tooltip";
 import { plural, t } from "../i18n";
@@ -107,9 +107,9 @@ export function Rows({ children }: { children: ReactNode }) {
   return <ul className="divide-y divide-line/70 border-y border-line/70">{children}</ul>;
 }
 
-export function Row(props: { selected?: boolean; className?: string; children: ReactNode }) {
+export function Row(props: { selected?: boolean; className?: string; children: ReactNode; onContextMenu?: (e: ReactMouseEvent) => void }) {
   return (
-    <li className={`group flex min-h-8 items-center gap-2 px-1 py-1 ${props.selected ? "bg-raised" : ""} ${props.className ?? ""}`}>
+    <li onContextMenu={props.onContextMenu} className={`group flex min-h-8 items-center gap-2 px-1 py-1 ${props.selected ? "bg-raised" : ""} ${props.className ?? ""}`}>
       {props.children}
     </li>
   );

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from "react";
 import {
   Braces,
   ChevronDown,
@@ -20,13 +20,33 @@ import {
   Settings2,
   FolderTree,
   PanelRightClose,
+  AppWindow,
+  Copy,
+  Ellipsis,
+  EyeOff,
+  FileDiff,
+  FilePlus,
+  FolderPlus,
+  Highlighter,
+  Pencil,
+  Settings,
+  SlidersHorizontal,
+  SquareTerminal,
+  Trash2,
 } from "lucide-react";
-import { onFsChanged, openPath, readDir, showInFileManager, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
+import { onFsChanged, openPath, openSettings, openTerminalIn, pathCreate, pathRename, pathStats, pathTrash, readDir, showInFileManager, tokensFor, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
+import { hiddenBy, isImportant, onReveal, under, useFileMarks, useFileSettings, type FileSettings } from "../fileView";
+import type { FileMarks } from "../backend";
+import { useHintFiles } from "../markers";
+import { openView } from "../view";
+import { usePopover } from "./ProjectHeader";
+import { Heading, Panel } from "./HeaderBar";
+import { size } from "./views/units";
 import type { AssistantState, GitState } from "../backend";
 import { aheadBehind, stateMeaning, stateSymbol, type GitView } from "../git";
 import { Tooltip } from "./Tooltip";
-import { AtRest, HoverTools, Tool, ToolGap } from "./RowTools";
-import { pathItems, useContextMenu } from "./ContextMenu";
+import { AtRest, HoverTools, Tool } from "./RowTools";
+import { pathItems, useContextMenu, type MenuItem } from "./ContextMenu";
 import { AppName, openAs } from "../apps";
 import { useSessionMarks } from "../assistant";
 import { RepoTooltip } from "./RepoTooltip";
@@ -147,14 +167,67 @@ export function FilesPanel(props: Props) {
     if (!loaded.current.has(dir)) load(dir);
   };
 
+  const [fileSettings, changeFileSettings] = useFileSettings();
+  const [marks, setMark] = useFileMarks(props.project?.path);
+  const hints = useHintFiles();
+  const ignored = useMemo(() => props.git.repos.flatMap((r) => r.ignored ?? []), [props.git.repos]);
+  // Deleted and not committed: no longer on disk, still worth a grey line where they were
+  const deleted = useMemo(() => props.git.repos.flatMap((r) => r.files.filter((f) => f.state === "D" && !f.dir).map((f) => f.path)), [props.git.repos]);
+  const [editing, setEditing] = useState<Editing | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+
+  // "Show in tree" from anywhere: the list opens, the folders on the way too, the entry lights up
+  const fold = props.onFold;
+  useEffect(
+    () =>
+      onReveal((path) => {
+        fold(false);
+        const parts = path.split("/");
+        const dirs = parts.slice(0, -1).map((_, i) => parts.slice(0, i + 1).join("/"));
+        setOpen((current) => new Set([...current, ...dirs]));
+        dirs.forEach((dir) => !loaded.current.has(dir) && void load(dir));
+        setFlash(path);
+        setTimeout(() => document.querySelector(`[data-tree-path="${CSS.escape(path)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 350);
+        setTimeout(() => setFlash((f) => (f === path ? null : f)), 2600);
+      }),
+    [load, fold, setOpen],
+  );
+
   const needle = query.trim().toLowerCase();
-  // Changed on disk recently, or written by an assistant recently
+  // Changed on disk recently, or written by an assistant recently; with "keep the dots" every file
+  // a session wrote that is still uncommitted
   const since = Date.now() - RECENT_MS;
   const recentPaths = [
-    ...new Set([...Object.keys(recent), ...[...props.touched].filter(([, at]) => at > since).map(([path]) => path)]),
+    ...new Set([
+      ...Object.keys(recent),
+      ...[...props.touched].filter(([path, at]) => at > since || (fileSettings.keepDots && props.git.stateOf(path))).map(([path]) => path),
+    ]),
   ];
   const contextMenu = useContextMenu();
-  const tree: TreeState = { ...props, listings, open, recentPaths, needle, toggle, menu: contextMenu.open };
+  const tree: TreeState = {
+    ...props,
+    listings,
+    open,
+    recentPaths,
+    needle,
+    toggle,
+    menu: contextMenu.open,
+    fileSettings,
+    marks,
+    setMark,
+    hints,
+    ignored,
+    deleted,
+    editing,
+    setEditing,
+    flash,
+    fail: setProblem,
+    reload: (dir: string) => void load(dir),
+    openDir: (dir: string) => {
+      if (!open.has(dir) && dir) toggle(dir);
+    },
+  };
   const [rootDrop, setRootDrop] = useState(false);
 
   if (props.folded)
@@ -179,6 +252,7 @@ export function FilesPanel(props: Props) {
         <span className="flex min-w-0 flex-1 justify-center">
           <BranchButton git={props.git} onRepoActions={props.onRepoActions} />
         </span>
+        <FileQuickSettings settings={fileSettings} onChange={changeFileSettings} />
         <button
           type="button"
           aria-label={t("Fold the file list")}
@@ -220,6 +294,14 @@ export function FilesPanel(props: Props) {
           void moveIntoProject(e.dataTransfer.getData(SCRATCH_DRAG), "");
         }}
       >
+        {problem && (
+          <p className="selectable mx-1 mb-1 flex items-start gap-2 rounded-md bg-problem/10 px-2 py-1 text-[12px] text-problem">
+            <span className="flex-1">{problem}</span>
+            <button type="button" aria-label={t("Close")} onClick={() => setProblem(null)} className="text-slate-400 hover:text-slate-100">
+              ×
+            </button>
+          </p>
+        )}
         {error ? (
           <p className="selectable px-2 text-problem">{error}</p>
         ) : (
@@ -233,6 +315,9 @@ export function FilesPanel(props: Props) {
   );
 }
 
+/** A name being typed in the tree: a new one for a file or folder, or a new file or folder. */
+type Editing = { kind: "rename"; path: string } | { kind: "create"; dir: string; folder: boolean };
+
 interface TreeState extends Props {
   listings: Listings;
   open: Set<string>;
@@ -241,6 +326,20 @@ interface TreeState extends Props {
   needle: string;
   toggle: (dir: string) => void;
   menu: ReturnType<typeof useContextMenu>["open"];
+  fileSettings: FileSettings;
+  marks: FileMarks;
+  setMark: (kind: "hidden" | "shown" | "important", path: string, on: boolean) => void;
+  /** Path → number of @ai hints */
+  hints: Map<string, number>;
+  ignored: string[];
+  deleted: string[];
+  editing: Editing | null;
+  setEditing: (editing: Editing | null) => void;
+  /** Just shown by "Show in tree": lights up, and shows even when hidden */
+  flash: string | null;
+  fail: (message: string) => void;
+  reload: (dir: string) => void;
+  openDir: (dir: string) => void;
 }
 
 /** With a filter: files that match, and folders with a match somewhere in what is loaded. */
@@ -260,10 +359,27 @@ function Rows({ dir, depth, tree }: { dir: string; depth: number; tree: TreeStat
       </div>
     );
   }
-  return entries
-    .filter((entry) => matches(entry, tree))
-    .map((entry) => <Row key={entry.path} entry={entry} depth={depth} tree={tree} />);
+  const parentOf = (path: string) => (path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
+  const ghosts = tree.needle ? [] : tree.deleted.filter((path) => parentOf(path) === dir && !entries.some((e) => e.path === path));
+  const creating = tree.editing?.kind === "create" && tree.editing.dir === dir ? tree.editing : null;
+  return (
+    <>
+      {creating && <NewRow dir={dir} folder={creating.folder} depth={depth} tree={tree} />}
+      {entries
+        .filter((entry) => matches(entry, tree))
+        // Hidden and set to "do not show": gone, unless "Show in tree" asks for it or something in it
+        .filter((entry) => !(tree.fileSettings.look === "hide" && hiddenOf(entry.path, tree) && !(tree.flash && under(tree.flash, entry.path))))
+        .map((entry) => (
+          <Row key={entry.path} entry={entry} depth={depth} tree={tree} />
+        ))}
+      {ghosts.map((path) => (
+        <GhostRow key={path} path={path} depth={depth} tree={tree} />
+      ))}
+    </>
+  );
 }
+
+const hiddenOf = (path: string, tree: TreeState) => hiddenBy(path, tree.fileSettings, tree.marks, tree.ignored);
 
 function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeState }) {
   const marks = useSessionMarks();
@@ -291,6 +407,11 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
     clearTimeout(opening.current);
     setDropping(false);
   };
+  const hidden = hiddenOf(entry.path, tree);
+  const important = isImportant(entry.path, tree.marks);
+  const flashing = tree.flash === entry.path;
+  const renaming = tree.editing?.kind === "rename" && tree.editing.path === entry.path;
+  const hintCount = tree.fileSettings.hints && !entry.isDir ? (tree.hints.get(entry.path) ?? 0) : 0;
 
   return (
     <>
@@ -327,12 +448,27 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
         // Middle button: edit. Its press would otherwise start the scrolling mode
         onMouseDown={(e) => e.button === 1 && !entry.isDir && e.preventDefault()}
         onAuxClick={(e) => e.button === 1 && !entry.isDir && openAs(entry.path, "edit")}
-        onContextMenu={(e) => tree.menu(e, entry.path || entry.name, pathItems(entry.path, entry.isDir))}
+        onContextMenu={(e) => tree.menu(e, entry.path || entry.name, entryMenu(entry, tree))}
+        data-tree-path={entry.path}
         style={{ paddingLeft: 6 + depth * 14 }}
         className={`group relative flex h-[26px] cursor-default items-center gap-1.5 rounded-md pr-1.5 transition-opacity ${
-          dropping ? "bg-ai/20 ring-1 ring-ai" : isSelected ? "bg-ai/25 text-slate-50" : "hover:bg-raised"
-        } ${faded ? "opacity-40" : inScratch(entry.path) ? "opacity-55" : ""}`}
-        title={entry.path === ".scratch" ? t("Drafts and scratch files of AI sessions; Git ignores it. See the Workbench view.") : undefined}
+          dropping
+            ? "bg-ai/20 ring-1 ring-ai"
+            : flashing
+              ? "bg-ai/20 ring-1 ring-ai"
+              : isSelected
+                ? "bg-ai/25 text-slate-50"
+                : important
+                  ? "bg-brand/10 hover:bg-brand/20"
+                  : "hover:bg-raised"
+        } ${faded || hidden ? "opacity-45" : ""}`}
+        title={
+          entry.path === ".scratch"
+            ? t("Drafts and scratch files of AI sessions; Git ignores it. See the Workbench view.")
+            : entry.isDir
+              ? undefined
+              : t("Double-click: view · middle click: edit · right click: more")
+        }
       >
         {entry.isDir ? (
           <Chevron className="size-3.5 shrink-0 text-slate-500" />
@@ -340,12 +476,36 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
           <span className="w-3.5 shrink-0" />
         )}
         <Icon className={`size-4 shrink-0 ${entry.isDir ? "text-slate-300" : "text-slate-500"}`} />
-        <span
-          className={`truncate ${inside ? "text-changed" : ""}`}
-          title={inside ? t("{changes} inside", { changes: plural(inside, "uncommitted change") }) : undefined}
-        >
-          {entry.name}
-        </span>
+        {renaming ? (
+          <NameInput
+            initial={entry.name}
+            onCancel={() => tree.setEditing(null)}
+            onDone={(name) => {
+              tree.setEditing(null);
+              if (name === entry.name) return;
+              const parent = entry.path.includes("/") ? entry.path.slice(0, entry.path.lastIndexOf("/")) : "";
+              pathRename(entry.path, name)
+                .then(() => tree.reload(parent))
+                .catch((e) => tree.fail(String(e)));
+            }}
+          />
+        ) : entry.isDir ? (
+          <Tooltip content={<FolderCard entry={entry} tree={tree} inside={tree.git.changesIn(entry.path)} hidden={hidden} important={important} />} className="min-w-0">
+            <span className={`block truncate ${inside ? "text-changed" : ""} ${important ? "font-semibold text-slate-50" : ""}`}>{entry.name}</span>
+          </Tooltip>
+        ) : (
+          <span
+            className={`truncate ${important ? "font-semibold text-slate-50" : ""}`}
+            title={important ? t("Marked as important") : hidden ? hiddenWhy(hidden) : undefined}
+          >
+            {entry.name}
+          </span>
+        )}
+        {inside > 0 && (
+          <span className="shrink-0 text-[11px] text-changed" title={t("{changes} inside", { changes: plural(inside, "uncommitted change") })}>
+            {inside}
+          </span>
+        )}
         <span className="ml-auto flex shrink-0 items-center gap-1.5">
           <RowTools entry={entry} tree={tree} pinned={isPinned} />
           {repo && <RepoBadge repo={repo} tree={tree} />}
@@ -357,6 +517,11 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
                 writer ? `; ${t("written by session {short}", { short: marks.of(writer)?.short ?? "" })}` : ""
               }`}
             />
+          )}
+          {hintCount > 0 && (
+            <span className="font-mono text-[11px] text-ai" title={plural(hintCount, "@ai hint")}>
+              @
+            </span>
           )}
           {state && (
             <span
@@ -378,56 +543,22 @@ function Row({ entry, depth, tree }: { entry: Entry; depth: number; tree: TreeSt
 }
 
 /**
- * The tools of a row, shown while the mouse is on it, before the branch and status (those stay
- * clickable). From the right: the paperclip (again to remove it), open as project (folders), show in the file manager, and for
- * files view and edit. The paperclip is where an attached entry shows it at rest.
+ * The tools of a row, shown while the mouse is on it: only what is done often (user, 2026-11-21).
+ * Edit (files; also middle click), the paperclip (again to remove it), and ⋯ with everything else,
+ * the same menu as the right mouse button. Viewing is the double click.
  */
 function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinned: boolean }) {
-  const report = (e: unknown) => console.error(e);
-  const openAsProject = (e: React.MouseEvent, newWindow: boolean) => {
-    e.stopPropagation();
-    tree.onOpenProject(`${tree.project!.path}/${entry.path}`, newWindow).catch(() => {});
-  };
   return (
     <HoverTools>
       {!entry.isDir && (
-        <>
-          <Tool
-            icon={Eye}
-            label={t("View")}
-            says={<T text="Opens it in {app}" app={<AppName path={entry.path} role="view" />} />}
-            hint={t("Also: double-click the file")}
-            onClick={() => openAs(entry.path, "view")}
-          />
-          <Tool
-            icon={SquarePen}
-            label={t("Edit")}
-            says={<T text="Opens it in {app}" app={<AppName path={entry.path} role="edit" />} />}
-            hint={t("Also: middle-click the file")}
-            onClick={() => openAs(entry.path, "edit")}
-          />
-          <ToolGap />
-        </>
+        <Tool
+          icon={SquarePen}
+          label={t("Edit")}
+          says={<T text="Opens it in {app}" app={<AppName path={entry.path} role="edit" />} />}
+          hint={t("Also: middle-click the file")}
+          onClick={() => openAs(entry.path, "edit")}
+        />
       )}
-      <Tool
-        icon={FolderSearch}
-        label={t("Show in file manager")}
-        says={entry.isDir ? t("Opens this folder in the file manager") : t("Opens its folder in the file manager, with it selected")}
-        onClick={() => (entry.isDir ? openPath(entry.path) : showInFileManager(entry.path)).catch(report)}
-      />
-      {entry.isDir && tree.project && (
-        <>
-          <ToolGap />
-          <Tool
-            icon={FolderInput}
-            label={t("Open as project")}
-            says={t("Opens this folder as the project of this window · Ctrl+click: in a new window")}
-            onClick={(e) => openAsProject(e, e.ctrlKey || e.metaKey)}
-            onAuxClick={(e) => e.button === 1 && openAsProject(e, true)}
-          />
-        </>
-      )}
-      <ToolGap />
       <Tool
         icon={Paperclip}
         label={pinned ? t("Remove from next prompt") : t("Attach to next prompt")}
@@ -435,10 +566,283 @@ function RowTools({ entry, tree, pinned }: { entry: Entry; tree: TreeState; pinn
         active={pinned}
         onClick={() => (pinned ? tree.onUnpin(entry.path) : tree.onPin(entry))}
       />
+      <Tool icon={Ellipsis} label={t("More (also right click)")} onClick={(e) => tree.menu(e, entry.path || entry.name, entryMenu(entry, tree))} />
     </HoverTools>
   );
 }
 
+const hiddenWhy = (why: ReturnType<typeof hiddenBy>) =>
+  why === "git" ? t("Hidden: git ignores it") : why === "default" ? t("Hidden in every project (Settings)") : t("Hidden by you");
+
+/**
+ * Everything one can do with a file or folder, in groups: open, then what it is to CodeDeck
+ * (attached, important, hidden), then where it lies (path, name, trash). The right mouse button and ⋯.
+ */
+function entryMenu(entry: Entry, tree: TreeState): MenuItem[] {
+  const path = entry.path;
+  const report = (e: unknown) => tree.fail(String(e));
+  const absolute = tree.project ? (path ? `${tree.project.path}/${path}` : tree.project.path) : path;
+  const why = hiddenOf(path, tree);
+  const important = isImportant(path, tree.marks);
+  const pinned = tree.pinned.has(path);
+  const state = tree.git.stateOf(path);
+  const items: MenuItem[] = [];
+  if (!entry.isDir) {
+    const [view, edit, viewWith, editWith] = pathItems(path, false);
+    items.push({ ...view, hint: t("double-click") }, { ...edit, hint: t("middle click") }, viewWith, editWith);
+    if (state && state !== "D") {
+      items.push({
+        icon: FileDiff,
+        label: t("Show the change"),
+        hint: t("in Changes"),
+        run: () => {
+          tree.onSelect(path);
+          openView("changes");
+        },
+      });
+    }
+  } else if (tree.project) {
+    const open = (newWindow: boolean) => void tree.onOpenProject(absolute, newWindow).catch(() => {});
+    items.push(
+      { icon: FolderInput, label: t("Open as project"), run: () => open(false) },
+      { icon: AppWindow, label: t("Open as project in a new window"), run: () => open(true) },
+      {
+        icon: FilePlus,
+        label: t("New file…"),
+        divider: true,
+        run: () => {
+          tree.openDir(path);
+          tree.setEditing({ kind: "create", dir: path, folder: false });
+        },
+      },
+      {
+        icon: FolderPlus,
+        label: t("New folder…"),
+        run: () => {
+          tree.openDir(path);
+          tree.setEditing({ kind: "create", dir: path, folder: true });
+        },
+      },
+    );
+  }
+  items.push(
+    {
+      icon: Paperclip,
+      label: pinned ? t("Remove from next prompt") : t("Attach to next prompt"),
+      divider: true,
+      run: () => (pinned ? tree.onUnpin(path) : tree.onPin(entry)),
+    },
+    { icon: Highlighter, label: important ? t("Remove the important mark") : t("Mark as important"), run: () => tree.setMark("important", path, !important) },
+    why
+      ? { icon: Eye, label: t("Show again"), hint: hiddenWhy(why), run: () => (why === "mark" ? tree.setMark("hidden", path, false) : tree.setMark("shown", path, true)) }
+      : { icon: EyeOff, label: t("Hide"), run: () => tree.setMark("hidden", path, true) },
+    {
+      icon: FolderSearch,
+      label: t("Path"),
+      divider: true,
+      run: () => {},
+      more: async () => ({
+        title: path || absolute,
+        items: [
+          { icon: Copy, label: t("Copy the path in the project"), hint: path, disabled: !path, run: () => void navigator.clipboard.writeText(path) },
+          { icon: Copy, label: t("Copy the full path"), run: () => void navigator.clipboard.writeText(absolute) },
+          {
+            icon: FolderSearch,
+            label: t("Open in file manager"),
+            divider: true,
+            run: () => void (entry.isDir ? openPath(path) : showInFileManager(path)).catch(report),
+          },
+          { icon: SquareTerminal, label: t("Open in terminal"), hint: entry.isDir ? undefined : t("its folder"), run: () => void openTerminalIn(path).catch(report) },
+        ],
+      }),
+    },
+    { icon: Pencil, label: t("Rename…"), disabled: !path, run: () => tree.setEditing({ kind: "rename", path }) },
+    entry.isDir
+      ? {
+          icon: Trash2,
+          label: t("Move to trash"),
+          disabled: !path,
+          run: () => {},
+          // A folder takes everything in it along: asked once more, in the menu itself
+          more: async () => ({
+            title: t("{folder} with everything in it into the trash?", { folder: entry.name }),
+            items: [
+              { icon: Trash2, label: t("Yes, into the trash"), run: () => void pathTrash([path]).catch(report) },
+              { label: t("Cancel"), run: () => {} },
+            ],
+          }),
+        }
+      : { icon: Trash2, label: t("Move to trash"), hint: t("can be brought back"), run: () => void pathTrash([path]).catch(report) },
+  );
+  return items;
+}
+
+/** A name typed in place: Enter takes it, Escape or a click elsewhere leaves it. */
+function NameInput({ initial, onDone, onCancel }: { initial: string; onDone: (name: string) => void; onCancel: () => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    el.focus();
+    // The name without its extension is what one usually changes
+    const dot = initial.lastIndexOf(".");
+    el.setSelectionRange(0, dot > 0 ? dot : initial.length);
+  }, [initial]);
+  return (
+    <input
+      ref={input}
+      defaultValue={initial}
+      onClick={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") {
+          const name = e.currentTarget.value.trim();
+          if (name) onDone(name);
+          else onCancel();
+        } else if (e.key === "Escape") onCancel();
+      }}
+      onBlur={onCancel}
+      className="min-w-0 flex-1 rounded border border-ai bg-base px-1 text-slate-100 outline-none"
+    />
+  );
+}
+
+/** The line where the name of a new file or folder is typed, first in its folder. */
+function NewRow({ dir, folder, depth, tree }: { dir: string; folder: boolean; depth: number; tree: TreeState }) {
+  const Icon = folder ? Folder : File;
+  return (
+    <div style={{ paddingLeft: 6 + depth * 14 }} className="flex h-[26px] items-center gap-1.5 pr-1.5">
+      <span className="w-3.5 shrink-0" />
+      <Icon className="size-4 shrink-0 text-slate-400" />
+      <NameInput
+        initial=""
+        onCancel={() => tree.setEditing(null)}
+        onDone={(name) => {
+          tree.setEditing(null);
+          pathCreate(dir, name, folder)
+            .then((made) => {
+              tree.reload(dir);
+              // A new file is made to be written: it opens in the editor
+              if (!folder) openAs(made, "edit");
+            })
+            .catch((e) => tree.fail(String(e)));
+        }}
+      />
+    </div>
+  );
+}
+
+/** A file deleted and not committed: grey where it was, so the tree shows what went. */
+function GhostRow({ path, depth, tree }: { path: string; depth: number; tree: TreeState }) {
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  return (
+    <div
+      data-tree-path={path}
+      onContextMenu={(e) => tree.menu(e, path, pathItems(path, false, true))}
+      style={{ paddingLeft: 6 + depth * 14 }}
+      className="flex h-[26px] cursor-default items-center gap-1.5 rounded-md pr-1.5 text-slate-500"
+      title={t("Deleted, not committed yet")}
+    >
+      <span className="w-3.5 shrink-0" />
+      <File className="size-4 shrink-0" />
+      <span className="truncate line-through">{name}</span>
+      <span className={`ml-auto w-3 text-center font-mono text-[11px] ${stateColor.D}`}>{stateSymbol("D")}</span>
+    </div>
+  );
+}
+
+/** What a folder holds, when the mouse rests on its name (docs/DATEISPALTE.md, C3). */
+function FolderCard({ entry, tree, inside, hidden, important }: { entry: Entry; tree: TreeState; inside: number; hidden: ReturnType<typeof hiddenBy>; important: boolean }) {
+  const [stats, setStats] = useState<{ files: number; bytes: number; truncated: boolean } | null>(null);
+  const marks = useSessionMarks();
+  useEffect(() => {
+    let alive = true;
+    pathStats(entry.path)
+      .then((s) => alive && setStats(s))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [entry.path]);
+  const writers = [...new Set([...tree.touched.keys()].filter((p) => p.startsWith(`${entry.path}/`)).map((p) => marks.writer(p)).filter(Boolean))];
+  return (
+    <span className="flex flex-col gap-0.5 text-[12px]">
+      <span className="font-mono text-slate-100">{entry.path}/</span>
+      {stats ? (
+        <span>
+          {stats.truncated ? t("more than {files}", { files: plural(stats.files, "file") }) : plural(stats.files, "file")} · {size(stats.bytes)} · ≈ {tokensFor(stats.bytes).toLocaleString()} {t("tokens")}
+        </span>
+      ) : (
+        <span className="text-slate-500">{t("Looking…")}</span>
+      )}
+      {inside > 0 && <span className="text-changed">{t("{changes} inside", { changes: plural(inside, "uncommitted change") })}</span>}
+      {writers.length > 0 && (
+        <span>
+          {t("Written by")} {writers.map((w) => marks.of(w)?.short ?? "?").join(", ")}
+        </span>
+      )}
+      {important && <span>{t("Marked as important")}</span>}
+      {hidden && <span className="text-slate-500">{hiddenWhy(hidden)}</span>}
+    </span>
+  );
+}
+
+/**
+ * The file list's own quick settings: how hidden things show, whether git's ignored counts as
+ * hidden, whether the sessions' dots stay, whether @ai hints are marked; the rest in the settings.
+ */
+function FileQuickSettings({ settings, onChange }: { settings: FileSettings; onChange: (change: Partial<FileSettings>) => void }) {
+  const menu = usePopover<HTMLDivElement>();
+  const check = (label: string, on: boolean, flip: () => void) => (
+    <label className="flex cursor-pointer items-center gap-2 px-3 py-1 text-slate-200 hover:bg-overlay-hover">
+      <input type="checkbox" checked={on} onChange={flip} />
+      {label}
+    </label>
+  );
+  return (
+    <div ref={menu.ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={menu.open}
+        title={t("Show in the file list")}
+        onClick={() => menu.setOpen(!menu.open)}
+        className={`rounded-md p-1.5 hover:bg-raised hover:text-slate-100 ${menu.open ? "bg-raised text-slate-100" : "text-slate-400"}`}
+      >
+        <SlidersHorizontal className="size-4" />
+      </button>
+      {menu.open && (
+        <Panel width="w-[280px]">
+          <Heading>{t("Show in the file list")}</Heading>
+          <div className="flex items-center gap-2 px-3 py-1 text-slate-200">
+            <span className="flex-1">{t("Hidden things")}</span>
+            <select value={settings.look} onChange={(e) => onChange({ look: e.target.value as FileSettings["look"] })} className="rounded border border-line bg-base px-1 py-0.5 text-[12px]">
+              <option value="dim">{t("faded")}</option>
+              <option value="hide">{t("not shown")}</option>
+            </select>
+          </div>
+          {check(t("Hide what git ignores"), settings.gitIgnored, () => onChange({ gitIgnored: !settings.gitIgnored }))}
+          {check(t("Keep the dots of the sessions until the commit"), settings.keepDots, () => onChange({ keepDots: !settings.keepDots }))}
+          {check(t("Mark files with @ai hints"), settings.hints, () => onChange({ hints: !settings.hints }))}
+          <div className="mt-1 border-t border-overlay-line p-1">
+            <button
+              type="button"
+              onClick={() => {
+                menu.setOpen(false);
+                void openSettings("files");
+              }}
+              className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left font-medium text-slate-50 hover:bg-overlay-hover"
+            >
+              <Settings className="size-4 text-slate-400" />
+              {t("Settings…")}
+            </button>
+          </div>
+        </Panel>
+      )}
+    </div>
+  );
+}
 
 /**
  * On the row of a repository's folder: its branch, tinted when there are uncommitted changes.

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Copy, X } from "lucide-react";
 import { openWelcome, closeWindow, panelView, harnessList, onSettingsSection, type HarnessInfo, appInfo, autostartState, setAutostart, type AutostartState, machineSettings, setMachineSetting, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
 import { useAccounts } from "../accounts";
+import { useFileSettings } from "../fileView";
 import { usePlatform } from "../platform";
 import { PlatformFacts, platformFacts } from "./PlatformFacts";
 import { AccountMark, MarkPicker } from "./ProjectMark";
@@ -212,6 +213,7 @@ const SECTIONS: [SettingsSection, string][] = [
   ["general", "General"],
   ["interface", "Interface"],
   ["notifications", "Notifications"],
+  ["files", "Files and folders"],
   ["tools", "Coding agents"],
 ];
 
@@ -233,7 +235,7 @@ export function SettingsWindow() {
     <div className="flex h-screen flex-col bg-panel text-[13px] text-slate-300">
       {/* Narrow, the areas come as a row above the settings */}
       <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
-        <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-overlay-line p-2 sm:block sm:w-44 sm:border-r sm:border-b-0">
+        <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-overlay-line p-2 sm:block sm:w-52 sm:border-r sm:border-b-0">
           {SECTIONS.map(([id, label]) => (
             <button
               key={id}
@@ -249,6 +251,7 @@ export function SettingsWindow() {
           {section === "general" && <General />}
           {section === "interface" && <Interface />}
           {section === "notifications" && <Notifications />}
+          {section === "files" && <FilesAndFolders />}
           {section === "tools" && <Tools harnesses={harnesses} />}
         </div>
       </div>
@@ -474,6 +477,42 @@ function Notifications() {
       </Setting>
       <Setting label={t("Tell me when I look elsewhere")} note={t("While CodeDeck is hidden or another window has the focus.")} scope="machine">
         <AttentionChoice />
+      </Setting>
+    </>
+  );
+}
+
+/**
+ * How the file list shows a project (docs/DATEISPALTE.md): the same switches as its quick settings,
+ * and the names hidden in every project, one per line (a name hides it at any depth, a path with a
+ * slash only that one). A project can show one of them again from its context menu.
+ */
+function FilesAndFolders() {
+  const [settings, change] = useFileSettings();
+  const [text, setText] = useState(settings.defaults.join("\n"));
+  useEffect(() => setText(settings.defaults.join("\n")), [settings.defaults]);
+  const save = () => change({ defaults: [...new Set(text.split("\n").map((l) => l.trim()).filter(Boolean))] });
+  const check = (on: boolean, flip: () => void) => <input type="checkbox" checked={on} onChange={flip} />;
+  return (
+    <>
+      <h3 className="mb-1 font-semibold text-slate-100">{t("Files and folders")}</h3>
+      <Setting label={t("Hidden things")} note={t("Hidden files and folders show faded, or not at all.")} scope="machine">
+        <select value={settings.look} onChange={(e) => change({ look: e.target.value as "dim" | "hide" })} className="rounded border border-overlay-line bg-base px-1.5 py-0.5">
+          <option value="dim">{t("faded")}</option>
+          <option value="hide">{t("not shown")}</option>
+        </select>
+      </Setting>
+      <Setting label={t("Hide what git ignores")} note={t("Folders like node_modules or target, as the project's .gitignore says.")} scope="machine">
+        {check(settings.gitIgnored, () => change({ gitIgnored: !settings.gitIgnored }))}
+      </Setting>
+      <Setting label={t("Hidden in every project")} note={t("One name per line: a name hides it in any folder, a path with a slash only that one. A project shows one again from its menu.")} scope="machine">
+        <textarea value={text} onChange={(e) => setText(e.target.value)} onBlur={save} rows={4} spellCheck={false} className="w-48 rounded border border-overlay-line bg-base px-1.5 py-1 font-mono text-[12px]" />
+      </Setting>
+      <Setting label={t("Keep the dots of the sessions until the commit")} note={t("Otherwise a file's dot in the colour of the session that wrote it goes after two minutes.")} scope="machine">
+        {check(settings.keepDots, () => change({ keepDots: !settings.keepDots }))}
+      </Setting>
+      <Setting label={t("Mark files with @ai hints")} note={t("An @ beside files that hold hints for the AI.")} scope="machine">
+        {check(settings.hints, () => change({ hints: !settings.hints }))}
       </Setting>
     </>
   );

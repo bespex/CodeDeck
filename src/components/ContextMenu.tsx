@@ -16,6 +16,8 @@ export interface MenuItem {
   run: () => void;
   /** Opens a further menu in place of this one instead of running */
   more?: () => Promise<SubMenu>;
+  /** A line above it: the start of another group */
+  divider?: boolean;
 }
 
 export interface MenuState {
@@ -144,7 +146,8 @@ function ContextMenu({ menu, onMore, onClose }: { menu: MenuState; onMore: (menu
       )}
       <div className="min-h-0 overflow-y-auto">
         {shown.length === 0 && <div className="px-3 py-1.5 text-slate-500 italic">{t("Nothing matches")}</div>}
-        {shown.map((item, i) => (
+        {shown.map((item, i) => [
+          item.divider && i > 0 && !needle && <div key={`line:${i}`} className="my-1 h-px bg-overlay-line" />,
           <button
             key={`${i}:${item.label}`}
             type="button"
@@ -158,8 +161,8 @@ function ContextMenu({ menu, onMore, onClose }: { menu: MenuState; onMore: (menu
             <span className="truncate">{item.label}</span>
             {item.hint && <span className="ml-auto truncate pl-4 text-[11px] text-slate-500">{item.hint}</span>}
             {item.more && <ChevronRight className={`size-3.5 shrink-0 text-slate-500 ${item.hint ? "" : "ml-auto"}`} />}
-          </button>
-        ))}
+          </button>,
+        ])}
       </div>
     </div>
   );

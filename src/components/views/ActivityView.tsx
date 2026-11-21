@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, CircleHelp, Eye, FileText, RotateCcw, SquarePen, ZoomIn, ZoomOut } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, CircleHelp, Ellipsis, Eye, FileText, LocateFixed, RotateCcw, SquarePen, ZoomIn, ZoomOut } from "lucide-react";
+import { useContextMenu, type MenuItem } from "../ContextMenu";
+import { revealInTree } from "../../fileView";
 import { openFile, type AssistantState, type JournalLine, type Snapshot } from "../../backend";
 import { mainHarness, shortId, touchedFiles, useSessionMarks } from "../../assistant";
 import type { GitView } from "../../git";
@@ -53,6 +55,12 @@ export function ActivityView({ assistant, git, snapshots }: { assistant: Assista
   const marks = useSessionMarks();
   const lines = useJournal(assistant);
   const docs = recentDocs(assistant, lines, marks.writer);
+  const menu = useContextMenu();
+  const docItems = (path: string): MenuItem[] => [
+    { icon: Eye, label: t("View"), run: () => void openFile(path, "view") },
+    { icon: SquarePen, label: t("Edit"), run: () => void openFile(path, "edit") },
+    { icon: LocateFixed, label: t("Show in tree"), divider: true, run: () => revealInTree(path) },
+  ];
   const button = "rounded p-1 text-slate-500 hover:bg-overlay-hover hover:text-slate-100";
   // The tool that states the usage, by its name (no tool's name is fixed in the interface)
   const usageTool = assistant.harnesses.find((h) => h.capabilities.usage) ?? mainHarness(assistant);
@@ -81,7 +89,7 @@ export function ActivityView({ assistant, git, snapshots }: { assistant: Assista
             {docs.map(({ path, at, session }) => {
               const mark = marks.of(session);
               return (
-                <Row key={path}>
+                <Row key={path} onContextMenu={(e) => menu.open(e, path, docItems(path))}>
                   <FileText className="size-3.5 shrink-0 text-slate-500" />
                   <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-slate-200">{path}</span>
                   {mark && <SessionBadge mark={mark} />}
@@ -96,6 +104,11 @@ export function ActivityView({ assistant, git, snapshots }: { assistant: Assista
                   <Tooltip content={<span>{t("Edit, e.g. to add comments for the assistant")}</span>}>
                     <button type="button" aria-label={t("Edit {path}", { path })} onClick={() => openFile(path, "edit")} className={button}>
                       <SquarePen className="size-3.5" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={<span>{t("More (also right click)")}</span>}>
+                    <button type="button" aria-label={t("More (also right click)")} onClick={(e) => menu.open(e, path, docItems(path))} className={button}>
+                      <Ellipsis className="size-3.5" />
                     </button>
                   </Tooltip>
                 </Row>

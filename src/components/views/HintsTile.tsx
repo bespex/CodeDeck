@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { NewsTag, newsClass } from "../News";
 import { hintKey, markSeen, useNews } from "../../news";
-import { ClipboardCopy, ExternalLink, Paperclip } from "lucide-react";
+import { ClipboardCopy, ExternalLink, LocateFixed, Paperclip } from "lucide-react";
+import { revealInTree } from "../../fileView";
 import { openFile, type HarnessInfo, type Marker } from "../../backend";
 import { useConnections } from "../../assistant";
 import { Section, useFold, useShowAll } from "../blocks";
@@ -124,6 +125,16 @@ export function HintsTile({ marks, harness }: { marks: Markers; harness: Harness
                     className="rounded p-0.5 text-slate-600 opacity-0 group-hover/file:opacity-100 hover:text-slate-100 focus-visible:opacity-100"
                   >
                     <ExternalLink className="size-3" />
+                  </button>
+                </Tooltip>
+                <Tooltip content={<span>{t("Show in tree")}</span>}>
+                  <button
+                    type="button"
+                    aria-label={t("Show in tree")}
+                    onClick={() => revealInTree(path)}
+                    className="rounded p-0.5 text-slate-600 opacity-0 group-hover/file:opacity-100 hover:text-slate-100 focus-visible:opacity-100"
+                  >
+                    <LocateFixed className="size-3" />
                   </button>
                 </Tooltip>
               </div>

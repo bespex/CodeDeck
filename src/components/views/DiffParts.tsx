@@ -2,7 +2,9 @@
 // uncommitted file, and a file's diff.
 
 import { Fragment, useContext, useEffect, useState } from "react";
-import { Circle, CircleCheck, Columns2, Eye, MessageSquarePlus, Paperclip, SquarePen, Trash2, Undo2, X } from "lucide-react";
+import { Circle, CircleCheck, Columns2, Ellipsis, Eye, LocateFixed, MessageSquarePlus, Paperclip, SquarePen, Trash2, Undo2, X } from "lucide-react";
+import { useContextMenu, type MenuItem } from "../ContextMenu";
+import { revealInTree } from "../../fileView";
 import { AppName, openAs } from "../../apps";
 import { hasDiffViewer, showPatch, type FileStatus, type RepoStatus } from "../../backend";
 import { commandLine, type Steps } from "../../git";
@@ -13,7 +15,7 @@ import { useAttachEnabled } from "../../attachments";
 import { useSessionMarks } from "../../assistant";
 import { changeRef, changes, useChangeScope, type ChangeScope } from "../../changes";
 import { Tooltip, TooltipHint } from "../Tooltip";
-import { AtRest, HoverTools, Tool, ToolGap } from "../RowTools";
+import { AtRest, HoverTools, Tool } from "../RowTools";
 import { T, t } from "../../i18n";
 
 export function Commands({ steps }: { steps: Steps }) {
@@ -71,6 +73,7 @@ export function FileTools(props: { path: string; projectPath: string | null; pat
   const actions = working ? fileActions(working.repo, working.status, path, from) : null;
   const { run, running, done } = useGitRun(working?.repo.path ?? "", working?.onDone ?? (() => {}));
   const [confirm, setConfirm] = useState(false);
+  const menu = useContextMenu();
   const failed = done.find((d) => !d.ok);
   // No "stage" here (user, 2026-11-18): the commit takes everything, which is what one sees; staging
   // comes back when it is really needed. What was staged elsewhere still shows, and still counts
@@ -96,10 +99,21 @@ export function FileTools(props: { path: string; projectPath: string | null; pat
     );
   }
   const opens = projectPath !== null;
-  const kinds = [opens, !!attach, !!actions?.discard];
-  // A divider only between kinds that are there
-  const gapBefore = (i: number) => kinds.slice(0, i).some(Boolean) && kinds[i];
-  if (!kinds.some(Boolean)) return null;
+  if (!opens && !attach && !actions?.discard) return null;
+  const items: MenuItem[] = [
+    ...(opens
+      ? [
+          { icon: Eye, label: t("View"), hint: <AppName path={projectPath} role="view" />, run: () => openAs(projectPath, "view") },
+          { icon: SquarePen, label: t("Edit"), hint: <AppName path={projectPath} role="edit" />, run: () => openAs(projectPath, "edit") },
+          ...(dirq && patch ? [{ icon: Columns2, label: t("Its diff in Dirq"), run: () => void showPatch(patch).catch((e) => console.error(e)) }] : []),
+          { icon: LocateFixed, label: t("Show in tree"), run: () => revealInTree(projectPath) },
+        ]
+      : []),
+    ...(attach ? [{ icon: Paperclip, label: attach.label, divider: true, run: attach.toggle }] : []),
+    ...(actions?.discard
+      ? [{ icon: added && !from ? Trash2 : Undo2, label: t("Discard changes to {path}", { path }), hint: t("asks first"), divider: true, disabled: running, run: () => setConfirm(true) }]
+      : []),
+  ];
   return (
     <>
       {failed && (
@@ -108,34 +122,12 @@ export function FileTools(props: { path: string; projectPath: string | null; pat
         </Tooltip>
       )}
       <HoverTools show={props.show}>
-        {opens && (
-          <>
-            <Tool icon={Eye} label={t("View")} says={<T text="Opens it in {app}" app={<AppName path={projectPath} role="view" />} />} onClick={() => openAs(projectPath, "view")} />
-            <Tool icon={SquarePen} label={t("Edit")} says={<T text="Opens it in {app}" app={<AppName path={projectPath} role="edit" />} />} onClick={() => openAs(projectPath, "edit")} />
-            {dirq && patch && <Tool icon={Columns2} label={t("Its diff in Dirq")} says={t("Its diff in Dirq, old and new side by side")} onClick={() => void showPatch(patch).catch((e) => console.error(e))} />}
-          </>
-        )}
-        {attach && (
-          <>
-            {gapBefore(1) && <ToolGap />}
-            <Tool icon={Paperclip} label={attach.label} says={attach.says} hint={attach.hint} active={attach.on} onClick={attach.toggle} />
-          </>
-        )}
-        {actions?.discard && (
-          <>
-            {gapBefore(2) && <ToolGap />}
-            <Tool
-              icon={added && !from ? Trash2 : Undo2}
-              label={t("Discard changes to {path}", { path })}
-              says={<><span>{actions.discardMeans && t(actions.discardMeans)}</span><Commands steps={actions.discard} /></>}
-              hint={t("Asks before it runs: this cannot be undone")}
-              danger
-              disabled={running}
-              onClick={() => setConfirm(true)}
-            />
-          </>
-        )}
+        {/* Only what is done often (user, 2026-11-21): edit and attach; the rest in ⋯ */}
+        {opens && <Tool icon={SquarePen} label={t("Edit")} says={<T text="Opens it in {app}" app={<AppName path={projectPath} role="edit" />} />} onClick={() => openAs(projectPath, "edit")} />}
+        {attach && <Tool icon={Paperclip} label={attach.label} says={attach.says} hint={attach.hint} active={attach.on} onClick={attach.toggle} />}
+        <Tool icon={Ellipsis} label={t("More (also right click)")} onClick={(e) => menu.open(e, path, items)} />
       </HoverTools>
+      {menu.element}
     </>
   );
 }

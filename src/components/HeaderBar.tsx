@@ -73,7 +73,7 @@ export const iconButton = (on: boolean, onColor = false) =>
 /** A menu hanging at the right end of the bar. */
 /** A menu under its button, right-aligned with it. Where that would leave the window (a button near
  *  the left edge, e.g. in the project bar top left), it moves right just as far as needed. */
-function Panel({ children, width = "w-[300px]" }: { children: ReactNode; width?: string }) {
+export function Panel({ children, width = "w-[300px]" }: { children: ReactNode; width?: string }) {
   const box = useRef<HTMLDivElement>(null);
   const [shift, setShift] = useState(0);
   useLayoutEffect(() => {
@@ -91,11 +91,11 @@ function Panel({ children, width = "w-[300px]" }: { children: ReactNode; width?:
   );
 }
 
-const Heading = ({ children }: { children: ReactNode }) => (
+export const Heading = ({ children }: { children: ReactNode }) => (
   <div className="px-3 pt-2.5 pb-1 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">{children}</div>
 );
 
-function Item(props: { icon: ReactNode; label: string; aside?: ReactNode; onClick: () => void; strong?: boolean }) {
+export function Item(props: { icon: ReactNode; label: string; aside?: ReactNode; onClick: () => void; strong?: boolean }) {
   return (
     <button
       type="button"

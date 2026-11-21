@@ -114,7 +114,12 @@ und **B5** (Kontextmenü). Teil A (Aufräumen…) lässt sich unabhängig davon 
 Nicht vorgeschlagen, weil gegen die Regeln: Dateien in CodeDeck bearbeiten (kein Editor), eigene Vorschau-Ansicht
 für Dateiinhalte im Deck (dafür sind die Qiew-Betrachter da), Funktionen, die nur unter X11 gehen.
 
-## Beschlossen 2026-11-21 (Nutzer): erster Schritt der Dateispalte, noch nicht gebaut
+## Beschlossen 2026-11-21 (Nutzer): erster Schritt der Dateispalte, gebaut 2026-11-21 (Praxistest offen)
+
+Umgesetzt wie unten beschrieben, mit diesen Abweichungen: Beim Überfahren Stift (Bearbeiten), Büroklammer und ⋯
+(Nutzer: Mittelklick ist nicht offensichtlich); in Änderungen ebenso, „Im Baum zeigen“, Ansehen, Dirq und Verwerfen
+im ⋯. „Wichtig“ als farbiges Band hinter der Zeile und fetter Name. Verzeichnis in den Papierkorb fragt als Untermenü
+nach. Gelöschte Dateien stehen grau und durchgestrichen im Baum.
 
 - **Begriff „Ausblenden“** (nicht „ignorieren“, das gehört zu Git): Kontextmenü „Ausblenden“ / „Wieder einblenden“ für
   Verzeichnisse und Dateien. Liste je Projekt (Vorschlag: eigene Datei `~/.config/codedeck/files.json`, je Projektpfad

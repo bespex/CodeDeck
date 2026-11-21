@@ -16,6 +16,7 @@ import { useAttention } from "./attention";
 import { setNewsProject } from "./news";
 import { Dialogs } from "./components/Dialogs";
 import { openDialog } from "./dialogs";
+import { revealInTree } from "./fileView";
 import { projectSwitched } from "./windowIcon";
 import { useLayout, useProjectsFolded } from "./layout";
 import { ProjectsPanel } from "./components/ProjectsPanel";
@@ -158,6 +159,7 @@ export default function App() {
   const showFile = (path: string) => {
     fold(false);
     setSelected(path);
+    revealInTree(path);
   };
 
   return (
