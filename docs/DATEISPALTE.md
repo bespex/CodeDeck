@@ -113,3 +113,31 @@ und **B5** (Kontextmenü). Teil A (Aufräumen…) lässt sich unabhängig davon 
 
 Nicht vorgeschlagen, weil gegen die Regeln: Dateien in CodeDeck bearbeiten (kein Editor), eigene Vorschau-Ansicht
 für Dateiinhalte im Deck (dafür sind die Qiew-Betrachter da), Funktionen, die nur unter X11 gehen.
+
+## Beschlossen 2026-11-21 (Nutzer): erster Schritt der Dateispalte, noch nicht gebaut
+
+- **Begriff „Ausblenden“** (nicht „ignorieren“, das gehört zu Git): Kontextmenü „Ausblenden“ / „Wieder einblenden“ für
+  Verzeichnisse und Dateien. Liste je Projekt (Vorschlag: eigene Datei `~/.config/codedeck/files.json`, je Projektpfad
+  `hidden` und `important`, damit es auch für Projekte außerhalb der Projektliste geht) plus globale Vorgabeliste.
+  `.scratch/` standardmäßig ausgeblendet.
+- **Schnelleinstellungen der Dateiliste** (Symbol wie oben links): Von Git Ignoriertes ausblenden · Ausgeblendetes
+  abgedunkelt zeigen oder verbergen · Sessions dauerhaft markieren (Punkt verschwindet nicht nach 2 Minuten,
+  `RECENT_MS` in `FilesPanel.tsx`) · @ai-Hinweise anzeigen · Trennlinie · Einstellungen… → neuer Bereich
+  **„Dateien und Verzeichnisse“** im Einstellungsfenster (globale Ausblendliste, Markierungsdauer). Gilt je Rechner.
+  Git-Ignoriertes: `git status` um `--ignored` erweitern (`parse_status` in `git.rs`, Zeilen `! path`).
+- **Bedienung:** Doppelklick = Ansehen, Mittelklick = Bearbeiten, Rechtsklick = Kontextmenü. Beim Überfahren nur
+  Büroklammer und ⋯ (⋯ = dasselbe Menü wie Rechtsklick). Grundsatz für alle Zeilen: höchstens zwei, drei Werkzeuge,
+  immer ⋯ als letztes; Markierungen sparsam, als Zeichen klar, mit Tooltip.
+- **Kontextmenü** (gegliedert, `ContextMenu.tsx` braucht Trennlinien): Untermenü **„Pfad“** (relativ kopieren, absolut
+  kopieren, Im Dateimanager öffnen, Im Terminal öffnen) · Umbenennen (in der Zeile) · In den Papierkorb (Verzeichnis mit
+  Rückfrage) · An nächsten Prompt hängen · Ausblenden/Wieder einblenden · **Wichtig markieren** (keine Symbole, nur eine
+  hervorhebende Farbe des Namens). Verzeichnis zusätzlich: Als Projekt öffnen, Neue Datei/Neuer Ordner. Datei mit
+  Änderungen zusätzlich: Diff anzeigen (Reiter Änderungen an dieser Datei) und In Dirq öffnen.
+  **Nicht** in diesem Schritt: „Von Git ignorieren lassen“ (Git-Aspekte gesondert), Tastenkürzel.
+- **„Im Baum zeigen“** im ⋯ jeder Zeile einer Projektdatei (Änderungen, Geschriebene Dokumente, Dateien einer Session,
+  Nächster Prompt, @ai-Hinweise): Dateiliste aufklappen, Ordner öffnen, in Sicht scrollen, kurz aufleuchten;
+  Ausgeblendetes dabei abgedunkelt zeigen. Werkzeuge in Änderungen auf Büroklammer + ⋯ reduzieren.
+- **A2/A3:** Art der Änderung gibt es als Buchstaben schon; neu: gelöschte Dateien grau im Baum, Zahl der Änderungen an
+  zugeklappten Ordnern (heute nur gefärbter Name). **C3:** Steckbrief beim Überfahren eines Ordners (Dateien, Größe,
+  Änderungen, Sessions, Tokens; `path_stats` gibt es).
+- Danach eigener Schritt: D1/D2 (eine Datei auf einen Snapshot zurücksetzen, mit Snapshot vergleichen).
