@@ -146,6 +146,17 @@ impl ksni::Tray for CodeDeckTray {
             items.push(StandardItem { label, activate: Box::new(|t: &mut Self| show(&t.app)), ..Default::default() }.into());
         }
         items.push(MenuItem::Separator);
+        // The settings need no project, so they are here too, for a CodeDeck without a window in sight
+        items.push(StandardItem {
+            label: text("Settings…", "Einstellungen…"),
+            activate: Box::new(|t: &mut Self| {
+                if let Err(e) = crate::settings::open(&t.app, None) {
+                    eprintln!("codedeck: settings: {e}");
+                }
+            }),
+            ..Default::default()
+        }
+        .into());
         items.push(StandardItem { label: text("Quit CodeDeck", "CodeDeck beenden"), activate: Box::new(|t: &mut Self| t.app.exit(0)), ..Default::default() }.into());
         items
     }

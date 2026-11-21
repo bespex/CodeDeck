@@ -19,7 +19,7 @@ import {
   Stethoscope,
   X,
 } from "lucide-react";
-import { appInfo, diagnostics, openUrl, openWelcome, setProject, startSession, stopSession, type Account, type AssistantState, type ProjectInfo, closeWindow } from "../backend";
+import { appInfo, diagnostics, openSettings, openUrl, openWelcome, setProject, startSession, stopSession, type Account, type AssistantState, type ProjectInfo, closeWindow } from "../backend";
 import { useAccounts } from "../accounts";
 import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
@@ -152,7 +152,7 @@ export function QuickSettings({ onColor = false }: { onColor?: boolean }) {
               label={t("All settings…")}
               onClick={() => {
                 menu.setOpen(false);
-                openDialog({ kind: "settings", section: "general" });
+                void openSettings();
               }}
             />
           </div>
@@ -269,7 +269,7 @@ function AccountBlock({ project, assistant }: { project: ProjectInfo | null; ass
                 </div>
               ))}
               <div className="mt-1 border-t border-overlay-line pt-1">
-                <Item icon={<Settings className="size-4" />} label={t("Set up accounts…")} onClick={() => (close(), openDialog({ kind: "settings", section: "tools" }))} />
+                <Item icon={<Settings className="size-4" />} label={t("Set up accounts…")} onClick={() => (close(), void openSettings("tools"))} />
               </div>
             </>
           ) : (

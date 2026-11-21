@@ -17,7 +17,6 @@ const [site = resolve(import.meta.dirname, "../../bespex.github.io"), ...only] =
 const base = "http://localhost:5391/";
 // German interface, no tour and no welcome on top of what is to be seen.
 const german = `eval:(localStorage.setItem("codedeck.mockSettings",JSON.stringify({language:"de",windowHelp:false,welcome:false})),location.reload(),1)`;
-const settings = (section) => [german, "wait:3000", 'click:[title="Schnelleinstellungen"]', "wait:500", "text:Alle Einstellungen", "wait:800", `text:${section}`, "wait:800"];
 
 // The project window with every column open: the file list starts folded in the preview.
 const wide = [german, "wait:3000", "size:1800x1000", 'eval:(window.dispatchEvent(new KeyboardEvent("keydown",{key:"b",ctrlKey:true})),1)', "wait:800"];
@@ -32,7 +31,7 @@ const chapters = {
   vorbereitung: {
     willkommen: { url: `${base}?view=welcome`, steps: [german, "wait:2500", "size:720x820"] },
     "deine-projekte": { url: `${base}?view=welcome`, steps: [german, "wait:2500", "size:720x820", "text:Erzähl mir mehr", "wait:800"] },
-    "coding-agents": { url: base, steps: settings("Coding-Agents"), crop: "760x520+370+190" },
+    "coding-agents": { url: `${base}?view=settings&section=tools`, steps: [german, "wait:2500", "size:780x420"] },
     "leere-liste": { url: `${base}?view=overview&projects=none`, steps: [german, "wait:2500", "size:440x420"], crop: "440x330+0+0" },
     // A project without a repository opens in Changes, which offers git init
     "git-init": { url: `${base}?git=none`, steps: [german, "wait:3000"], crop: "470x240+832+100" },

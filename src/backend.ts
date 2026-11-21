@@ -1284,6 +1284,10 @@ export function harnessConnections(): Promise<Connection[]> {
 export function setHarnessConnection(harness: string, account: string, install: boolean): Promise<Connection[]> {
   if (live) return invoke("set_harness_connection", { harness, account, install });
   mockConnections = mockConnections.map((c) => (c.harness === harness && c.dir === account ? { ...c, installed: install, other: null } : c));
+  // As the backend: the account shows connected too, in every window (here: this one)
+  const changed = mockAccounts.find((a) => a.harness === harness && a.dir === account);
+  if (changed) changed.connected = install;
+  mockAccountListeners.forEach((l) => l());
   return Promise.resolve(mockConnections);
 }
 
@@ -1663,6 +1667,37 @@ export function openWelcome(): Promise<void> {
   return Promise.resolve();
 }
 
+/** Opens the settings in their own window, at `section`; they need no project (src-tauri/src/settings.rs). */
+export function openSettings(section?: string): Promise<void> {
+  if (live) return invoke("open_settings", { section: section ?? null });
+  window.open(`?view=settings${section ? `&section=${section}` : ""}`, "_blank");
+  return Promise.resolve();
+}
+
+/** The tools CodeDeck supports, the default one first, for windows without a project. */
+export function harnessList(): Promise<HarnessInfo[]> {
+  if (live) return invoke("harness_list");
+  return Promise.resolve(mockAssistant.harnesses);
+}
+
+/** Calls back when the open settings window is asked for another area. */
+export function onSettingsSection(callback: (section: string) => void): () => void {
+  if (live) {
+    const unlisten = listen<string>("settings_section", (e) => callback(e.payload));
+    return () => void unlisten.then((stop) => stop());
+  }
+  return () => {};
+}
+
+/** Calls back when a tool was connected or disconnected, in whichever window. */
+export function onConnectionsChanged(callback: () => void): () => void {
+  if (live) {
+    const unlisten = listen("connections_changed", () => callback());
+    return () => void unlisten.then((stop) => stop());
+  }
+  return () => {};
+}
+
 /** Whether this project window shows the help on its parts now: once per start, in a window in sight, until turned off. */
 let mockWindowHelpGiven = false;
 export function windowHelp(): Promise<boolean> {
@@ -1801,6 +1836,7 @@ export function onProjectChanged(callback: (path: string) => void): () => void {
 export const isOverview = new URLSearchParams(window.location.search).get("view") === "overview";
 /** The welcome's window (`welcome.rs`) */
 export const isWelcome = new URLSearchParams(window.location.search).get("view") === "welcome";
+export const isSettings = new URLSearchParams(window.location.search).get("view") === "settings";
 
 const mockOverview = (): Omit<OverviewProject, "recent">[] => [
   { label: "w1", name: "acme-orbit-api", path: "/home/me/projects/acme/acme-orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", uncommitted: 3, next: mockAssistant.attachments.length, news: 0 }, front: true, listed: true, visible: true, daily: true, account: "/home/me/.claude", mark: { kind: "icon", value: "satellite" } },
@@ -1932,7 +1968,7 @@ export interface Account {
 
 const mockAccounts: Account[] = [
   { harness: "claude", dir: "/home/me/.claude", name: "Work", color: "#7f95ff", mark: { kind: "icon", value: "briefcase" }, desktopProfile: "/home/me/.config/claude-desktop-work", kind: "used", connected: true },
-  { harness: "claude", dir: "/home/me/.claude-private", name: "Private", color: "#4fc9bd", mark: { kind: "icon", value: "house" }, desktopProfile: null, kind: "used", connected: true },
+  { harness: "claude", dir: "/home/me/.claude-private", name: "Private", color: "#4fc9bd", mark: { kind: "icon", value: "house" }, desktopProfile: null, kind: "used", connected: false },
   { harness: "claude", dir: "/home/me/.claude-cleanup-2026", name: "claude-cleanup-2026", color: "#e391d0", mark: null, desktopProfile: null, kind: "backup", connected: false },
 ];
 const mockAccountListeners = new Set<() => void>();

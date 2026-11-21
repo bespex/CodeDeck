@@ -3,7 +3,7 @@
 // components: names and what is offered come from `HarnessInfo` and its capabilities.
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { assistantState, harnessConnections, onAssistantChanged, type AssistantState, type Connection, type HarnessInfo } from "./backend";
+import { assistantState, harnessConnections, onAssistantChanged, onConnectionsChanged, type AssistantState, type Connection, type HarnessInfo } from "./backend";
 
 const EMPTY: AssistantState = { canStart: false, heard: false, usage: [], harnesses: [], sessions: [], identities: [], attachments: [], preview: null, delivered: null, target: null, any: false, held: false, targetLost: null, ruled: null, found: { outside: [], pages: [] } };
 
@@ -51,10 +51,19 @@ const publish = (setups: Connection[]) => {
   listeners.forEach((l) => l(setups));
 };
 
+// Another window (the settings, the welcome) connected or disconnected a tool: ask again, once per window
+let heard = false;
+const hearOthers = () => {
+  if (heard) return;
+  heard = true;
+  onConnectionsChanged(() => void harnessConnections().then(publish).catch(() => {}));
+};
+
 export function useConnections(): Connections {
   const [setups, setSetups] = useState<Connection[] | null>(shared);
   useEffect(() => {
     listeners.add(setSetups);
+    hearOthers();
     if (!shared) harnessConnections().then(publish).catch(() => {});
     return () => void listeners.delete(setSetups);
   }, []);

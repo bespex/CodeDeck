@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Copy, X } from "lucide-react";
-import { openWelcome, appInfo, autostartState, setAutostart, type AutostartState, machineSettings, setMachineSetting, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
+import { openWelcome, harnessList, onSettingsSection, type HarnessInfo, appInfo, autostartState, setAutostart, type AutostartState, machineSettings, setMachineSetting, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
 import { useAccounts } from "../accounts";
 import { usePlatform } from "../platform";
 import { PlatformFacts, platformFacts } from "./PlatformFacts";
 import { AccountMark, MarkPicker } from "./ProjectMark";
 import { useConnections } from "../assistant";
-import { closeDialog, openDialog, useDialog, type SettingsSection } from "../dialogs";
+import { closeDialog, useDialog, type SettingsSection } from "../dialogs";
 import { lang, setLang, t, T } from "../i18n";
 import { ReduceTransparency, ThemeChoice } from "./ThemeChoice";
 import { useWindowHelp, WindowHelp } from "./WindowHelp";
@@ -25,8 +25,7 @@ export function Dialogs({ assistant }: { assistant: AssistantState }) {
   if (!dialog) return null;
   if (dialog.kind === "about") return <About />;
   if (dialog.kind === "windowHelp") return <WindowHelp assistant={assistant} />;
-  if (dialog.kind === "shortcuts") return <Shortcuts />;
-  return <Settings section={dialog.section} assistant={assistant} />;
+  return <Shortcuts />;
 }
 
 /** A dialog over a dimmed window; Escape or a click beside it closes it. */
@@ -206,20 +205,29 @@ const SECTIONS: [SettingsSection, string][] = [
 ];
 
 /**
- * All settings, by area. Each says what it applies to; a change takes effect at once, there is
- * nothing to save. Areas come as their values become settable (docs/KOPFLEISTE.md).
+ * All settings, by area, in a window of their own (`?view=settings`, src-tauri/src/settings.rs):
+ * every setting applies to this computer, so they open with or without a project. Each says what it
+ * applies to; a change takes effect at once, there is nothing to save. Areas come as their values
+ * become settable (docs/KOPFLEISTE.md).
  */
-function Settings({ section, assistant }: { section: SettingsSection; assistant: AssistantState }) {
+export function SettingsWindow() {
+  const [section, setSection] = useState<SettingsSection>(() => {
+    const asked = new URLSearchParams(window.location.search).get("section");
+    return SECTIONS.some(([id]) => id === asked) ? (asked as SettingsSection) : "general";
+  });
+  const [harnesses, setHarnesses] = useState<HarnessInfo[]>([]);
+  useEffect(() => void harnessList().then(setHarnesses).catch(() => {}), []);
+  useEffect(() => onSettingsSection((asked) => SECTIONS.some(([id]) => id === asked) && setSection(asked as SettingsSection)), []);
   return (
-    <Modal title={t("Settings")} width="w-[760px] h-[520px]">
-      {/* In the sidebar the areas come as a row above the settings */}
+    <div className="flex h-screen flex-col bg-panel text-[13px] text-slate-300">
+      {/* Narrow, the areas come as a row above the settings */}
       <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
         <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-overlay-line p-2 sm:block sm:w-44 sm:border-r sm:border-b-0">
           {SECTIONS.map(([id, label]) => (
             <button
               key={id}
               type="button"
-              onClick={() => openDialog({ kind: "settings", section: id })}
+              onClick={() => setSection(id)}
               className={`block shrink-0 rounded-md px-2.5 py-1.5 text-left whitespace-nowrap sm:w-full ${section === id ? "bg-overlay-hover text-slate-50" : "text-slate-300 hover:bg-overlay-hover/60"}`}
             >
               {t(label)}
@@ -230,10 +238,10 @@ function Settings({ section, assistant }: { section: SettingsSection; assistant:
           {section === "general" && <General />}
           {section === "interface" && <Interface />}
           {section === "notifications" && <Notifications />}
-          {section === "tools" && <Tools assistant={assistant} />}
+          {section === "tools" && <Tools harnesses={harnesses} />}
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }
 
@@ -596,7 +604,7 @@ function AccountRow({ account, profiles, connection, hasProfiles }: { account: A
  * The AI tools, each with its accounts: connecting, name, mark and colour, the desktop app's
  * profile, backups to delete (step 3.2). One page, so a tool and what belongs to it stay together.
  */
-function Tools({ assistant }: { assistant: AssistantState }) {
+function Tools({ harnesses }: { harnesses: HarnessInfo[] }) {
   const hooks = useConnections();
   const accounts = useAccounts();
   const [profiles, setProfiles] = useState<string[]>([]);
@@ -604,7 +612,7 @@ function Tools({ assistant }: { assistant: AssistantState }) {
   const command = hooks.setups?.[0]?.command;
   return (
     <>
-      {assistant.harnesses.map((h) => {
+      {harnesses.map((h) => {
         const own = accounts.filter((a) => a.harness === h.id);
         return (
           <section key={h.id} className="mb-6">

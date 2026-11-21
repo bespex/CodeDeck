@@ -3,8 +3,7 @@ import { changeSummary, type GitView } from "../git";
 import { Tooltip, TooltipHint } from "./Tooltip";
 import { RepoTooltip } from "./RepoTooltip";
 import { GitInitButton, lacksGit } from "./GitInit";
-import type { AssistantState, GitRun, RepoStatus } from "../backend";
-import { openDialog } from "../dialogs";
+import { openSettings, type AssistantState, type GitRun, type RepoStatus } from "../backend";
 import { useProjectAccount, useProjectLook, type ProjectAccount } from "../projectLook";
 import { UsageChip } from "./UsagePanel";
 import { plural, t } from "../i18n";
@@ -202,7 +201,7 @@ function NotConnected({ mine: { account, harness } }: { mine: ProjectAccount }) 
     <button
       type="button"
       title={t("{tool} does not report to CodeDeck in {account}: connect it in the settings", { tool: harness.name, account: account.name })}
-      onClick={() => openDialog({ kind: "settings", section: "tools" })}
+      onClick={() => void openSettings("tools")}
       className={`${CLICKABLE} text-changed`}
     >
       <Plug className="size-3.5" />

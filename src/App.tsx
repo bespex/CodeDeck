@@ -3,7 +3,7 @@ import { FilesPanel } from "./components/FilesPanel";
 import { GitLog } from "./components/GitLog";
 import { Deck } from "./components/Deck";
 import { SessionsPanel } from "./components/SessionsPanel";
-import { overviewState, closeWindow, live, onOpenView, openProject, openWindow, projectInfo, type Entry, type ProjectInfo } from "./backend";
+import { overviewState, closeWindow, live, onOpenView, openProject, openSettings, openWindow, projectInfo, type Entry, type ProjectInfo } from "./backend";
 import { currentView, openView, type ViewId } from "./view";
 import { initialPins } from "./mock";
 import { files, pinFromEntry } from "./files";
@@ -88,7 +88,7 @@ export default function App() {
     // The overview of all projects opens a view here (docs/UEBERSICHT.md)
     // Its dialogs too: they need more room than the overview has
     const stopView = onOpenView((view) => {
-      if (view === "settings") openDialog({ kind: "settings", section: "general" });
+      if (view === "settings") void openSettings();
       else if (view === "about" || view === "shortcuts") openDialog({ kind: view });
       else openView(view as ViewId);
     });

@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, Check as CheckMark, Copy, Ellipsis, FolderGit2, FolderPlus, Info, LayoutList, Radio, RefreshCw, TriangleAlert, X } from "lucide-react";
-import { checkup, closeWindow, openUrl, welcomeAtStart, welcomeDone, welcomeFit, type Check } from "../backend";
+import { checkup, closeWindow, openUrl, setHarnessConnection, welcomeAtStart, welcomeDone, welcomeFit, type Check } from "../backend";
+import { useConnections } from "../assistant";
+import { useAccounts } from "../accounts";
 import { usePlatform } from "../platform";
 import { t } from "../i18n";
 import { Tooltip } from "./Tooltip";
@@ -187,7 +189,7 @@ function ProjectsExplained() {
       points: [
         t("This works for every project on the list, even while its window is closed."),
         t("The list then marks the project with “asks” or “done”, and the desktop can notify you."),
-        t("For that you connect the coding agent with CodeDeck once, under Settings → Coding agents."),
+        t("For that you connect the coding agent with CodeDeck once: on the first page of this window, or later under Settings → Coding agents."),
       ],
     },
     {
@@ -280,6 +282,65 @@ function Row({ check: c }: { check: Check }) {
         </Tooltip>
       </div>
       {c.status === "missing" && c.install && <CopyLine text={c.install} />}
+      {c.kind === "tool" && c.status === "found" && <Connect harness={c.id.replace(/^tool:/, "")} />}
+    </div>
+  );
+}
+
+/**
+ * Whether the coding agent reports to CodeDeck, with Connect beside each configuration that does not
+ * yet. It is the step a first start needs most, so it is here, where one looks at the start, and not
+ * only in the settings (user, 2026-11-21).
+ */
+function Connect({ harness }: { harness: string }) {
+  const hooks = useConnections();
+  const accounts = useAccounts().filter((a) => a.harness === harness && a.kind !== "backup");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  if (!hooks.setups) return null;
+  const of = (dir: string) => hooks.setups?.find((c) => c.harness === harness && c.dir === dir);
+  const open = accounts.filter((a) => {
+    const c = of(a.dir);
+    return c && (!c.installed || c.other);
+  });
+  const connect = async (dir: string) => {
+    setBusy(dir);
+    setError(null);
+    try {
+      hooks.update(await setHarnessConnection(harness, dir, true));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  if (!accounts.length) return null;
+  if (!open.length) {
+    return (
+      <span className="ml-43 flex items-center gap-1 py-0.5 text-[12px] text-added">
+        <CheckMark className="size-3.5" />
+        {t("Connected with CodeDeck")}
+      </span>
+    );
+  }
+  return (
+    <div className="ml-43 flex flex-col gap-1 py-1 text-[12px]">
+      <span className="text-problem">{t("Not connected yet: CodeDeck does not hear its AI sessions.")}</span>
+      {open.map((a) => (
+        <span key={a.dir} className="flex items-center gap-2">
+          <span className="truncate text-slate-200">{a.name}</span>
+          <span className="truncate font-mono text-[11px] text-slate-500">{a.dir.replace(/^\/home\/[^/]+/, "~")}</span>
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => void connect(a.dir)}
+            className="ml-auto shrink-0 rounded-md bg-brand-fill px-2 py-0.5 font-medium text-on-accent hover:bg-brand-fill-hover disabled:opacity-60"
+          >
+            {of(a.dir)?.other ? t("Use this one") : t("Connect")}
+          </button>
+        </span>
+      ))}
+      {error && <span className="text-problem">{error}</span>}
     </div>
   );
 }

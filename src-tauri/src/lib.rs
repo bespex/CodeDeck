@@ -35,6 +35,7 @@ mod updates;
 mod usage;
 mod watch;
 mod scratch;
+mod settings;
 mod welcome;
 mod window;
 mod windows;
@@ -213,13 +214,26 @@ fn welcome_fit(app: AppHandle, width: f64, height: f64) -> Result<(), String> {
 /// Whether this project window shows the help on its parts now (once per start, a window in sight).
 #[tauri::command]
 fn window_help(window: WebviewWindow) -> bool {
-    window.label() != windows::OVERVIEW && window.label() != welcome::LABEL && welcome::window_help_due(window.is_visible().unwrap_or(false))
+    window.label() != windows::OVERVIEW && window.label() != welcome::LABEL && window.label() != settings::LABEL && welcome::window_help_due(window.is_visible().unwrap_or(false))
 }
 
 /// Opens the welcome (from the app menu).
 #[tauri::command]
 fn open_welcome(app: AppHandle) -> Result<(), String> {
     welcome::open(&app)
+}
+
+/// Opens the settings in their own window, at `section` if given; they need no project.
+#[tauri::command]
+fn open_settings(app: AppHandle, section: Option<String>) -> Result<(), String> {
+    settings::open(&app, section.as_deref())
+}
+
+/// The tools CodeDeck supports, the default one first: for windows without a project (settings,
+/// welcome), which have no bridge to ask.
+#[tauri::command]
+fn harness_list() -> Vec<harness::HarnessInfo> {
+    harness::all().iter().map(|h| harness::HarnessInfo::of(*h)).collect()
 }
 
 /// What happened in this project since `since` (Unix milliseconds), oldest first: the material of
@@ -683,9 +697,12 @@ fn set_usage_connection(harness: String, account: String, install: bool) -> Resu
 
 /// Makes the tool of one account report to CodeDeck, or stops that; the state of all afterwards.
 #[tauri::command]
-fn set_harness_connection(harness: String, account: String, install: bool) -> Result<Vec<Connection>, String> {
+fn set_harness_connection(harness: String, account: String, install: bool, app: AppHandle) -> Result<Vec<Connection>, String> {
     let tool = harness::by_id(Some(&harness)).ok_or_else(|| format!("{harness}: not a tool CodeDeck knows"))?;
     tool.connect(&account, install)?;
+    // The settings are a window of their own now: the others hear of it, as of accounts
+    let _ = app.emit("connections_changed", ());
+    let _ = app.emit("accounts_changed", ());
     Ok(harness_connections())
 }
 
@@ -1251,7 +1268,8 @@ pub fn run() {
         .on_window_event(|window, event| match event {
             // The window in front is the one the global shortcuts act on
             // The welcome is beside the work: shortcuts and the overview keep to the project windows
-            tauri::WindowEvent::Focused(_) | tauri::WindowEvent::Destroyed if window.label() == welcome::LABEL => {}
+            // So are the settings
+            tauri::WindowEvent::Focused(_) | tauri::WindowEvent::Destroyed if window.label() == welcome::LABEL || window.label() == settings::LABEL => {}
             tauri::WindowEvent::Focused(focused) => {
                 window::focus_changed(window.app_handle(), window.label(), *focused);
                 // The overview marks the project window used last
@@ -1391,6 +1409,8 @@ pub fn run() {
             welcome_at_start,
             welcome_done,
             open_welcome,
+            open_settings,
+            harness_list,
             welcome_fit,
             window_help,
             fetch_outside,
