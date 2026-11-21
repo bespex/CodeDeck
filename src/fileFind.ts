@@ -1,10 +1,10 @@
 // Finding files in the whole project (docs/DATEISPALTE.md, C1/C2): the search field of the file list
 // looks through every file, not only the folders opened, and chips narrow the list to what is
-// changed, new, attached, holds @ai hints, is marked important or was written by one session. With
+// new or changed, attached, holds @ai hints or is marked important. With
 // a search or a chip the tree gives way to a flat list of what was found.
 
-/** A chip: one kind of file to narrow the list to; `session:<id>` for the files of one session. */
-export type Chip = "changed" | "new" | "attached" | "hints" | "important" | `session:${string}`;
+/** A chip: one kind of file to show. */
+export type Chip = "changed" | "new" | "attached" | "hints" | "important";
 
 /**
  * How well `path` matches `query` (lower case), higher is better; `null`: not at all. The name

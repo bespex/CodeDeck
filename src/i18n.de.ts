@@ -1282,7 +1282,6 @@ export const de: Record<string, string> = {
   "Changed": "Geändert",
   "New": "Neu",
   "New files, not in git yet": "Neue Dateien, noch nicht in Git",
-  "Changed by session {short}": "Von Session {short} geändert",
   "Attached to your next prompt": "An deinen nächsten Prompt angehängt",
   "Files with @ai hints": "Dateien mit @ai-Hinweisen",
   "Important": "Wichtig",

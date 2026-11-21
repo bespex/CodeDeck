@@ -186,7 +186,6 @@ export function FilesPanel(props: Props) {
   const [cursor, setCursor] = useState<string | null>(null);
   const [chips, setChips] = usePerProject<Chip[]>("fileChips", () => []);
   const [allFiles, setAllFiles] = useState<string[] | null>(null);
-  const sessionMarks = useSessionMarks();
 
   // "Show in tree" from anywhere: the list opens, the folders on the way too, the entry lights up
   const fold = props.onFold;
@@ -207,7 +206,7 @@ export function FilesPanel(props: Props) {
 
   const needle = query.trim().toLowerCase();
   // A search or a chip: a flat list of what is found in the whole project instead of the tree
-  const listMode = needle !== "" || chips.length > 0;
+  const listMode = needle !== "" || chips.some((c) => CHIP_KINDS.flat().includes(c));
   useEffect(() => {
     if (!listMode) return;
     let timer: ReturnType<typeof setTimeout>;
@@ -240,21 +239,14 @@ export function FilesPanel(props: Props) {
       hints: (path) => hints.has(path),
       important: (path) => marks.important.includes(path),
     };
-    const passes = (path: string) =>
-      chips.every((chip) => (chip.startsWith("session:") ? sessionMarks.writer(path) === chip.slice(8) && state.has(path) : test[chip]?.(path) ?? true));
+    // Or within a kind (new or changed; attached, hints or important), and between the kinds
+    // (changed and important): what one usually means (user, 2026-11-21)
+    const kinds = CHIP_KINDS.map((kind) => chips.filter((c) => kind.includes(c))).filter((on) => on.length > 0);
+    const passes = (path: string) => kinds.every((on) => on.some((chip) => test[chip]?.(path)));
     const kept = [...universe].filter(passes).filter((path) => !(fileSettings.look === "hide" && hiddenBy(path, fileSettings, marks, ignored)));
     const found = needle ? search(kept, needle) : kept.sort().slice(0, 300);
     return found.map((path): Entry => ({ name: path.slice(path.lastIndexOf("/") + 1), path, isDir: !files.has(path) && !state.has(path) ? true : !!state.get(path)?.dir, size: 0 }));
-  }, [listMode, needle, chips, allFiles, props.git.repos, props.pinned, marks, hints, sessionMarks, fileSettings, ignored]);
-  // The sessions that wrote uncommitted files: a chip each
-  const writers = useMemo(() => {
-    const ids = new Set<string>();
-    for (const path of props.touched.keys()) {
-      const w = sessionMarks.writer(path);
-      if (w && props.git.stateOf(path)) ids.add(w);
-    }
-    return [...ids];
-  }, [props.touched, props.git, sessionMarks]);
+  }, [listMode, needle, chips, allFiles, props.git.repos, props.pinned, marks, hints, fileSettings, ignored]);
   // Changed on disk recently, or written by an assistant recently; with "keep the dots" every file
   // a session wrote that is still uncommitted
   const since = Date.now() - RECENT_MS;
@@ -438,7 +430,7 @@ export function FilesPanel(props: Props) {
             </button>
           )}
         </label>
-        <Chips chips={chips} onChange={setChips} writers={writers} />
+        <Chips chips={chips} onChange={setChips} />
       </div>
 
       <div
@@ -926,48 +918,59 @@ function manyMenu(paths: string[], tree: TreeState): MenuItem[] {
   ];
 }
 
+/** The chips in their kinds: state, then what CodeDeck knows of a file. */
+const CHIP_KINDS: Chip[][] = [
+  ["new", "changed"],
+  ["attached", "hints", "important"],
+];
+
 /**
- * Chips under the search field: each narrows the list to one kind of file; several narrow it
- * further. With one on, the tree gives way to the flat list of what is found (docs/DATEISPALTE.md, C1).
+ * Chips under the search field: or within a kind, and between kinds. With one on, the tree gives
+ * way to the flat list of what is found (docs/DATEISPALTE.md, C1). No chip per session: other views
+ * show what a session did, and with several sessions the row would grow too long (user, 2026-11-21).
  */
-function Chips({ chips, onChange, writers }: { chips: Chip[]; onChange: (chips: Chip[]) => void; writers: string[] }) {
-  const marks = useSessionMarks();
-  const all: [Chip, string, string][] = [
-    ["new", t("New"), t("New files, not in git yet")],
-    ["changed", t("Changed"), t("Uncommitted changes")],
-    ...writers.map((id): [Chip, string, string] => [`session:${id}`, marks.of(id)?.short ?? "?", t("Changed by session {short}", { short: marks.of(id)?.title ?? id.slice(0, 8) })]),
-    ["attached", t("Attached"), t("Attached to your next prompt")],
-    ["hints", "@ai", t("Files with @ai hints")],
-    ["important", t("Important"), t("Marked as important")],
-  ];
-  const flip = (chip: Chip) => onChange(chips.includes(chip) ? chips.filter((c) => c !== chip) : [...chips, chip]);
+function Chips({ chips, onChange }: { chips: Chip[]; onChange: (chips: Chip[]) => void }) {
+  const all: Record<Chip, [string, string]> = {
+    new: [t("New"), t("New files, not in git yet")],
+    changed: [t("Changed"), t("Uncommitted changes")],
+    attached: [t("Attached"), t("Attached to your next prompt")],
+    hints: ["@ai", t("Files with @ai hints")],
+    important: [t("Important"), t("Marked as important")],
+  };
+  // Chips no longer offered (a session's, from before) are dropped
+  const valid = chips.filter((c) => c in all);
+  const flip = (chip: Chip) => onChange(valid.includes(chip) ? valid.filter((c) => c !== chip) : [...valid, chip]);
   return (
-    <div className="flex flex-wrap gap-1 pt-1.5">
-      {all.map(([chip, label, says]) => {
-        const on = chips.includes(chip);
-        const color = chip.startsWith("session:") ? marks.of(chip.slice(8))?.color : undefined;
-        return (
-          <button
-            key={chip}
-            type="button"
-            aria-pressed={on}
-            title={says}
-            onClick={() => flip(chip)}
-            style={color ? ({ borderColor: color } as CSSProperties) : undefined}
-            className={`rounded-full border px-2 py-px text-[11px] ${on ? "border-ai bg-ai/20 text-slate-50" : "border-line text-slate-400 hover:bg-raised hover:text-slate-200"}`}
-          >
-            {label}
-          </button>
-        );
-      })}
+    <div className="flex flex-wrap items-start gap-1 pt-1.5">
+      {CHIP_KINDS.map((kind, k) => (
+        // The kinds stand apart: within one a chip adds, between them it narrows
+        <span key={k} className={`flex flex-wrap gap-1 ${k > 0 ? "ml-1.5" : ""}`}>
+          {kind.map((chip) => {
+            const on = valid.includes(chip);
+            const [label, says] = all[chip];
+            return (
+              <button
+                key={chip}
+                type="button"
+                aria-pressed={on}
+                title={says}
+                onClick={() => flip(chip)}
+                className={`rounded-full border px-2 py-px text-[11px] ${on ? "border-ai bg-ai/20 text-slate-50" : "border-line text-slate-400 hover:bg-raised hover:text-slate-200"}`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </span>
+      ))}
       {/* Back to the whole tree: stands out at the right edge while a chip narrows the list (user, 2026-11-21) */}
-      {chips.length > 0 && (
+      {valid.length > 0 && (
         <button
           type="button"
           aria-label={t("Reset the filters")}
           title={t("Reset the filters")}
           onClick={() => onChange([])}
-          className="ml-auto self-start rounded-full p-0.5 text-brand-soft hover:bg-brand/15 hover:text-brand"
+          className="ml-auto rounded-full p-0.5 text-brand-soft hover:bg-brand/15 hover:text-brand"
         >
           <FilterX className="size-3.5" />
         </button>

@@ -153,6 +153,7 @@ Mehrfachauswahl (Strg+Klick, Umschalt+Klick, Umschalt+Pfeil; Menü für mehrere:
 Pfade kopieren, Papierkorb), Tastatur im Baum (Pfeile, Rechts/Links klappt auf und zu, Enter ansehen bzw. aufklappen,
 Strg+Enter bearbeiten, Leertaste anhängen, Esc hebt die Auswahl auf, Kontextmenü-Taste bzw. Umschalt+F10), Suche über
 das ganze Projekt im Suchfeld (unscharf, Name vor Pfad, höchstens 300 Treffer, ohne Build-Ordner) und Filter-Chips
-(Geändert, Neu, je schreibende Session, Angehängt, @ai, Wichtig; mehrere grenzen weiter ein). Mit Suche oder Chip
+(Neu, Geändert | Angehängt, @ai, Wichtig; ODER innerhalb einer Gruppe, UND zwischen den Gruppen; keine Chips je Session,
+Nutzer 2026-11-21: dafür gibt es andere Ansichten, und bei mehreren Sessions wird die Zeile zu eng). Mit Suche oder Chip
 zeigt die Liste flach, was gefunden wurde, mit dem Ordner daneben; „Im Baum zeigen“ führt zurück in den Baum.
-„Diese Runde“ als Chip ist nicht gebaut (die Runde kennt der Baum nicht); dafür je Session ein Chip.
+„Diese Runde“ als Chip ist nicht gebaut (die Runde kennt der Baum nicht).
