@@ -147,6 +147,9 @@ export function HintsTile({ marks, harness }: { marks: Markers; harness: Harness
                     <li
                       key={m.line}
                       onClickCapture={() => fresh && markSeen(item)}
+                      // A be spex viewer opens at the hint's line; the editor gets the file
+                      onDoubleClick={() => void openFile(m.path, "view", m.line)}
+                      title={t("Double-click: view at this line")}
                       className={`group flex min-h-6 items-start gap-2 rounded px-1 py-0.5 hover:bg-raised/50 ${newsClass(fresh)}`}
                     >
                       <span className="w-7 shrink-0 pt-px text-right font-mono text-[11px] text-slate-500 tabular-nums">{m.line}</span>

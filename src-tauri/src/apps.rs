@@ -12,7 +12,7 @@ use std::path::Path;
 use gio::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Clone, Copy)]
+#[derive(Deserialize, Clone, Copy, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum Role {
     View,
@@ -100,6 +100,45 @@ fn mime_of(path: &Path) -> String {
         .unwrap_or_else(|| gio::content_type_guess(Some(path), &[]).0.to_string())
 }
 
+/// The viewers of be spex (Qiew): program, desktop entry, the file endings each one is made for.
+/// Preferred for viewing where no program was chosen, and driven through their common command line
+/// (`--reuse`, `--line`, `--geometry`, Qiew's `crates/frame/src/launch.rs`); they stay programs of
+/// their own (docs/QIEW.md).
+const QIEW: &[(&str, &str, &[&str])] = &[
+    ("marq", "Marq.desktop", &["md", "markdown"]),
+    ("jayq", "Jayq.desktop", &["json"]),
+    ("xaq", "Xaq.desktop", &["xml", "xsd", "xsl", "xslt"]),
+    ("hyqe", "Hyqe.desktop", &["html", "htm"]),
+    ("cusq", "Cusq.desktop", &["csv", "tsv"]),
+    ("dirq", "Dirq.desktop", &["diff", "patch"]),
+    ("maiqe", "Maiqe.desktop", &["mmd", "mermaid"]),
+    ("trisq", "Trisq.desktop", &["tsx", "jsx"]),
+];
+
+/// The be spex viewer made for this file, if it is installed.
+fn qiew_app(path: &Path) -> Option<gio::AppInfo> {
+    let ext = path.extension()?.to_string_lossy().to_lowercase();
+    let (program, desktop, _) = QIEW.iter().find(|(_, _, exts)| exts.contains(&ext.as_str()))?;
+    viewer(program)?;
+    gio::DesktopAppInfo::new(desktop).map(|app| app.upcast())
+}
+
+/// The program of a be spex viewer, if the app is one: it is started with the options then.
+fn qiew_program(app: &gio::AppInfo) -> Option<std::path::PathBuf> {
+    let id = app.id()?;
+    let (program, ..) = QIEW.iter().find(|(_, desktop, _)| *desktop == id.as_str())?;
+    viewer(program)
+}
+
+/// How a viewer of be spex opens a file: one window reused while stepping through files, at a
+/// line, over a place of CodeDeck's window (physical pixels). Other programs get only the file.
+#[derive(Default)]
+pub struct Launch {
+    pub line: Option<u32>,
+    /// `WxH+X+Y`
+    pub geometry: Option<String>,
+}
+
 fn system_default(mime: &str) -> Option<gio::AppInfo> {
     gio::AppInfo::default_for_type(mime, false)
 }
@@ -115,8 +154,11 @@ pub fn for_file(path: &Path) -> FileApps {
     let mime = mime_of(path);
     let system = system_default(&mime);
     let mut stored = Stored::load();
+    // Viewing: where nothing was chosen, the be spex viewer for the type comes before the system's
+    let qiew = qiew_app(path);
     let pick = |stored: &mut Stored, role| match chosen(stored, role, &kind) {
         Some(app) => Pick { app: App::of(&app), chosen: true },
+        None if role == Role::View && qiew.is_some() => Pick { app: qiew.as_ref().and_then(App::of), chosen: false },
         None => Pick { app: system.as_ref().and_then(App::of), chosen: false },
     };
     let view = pick(&mut stored, Role::View);
@@ -126,12 +168,13 @@ pub fn for_file(path: &Path) -> FileApps {
     // takes `text/plain`; the recommended ones registered for the type itself are the short list
     let recommended: HashSet<String> =
         gio::AppInfo::recommended_for_type(&mime).iter().filter_map(|app| app.id()).map(|id| id.to_string()).collect();
-    let mut candidates: Vec<App> = system.iter().chain(&gio::AppInfo::all_for_type(&mime)).filter_map(App::of).collect();
+    // The be spex viewer for the type first, recommended (the Qiew README: CodeDeck prefers them)
+    let mut candidates: Vec<App> = qiew.iter().chain(system.iter()).chain(&gio::AppInfo::all_for_type(&mime)).filter_map(App::of).collect();
     let mut seen = HashSet::new();
     candidates.retain(|app| seen.insert(app.id.clone()));
     let used: HashSet<&String> = stored.view.values().chain(stored.edit.values()).collect();
     candidates.iter_mut().for_each(|app| {
-        app.recommended = recommended.contains(&app.id);
+        app.recommended = recommended.contains(&app.id) || QIEW.iter().any(|(_, desktop, _)| *desktop == app.id);
         app.used = used.contains(&app.id);
     });
 
@@ -153,11 +196,25 @@ pub fn choose(path: &Path, role: Role, app: Option<String>) -> Result<(), String
     crate::config::write(&file, &serde_json::to_vec_pretty(&stored).map_err(|e| e.to_string())?)
 }
 
-/// Opens the file in the program for the role: the chosen one, else the system's default.
-/// `Ok(false)`: there is neither, the caller falls back to the plain opener.
-pub fn open(path: &Path, role: Role) -> Result<bool, String> {
-    let app = chosen(&mut Stored::load(), role, &kind_of(path)).or_else(|| system_default(&mime_of(path)));
+/// Opens the file in the program for the role: the chosen one, for viewing else the be spex viewer
+/// for the type, else the system's default. A be spex viewer is started with `how`. `Ok(false)`:
+/// there is none, the caller falls back to the plain opener.
+pub fn open(path: &Path, role: Role, how: &Launch) -> Result<bool, String> {
+    let app = chosen(&mut Stored::load(), role, &kind_of(path))
+        .or_else(|| if role == Role::View { qiew_app(path) } else { None })
+        .or_else(|| system_default(&mime_of(path)));
     let Some(app) = app else { return Ok(false) };
+    if let Some(program) = qiew_program(&app) {
+        let mut command = std::process::Command::new(program);
+        command.arg(path).arg("--reuse");
+        if let Some(line) = how.line {
+            command.args(["--line", &line.to_string()]);
+        }
+        if let Some(geometry) = &how.geometry {
+            command.args(["--geometry", geometry]);
+        }
+        return detach(command).map(|_| true);
+    }
     app.launch(&[gio::File::for_path(path)], gio::AppLaunchContext::NONE)
         .map(|_| true)
         .map_err(|e| format!("{}: {e}", app.display_name()))

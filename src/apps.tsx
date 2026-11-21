@@ -23,7 +23,8 @@ export function appsOf(path: string): Promise<FileApps> {
 const report = (e: unknown) => console.error(e);
 
 /** Opens the file for viewing (double click) or editing (middle click). */
-export const openAs = (path: string, role: Role) => openFile(path, role).catch(report);
+/** Opens a file for viewing or editing; a be spex viewer jumps to `line` (docs/QIEW.md). */
+export const openAs = (path: string, role: Role, line?: number) => openFile(path, role, line).catch(report);
 
 /** The name of the program that would open the file, e.g. in a tooltip or menu hint. */
 export function AppName({ path, role }: { path: string; role: Role }) {

@@ -32,6 +32,7 @@ import { stateColor } from "../FilesPanel";
 import { Tooltip, TooltipHint } from "../Tooltip";
 import { AttachChange, AttachedAtRest, Commands, DiffBody, FileTools, inUntrackedDir, LineCounts, useDirq, Viewed, ChangedSinceViewed, You, type Working } from "./DiffParts";
 import { StructureTree } from "./StructureTree";
+import { withHeader, type DirqMeta } from "../../dirq";
 import { NoRepository } from "../GitInit";
 import { known, snapshotLabel, t } from "../../i18n";
 
@@ -478,7 +479,7 @@ function TurnChanges(props: {
         aside={
           <>
             <AttachChange />
-            <DirqButton patch={patch} />
+            <DirqButton patch={patch} meta={{ subject: `${t("Turn {n}", { n: turn.n })} · ${mark?.title ?? props.who} · ${repo.name}`, author: mark ? `${mark.title ?? props.who} (${mark.short})` : props.who, at: turn.at, body: [turn.prompt ? `${t("You asked:")} ${turn.prompt}` : "", turn.report ?? ""].filter(Boolean).join("\n\n"), hash: turn.to ?? turn.from }} />
             <Tooltip content={<span>{t("Shows the point this turn began at. From there you can put the files back as they were.")}</span>}>
               <button type="button" onClick={props.onStart} className="flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-[12px] text-slate-300 hover:bg-raised hover:text-slate-100">
                 <Undo2 className="size-3" />
@@ -658,7 +659,7 @@ function RepoChanges(props: {
         {files.length > 0 && (
           <span className="ml-auto flex items-center gap-2 self-center">
             <AttachChange />
-            <DirqButton patch={patch} />
+            <DirqButton patch={patch} meta={{ subject: `${t("Uncommitted changes")} · ${repo.name}${repo.branch ? ` · ${repo.branch}` : ""}` }} />
           </span>
         )}
       </header>
@@ -860,7 +861,7 @@ function CommitChanges(props: {
           <span>{new Date(c.at * 1000).toLocaleString(LOCALE)}</span>
           {c.unpushed && <span className="text-changed">{t("not pushed yet")}</span>}
           <AttachChange />
-          <DirqButton patch={patch} />
+          <DirqButton patch={patch} meta={{ subject: c.subject, author: c.author, at: c.at, body: c.body, hash: c.hash }} />
           <button
             type="button"
             onClick={props.onShowNow}
@@ -980,7 +981,7 @@ function SnapshotChanges(props: {
           )}
           {s.tool && <code className="font-mono text-[11px] text-slate-500">{s.tool}</code>}
           {changed > 0 && <AttachChange />}
-          <DirqButton patch={patch} />
+          <DirqButton patch={patch} meta={{ subject: `${t("Changes since the snapshot \"{name}\"", { name: snapshotLabel(s.label) })} · ${repo.name}`, author: mark?.title ?? undefined, at: s.at, hash: s.hash }} />
           <button
             type="button"
             onClick={props.onShowNow}
@@ -1100,7 +1101,7 @@ function CompareChanges(props: {
           {patch && <span>{plural(patch.changes.length, "file")} changed</span>}
           <span className="text-slate-500">{t("Ctrl+click another point to compare with that one instead")}</span>
           <AttachChange />
-          <DirqButton patch={patch} />
+          <DirqButton patch={patch} meta={{ subject: `${props.from.title} → ${props.to.title} · ${repo.name}`, at: props.to.at }} />
           <button
             type="button"
             onClick={props.onShowNow}
@@ -1126,7 +1127,7 @@ function CompareChanges(props: {
 }
 
 /** Opens the patch in Dirq, side by side; only offered when Dirq is installed. */
-function DirqButton({ patch }: { patch: Patch | null }) {
+function DirqButton({ patch, meta }: { patch: Patch | null; meta?: DirqMeta }) {
   const installed = useDirq();
   const [failed, setFailed] = useState<string | null>(null);
   if (!installed || !patch || !patch.text) return null;
@@ -1142,7 +1143,7 @@ function DirqButton({ patch }: { patch: Patch | null }) {
     >
       <button
         type="button"
-        onClick={() => showPatch(patch.text).then(() => setFailed(null), (e) => setFailed(String(e)))}
+        onClick={() => showPatch(meta ? withHeader(patch.text, meta) : patch.text).then(() => setFailed(null), (e) => setFailed(String(e)))}
         className="flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised hover:text-slate-100"
       >
         <ExternalLink className="size-3" />

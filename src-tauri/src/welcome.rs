@@ -57,7 +57,16 @@ pub struct Check {
 }
 
 /// The viewers of be spex (Qiew) CodeDeck hands files to: name, program.
-const VIEWERS: &[(&str, &str)] = &[("Marq", "marq"), ("Dirq", "dirq"), ("Hyqe", "hyqe"), ("Jayq", "jayq"), ("Xaq", "xaq")];
+const VIEWERS: &[(&str, &str)] = &[
+    ("Marq", "marq"),
+    ("Dirq", "dirq"),
+    ("Hyqe", "hyqe"),
+    ("Jayq", "jayq"),
+    ("Xaq", "xaq"),
+    ("Cusq", "cusq"),
+    ("Maiqe", "maiqe"),
+    ("Trisq", "trisq"),
+];
 
 /// Everything CodeDeck looks for, in the order shown: essential first.
 pub fn checks(platform: &Platform) -> Vec<Check> {

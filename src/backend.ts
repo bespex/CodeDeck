@@ -185,8 +185,11 @@ export interface FileApps {
 }
 
 /** Opens a file (project-relative) in its program for viewing or editing. */
-export function openFile(path: string, role: Role): Promise<void> {
-  if (live) return invoke("open_file", { path, role });
+export function openFile(path: string, role: Role, line?: number): Promise<void> {
+  // A be spex viewer opens over the deck, where one was just looking; other programs place themselves
+  const deck = role === "view" ? document.querySelector('[data-tour="deck-view"]')?.getBoundingClientRect() : undefined;
+  const place = deck && deck.width > 200 ? { x: deck.x, y: deck.y, width: deck.width, height: deck.height } : null;
+  if (live) return invoke("open_file", { path, role, line: line ?? null, place });
   console.info(`would ${role}`, path);
   return Promise.resolve();
 }
@@ -1720,6 +1723,9 @@ export function checkup(fresh: boolean): Promise<Check[]> {
     viewer("Hyqe", "hyqe", false),
     viewer("Jayq", "jayq", true),
     viewer("Xaq", "xaq", false),
+    viewer("Cusq", "cusq", true),
+    viewer("Maiqe", "maiqe", false),
+    viewer("Trisq", "trisq", false),
   ]);
 }
 

@@ -44,8 +44,11 @@ function purposeOf(c: Check): string {
           marq: t("Shows Markdown documents and an AI session's closing words as a formatted page (“Read in Marq”)."),
           dirq: t("Shows a commit, a snapshot or a comparison side by side (“Open in Dirq”)."),
           hyqe: t("Shows HTML pages an AI session wrote, rendered, without a browser."),
-          jayq: t("Opens JSON files from CodeDeck pretty-printed and foldable, as the default app for them."),
-          xaq: t("Opens XML files from CodeDeck pretty-printed and foldable, as the default app for them."),
+          jayq: t("CodeDeck shows JSON files in it, pretty-printed and foldable, with a jq filter."),
+          xaq: t("CodeDeck shows XML files in it, pretty-printed and foldable."),
+          cusq: t("CodeDeck shows CSV and TSV files in it as a table to sort and filter, e.g. test data in the scratch folder."),
+          maiqe: t("Shows Mermaid diagrams an AI session drew, one card each, to zoom and export."),
+          trisq: t("Runs a React component (TSX/JSX) an AI session wrote as a mock-up, without a project."),
         }[c.id] ?? ""
       );
   }

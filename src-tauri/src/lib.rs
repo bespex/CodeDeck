@@ -340,7 +340,7 @@ fn open_outside(path: String, role: Option<Role>, app: AppHandle, window: Webvie
     let full = PathBuf::from(&path);
     match role {
         None => app.opener().reveal_item_in_dir(&full).map_err(|e| e.to_string()),
-        Some(role) if apps::open(&full, role)? => Ok(()),
+        Some(role) if apps::open(&full, role, &apps::Launch::default())? => Ok(()),
         Some(_) => app.opener().open_path(path, None::<&str>).map_err(|e| e.to_string()),
     }
 }
@@ -396,12 +396,29 @@ fn open_path(path: &str, app: AppHandle, window: WebviewWindow) -> Result<(), St
     app.opener().open_path(full.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
 }
 
+/// Where a viewer is to open: a rectangle of this window in CSS pixels (the deck), turned into the
+/// `--geometry` of a be spex viewer (physical pixels of the screen).
+#[derive(serde::Deserialize)]
+struct Place {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
 /// Opens a file of the project in its program for viewing or editing: the one chosen in CodeDeck,
-/// else the system's default for the type.
+/// for viewing else the be spex viewer for the type, else the system's default. A be spex viewer
+/// reuses its window, jumps to `line` and opens over `place` (docs/QIEW.md).
 #[tauri::command]
-fn open_file(path: &str, role: Role, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+fn open_file(path: &str, role: Role, line: Option<u32>, place: Option<Place>, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
     let full = project_of(&window)?.resolve(path)?;
-    if apps::open(&full, role)? {
+    let geometry = place.and_then(|p| {
+        let scale = window.scale_factor().ok()?;
+        let at = window.inner_position().ok()?;
+        let px = |v: f64| (v * scale).round() as i64;
+        Some(format!("{}x{}+{}+{}", px(p.width), px(p.height), at.x as i64 + px(p.x), at.y as i64 + px(p.y)))
+    });
+    if apps::open(&full, role, &apps::Launch { line, geometry })? {
         return Ok(());
     }
     app.opener().open_path(full.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())

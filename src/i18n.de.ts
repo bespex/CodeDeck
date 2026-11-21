@@ -1072,8 +1072,6 @@ export const de: Record<string, string> = {
   "Shows Markdown documents and an AI session's closing words as a formatted page (“Read in Marq”).": "Zeigt Markdown-Dokumente und die Schlussworte einer KI-Session als formatierte Seite („In Marq lesen“).",
   "Shows a commit, a snapshot or a comparison side by side (“Open in Dirq”).": "Zeigt einen Commit, einen Snapshot oder einen Vergleich nebeneinander („In Dirq öffnen“).",
   "Shows HTML pages an AI session wrote, rendered, without a browser.": "Zeigt HTML-Seiten, die eine KI-Session geschrieben hat, dargestellt und ohne Browser.",
-  "Opens JSON files from CodeDeck pretty-printed and foldable, as the default app for them.": "Öffnet JSON-Dateien aus CodeDeck übersichtlich und aufklappbar, als Standard-App dafür.",
-  "Opens XML files from CodeDeck pretty-printed and foldable, as the default app for them.": "Öffnet XML-Dateien aus CodeDeck übersichtlich und aufklappbar, als Standard-App dafür.",
   "Welcome to CodeDeck": "Willkommen bei CodeDeck",
   "CodeDeck looked for what it works with on this computer.": "CodeDeck hat nachgesehen, womit es auf diesem Rechner arbeiten kann.",
   "CodeDeck needs something that is missing: {names}.": "CodeDeck fehlt etwas, das es braucht: {names}.",
@@ -1286,4 +1284,11 @@ export const de: Record<string, string> = {
   "Files with @ai hints": "Dateien mit @ai-Hinweisen",
   "Important": "Wichtig",
   "Reset the filters": "Filter zurücksetzen",
+  "Double-click: view at this line": "Doppelklick: an dieser Zeile ansehen",
+  // The be spex viewers (docs/QIEW.md)
+  "CodeDeck shows JSON files in it, pretty-printed and foldable, with a jq filter.": "CodeDeck zeigt JSON-Dateien darin an, eingerückt und aufklappbar, mit jq-Filter.",
+  "CodeDeck shows XML files in it, pretty-printed and foldable.": "CodeDeck zeigt XML-Dateien darin an, eingerückt und aufklappbar.",
+  "CodeDeck shows CSV and TSV files in it as a table to sort and filter, e.g. test data in the scratch folder.": "CodeDeck zeigt CSV- und TSV-Dateien darin als Tabelle zum Sortieren und Filtern, etwa Testdaten im Scratch-Ordner.",
+  "Shows Mermaid diagrams an AI session drew, one card each, to zoom and export.": "Zeigt Mermaid-Diagramme, die eine KI-Session gezeichnet hat, je eine Karte, zum Zoomen und Exportieren.",
+  "Runs a React component (TSX/JSX) an AI session wrote as a mock-up, without a project.": "Führt eine React-Komponente (TSX/JSX) aus, die eine KI-Session als Entwurf geschrieben hat, ohne Projekt.",
 };
