@@ -249,17 +249,30 @@ pub fn markdown_viewer() -> Option<std::path::PathBuf> {
     viewer("marq")
 }
 
-/// Shows a patch in Dirq: `dirq - --reuse`, the patch on its standard input. One window is
-/// reused while stepping through points; it lives on when CodeDeck closes.
-pub fn show_patch(text: &str) -> Result<(), String> {
+/// Shows a patch in Dirq: `dirq - --reuse --id <id>`, the patch on its standard input. One window is
+/// reused while stepping through points; it lives on when CodeDeck closes. `id` names what the patch
+/// is (the turn, the uncommitted changes, a commit): the same id means a new version of the same
+/// thing, so Dirq keeps its place and folded files and marks what changed; another id starts afresh.
+pub fn show_patch(text: &str, id: Option<&str>) -> Result<(), String> {
     let dirq = diff_viewer().ok_or("Dirq is not installed (it is part of Qiew: sudo apt install dirq)")?;
-    pipe_to(&dirq, text)
+    pipe_to(&dirq, text, &id_options(id))
+}
+
+/// `--id <id>` for Dirq, or nothing without one. It must come after the `-`: an older Dirq does not
+/// know the option and would take the text for the file if it came first (Qiew `docs/ANNOTATE.md`, 7).
+/// Line breaks and runs of blanks become one blank; what is left of a very long id is cut.
+fn id_options(id: Option<&str>) -> Vec<String> {
+    let id = id.map(|i| i.split_whitespace().collect::<Vec<_>>().join(" ")).unwrap_or_default();
+    if id.is_empty() {
+        return Vec::new();
+    }
+    vec!["--id".to_string(), id.chars().take(200).collect()]
 }
 
 /// Shows Markdown text as a page in Marq, the same way: one window, reused.
 pub fn show_markdown(text: &str) -> Result<(), String> {
     let marq = markdown_viewer().ok_or("Marq is not installed (it is part of Qiew: sudo apt install marq)")?;
-    pipe_to(&marq, text)
+    pipe_to(&marq, text, &[])
 }
 
 /// Starts a program that lives on by itself (a desktop app, a terminal) and returns at once.
@@ -295,11 +308,11 @@ fn own_session(command: &mut std::process::Command) -> &mut std::process::Comman
     }
 }
 
-/// Starts `<viewer> - --reuse` with the text on its standard input.
-fn pipe_to(viewer: &Path, text: &str) -> Result<(), String> {
+/// Starts `<viewer> - --reuse [extra]` with the text on its standard input.
+fn pipe_to(viewer: &Path, text: &str, extra: &[String]) -> Result<(), String> {
     use std::io::Write;
     let mut command = std::process::Command::new(viewer);
-    command.args(["-", "--reuse"]).stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+    command.args(["-", "--reuse"]).args(extra).stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
     let mut child = own_session(&mut command)
         .spawn()
         .map_err(|e| format!("{}: {e}", viewer.display()))?;
@@ -317,6 +330,15 @@ fn pipe_to(viewer: &Path, text: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dirq_is_told_what_the_patch_is_after_the_dash() {
+        assert_eq!(id_options(Some("Turn 3 · Fix · repo")), ["--id", "Turn 3 · Fix · repo"]);
+        assert_eq!(id_options(Some("  two\n lines\t here ")), ["--id", "two lines here"]);
+        assert!(id_options(Some("  \n ")).is_empty());
+        assert!(id_options(None).is_empty());
+        assert_eq!(id_options(Some(&"x".repeat(500)))[1].chars().count(), 200);
+    }
 
     #[test]
     fn only_marq_may_annotate_and_only_the_file_opened() {

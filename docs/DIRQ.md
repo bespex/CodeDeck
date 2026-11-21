@@ -37,7 +37,7 @@ Nur wenn CodeDeck Dirq startet (`CODEDECK_SOCKET`, siehe `docs/QIEW.md`, Rückwe
 | B1 | **Notiz an eine Zeile wird Zeilenkommentar** für den nächsten Prompt (Datei, Zeile, Code), wie die Sprechblase in Änderungen | Review in Dirq, Rückmeldung an die KI ohne Umweg | klein (mit Rückweg) |
 | B2 | **„Gesehen“ abgeglichen** zwischen Dirq und dem Reiter Änderungen | Ein Stand, egal wo man liest | klein |
 | B3 | **Hunk oder Datei anhängen** aus Dirq | Der KI genau die Stelle zeigen | klein |
-| B4 | **Die laufende Runde live**: CodeDeck schickt den Diff der laufenden Runde bei jeder Änderung neu (`--reuse`), Dirq behält Ort und Gesehenes | Der KI beim Schreiben zusehen, nebeneinander | klein |
+| B4 | **Die laufende Runde live**: CodeDeck schickt den Diff der laufenden Runde bei jeder Änderung neu (`--reuse --id`, **die Kennung ist gebaut**, der Schalter „Live in Dirq“ noch nicht), Dirq behält Ort und Gesehenes | Der KI beim Schreiben zusehen, nebeneinander | klein |
 | B5 | **Alle Runden seit dem Commit als Serie** (A10): von Runde zu Runde blättern, jede mit ihrem Kopf | Die Arbeit einer Session als Geschichte lesen | klein (mit A10) |
 | B6 | **Wer hat welchen Hunk geschrieben**: Session je Datei oder Hunk im Patch (Trailer `X-CodeDeck-Session`), farbig wie in CodeDeck | Bei mehreren Sessions sofort zuordnen | mittel |
 | B7 | **„An dieser Zeile bearbeiten“**: CodeDeck öffnet die Datei im gewählten Editor | Vom Lesen zum Ändern | klein |

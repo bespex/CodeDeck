@@ -12,7 +12,16 @@ export interface DirqMeta {
   body?: string;
   /** The commit or snapshot, if it has one */
   hash?: string;
+  /** What the patch is, for Dirq's `--id`; without one the subject names it. */
+  id?: string;
 }
+
+/**
+ * What Dirq is told the patch is (`--id`): the same id on a later call is a new version of the same
+ * thing (Dirq keeps its place and folded files and marks what changed), another id a different one.
+ * The subject says what is shown (turn, uncommitted changes, comparison); a commit names its hash.
+ */
+export const dirqId = (meta: DirqMeta) => meta.id ?? meta.subject;
 
 /** The patch with a mail header in front, as `git format-patch` writes it. */
 export function withHeader(patch: string, meta: DirqMeta): string {

@@ -32,7 +32,7 @@ import { stateColor } from "../FilesPanel";
 import { Tooltip, TooltipHint } from "../Tooltip";
 import { AttachChange, AttachedAtRest, Commands, DiffBody, FileTools, inUntrackedDir, LineCounts, useDirq, Viewed, ChangedSinceViewed, You, type Working } from "./DiffParts";
 import { StructureTree } from "./StructureTree";
-import { withHeader, type DirqMeta } from "../../dirq";
+import { dirqId, withHeader, type DirqMeta } from "../../dirq";
 import { NoRepository } from "../GitInit";
 import { known, snapshotLabel, t } from "../../i18n";
 
@@ -861,7 +861,7 @@ function CommitChanges(props: {
           <span>{new Date(c.at * 1000).toLocaleString(LOCALE)}</span>
           {c.unpushed && <span className="text-changed">{t("not pushed yet")}</span>}
           <AttachChange />
-          <DirqButton patch={patch} meta={{ subject: c.subject, author: c.author, at: c.at, body: c.body, hash: c.hash }} />
+          <DirqButton patch={patch} meta={{ subject: c.subject, author: c.author, at: c.at, body: c.body, hash: c.hash, id: `commit ${c.hash}` }} />
           <button
             type="button"
             onClick={props.onShowNow}
@@ -1143,7 +1143,7 @@ function DirqButton({ patch, meta }: { patch: Patch | null; meta?: DirqMeta }) {
     >
       <button
         type="button"
-        onClick={() => showPatch(meta ? withHeader(patch.text, meta) : patch.text).then(() => setFailed(null), (e) => setFailed(String(e)))}
+        onClick={() => showPatch(meta ? withHeader(patch.text, meta) : patch.text, meta && dirqId(meta)).then(() => setFailed(null), (e) => setFailed(String(e)))}
         className="flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised hover:text-slate-100"
       >
         <ExternalLink className="size-3" />

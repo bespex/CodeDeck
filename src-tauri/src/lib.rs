@@ -683,10 +683,10 @@ fn has_diff_viewer() -> bool {
     apps::diff_viewer().is_some()
 }
 
-/// Shows a patch in Dirq.
+/// Shows a patch in Dirq; `id` names what it is (see `apps::show_patch`).
 #[tauri::command]
-fn show_patch(text: String) -> Result<(), String> {
-    apps::show_patch(&text)
+fn show_patch(text: String, id: Option<String>) -> Result<(), String> {
+    apps::show_patch(&text, id.as_deref())
 }
 
 /// Whether Marq, the Markdown viewer, is installed.

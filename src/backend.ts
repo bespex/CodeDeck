@@ -1404,9 +1404,9 @@ export function hasDiffViewer(): Promise<boolean> {
   return Promise.resolve(true);
 }
 
-/** Shows a patch in Dirq (one window, reused). */
-export function showPatch(text: string): Promise<void> {
-  if (live) return invoke("show_patch", { text });
+/** Shows a patch in Dirq (one window, reused). `id` names what it is: the same id is a new version of it. */
+export function showPatch(text: string, id?: string): Promise<void> {
+  if (live) return invoke("show_patch", { text, id: id ?? null });
   console.info("would show in dirq", text.length, "bytes");
   return Promise.resolve();
 }

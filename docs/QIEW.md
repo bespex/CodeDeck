@@ -1,7 +1,7 @@
 # CodeDeck und die Qiew-Betrachter
 
 Stand 2026-11-21. Die Betrachter von be spex (Qiew: Marq, Jayq, Xaq, Hyqe, Cusq, Dirq, Maiqe, Trisq) bleiben eigenständige
-Programme. CodeDeck nutzt ihre gemeinsame Befehlszeile (`<app> [<datei> | -] [--line <n>] [--geometry WxH+X+Y] [--reuse]`,
+Programme. CodeDeck nutzt ihre gemeinsame Befehlszeile (`<app> [<datei> | -] [--line <n>] [--geometry WxH+X+Y] [--reuse] [--id <text>]`,
 Qiew `crates/frame/src/launch.rs`); alles Zusätzliche wirkt nur, wenn CodeDeck sie startet.
 
 ## Gebaut (2026-11-21, Praxistest offen)
@@ -9,6 +9,12 @@ Qiew `crates/frame/src/launch.rs`); alles Zusätzliche wirkt nur, wenn CodeDeck 
 - **Bevorzugen:** Zum Ansehen nimmt CodeDeck, wo keine Wahl getroffen ist, den Betrachter von be spex für die Endung
   (`apps.rs` `QIEW`), vor dem Standard des Systems; in „Ansehen mit…“ steht er oben und gilt als empfohlen.
 - **`--reuse`:** Jeder Start aus CodeDeck nutzt das offene Fenster des Betrachters weiter.
+- **`--id` (nur Dirq):** `show_patch` ruft `dirq - --reuse --id <Kennung>` auf (`apps.rs` `id_options`, `src/dirq.ts`
+  `dirqId`). Die Kennung sagt, **was** der Patch ist: Gleiche Kennung = neue Fassung desselben (Dirq behält Ort, Faltungen und
+  Filter und zeigt, was neu ist), andere Kennung = etwas anderes. Der Patch kommt über die Standardeingabe unter immer neuem
+  Namen, ein Pfad taugt dafür nicht. Kennung ist der Betreff der Ansicht (Runde, nicht Committetes, Vergleich, Snapshot), bei
+  einem Commit `commit <hash>`. `--id` steht **nach** `-`; ein älteres Dirq ignoriert es dann still (Qiew
+  `docs/ANNOTATE.md`, 7). Marq bekommt es nicht.
 - **`--geometry`:** Zum Ansehen öffnet der Betrachter über dem Deck (Rechteck aus dem Frontend, `open_file` `place`,
   in physische Pixel umgerechnet). Unter Wayland setzt der Fenstermanager die Position nicht; die Größe gilt.
 - **`--line`:** `openFile(path, "view", line)`; heute bei den @ai-Hinweisen (Doppelklick auf einen Hinweis).
