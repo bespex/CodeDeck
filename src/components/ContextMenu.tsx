@@ -82,22 +82,35 @@ function ContextMenu({ menu, onMore, onClose }: { menu: MenuState; onMore: (menu
     (input.current ?? box.current?.querySelector<HTMLButtonElement>("button:not(:disabled)"))?.focus();
   }, [menu]);
 
+  // Where the keys were before the menu opened: closed with a key, they go back there, so one goes
+  // on moving through the file list with the keys (user, 2026-11-21)
+  const before = useRef<Element | null>(document.activeElement);
   useEffect(() => {
     const outside = (e: Event) => !box.current?.contains(e.target as Node);
     const dismiss = (e: Event) => {
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      if (e instanceof KeyboardEvent) {
+        // Escape, or the key that opened it (the menu key, Shift+F10)
+        const again = e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey);
+        if (e.key !== "Escape" && !again) return;
+        e.preventDefault();
+        e.stopPropagation();
+        close.current();
+        const back = before.current;
+        if (back instanceof HTMLElement && back.isConnected) requestAnimationFrame(() => back.focus());
+        return;
+      }
       // Scrolling the menu's own list, or clicking in it, keeps it open
       if ((e.type === "mousedown" || e.type === "wheel") && !outside(e)) return;
       close.current();
     };
     const blur = () => close.current();
     window.addEventListener("mousedown", dismiss, true);
-    window.addEventListener("keydown", dismiss);
+    window.addEventListener("keydown", dismiss, true);
     window.addEventListener("blur", blur);
     window.addEventListener("wheel", dismiss, { passive: true });
     return () => {
       window.removeEventListener("mousedown", dismiss, true);
-      window.removeEventListener("keydown", dismiss);
+      window.removeEventListener("keydown", dismiss, true);
       window.removeEventListener("blur", blur);
       window.removeEventListener("wheel", dismiss);
     };
