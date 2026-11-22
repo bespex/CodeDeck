@@ -55,4 +55,10 @@ Qiew `crates/frame/src/launch.rs`); alles Zusätzliche wirkt nur, wenn CodeDeck 
    wieder zu öffnen (braucht eine Rahmen-Option wie `--if-running`).
 3. **Mitlesen:** auf Wunsch ein Dokument, das eine Session schreibt, mit `--reuse` in Marq oder Hyqe öffnen.
 4. **Stand eines Snapshots ansehen:** `git show <snapshot>:<pfad> | marq -`.
+5. **`@ai`-Kommentare aus Marq direkt abarbeiten lassen** (aus Qiew `apps/marq/IDEEN.md`, 2026-11-22 hierher): offene
+   Kommentare einer Datei mit Pfad und Zeilen als Prompt in die laufende Session geben („Kommentare abarbeiten“), vom
+   Nutzer ausgelöst. Die Regel gegen Prompt-Injection bleibt: nur Dateien, für die der Nutzer es verlangt; `@me` und
+   `@you` sind nie Aufträge.
+6. **Vor dem Commit an Kommentare erinnern:** „N offene Kommentare in dieser Datei“ zeigen oder vor dem Commit warnen
+   (Suche nach `<!-- @`); erledigte (`@typ#erledigt`) gesammelt löschen.
 7. **Gleiches Aussehen:** Farbschema und Sprache beim Start mitgeben.
