@@ -684,7 +684,7 @@ fn has_diff_viewer() -> bool {
 }
 
 /// Shows a patch in Dirq (see `apps::show_patch`): `id` names what it is, `line` the line of the
-/// patch to show. `annotate` (only for a patch of the working tree) lets the user comment on lines;
+/// patch to show, `file` the one file to show alone. `annotate` (only for a patch of the working tree) lets the user comment on lines;
 /// the comments come back to the hub as line comments of this project. `repo` (project-relative)
 /// lets Dirq read the repository for more lines around a change.
 #[tauri::command]
@@ -692,6 +692,7 @@ fn show_patch(
     text: String,
     id: Option<String>,
     line: Option<u32>,
+    file: Option<String>,
     annotate: Option<bool>,
     repo: Option<String>,
     app: AppHandle,
@@ -706,7 +707,7 @@ fn show_patch(
     if annotate && let Some(id) = &id {
         hub::remember_dirq_doc(&apps::dirq_id(id), &root, &repo_rel);
     }
-    apps::show_patch(&text, &apps::PatchLaunch { id, line, annotate, socket, repo: repo_dir })
+    apps::show_patch(&text, &apps::PatchLaunch { id, line, file, annotate, socket, repo: repo_dir })
 }
 
 /// Whether Marq, the Markdown viewer, is installed.

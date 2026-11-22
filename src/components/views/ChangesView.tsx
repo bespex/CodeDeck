@@ -1155,8 +1155,9 @@ function ScopeProvider(props: { scope: ChangeScope; patch: Patch | null; files: 
 }
 
 /**
- * Shows the whole patch in Dirq, at the start of one file's part if `path` (repository-relative) is
- * given. Dirq may read the repository for more lines around a change; only a patch of the working
+ * Shows the whole patch in Dirq; with `path` (repository-relative) that one file alone, as a double
+ * click on a file means (Dirq steps to the others and shows all on request).
+ * `--line` goes along for an older Dirq that does not know `--file`. Dirq may read the repository for more lines around a change; only a patch of the working
  * tree may be commented (Qiew docs/ANNOTATE.md, 4): its line numbers are those of the files on
  * disk, so a comment from Dirq points at the right line.
  */
@@ -1166,6 +1167,7 @@ function openInDirq(patch: Patch, files: FileDiff[], meta: DirqMeta, scope: Chan
   const start = path === undefined ? undefined : files.find((f) => f.path === path)?.start;
   return showPatch(withHeader(patch.text, shown), dirqId(shown), {
     line: start === undefined ? undefined : lineBehindHeader(shown, start),
+    file: path,
     annotate,
     repo: scope.repo.path,
   });

@@ -258,6 +258,9 @@ pub struct PatchLaunch {
     pub id: Option<String>,
     /// The line of the patch to show (the start of a file's part)
     pub line: Option<u32>,
+    /// One file of the patch (repository-relative, as the patch names it): Dirq shows it alone, with a
+    /// way to step to the others and to show all (`--file`). An older Dirq ignores it and goes to `line`.
+    pub file: Option<String>,
     /// Lines may be commented; each comment comes back to `socket`. Only for a patch of the working
     /// tree: its line numbers are those of the files on disk.
     pub annotate: bool,
@@ -292,6 +295,9 @@ fn patch_options(how: &PatchLaunch) -> Vec<String> {
     }
     if let Some(line) = how.line.filter(|l| *l > 0) {
         options.extend(["--line".to_string(), line.to_string()]);
+    }
+    if let Some(file) = how.file.as_deref().filter(|f| !f.is_empty()) {
+        options.extend(["--file".to_string(), file.to_string()]);
     }
     if how.annotate && how.socket.is_some() {
         options.push("--annotate".to_string());
@@ -380,11 +386,12 @@ mod tests {
         let all = PatchLaunch {
             id: Some("Uncommitted changes · app".into()),
             line: Some(12),
+            file: Some("src/a.rs".into()),
             annotate: true,
             socket: Some(PathBuf::from("/run/codedeck/1.sock")),
             repo: Some(PathBuf::from("/work/app")),
         };
-        assert_eq!(patch_options(&all), ["--id", "Uncommitted changes · app", "--line", "12", "--annotate", "--repo", "/work/app"]);
+        assert_eq!(patch_options(&all), ["--id", "Uncommitted changes · app", "--line", "12", "--file", "src/a.rs", "--annotate", "--repo", "/work/app"]);
         let no_socket = PatchLaunch { socket: None, ..all };
         assert!(!patch_options(&no_socket).contains(&"--annotate".to_string()));
         let line_zero = PatchLaunch { line: Some(0), ..Default::default() };

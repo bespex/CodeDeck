@@ -1409,12 +1409,12 @@ export function hasDiffViewer(): Promise<boolean> {
 
 /**
  * Shows a patch in Dirq (one window, reused). `id` names what it is: the same id is a new version of
- * it. `line`: the line of the patch to show; `annotate`: lines may be commented (only for a patch of
+ * it. `line`: the line of the patch to show; `file`: one file to show alone; `annotate`: lines may be commented (only for a patch of
  * the working tree), the comments come back as line comments; `repo`: the repository
  * (project-relative) Dirq may read for more lines around a change.
  */
-export function showPatch(text: string, id?: string, how: { line?: number; annotate?: boolean; repo?: string } = {}): Promise<void> {
-  if (live) return invoke("show_patch", { text, id: id ?? null, line: how.line ?? null, annotate: how.annotate ?? false, repo: how.repo ?? null });
+export function showPatch(text: string, id?: string, how: { line?: number; file?: string; annotate?: boolean; repo?: string } = {}): Promise<void> {
+  if (live) return invoke("show_patch", { text, id: id ?? null, line: how.line ?? null, file: how.file ?? null, annotate: how.annotate ?? false, repo: how.repo ?? null });
   console.info("would show in dirq", text.length, "bytes", how);
   return Promise.resolve();
 }

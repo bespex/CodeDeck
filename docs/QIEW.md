@@ -33,8 +33,10 @@ Qiew `crates/frame/src/launch.rs`); alles Zusätzliche wirkt nur, wenn CodeDeck 
 
 - **Dirq statt der eingebetteten Diffs (2026-11-22):** Ist Dirq installiert (`has_diff_viewer`, nur das Dasein zählt,
   keine Einstellung), zeigen Code- und Strukturansicht im Reiter Änderungen nur noch die Dateien. Ein Klick tut nichts,
-  ein **Doppelklick** öffnet den ganzen Patch der Ansicht in Dirq an dieser Datei (`--line` = Beginn ihres Teils hinter
-  dem Kopf, `src/dirq.ts` `lineBehindHeader`). Angesehen, Anhängen, Werkzeuge bleiben in CodeDeck. Ohne Dirq wie bisher.
+  ein **Doppelklick** öffnet den ganzen Patch der Ansicht in Dirq und zeigt dort nur diese Datei (`--file <pfad>`; Dirq
+  blättert zu den anderen und zeigt auf Wunsch alle). `--line` (Beginn ihres Teils hinter dem Kopf, `src/dirq.ts`
+  `lineBehindHeader`) geht mit, damit ein älteres Dirq ohne `--file` wenigstens zur Datei springt. Der Knopf „Dirq“ an
+  der Ansicht öffnet alle Dateien mit Dateiliste. Angesehen, Anhängen, Werkzeuge bleiben in CodeDeck. Ohne Dirq wie bisher.
   Gebaut in `ChangesView.tsx` (`ScopeProvider`, `openInDirq`, `DirqContext` aus `DiffParts.tsx`) und `StructureTree.tsx`.
 - **`--annotate` für Dirq:** nur für Patches des Arbeitsordners (`ChangeScope.worktree`: nicht Committetes, laufende Runde,
   „seit dem Snapshot“), denn nur dort passen die Zeilennummern der neuen Seite zu den Dateien. Dazu `CODEDECK_SOCKET` = der
