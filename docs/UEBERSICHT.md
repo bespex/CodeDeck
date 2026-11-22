@@ -123,9 +123,12 @@ arbeitet, nicht nur die gerade offenen:
   `⋯` (klappt auf) ordnet die Liste einmal neu, kein Modus: danach zieht man weiter. Nach Projektnamen · nach
   KI-Konfiguration (deren Name), dann Projektnamen, ohne Konfiguration zuletzt · Tagesliste nach oben, sonst
   bleibt die Reihenfolge. Neue Projekte kommen ans Ende.
-- **Gruppen** (2026-11-18, `src/groups.ts`): die Ordner, in denen die Projekte liegen, unterhalb des Ordners,
-  den alle teilen (bei `~/projects/bespex/…` und `~/projects/tsobss/…` die Gruppen „bespex“ und „tsobss“).
-  Nichts einzustellen; eine Gruppe aus einem Projekt ist keine. Ein Projekt, dessen Ordner selbst der Gruppenordner ist
+- **Gruppen** (2026-11-18, neu gefasst 2026-11-22, `src/groups.ts`): die Gruppe eines Projekts ist der tiefste
+  Ordner über ihm, der noch ein weiteres Projekt der Liste enthält; ein Projekt, das andere enthält, ist selbst
+  der Gruppenordner. So ergeben `~/projects/bespex/…` „bespex“, `~/projects/tsobss` mit seinen Projekten „tsobss“
+  und die Projekte direkt in `~/projects` „projects“. Unabhängig davon, wo andere Projekte liegen: früher war die
+  Gruppe der erste Ordner unter dem Ordner, den alle teilen, und mit `~` auf der Liste lag alles in „bespecke“.
+  Gleichnamige Gruppenordner heißen „eltern/name“. Nichts einzustellen; eine Gruppe aus einem Projekt ist keine. Ein Projekt, dessen Ordner selbst der Gruppenordner ist
   (`~/projects/bespex` neben `~/projects/bespex/Qiew`), gehört zu dieser Gruppe (das übergreifende Projekt, Stand 2026-11-22).
   Es steht immer als erste Zeile der Gruppe (nicht ziehbar), mit „alle“ hinter dem Namen, etwas hellerem Grund
   und kräftigerer Trennlinie darunter. Es sieht auch die Sitzungen der Projekte darunter, und diese die des
