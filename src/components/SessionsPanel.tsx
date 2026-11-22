@@ -55,6 +55,8 @@ import { plural } from "../git";
 import { LOCALE } from "./Trail";
 import { blockedUntil, resetAt } from "../usage";
 import { known, T, t } from "../i18n";
+import { PreparedPrompts } from "./PreparedPrompts";
+import { usePerProject } from "../projectMemory";
 
 interface Props {
   assistant: AssistantState;
@@ -78,15 +80,15 @@ interface Props {
  * overview of all projects (docs/UEBERSICHT.md).
  */
 export function SessionsPanel(props: Props) {
+  // The prepared prompt open in its editor, kept per project; while one is, the Next prompt area takes more room
+  const [openPrompt, setOpenPrompt] = usePerProject<string | null>("openPrompt", () => null);
+  const rows = openPrompt ? "grid-rows-[auto_auto_minmax(0,1fr)_minmax(0,1.5fr)]" : "grid-rows-[auto_auto_minmax(0,1fr)_fit-content(40%)]";
   return (
-    <aside
-      data-tour="sessions"
-      className="zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_minmax(0,1fr)_fit-content(40%)] border-r border-line bg-panel"
-    >
+    <aside data-tour="sessions" className={`zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] ${rows} border-r border-line bg-panel`}>
       <HeaderBar project={props.project} onOpenProject={props.onOpenProject} assistant={props.assistant} onToggleLog={props.onToggleLog} />
       <SidebarSummary git={props.git} assistant={props.assistant} />
       <Sessions state={props.assistant} onShowFile={props.onShowFile} />
-      <NextPrompt {...props} />
+      <NextPrompt {...props} openPrompt={openPrompt} onOpenPrompt={setOpenPrompt} />
     </aside>
   );
 }
@@ -869,7 +871,8 @@ const CONTEXT_TOKENS = 200_000;
  * a session took it. The items themselves are in the Next prompt view, one click away. Files can be
  * dropped here.
  */
-function NextPrompt({ assistant, onPin }: Props) {
+function NextPrompt({ assistant, onPin, openPrompt, onOpenPrompt }: Props & { openPrompt: string | null; onOpenPrompt: (name: string | null) => void }) {
+  const now = useNow();
   const [over, setOver] = useState(false);
   const kinds = useAttachedKinds();
   const count = kinds.files + kinds.changes + kinds.comments + kinds.hints;
@@ -933,7 +936,7 @@ function NextPrompt({ assistant, onPin }: Props) {
         </button>
       </AreaHeader>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 pt-0.5 pb-2.5">
+      <div className={`flex min-h-0 flex-col gap-2 overflow-y-auto px-3 pt-0.5 pb-2.5 ${openPrompt ? "max-h-[30%] flex-none" : "flex-1"}`}>
         {/* Who it is for comes first: the numbers below read as what goes to them */}
         {count > 0 && attaches && assistant.held && <ChooseTarget state={assistant} />}
         {count > 0 && attaches && !assistant.held && (
@@ -1024,6 +1027,10 @@ function NextPrompt({ assistant, onPin }: Props) {
             </button>
           </Tooltip>
         )}
+      </div>
+      {/* Outside the scrolling part: with many attachments or a short window the list must not slip out of sight */}
+      <div className={`flex flex-col px-3 pb-2.5 ${openPrompt ? "min-h-0 flex-1" : "shrink-0"}`}>
+        <PreparedPrompts open={openPrompt} onOpen={onOpenPrompt} age={(ms) => since(ms, now)} />
       </div>
     </section>
   );

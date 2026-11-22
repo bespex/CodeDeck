@@ -49,6 +49,7 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src/components/RowTools.tsx` | Werkzeuge einer Zeile beim Überfahren, überall gleich: `HoverTools` (gerahmt, links vor dem Dauerhaften), `Tool`, `ToolGap`, `AtRest` (z. B. angehängt in Ruhe) |
 | `src/components/blocks.tsx` | Die fünf Erscheinungsformen: `Toolbar`, `Section`, `Rows`/`Row`, `Document`, `Decision` (neue Ansichten bauen damit) |
 | `src/components/views/NextPromptView.tsx` | Reiter Nächster Prompt: alle Anhänge je Art mit Herkunft, genauer Text, Startregeln immer sichtbar |
+| `src-tauri/src/prompts.rs`, `src/prompts.ts`, `src/components/PreparedPrompts.tsx`, `PromptEditor.tsx` | Vorbereitete Prompts: je Projekt Markdown in `.scratch/prompts/` (von der Scratch-Liste ausgelassen), Unterbereich „Vorbereitet“ unter Nächster Prompt (Liste, ein offener Editor, Autosave, Kopieren); Editor CodeMirror ohne Schreibhilfen, nur hängender Einzug für Aufzählungen und fette Überschriften |
 | `src/components/AttachmentList.tsx` | `AttachmentSections` (die Liste im Reiter), `useAttachedCount`/`useAttachedKinds` (Zahlen für Reiter und Dashboard rechts) |
 | `src/components/AttachTarget.tsx` | Für wen die Anhänge sind (eine bestimmte, „any session“ als bewusste Wahl, ohne Wahl nur die einzige); `ChooseTarget` fragt, wenn mehrere in Frage kommen |
 | `src/components/views/ActivityView.tsx`, `src/timeline.ts` | Zeitleiste der Sitzungen („Heute“) aus dem Journal (`lanesOf`, `spanOf`), „Wie sicher ist deine Arbeit“, zuletzt geschriebene Dokumente |

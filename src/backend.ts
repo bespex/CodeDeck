@@ -402,6 +402,80 @@ export function scratchMove(from: string, to: string): Promise<string> {
   return Promise.resolve(to);
 }
 
+/** A prepared prompt (`prompts.rs`): one Markdown file in `.scratch/prompts/`, named by its file. */
+export interface PreparedPrompt {
+  name: string;
+  /** Project-relative */
+  path: string;
+  size: number;
+  /** Unix milliseconds of the last change */
+  modified: number;
+}
+
+const PROMPTS_DIR = ".scratch/prompts";
+const mockPrompts = new Map<string, { text: string; modified: number }>([
+  ["Split the bridge", { text: "## Goal\n\nSplit `take_in` in `bridge.rs` into one function per event, so each can be tested alone.\n\n## Steps\n\n- Write the tests first, one per event kind, against the behaviour of today\n- Then move each branch of the match into its own function, keeping the names of the events\n  - `PromptSubmitted` first, it is the longest one\n- Nothing else changes\n\n1. Run `cargo test` after every step, not only at the end of it\n", modified: Date.now() - 2 * 3600_000 }],
+  ["Tests for scratch.rs", { text: "Write tests for `twins` with links inside the project.\n", modified: Date.now() - 26 * 3600_000 }],
+]);
+const mockPrompt = (name: string, p: { text: string; modified: number }): PreparedPrompt => ({ name, path: `${PROMPTS_DIR}/${name}.md`, size: p.text.length, modified: p.modified });
+
+/** The prepared prompts, last changed first; from now on a change to them is reported at once. */
+export function promptList(): Promise<PreparedPrompt[]> {
+  if (live) return invoke("prompt_list");
+  return Promise.resolve([...mockPrompts].map(([n, p]) => mockPrompt(n, p)).sort((a, b) => b.modified - a.modified));
+}
+
+/** A prepared prompt's text. */
+export function promptRead(name: string): Promise<string> {
+  if (live) return invoke("prompt_read", { name });
+  const p = mockPrompts.get(name);
+  return p ? Promise.resolve(p.text) : Promise.reject(`${name}: not found`);
+}
+
+/** Saves a prepared prompt's text. */
+export function promptWrite(name: string, text: string): Promise<void> {
+  if (live) return invoke("prompt_write", { name, text });
+  mockPrompts.set(name, { text, modified: Date.now() });
+  return Promise.resolve();
+}
+
+/** A new, empty prepared prompt; its name, made unique ("name 2" when taken). */
+export function promptCreate(name: string): Promise<string> {
+  if (live) return invoke("prompt_create", { name });
+  let free = name.trim();
+  for (let i = 2; mockPrompts.has(free); i++) free = `${name.trim()} ${i}`;
+  mockPrompts.set(free, { text: "", modified: Date.now() });
+  return Promise.resolve(free);
+}
+
+/** Renames a prepared prompt; the new name. A taken name is refused. */
+export function promptRename(from: string, to: string): Promise<string> {
+  if (live) return invoke("prompt_rename", { from, to });
+  const p = mockPrompts.get(from);
+  const name = to.trim();
+  if (!p) return Promise.reject(`${from}: not found`);
+  if (name !== from && mockPrompts.has(name)) return Promise.reject(`${name}: there is a prompt of that name`);
+  mockPrompts.delete(from);
+  mockPrompts.set(name, p);
+  return Promise.resolve(name);
+}
+
+/** Moves a prepared prompt to the trash. */
+export function promptTrash(name: string): Promise<void> {
+  if (live) return invoke("prompt_trash", { name });
+  mockPrompts.delete(name);
+  return Promise.resolve();
+}
+
+/** Calls back after a change in the prepared prompts' folder (apart from `onFsChanged`, see `watch.rs`). */
+export function onPromptsChanged(callback: (change: FsChange) => void): () => void {
+  if (live) {
+    const unlisten = listen<FsChange>("prompts_changed", (event) => callback(event.payload));
+    return () => void unlisten.then((stop) => stop());
+  }
+  return () => {};
+}
+
 /** Calls back after changes on disk; returns the function that stops listening. */
 export function onFsChanged(callback: (change: FsChange) => void): () => void {
   if (live) {

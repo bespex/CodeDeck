@@ -37,6 +37,7 @@ mod updates;
 mod usage;
 mod watch;
 mod scratch;
+mod prompts;
 mod settings;
 mod welcome;
 mod window;
@@ -570,6 +571,47 @@ fn scratch_trash(paths: Vec<String>, window: WebviewWindow) -> Result<(), String
 #[tauri::command]
 fn scratch_move(from: String, to: String, window: WebviewWindow) -> Result<String, String> {
     scratch::move_into(&*project_of(&window)?, &from, &to)
+}
+
+/// The prepared prompts, last changed first; their folder is watched from now on.
+#[tauri::command]
+fn prompt_list(window: WebviewWindow) -> Result<Vec<prompts::Prompt>, String> {
+    let win = windows::of(&window)?;
+    let (found, dir) = prompts::list(&win.current.get());
+    if let Some(dir) = dir {
+        win.watch.add(&dir);
+    }
+    Ok(found)
+}
+
+/// A prepared prompt's text.
+#[tauri::command]
+fn prompt_read(name: String, window: WebviewWindow) -> Result<String, String> {
+    prompts::read(&*project_of(&window)?, &name)
+}
+
+/// Saves a prepared prompt's text.
+#[tauri::command]
+fn prompt_write(name: String, text: String, window: WebviewWindow) -> Result<(), String> {
+    prompts::write(&*project_of(&window)?, &name, &text)
+}
+
+/// A new, empty prepared prompt; its name, made unique.
+#[tauri::command]
+fn prompt_create(name: String, window: WebviewWindow) -> Result<String, String> {
+    prompts::create(&*project_of(&window)?, &name)
+}
+
+/// Renames a prepared prompt; the new name.
+#[tauri::command]
+fn prompt_rename(from: String, to: String, window: WebviewWindow) -> Result<String, String> {
+    prompts::rename(&*project_of(&window)?, &from, &to)
+}
+
+/// Moves a prepared prompt to the trash.
+#[tauri::command]
+fn prompt_trash(name: String, window: WebviewWindow) -> Result<(), String> {
+    prompts::trash(&*project_of(&window)?, &name)
 }
 
 /// Opens a directory in a new CodeDeck window of this process.
@@ -1492,6 +1534,12 @@ pub fn run() {
             open_terminal_in,
             project_files,
             scratch_move,
+            prompt_list,
+            prompt_read,
+            prompt_write,
+            prompt_create,
+            prompt_rename,
+            prompt_trash,
             open_window,
             recent_projects,
             pick_folder,

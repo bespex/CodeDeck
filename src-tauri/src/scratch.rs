@@ -101,7 +101,10 @@ pub fn list(project: &Project) -> (Vec<WorkFile>, Vec<PathBuf>) {
             // Links are not followed: they may point anywhere
             let Ok(meta) = std::fs::symlink_metadata(entry.path()) else { continue };
             if meta.is_dir() {
-                todo.push(entry.path());
+                // Prepared prompts are CodeDeck's own and listed in the Next prompt area
+                if !crate::prompts::is_own(project, &entry.path()) {
+                    todo.push(entry.path());
+                }
             } else if meta.is_file() && files.len() < LISTED {
                 let Some(path) = project.relative(&entry.path()) else { continue };
                 let modified = meta.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_millis() as u64);
@@ -265,6 +268,9 @@ mod tests {
         let (p, root) = project();
         std::fs::write(root.join(".scratch/a.md"), "draft").unwrap();
         std::fs::write(root.join(".scratch/sub/b.csv"), "1,2").unwrap();
+        // Prepared prompts are not listed here
+        std::fs::create_dir_all(root.join(crate::prompts::DIR)).unwrap();
+        std::fs::write(root.join(crate::prompts::DIR).join("p.md"), "x").unwrap();
         let (files, dirs) = list(&p);
         let mut paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
         paths.sort();

@@ -16,6 +16,11 @@ use crate::Current;
 /// Event sent to the frontend after changes on disk.
 pub const FS_CHANGED: &str = "fs_changed";
 
+/// Event for changes in the prepared prompts' folder. Apart from [`FS_CHANGED`] on purpose: every save of a
+/// prompt (a pause in typing) would otherwise make git status, the marker scan and the diffs run again,
+/// for files none of them looks at.
+pub const PROMPTS_CHANGED: &str = "prompts_changed";
+
 /// Event sent after changes inside a `.git` directory (index, HEAD, branches); no payload.
 pub const GIT_CHANGED: &str = "git_changed";
 
@@ -55,6 +60,7 @@ impl Watch {
                 // new root and drop out here
                 let project = current.get();
                 let mut change = FsChange { dirs: BTreeSet::new(), paths: BTreeSet::new() };
+                let mut own = FsChange { dirs: BTreeSet::new(), paths: BTreeSet::new() };
                 let mut git = false;
                 let mut add = |event: Event| {
                     for path in &event.paths {
@@ -69,8 +75,9 @@ impl Watch {
                         ) else {
                             continue;
                         };
-                        change.paths.insert(rel);
-                        change.dirs.insert(dir);
+                        let target = if rel.starts_with(crate::prompts::DIR) { &mut own } else { &mut change };
+                        target.paths.insert(rel);
+                        target.dirs.insert(dir);
                     }
                 };
                 add(first);
@@ -79,6 +86,9 @@ impl Watch {
                 }
                 if !change.paths.is_empty() {
                     let _ = app.emit_to(label.as_str(), FS_CHANGED, change);
+                }
+                if !own.paths.is_empty() {
+                    let _ = app.emit_to(label.as_str(), PROMPTS_CHANGED, own);
                 }
                 if git {
                     let _ = app.emit_to(label.as_str(), GIT_CHANGED, ());

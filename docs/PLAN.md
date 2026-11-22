@@ -376,6 +376,53 @@ Umzug der Website `bespex.github.io/codedeck/manual/de/`. Menüpunkt „Handbuch
   (Spalte Y) aus `git.rs`. (4) Was ist mit Dateien, die eine Sitzung vorgemerkt hat: anzeigen, wer es war?
 - **Einstellungsseite** (Wunsch des Nutzers, 2026-11-15): z. B. wie lange eine fertige Runde unter „Needs you“
   steht, ab wann Sitzungen unter „Earlier“ einklappen.
+- **Prompts vorbereiten („Vorbereitet“)** Erster Wurf ✅ 2026-11-22 gebaut, Praxistest offen. *Bedarf:* Einen Prompt,
+  oft für eine neue Sitzung, über längere Zeit vorformulieren und daran feilen, ohne Gefahr, ihn vorzeitig abzuschicken
+  (im Werkzeug sendet Enter sofort).
+  - *Gebaut (mit dem Nutzer abgestimmt 2026-11-22):* je Projekt benannte Prompts als Markdown in `.scratch/prompts/`,
+    von CodeDeck allein verwaltet (`prompts.rs`; die Scratch-Kachel der Werkbank lässt den Ordner aus). Im Bereich
+    Nächster Prompt der Sitzungsspalte der Unterbereich **Vorbereitet**: höchstens drei Zeilen (zuletzt geändert zuerst,
+    „… alle n“), „+“ legt an, Werkzeuge beim Überfahren (Bearbeiten, Kopieren, Papierkorb). Ein Prompt zur Zeit öffnet an
+    Ort und Stelle; der Bereich wird dafür höher (Grid-Zeile `1.5fr`), sodass er neben Deck und Dateiliste offen bleibt.
+    Kopfzeile: Name (Umbenennen an Ort und Stelle), Kopieren, Papierkorb, Schließen; Fuß: Speicherstand, Tokens.
+    Speichert 600 ms nach der letzten Taste und beim Schließen; Änderungen von außen (eigener Editor) kommen herein,
+    solange hier nichts Ungespeichertes wartet.
+  - *Editor:* CodeMirror 6 (`state`, `view`, `commands`), **keine Schreibhilfen** (Nutzer: keine Leiste, kein Fortführen
+    von Aufzählungen; Enter = schlichte neue Zeile). Nur für das Auge: hängender Einzug für Aufzählungen (`-`, `*`, `+`,
+    `1.`, `1)`, Aufgaben-Kästchen, eingerückte Zeilen), gemessen in der Schrift des Editors; Überschriften fett. Der Text
+    bleibt genau wie getippt.
+  - *Bewusst nicht im ersten Wurf:* Übergabe an eine Sitzung (Nutzer: Kopieren genügt vorerst), Anhänge an einen
+    Entwurf, projektübergreifende Prompts.
+  - *Später:* (1) **Übergeben**: neue Sitzung damit starten (Startprompt über `Harness::launch`, nie `send-keys`;
+    vorher mit `claude-code-guide` klären, ob und wie Claude Code einen Startprompt nimmt, auch in tmux und Desktop) und
+    an eine wartende Sitzung als Anhang des nächsten Prompts (`bridge.rs`); berührt **D20** (Startprompt als bewusste,
+    sichtbare Ausnahme) und **D21** (Entwurf als ausdrücklich gewollte Sammelliste, getrennt vom nächsten Prompt).
+    (2) **Anhänge an einen Entwurf**: Büroklammer-Menü mit „nächster Prompt“ oder „Entwurf …“. (3) Entwurf aus „Noch
+    offen“ im Schlussbericht, aus `@ai`-Hinweisen, aus Dirq-Kommentaren; Bezug auf eine Runde; Vorlagen; „frische
+    Sitzung mit Zusammenfassung“ (siehe Token-Sparen).
+  - *Dateien:* `src-tauri/src/prompts.rs`, `src/prompts.ts`, `src/components/PreparedPrompts.tsx`,
+    `src/components/PromptEditor.tsx`, `src/components/SessionsPanel.tsx` (`NextPrompt`, Grid-Zeilen).
+- **Token sparen** ☐ vorgesehen (Nutzer, 2026-11-22). *Frage:* Kann CodeDeck eingreifen oder dem Nutzer Mittel in die
+  Hand geben? In die KI selbst greift CodeDeck nicht ein; es kann beeinflussen, **was in den Kontext kommt**, **wann ein
+  Kontext zu groß wird**, und **sichtbar machen, wo Tokens bleiben**. Nach Nutzen geordnet:
+  1. **Tokens je Runde sichtbar** (aus den Protokollen des Werkzeugs; CodeDeck kennt die Runden): „Runde 6: 120k, davon
+     80k für das Lesen von Dateien“, im Kurzbericht der Runde. Erst das macht Sparen gezielt möglich.
+  2. **Kontextgröße je Sitzung** auf der Sitzungskarte; bei vollem Kontext anbieten, mit einer **frischen Sitzung**
+     weiterzumachen: Zusammenfassung aus dem Schlussbericht als Entwurf (siehe oben), Start damit.
+  3. **Teure Lesezugriffe sperren**: Lock-Dateien, `dist/`, Generiertes über die Berechtigungen des Werkzeugs (Claude
+     Code: `permissions.deny` mit `Read(...)`), als Liste in CodeDeck, vorbelegt mit der Mustertabelle von Dirq
+     (Qiew `apps/dirq/src/generated.ts`); eintragen und zurücknehmen wie die Hooks (`hook::set`).
+  4. **Treffender beilegen**: Warnung bei großen Anhängen („diese Änderung ≈ 40k Tokens; nur die Datei X?“); die
+     Token-Schätzung gibt es schon im Bereich Nächster Prompt.
+  5. **Kosten der eigenen Startregeln und der `CLAUDE.md`** je Sitzung zeigen.
+  6. **Modellwahl beim Start** einer Sitzung, Kosten je Runde daneben.
+  - *Vorschlag zur Reihenfolge:* 1 und 2 zuerst (Sichtbarkeit, frische Sitzung aus einem Entwurf), dann 3 (spart ohne
+    Zutun). Baut auf P4/2.4 (Nutzung aus der Statuszeile) auf.
+  - *Vor dem Bau klären:* Welche Zahlen liefern die Protokolle (`harness/claude.rs`, Log-Format) je Nachricht und
+    Werkzeugaufruf (Eingabe, Ausgabe, Cache)? Woher die Kontextgröße einer laufenden Sitzung (Statuszeile, Log)? Wie
+    `permissions.deny` mit vorhandenen Einstellungen des Nutzers zusammenspielt (nie das echte `settings.json` in Tests).
+  - *Dateien:* `src-tauri/src/usage.rs`, `src/usage.ts`, `src-tauri/src/harness/claude.rs`, `src-tauri/src/hook.rs`,
+    `src/components/SessionsPanel.tsx`, `src/components/views/ChangesView.tsx` (Kurzbericht), `src/components/AttachmentList.tsx`.
 
 ---
 
@@ -1124,3 +1171,8 @@ löschen, denn dort liegen auch die Sockets echter Fenster des Nutzers.
   `sessionId`, `cwd`, `procStart` = Startzeit aus `/proc/<pid>/stat`, `tmux` als `sitzung:@fenster.%pane`,
   `bridgeSessionId` für Remote Control). Liegengebliebene Dateien erkennt `place::alive` an der Startzeit. Damit
   weiß die Brücke nach einem Neustart von CodeDeck, welche Sitzungen aus den Logs noch laufen (`Harness::running`).
+- Prompts vorbereiten, erster Wurf (2026-11-22): einzige eigene Editierfläche in CodeDeck, vom Nutzer ausdrücklich
+  gewollt (Leitlinie „keine eigene Editierfläche“ gilt weiter für Projektdateien). Textarea reicht für den hängenden
+  Einzug nicht (bricht alle Zeilen gleich um), daher CodeMirror 6 mit einem Zeilen-Schmuck (`Decoration.line` mit
+  `padding-left` + negativem `text-indent`, Breite des Präfixes per Canvas gemessen, auch für Proportionalschrift).
+  Ohne Sprachpaket kopiert CodeMirrors Standard-Enter die Einrückung der Vorzeile; bewusst durch `insertNewline` ersetzt.
