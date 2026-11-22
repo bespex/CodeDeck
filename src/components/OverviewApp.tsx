@@ -405,7 +405,7 @@ function GroupSection({ group, projects, first, folded, onFold, children }: { gr
   const [menu, setMenu] = useState(false);
   const closeMenu = useCallback(() => setMenu(false), []);
   const sessions = projects.flatMap((p) => (p.state?.sessions ?? []).filter((s) => relevant(s, now)));
-  const asks = sessions.filter((s) => needsYou(s) === "asks").length;
+  const asks = sessions.filter((s) => waitsForYou(s, now) && needsYou(s) === "asks").length;
   const done = sessions.some((s) => needsYou(s) === "done" && waitsForYou(s, now));
   return (
     <>
@@ -482,7 +482,7 @@ function ProjectRow({ project, name, drag, inRecent = false, umbrella = false }:
   const label = project.label;
   const accounts = useAccounts();
   const look = (dir: string) => accountLook(accounts, dir);
-  const asks = sessions.some((s) => needsYou(s) === "asks");
+  const asks = sessions.some((s) => waitsForYou(s, now) && needsYou(s) === "asks");
   const done = sessions.some((s) => needsYou(s) === "done" && waitsForYou(s, now));
   const summary = project.summary ?? {};
   const dot = asks ? "bg-changed" : done ? "bg-added" : null;
@@ -722,9 +722,16 @@ function Waiting({ projects }: { projects: OverviewProject[] }) {
   const inWindow = useContext(InWindowContext);
   const now = useNow();
   // In a project window what waits in the project shown is in the session column beside: only the others
-  const waiting = projects.filter((p) => !inWindow || p.path !== inWindow.current).flatMap((p) =>
+  const shown = inWindow ? projects.find((p) => p.path === inWindow.current) : undefined;
+  const beside = new Set((shown?.state?.sessions ?? []).map((s) => s.id));
+  // A session in a subfolder is heard by every project above it too: it shows once, with the deepest
+  // of them, its own (user, 2026-11-22: one session filled the list). Sorted so, the first one wins
+  const deepestFirst = [...projects].sort((a, b) => b.path.length - a.path.length);
+  const once = new Set<string>();
+  const waiting = deepestFirst.flatMap((p) =>
     (p.state?.sessions ?? [])
-      .filter((s) => relevant(s, now) && waitsForYou(s, now))
+      .filter((s) => relevant(s, now) && waitsForYou(s, now) && !beside.has(s.id))
+      .filter((s) => !once.has(s.id) && !!once.add(s.id))
       .map((s) => ({ project: p, session: s })),
   );
   waiting.sort((a, b) => Number(needsYou(b.session) === "asks") - Number(needsYou(a.session) === "asks"));
@@ -732,12 +739,13 @@ function Waiting({ projects }: { projects: OverviewProject[] }) {
   return (
     <section aria-label={t("Needs you")}>
       <h2 className="px-3 pt-3 pb-1 text-[12px] font-semibold tracking-wider text-slate-400 uppercase">{inWindow && !inWindow.full ? t("Waiting in other projects") : t("Needs you")}</h2>
-      <ul className="flex flex-col gap-1.5 px-2">
+      {/* Limited: the list of projects below must stay in reach; beyond that this part scrolls */}
+      <ul className="flex max-h-[40vh] flex-col gap-1.5 overflow-y-auto px-2">
         {waiting.map(({ project, session: s }) => {
           const asks = needsYou(s) === "asks";
           return (
             <li
-              key={`${project.label}:${s.id}`}
+              key={s.id}
               data-event={asks ? "waiting" : "done"}
               onClick={() => (inWindow ? inWindow.onOpen(project.path, false) : void (project.label ? focusProject(project.label) : showProject(project.path)))}
               title={inWindow ? t("Click: show its project here") : t("Click: its project's window")}
@@ -1140,7 +1148,7 @@ export function ProjectsRail({ inWindow }: { inWindow: InWindow }) {
     <ul className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto py-1.5 [scrollbar-width:none]">
       {[...recent.map((p) => ({ p, key: `recent:${p.path}`, last: p === recent.at(-1) })), ...rest.map((p) => ({ p, key: p.path, last: false }))].map(({ p, key, last }) => {
           const sessions = (p.state?.sessions ?? []).filter((s) => relevant(s, now));
-          const asks = sessions.filter((s) => needsYou(s) === "asks").length;
+          const asks = sessions.filter((s) => waitsForYou(s, now) && needsYou(s) === "asks").length;
           const done = sessions.some((s) => needsYou(s) === "done" && waitsForYou(s, now));
           const shown = inWindow.current === p.path;
           return (

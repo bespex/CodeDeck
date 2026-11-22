@@ -102,6 +102,9 @@ pub struct Session {
     /// Its process still runs; `None` when that is not known (a session known from its log only).
     /// Worked out when the state is asked for, not kept
     alive: Option<bool>,
+    /// It was started in a folder above the project (one that holds it): it may touch the project,
+    /// but it is not the project's, and never waits for the user here. Worked out with the state
+    above: bool,
     /// The ways into it and what can be done to its process, here and now (`doors`, `actions`,
     /// `noDoor`); worked out when the state is asked for, see [`crate::doors::ways`]
     #[serde(flatten)]
@@ -121,6 +124,24 @@ pub struct Received {
 const RECEIVED_KEPT: usize = 10;
 
 impl Session {
+    /// Started in a folder above `root`: its home is outside the project and holds it.
+    fn from_above(&self, root: &Path) -> bool {
+        self.home.as_deref().is_some_and(|h| h.starts_with('/') && root != Path::new(h) && root.starts_with(h))
+    }
+
+    /// It waits for the user in the project at `root`: it asks, or its turn is over and not seen
+    /// (`Some(true)` and `Some(false)`), as `waitsForYou` in the interface. One from above does not.
+    fn waits_in(&self, root: &Path) -> Option<bool> {
+        if !self.capabilities.live_status || self.from_above(root) {
+            return None;
+        }
+        match (self.status, self.turn_done) {
+            ("waiting", _) => Some(true),
+            ("idle", Some(_)) if !self.seen => Some(false),
+            _ => None,
+        }
+    }
+
     /// What can be offered for it now, by tool, computer, place and who started it.
     fn ways(&self) -> crate::doors::Ways {
         let alive = self.place.as_ref().and_then(crate::place::alive);
@@ -413,17 +434,13 @@ impl Bridge {
     /// or one whose turn is over. Only sessions that report count; of one known from its log nothing
     /// is known but that it was there.
     pub fn waits(&self) -> Vec<crate::attention::Wait> {
+        let root = self.current.get().root.clone();
         let inner = self.inner.locked();
         inner
             .sessions
             .values()
-            .filter(|s| s.capabilities.live_status)
             .filter_map(|s| {
-                let asks = match (s.status, s.turn_done) {
-                    ("waiting", _) => true,
-                    ("idle", Some(_)) if !s.seen => false,
-                    _ => return None,
-                };
+                let asks = s.waits_in(&root)?;
                 Some(crate::attention::Wait {
                     // A new key is a new reason to tell: each question once, each finished turn once
                     key: if asks { format!("{}:asks", s.id) } else { format!("{}:done:{}", s.id, s.turn_done.unwrap_or(0)) },
@@ -440,12 +457,17 @@ impl Bridge {
     pub fn state(&self) -> AssistantState {
         let inner = self.inner.locked();
         let harnesses = harness::all().iter().map(|h| HarnessInfo::of(*h)).collect();
+        let root = self.current.get().root.clone();
+        let mut sessions = inner.listed();
+        for s in &mut sessions {
+            s.above = s.from_above(&root);
+        }
         AssistantState {
             can_start: crate::projects::can_start(&self.current.get().root),
             heard: inner.heard,
             usage: inner.usage.list(),
             harnesses,
-            sessions: inner.listed(),
+            sessions,
             identities: inner.identity_list(),
             attachments: inner.attachments.clone(),
             preview: joined(&inner.attachments),
@@ -677,14 +699,22 @@ impl Bridge {
 
     /// How many sessions ask something and how many finished a turn in the last `done_for` ms, as
     /// the overview counts them under "Waits for you" (without the turns put aside there).
-    pub fn waiting(&self, now: u64, done_for: u64) -> (usize, usize) {
+    /// The ids of the sessions that ask something and of those that finished a turn in the last
+    /// `done_for` ms, as the overview shows them under "Waits for you" (without the turns put aside
+    /// there). Ids, not numbers: a session in a subfolder is heard by the project above too, and
+    /// counts once.
+    pub fn waiting(&self, now: u64, done_for: u64) -> (Vec<String>, Vec<String>) {
+        let root = self.current.get().root.clone();
         let inner = self.inner.locked();
-        let live = inner.sessions.values().filter(|s| s.capabilities.live_status);
-        live.fold((0, 0), |(asks, done), s| match (s.status, s.turn_done) {
-            ("waiting", _) => (asks + 1, done),
-            ("idle", Some(at)) if !s.seen && now.saturating_sub(at) < done_for => (asks, done + 1),
-            _ => (asks, done),
-        })
+        let (mut asks, mut done) = (Vec::new(), Vec::new());
+        for s in inner.sessions.values() {
+            match s.waits_in(&root) {
+                Some(true) => asks.push(s.id.clone()),
+                Some(false) if s.turn_done.is_some_and(|at| now.saturating_sub(at) < done_for) => done.push(s.id.clone()),
+                _ => {}
+            }
+        }
+        (asks, done)
     }
 
     /// What is needed to go into a session: its tool, its account, where it runs.
@@ -1332,6 +1362,7 @@ fn new_session(id: &str, harness: &dyn Harness) -> Session {
         received: Vec::new(),
         place: None,
         alive: None,
+        above: false,
         ways: Default::default(),
     }
 }
@@ -1878,6 +1909,27 @@ mod tests {
         step(&mut inner, r#"{"who":"b2","did":"left","in":"/p"}"#);
         set_part(&mut inner.attachments, "notes".into(), Some(("three".into(), "1 line comment".into(), 1)));
         assert_eq!(step(&mut inner, r#"{"who":"a1","did":"asked","in":"/p","text":"Go"}"#).as_deref(), Some("three"));
+    }
+
+    #[test]
+    fn a_session_from_above_never_waits_one_from_below_does() {
+        // The project /p/sub hears both: one started in /p above it, one in its own subfolder
+        let root = Path::new("/p/sub");
+        let mut inner = Inner::default();
+        let step = |inner: &mut Inner, raw: &str| {
+            let event = Fake.translate(&serde_json::from_str(raw).unwrap()).unwrap();
+            inner.take_in(&event, &Prompting, root, Vec::new, 5);
+        };
+        step(&mut inner, r#"{"who":"up","did":"started","in":"/p"}"#);
+        step(&mut inner, r#"{"who":"up","did":"asks","in":"/p","text":"May I?"}"#);
+        step(&mut inner, r#"{"who":"in","did":"started","in":"/p/sub/x"}"#);
+        step(&mut inner, r#"{"who":"in","did":"asks","in":"/p/sub/x","text":"May I?"}"#);
+        let up = &inner.sessions["up"];
+        assert!(up.from_above(root) && up.waits_in(root).is_none());
+        let below = &inner.sessions["in"];
+        assert!(!below.from_above(root) && below.waits_in(root) == Some(true));
+        // Its own folder is not above it
+        assert!(!below.from_above(Path::new("/p/sub/x")));
     }
 
     #[test]

@@ -154,6 +154,11 @@ fn tell_sessions(app: &AppHandle) {
     // Still waiting: a question answered within the moment is no news any more
     gathered.retain(|(root, w)| KNOWN.locked().get(root).is_some_and(|keys| keys.contains(&w.key)));
     gathered.retain(|(root, _)| !window_of(app, root).is_some_and(|w| w.is_focused().unwrap_or(false)));
+    // A session in a subfolder is heard by the projects above too: told once, as its own project's
+    // (the deepest; projects below its folder do not take it as waiting)
+    gathered.sort_by_key(|(root, _)| std::cmp::Reverse(root.components().count()));
+    let mut told = HashSet::new();
+    gathered.retain(|(_, w)| told.insert(w.key.clone()));
     gathered.sort_by_key(|(_, w)| !w.asks);
     let Some((root, first)) = gathered.first().cloned() else { return };
     let settings = load();

@@ -833,7 +833,11 @@ fn forget_session(id: String, app: AppHandle, window: WebviewWindow) -> Result<(
 /// The user saw a session's finished turn: it waits no longer (until its next turn).
 #[tauri::command]
 fn session_seen(id: String, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
-    windows::of(&window)?.bridge().seen(&app, &id);
+    windows::of(&window)?;
+    // Every project that hears the session (its own, and those above it): seen is seen everywhere
+    for bridge in app.state::<windows::Bridges>().all() {
+        bridge.seen(&app, &id);
+    }
     Ok(())
 }
 

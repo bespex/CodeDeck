@@ -808,6 +808,8 @@ export interface Session {
   cwd: string;
   /** Where it was started, in the same form: the project it belongs to, whatever it changes into later */
   home?: string | null;
+  /** Started in a folder above the project: it may touch it, but never waits for you here */
+  above?: boolean;
   /** The tool's account it runs in, if it told: the usage is the account's */
   account?: string | null;
   /** working; waiting for an answer or a permission; idle: its turn is over; ended */

@@ -72,12 +72,14 @@ pub fn refresh(app: &AppHandle) {
     let Some(state) = app.try_state::<Tray>() else { return };
     let Some(handle) = state.handle.locked().clone() else { return };
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
-    let (asks, done) = app
-        .state::<crate::windows::Bridges>()
-        .all()
-        .iter()
-        .map(|b| b.waiting(now, DONE_SHOWN_MS))
-        .fold((0, 0), |(a, d), (a2, d2)| (a + a2, d + d2));
+    // A session is heard by its project and by every project above it: each counts once
+    let (mut asks, mut done) = (std::collections::HashSet::new(), std::collections::HashSet::new());
+    for (a, d) in app.state::<crate::windows::Bridges>().all().iter().map(|b| b.waiting(now, DONE_SHOWN_MS)) {
+        asks.extend(a);
+        done.extend(d);
+    }
+    let done = done.difference(&asks).count();
+    let asks = asks.len();
     let overview_visible = app.get_webview_window(crate::windows::OVERVIEW).is_some_and(|w| w.is_visible().unwrap_or(false));
     let shown = Shown { overview_visible, asks, done, german: german() };
     {

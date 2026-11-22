@@ -36,9 +36,11 @@ export function needsYou(s: Session): "asks" | "done" | null {
  */
 export const DONE_SHOWN_MS = 6 * 3600_000;
 
-/** It waits for you now: it asks, or its turn is over and you have not seen it yet. */
+/** It waits for you now: it asks, or its turn is over and you have not seen it yet. Not one started
+ *  above the project: that one waits in its own project (user, 2026-11-22). */
 export const waitsForYou = (s: Session, now: number) =>
-  needsYou(s) === "asks" || (needsYou(s) === "done" && !s.seen && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS);
+  !s.above &&
+  (needsYou(s) === "asks" || (needsYou(s) === "done" && !s.seen && now - (s.turnDone ?? s.last) < DONE_SHOWN_MS));
 
 /** When the window opened: what needs you from before is not new, and does not light up. */
 export const OPENED_AT = Date.now();
