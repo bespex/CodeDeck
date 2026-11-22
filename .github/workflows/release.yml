@@ -101,19 +101,32 @@ jobs:
           name: packages
           path: dist-release/*
 
+      # The text of the release: release-notes/<version>.md (if there is one), then how to install;
+      # the list of commits follows (generate_release_notes)
+      - name: Release text
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version=$(jq -r .version src-tauri/tauri.conf.json)
+          {
+            if [ -f "release-notes/$version.md" ]; then cat "release-notes/$version.md"; echo; fi
+            cat <<'TEXT'
+          ## Install (Ubuntu 24.04+, Linux Mint 22+, Debian 13+)
+
+          ```bash
+          sudo apt install ./codedeck_*_amd64.deb
+          ```
+
+          Or run the AppImage directly (`chmod +x CodeDeck_*_amd64.AppImage`); it offers updates itself.
+          Then start **CodeDeck** from the application menu or with `codedeck <directory>`.
+          Verify the downloads with `sha256sum -c SHA256SUMS`.
+          TEXT
+          } > release-body.md
+          cat release-body.md
+
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:
           files: dist-release/*
           generate_release_notes: true
-          body: |
-            ## Install (Ubuntu 24.04+, Linux Mint 22+, Debian 13+)
-
-            ```bash
-            sudo apt install ./codedeck_*_amd64.deb
-            ```
-
-            Or run the AppImage directly (`chmod +x CodeDeck_*_amd64.AppImage`); it offers updates itself.
-            Then start **CodeDeck** from the application menu or with `codedeck <directory>`.
-            Verify the downloads with `sha256sum -c SHA256SUMS`.
+          body_path: release-body.md
