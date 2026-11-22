@@ -148,7 +148,9 @@ pub fn checks(platform: &Platform) -> Vec<Check> {
             url: Some(format!("https://bespex.github.io/{program}/")),
             status: found(here),
             detail: None,
-            urgency: Urgency::NiceToHave,
+            // Marq and Dirq take comments for the AI (--annotate), Dirq also takes over the diffs of
+            // Changes: without them part of CodeDeck is missing (user, 2026-11-22)
+            urgency: if matches!(*program, "marq" | "dirq") { Urgency::Helpful } else { Urgency::NiceToHave },
             install: None,
         });
     }

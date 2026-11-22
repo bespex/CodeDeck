@@ -1,7 +1,7 @@
 // Pieces both ways of showing a change use: the commands an action runs, the actions on one
 // uncommitted file, and a file's diff.
 
-import { Fragment, useContext, useEffect, useState } from "react";
+import { createContext, Fragment, useContext, useEffect, useState } from "react";
 import { Circle, CircleCheck, Columns2, Ellipsis, Eye, LocateFixed, MessageSquarePlus, Paperclip, SquarePen, Trash2, Undo2, X } from "lucide-react";
 import { useContextMenu, type MenuItem } from "../ContextMenu";
 import { revealInTree } from "../../fileView";
@@ -61,6 +61,16 @@ export function useDirq(): boolean {
 }
 
 /**
+ * Where the change shown can be opened in Dirq, if it is installed: the whole patch, at one file
+ * (`path`, repository-relative) or at its start. With Dirq the diffs are read there, not here: a
+ * file's row only opens it, on a double click (user, 2026-11-22).
+ */
+export interface DirqTarget {
+  open: (path?: string) => Promise<void>;
+}
+export const DirqContext = createContext<DirqTarget | null>(null);
+
+/**
  * The tools of a changed file, in the box every list uses (`RowTools`): view, edit and its diff in
  * Dirq; attach it to the next prompt; discard it. `path` is repository-relative, `projectPath` the
  * project-relative one to open (`null`: deleted, nothing to open); `working` only for uncommitted
@@ -69,6 +79,7 @@ export function useDirq(): boolean {
 export function FileTools(props: { path: string; projectPath: string | null; patch?: string; added: boolean; from?: string; working?: Working; show?: string }) {
   const { path, projectPath, patch, added, from, working } = props;
   const dirq = useDirq();
+  const inDirq = useContext(DirqContext);
   const attach = useAttachRef(path, added);
   const actions = working ? fileActions(working.repo, working.status, path, from) : null;
   const { run, running, done } = useGitRun(working?.repo.path ?? "", working?.onDone ?? (() => {}));
@@ -105,7 +116,11 @@ export function FileTools(props: { path: string; projectPath: string | null; pat
       ? [
           { icon: Eye, label: t("View"), hint: <AppName path={projectPath} role="view" />, run: () => openAs(projectPath, "view") },
           { icon: SquarePen, label: t("Edit"), hint: <AppName path={projectPath} role="edit" />, run: () => openAs(projectPath, "edit") },
-          ...(dirq && patch ? [{ icon: Columns2, label: t("Its diff in Dirq"), run: () => void showPatch(patch).catch((e) => console.error(e)) }] : []),
+          ...(inDirq
+            ? [{ icon: Columns2, label: t("Its diff in Dirq"), hint: t("double click"), run: () => void inDirq.open(path).catch((e) => console.error(e)) }]
+            : dirq && patch
+              ? [{ icon: Columns2, label: t("Its diff in Dirq"), run: () => void showPatch(patch).catch((e) => console.error(e)) }]
+              : []),
           { icon: LocateFixed, label: t("Show in tree"), run: () => revealInTree(projectPath) },
         ]
       : []),

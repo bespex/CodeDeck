@@ -1404,11 +1404,29 @@ export function hasDiffViewer(): Promise<boolean> {
   return Promise.resolve(true);
 }
 
-/** Shows a patch in Dirq (one window, reused). `id` names what it is: the same id is a new version of it. */
-export function showPatch(text: string, id?: string): Promise<void> {
-  if (live) return invoke("show_patch", { text, id: id ?? null });
-  console.info("would show in dirq", text.length, "bytes");
+/**
+ * Shows a patch in Dirq (one window, reused). `id` names what it is: the same id is a new version of
+ * it. `line`: the line of the patch to show; `annotate`: lines may be commented (only for a patch of
+ * the working tree), the comments come back as line comments; `repo`: the repository
+ * (project-relative) Dirq may read for more lines around a change.
+ */
+export function showPatch(text: string, id?: string, how: { line?: number; annotate?: boolean; repo?: string } = {}): Promise<void> {
+  if (live) return invoke("show_patch", { text, id: id ?? null, line: how.line ?? null, annotate: how.annotate ?? false, repo: how.repo ?? null });
+  console.info("would show in dirq", text.length, "bytes", how);
   return Promise.resolve();
+}
+
+/** A comment on a line written in Dirq: to add (or replace, same id), or `add` null to remove it. */
+export interface DirqComment {
+  id: string;
+  add: { path: string; line: number; code: string; text: string; session: string | null } | null;
+}
+
+/** Comments written in Dirq for this window's project. */
+export function onDirqComment(callback: (comment: DirqComment) => void): () => void {
+  if (!live) return () => {};
+  const unlisten = listen<DirqComment>("dirq_comment", (event) => callback(event.payload));
+  return () => void unlisten.then((stop) => stop());
 }
 
 /** Whether Marq, the Markdown viewer of be spex, is installed. */
@@ -1719,7 +1737,7 @@ export function checkup(fresh: boolean): Promise<Check[]> {
   if (live) return invoke("checkup", { fresh });
   const p = mockPlatform();
   const off = (new URLSearchParams(window.location.search).get("platform") ?? "").split(",");
-  const viewer = (name: string, program: string, here: boolean): Check => ({ id: program, kind: "viewer", name, url: `https://bespex.github.io/${program}/`, status: here ? "found" : "missing", detail: null, urgency: "niceToHave", install: null });
+  const viewer = (name: string, program: string, here: boolean): Check => ({ id: program, kind: "viewer", name, url: `https://bespex.github.io/${program}/`, status: here ? "found" : "missing", detail: null, urgency: program === "marq" || program === "dirq" ? "helpful" : "niceToHave", install: null });
   return Promise.resolve([
     { id: "tool:claude", kind: "tool", name: "Claude Code", url: "https://claude.com/product/claude-code", status: off.includes("notool") ? "missing" : "found", detail: null, urgency: "essential", install: null },
     { id: "git", kind: "git", name: "git", url: "https://git-scm.com", status: "found", detail: "2.43.0", urgency: "essential", install: null },

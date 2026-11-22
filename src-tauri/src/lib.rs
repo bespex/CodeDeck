@@ -683,10 +683,30 @@ fn has_diff_viewer() -> bool {
     apps::diff_viewer().is_some()
 }
 
-/// Shows a patch in Dirq; `id` names what it is (see `apps::show_patch`).
+/// Shows a patch in Dirq (see `apps::show_patch`): `id` names what it is, `line` the line of the
+/// patch to show. `annotate` (only for a patch of the working tree) lets the user comment on lines;
+/// the comments come back to the hub as line comments of this project. `repo` (project-relative)
+/// lets Dirq read the repository for more lines around a change.
 #[tauri::command]
-fn show_patch(text: String, id: Option<String>) -> Result<(), String> {
-    apps::show_patch(&text, id.as_deref())
+fn show_patch(
+    text: String,
+    id: Option<String>,
+    line: Option<u32>,
+    annotate: Option<bool>,
+    repo: Option<String>,
+    app: AppHandle,
+    window: WebviewWindow,
+) -> Result<(), String> {
+    let root = windows::of(&window)?.current.get().root.clone();
+    let repo_rel = repo.unwrap_or_default();
+    let inside = std::path::Path::new(&repo_rel).components().all(|c| matches!(c, std::path::Component::Normal(_)));
+    let repo_dir = Some(root.join(&repo_rel)).filter(|dir| inside && dir.is_dir());
+    let socket = app.try_state::<hub::Hub>().map(|hub| hub.socket().to_path_buf());
+    let annotate = annotate.unwrap_or(false) && inside && socket.is_some();
+    if annotate && let Some(id) = &id {
+        hub::remember_dirq_doc(&apps::dirq_id(id), &root, &repo_rel);
+    }
+    apps::show_patch(&text, &apps::PatchLaunch { id, line, annotate, socket, repo: repo_dir })
 }
 
 /// Whether Marq, the Markdown viewer, is installed.

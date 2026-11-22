@@ -8,6 +8,7 @@ import { currentView, openView, type ViewId } from "./view";
 import { initialPins } from "./mock";
 import { files, pinFromEntry } from "./files";
 import { switchAttachments, useAttachments } from "./attachments";
+import { useDirqComments } from "./dirqComments";
 import { recall, remember, showProject, switchTook } from "./projectMemory";
 import { useGit } from "./git";
 import { SessionMarksContext, sessionMarks, touchedFiles, useAssistant } from "./assistant";
@@ -41,6 +42,8 @@ export default function App() {
   const marks = useMemo(() => sessionMarks(assistant, hoveredSession, setHoveredSession), [assistant, hoveredSession]);
   // Attachments follow what the backend says (receipts, whether the tool takes them)
   useAttachments();
+  // Comments written in Dirq become line comments of the next prompt, like those written here
+  useDirqComments(marks.writer);
   // Git actions of one repository, hanging at the element that opened them
   const [actions, setActions] = useState<{ repo: string; anchor: Anchor } | null>(null);
   const [logOpen, setLogOpen] = useState(false);

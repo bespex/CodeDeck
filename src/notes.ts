@@ -6,7 +6,8 @@ import { plural } from "./git";
 import { createPart, lastState } from "./attachments";
 
 export interface Note {
-  id: number;
+  /** A number for comments written here, `dirq:<id>` for those written in Dirq */
+  id: number | string;
   /** Project-relative */
   path: string;
   /** Line number on the new side of the diff */
@@ -40,13 +41,18 @@ export const NoteSessionContext = createContext<string | null>(null);
  * @param session who the comment is preferably for: with nothing attached and no session chosen yet,
  * the attachments are aimed at it, if it can take them. The user can change that in "Next prompt".
  */
-export function addNote(path: string, line: number, code: string, text: string, session?: string | null) {
+export function addNote(path: string, line: number, code: string, text: string, session?: string | null, id?: string) {
   const state = lastState();
   const s = state?.sessions.find((x) => x.id === session);
   if (s && state?.attachments.length === 0 && !state.target && !state.any && s.status !== "ended" && s.capabilities.attach === "withNextPrompt") {
     void attachFor(s.id);
   }
-  notes.add([{ id: nextId++, path, line, code, text: text.trim() }]);
+  // The same id again (a comment changed in Dirq) replaces it
+  if (id !== undefined) notes.remove([id]);
+  notes.add([{ id: id ?? nextId++, path, line, code, text: text.trim() }]);
 }
 
-export const removeNote = (id: number) => notes.remove([String(id)]);
+export const removeNote = (id: number | string) => notes.remove([String(id)]);
+
+/** The id under which a comment written in Dirq is kept. */
+export const dirqNoteId = (id: string) => `dirq:${id}`;

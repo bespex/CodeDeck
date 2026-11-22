@@ -7,7 +7,7 @@
 
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use gio::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -249,30 +249,63 @@ pub fn markdown_viewer() -> Option<std::path::PathBuf> {
     viewer("marq")
 }
 
-/// Shows a patch in Dirq: `dirq - --reuse --id <id>`, the patch on its standard input. One window is
-/// reused while stepping through points; it lives on when CodeDeck closes. `id` names what the patch
-/// is (the turn, the uncommitted changes, a commit): the same id means a new version of the same
-/// thing, so Dirq keeps its place and folded files and marks what changed; another id starts afresh.
-pub fn show_patch(text: &str, id: Option<&str>) -> Result<(), String> {
-    let dirq = diff_viewer().ok_or("Dirq is not installed (it is part of Qiew: sudo apt install dirq)")?;
-    pipe_to(&dirq, text, &id_options(id))
+/// How Dirq is to show a patch (Qiew `docs/ANNOTATE.md`).
+#[derive(Default)]
+pub struct PatchLaunch {
+    /// What the patch is (the turn, the uncommitted changes, a commit): the same id means a new
+    /// version of the same thing, so Dirq keeps its place and folded files and marks what changed;
+    /// another id starts afresh. It also tells CodeDeck which project a comment from Dirq is for.
+    pub id: Option<String>,
+    /// The line of the patch to show (the start of a file's part)
+    pub line: Option<u32>,
+    /// Lines may be commented; each comment comes back to `socket`. Only for a patch of the working
+    /// tree: its line numbers are those of the files on disk.
+    pub annotate: bool,
+    pub socket: Option<PathBuf>,
+    /// The repository Dirq may read, for more lines around a change
+    pub repo: Option<PathBuf>,
 }
 
-/// `--id <id>` for Dirq, or nothing without one. It must come after the `-`: an older Dirq does not
-/// know the option and would take the text for the file if it came first (Qiew `docs/ANNOTATE.md`, 7).
-/// Line breaks and runs of blanks become one blank; what is left of a very long id is cut.
-fn id_options(id: Option<&str>) -> Vec<String> {
-    let id = id.map(|i| i.split_whitespace().collect::<Vec<_>>().join(" ")).unwrap_or_default();
-    if id.is_empty() {
-        return Vec::new();
+/// Shows a patch in Dirq: `dirq - --reuse [--id <id>] [--line <n>] [--annotate] [--repo <dir>]`, the
+/// patch on its standard input, `CODEDECK_SOCKET` in its environment with `--annotate`. One window is
+/// reused while stepping through points; it lives on when CodeDeck closes.
+pub fn show_patch(text: &str, how: &PatchLaunch) -> Result<(), String> {
+    let dirq = diff_viewer().ok_or("Dirq is not installed (it is part of Qiew: sudo apt install dirq)")?;
+    let socket = how.socket.as_ref().filter(|_| how.annotate);
+    let env: Vec<(&str, &std::ffi::OsStr)> = socket.map(|s| ("CODEDECK_SOCKET", s.as_os_str())).into_iter().collect();
+    pipe_to(&dirq, text, &patch_options(how), &env)
+}
+
+/// The id as Dirq gets it: line breaks and runs of blanks become one blank, a very long one is cut.
+/// Dirq names the patch by it when it sends a comment.
+pub fn dirq_id(id: &str) -> String {
+    id.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(200).collect()
+}
+
+/// Dirq's options. All come after the `-`: an older Dirq does not know them and would take a value
+/// for the file if it came first (Qiew `docs/ANNOTATE.md`, 7). `--annotate` only with a socket to
+/// send to.
+fn patch_options(how: &PatchLaunch) -> Vec<String> {
+    let mut options = Vec::new();
+    if let Some(id) = how.id.as_deref().map(dirq_id).filter(|i| !i.is_empty()) {
+        options.extend(["--id".to_string(), id]);
     }
-    vec!["--id".to_string(), id.chars().take(200).collect()]
+    if let Some(line) = how.line.filter(|l| *l > 0) {
+        options.extend(["--line".to_string(), line.to_string()]);
+    }
+    if how.annotate && how.socket.is_some() {
+        options.push("--annotate".to_string());
+    }
+    if let Some(repo) = &how.repo {
+        options.extend(["--repo".to_string(), repo.to_string_lossy().into_owned()]);
+    }
+    options
 }
 
 /// Shows Markdown text as a page in Marq, the same way: one window, reused.
 pub fn show_markdown(text: &str) -> Result<(), String> {
     let marq = markdown_viewer().ok_or("Marq is not installed (it is part of Qiew: sudo apt install marq)")?;
-    pipe_to(&marq, text, &[])
+    pipe_to(&marq, text, &[], &[])
 }
 
 /// Starts a program that lives on by itself (a desktop app, a terminal) and returns at once.
@@ -308,11 +341,11 @@ fn own_session(command: &mut std::process::Command) -> &mut std::process::Comman
     }
 }
 
-/// Starts `<viewer> - --reuse [extra]` with the text on its standard input.
-fn pipe_to(viewer: &Path, text: &str, extra: &[String]) -> Result<(), String> {
+/// Starts `<viewer> - --reuse [extra]` with the text on its standard input and `env` added.
+fn pipe_to(viewer: &Path, text: &str, extra: &[String], env: &[(&str, &std::ffi::OsStr)]) -> Result<(), String> {
     use std::io::Write;
     let mut command = std::process::Command::new(viewer);
-    command.args(["-", "--reuse"]).args(extra).stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+    command.args(["-", "--reuse"]).args(extra).envs(env.iter().copied()).stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
     let mut child = own_session(&mut command)
         .spawn()
         .map_err(|e| format!("{}: {e}", viewer.display()))?;
@@ -333,11 +366,29 @@ mod tests {
 
     #[test]
     fn dirq_is_told_what_the_patch_is_after_the_dash() {
-        assert_eq!(id_options(Some("Turn 3 · Fix · repo")), ["--id", "Turn 3 · Fix · repo"]);
-        assert_eq!(id_options(Some("  two\n lines\t here ")), ["--id", "two lines here"]);
-        assert!(id_options(Some("  \n ")).is_empty());
-        assert!(id_options(None).is_empty());
-        assert_eq!(id_options(Some(&"x".repeat(500)))[1].chars().count(), 200);
+        let id = |id: &str| patch_options(&PatchLaunch { id: Some(id.into()), ..Default::default() });
+        assert_eq!(id("Turn 3 · Fix · repo"), ["--id", "Turn 3 · Fix · repo"]);
+        assert_eq!(id("  two\n lines\t here "), ["--id", "two lines here"]);
+        assert!(id("  \n ").is_empty());
+        assert!(patch_options(&PatchLaunch::default()).is_empty());
+        assert_eq!(id(&"x".repeat(500))[1].chars().count(), 200);
+        assert_eq!(dirq_id("  two\n lines "), "two lines");
+    }
+
+    #[test]
+    fn dirq_may_annotate_only_with_somewhere_to_send_to() {
+        let all = PatchLaunch {
+            id: Some("Uncommitted changes · app".into()),
+            line: Some(12),
+            annotate: true,
+            socket: Some(PathBuf::from("/run/codedeck/1.sock")),
+            repo: Some(PathBuf::from("/work/app")),
+        };
+        assert_eq!(patch_options(&all), ["--id", "Uncommitted changes · app", "--line", "12", "--annotate", "--repo", "/work/app"]);
+        let no_socket = PatchLaunch { socket: None, ..all };
+        assert!(!patch_options(&no_socket).contains(&"--annotate".to_string()));
+        let line_zero = PatchLaunch { line: Some(0), ..Default::default() };
+        assert!(patch_options(&line_zero).is_empty());
     }
 
     #[test]

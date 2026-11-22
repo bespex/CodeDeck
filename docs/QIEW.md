@@ -1,6 +1,6 @@
 # CodeDeck und die Qiew-Betrachter
 
-Stand 2026-11-21. Die Betrachter von be spex (Qiew: Marq, Jayq, Xaq, Hyqe, Cusq, Dirq, Maiqe, Trisq) bleiben eigenständige
+Stand 2026-11-22. Die Betrachter von be spex (Qiew: Marq, Jayq, Xaq, Hyqe, Cusq, Dirq, Maiqe, Trisq) bleiben eigenständige
 Programme. CodeDeck nutzt ihre gemeinsame Befehlszeile (`<app> [<datei> | -] [--line <n>] [--geometry WxH+X+Y] [--reuse] [--id <text>]`,
 Qiew `crates/frame/src/launch.rs`); alles Zusätzliche wirkt nur, wenn CodeDeck sie startet.
 
@@ -9,7 +9,7 @@ Qiew `crates/frame/src/launch.rs`); alles Zusätzliche wirkt nur, wenn CodeDeck 
 - **Bevorzugen:** Zum Ansehen nimmt CodeDeck, wo keine Wahl getroffen ist, den Betrachter von be spex für die Endung
   (`apps.rs` `QIEW`), vor dem Standard des Systems; in „Ansehen mit…“ steht er oben und gilt als empfohlen.
 - **`--reuse`:** Jeder Start aus CodeDeck nutzt das offene Fenster des Betrachters weiter.
-- **`--id` (nur Dirq):** `show_patch` ruft `dirq - --reuse --id <Kennung>` auf (`apps.rs` `id_options`, `src/dirq.ts`
+- **`--id` (nur Dirq):** `show_patch` ruft `dirq - --reuse --id <Kennung>` auf (`apps.rs` `patch_options`, `src/dirq.ts`
   `dirqId`). Die Kennung sagt, **was** der Patch ist: Gleiche Kennung = neue Fassung desselben (Dirq behält Ort, Faltungen und
   Filter und zeigt, was neu ist), andere Kennung = etwas anderes. Der Patch kommt über die Standardeingabe unter immer neuem
   Namen, ein Pfad taugt dafür nicht. Kennung ist der Betreff der Ansicht (Runde, nicht Committetes, Vergleich, Snapshot), bei
@@ -31,11 +31,28 @@ Qiew `crates/frame/src/launch.rs`); alles Zusätzliche wirkt nur, wenn CodeDeck 
   sagt, dass ein solcher Kommentar dem folgenden Block gilt und danach entfernt wird (Nutzer, 2026-11-21: nicht
   abhaken, das ließe Unnützes im Text).
 
+- **Dirq statt der eingebetteten Diffs (2026-11-22):** Ist Dirq installiert (`has_diff_viewer`, nur das Dasein zählt,
+  keine Einstellung), zeigen Code- und Strukturansicht im Reiter Änderungen nur noch die Dateien. Ein Klick tut nichts,
+  ein **Doppelklick** öffnet den ganzen Patch der Ansicht in Dirq an dieser Datei (`--line` = Beginn ihres Teils hinter
+  dem Kopf, `src/dirq.ts` `lineBehindHeader`). Angesehen, Anhängen, Werkzeuge bleiben in CodeDeck. Ohne Dirq wie bisher.
+  Gebaut in `ChangesView.tsx` (`ScopeProvider`, `openInDirq`, `DirqContext` aus `DiffParts.tsx`) und `StructureTree.tsx`.
+- **`--annotate` für Dirq:** nur für Patches des Arbeitsordners (`ChangeScope.worktree`: nicht Committetes, laufende Runde,
+  „seit dem Snapshot“), denn nur dort passen die Zeilennummern der neuen Seite zu den Dateien. Dazu `CODEDECK_SOCKET` = der
+  Socket des Hubs und im Kopf `X-CodeDeck-Session`, wenn die Ansicht eine Session hat. Kommentare kommen als Einzeiler-JSON
+  an den Hub (`hub.rs` `dirq_comment`): bekannte Aktion, `doc` = eine von CodeDeck vergebene Kennung (`remember_dirq_doc`,
+  ordnet Projekt und Repository zu), Pfad relativ und im Repository, Text nicht leer, gekürzt. Das Fenster des Projekts
+  bekommt `dirq_comment`; `src/dirqComments.ts` legt daraus Zeilenkommentare (`Note`, Id `dirq:<id>`) an, ersetzt sie bei
+  gleicher Id und entfernt sie. Ohne Session im Kopf gilt die Session, die die Datei zuletzt schrieb. Kein Rückkanal zu Dirq.
+- **`--repo` für Dirq:** bei jeder Ansicht der Ordner des Repositorys; Dirq liest daraus Zeilen um eine Änderung und
+  `linguist-generated`.
+- **Rechner-Check:** Marq und Dirq gelten seit 2026-11-22 als „hilfreich“ (Kommentare für die KI, Dirq zeigt die Diffs).
+
 ## Geplant
 
-1. **Rückweg „An CodeDeck“** (in Qiew vorgesehen, README „Working with CodeDeck“): CodeDeck startet mit
-   `CODEDECK_SOCKET`; nur dann zeigt der Betrachter den Knopf und schickt die Auswahl (Textstelle, jq-Ergebnis, Zeilen,
-   Hunk, Fehler) als Anhang mit Herkunft. CodeDeck hat Socket und Anhangsart „Textstelle“ schon.
+1. **Weitere Rückwege „An CodeDeck“:** Der Weg ist da (Dirqs Kommentare, `CODEDECK_SOCKET`); weitere Aktionen (Auswahl als
+   Anhang mit Herkunft: Textstelle, jq-Ergebnis, Zeilen, Hunk) brauchen je eine Freigabe und eine Prüfung im Hub.
+2. **Live in Dirq:** die laufende Runde bei jeder Änderung mit derselben `--id` nachschicken, ohne ein geschlossenes Fenster
+   wieder zu öffnen (braucht eine Rahmen-Option wie `--if-running`).
 3. **Mitlesen:** auf Wunsch ein Dokument, das eine Session schreibt, mit `--reuse` in Marq oder Hyqe öffnen.
 4. **Stand eines Snapshots ansehen:** `git show <snapshot>:<pfad> | marq -`.
 7. **Gleiches Aussehen:** Farbschema und Sprache beim Start mitgeben.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -33,7 +33,7 @@ import { Tooltip, TooltipHint } from "../Tooltip";
 import { pathItems, useContextMenu } from "../ContextMenu";
 import { changedSinceViewed, reviewKey, reviewSlot, toggleReviewed, useReviewed } from "../../reviewed";
 import { useChangeScope } from "../../changes";
-import { AttachedAtRest, DiffBody, FileTools, inUntrackedDir, LineCounts, Viewed, ChangedSinceViewed, type Working } from "./DiffParts";
+import { AttachedAtRest, DiffBody, DirqContext, FileTools, inUntrackedDir, LineCounts, Viewed, ChangedSinceViewed, type Working } from "./DiffParts";
 import { plural, t } from "../../i18n";
 
 /** A new folder with more files than this opens collapsed. */
@@ -285,7 +285,9 @@ function DirCounts({ dir }: { dir: DirNode }) {
 
 function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx }) {
   const key = `f:${file.path}`;
-  const isOpen = ctx.open.has(key);
+  // With Dirq the diff is read there: a click does nothing, a double click opens it at this file
+  const dirq = useContext(DirqContext);
+  const isOpen = ctx.open.has(key) && !dirq;
   const c = file.change;
   const working = ctx.working?.(file.path);
   const look = fileLook(file);
@@ -308,8 +310,11 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
       <div
         className={`group flex h-7 w-full cursor-pointer items-center gap-1.5 pr-2 hover:bg-raised ${isOpen ? "bg-raised/60" : ""}`}
         style={{ paddingLeft: 8 + depth * 16 }}
-        // A click only folds, at once: viewing and editing are in the row's tools (no double click to wait for)
-        onClick={() => ctx.toggle(key, !isOpen)}
+        // Without Dirq a click only folds, at once (no double click to wait for); with Dirq a double
+        // click opens the change there, at this file (user, 2026-11-22)
+        onClick={() => !dirq && ctx.toggle(key, !isOpen)}
+        onDoubleClick={() => void dirq?.open(file.path).catch((e) => console.error(e))}
+        title={dirq ? t("Double click: open in Dirq") : undefined}
         onContextMenu={(e) => {
           const path = toProject(ctx.repo, file.path);
           ctx.menu(e, path, pathItems(path, false, file.kind === "deleted"));
@@ -320,7 +325,7 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
         </Hint>
         <button
           type="button"
-          aria-expanded={isOpen}
+          aria-expanded={dirq ? undefined : isOpen}
           className={`min-w-0 truncate text-left font-mono text-[12px] outline-none focus-visible:underline ${
             file.kind === "deleted" ? "text-slate-400 line-through decoration-problem/50" : looked ? "text-slate-400" : "text-slate-100"
           }`}

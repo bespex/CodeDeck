@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Anchor, ArrowRight, Check, ChevronDown, ChevronRight, Code, ExternalLink, Filter, Flag, FolderGit2, GitBranch, ListTree, Pencil, Sparkles, Undo2, X } from "lucide-react";
+import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Anchor, ArrowRight, Check, ChevronDown, ChevronRight, Code, Columns2, ExternalLink, Filter, Flag, FolderGit2, GitBranch, ListTree, Pencil, Sparkles, Undo2, X } from "lucide-react";
 import {
   gitCommitDiff,
   gitCompare,
@@ -30,9 +30,9 @@ import { toProject, useGitRun, type Done, type TrailCommit } from "../../history
 import { LOCALE, type Point } from "../Trail";
 import { stateColor } from "../FilesPanel";
 import { Tooltip, TooltipHint } from "../Tooltip";
-import { AttachChange, AttachedAtRest, Commands, DiffBody, FileTools, inUntrackedDir, LineCounts, useDirq, Viewed, ChangedSinceViewed, You, type Working } from "./DiffParts";
+import { AttachChange, AttachedAtRest, Commands, DiffBody, DirqContext, FileTools, inUntrackedDir, LineCounts, useDirq, Viewed, ChangedSinceViewed, You, type DirqTarget, type Working } from "./DiffParts";
 import { StructureTree } from "./StructureTree";
-import { dirqId, withHeader, type DirqMeta } from "../../dirq";
+import { dirqId, lineBehindHeader, withHeader, type DirqMeta } from "../../dirq";
 import { NoRepository } from "../GitInit";
 import { known, snapshotLabel, t } from "../../i18n";
 
@@ -471,15 +471,16 @@ function TurnChanges(props: {
     worktree: turn.to === null,
   };
 
+  const dirqMeta: DirqMeta = { subject: `${t("Turn {n}", { n: turn.n })} · ${mark?.title ?? props.who} · ${repo.name}`, author: mark ? `${mark.title ?? props.who} (${mark.short})` : props.who, at: turn.at, body: [turn.prompt ? `${t("You asked:")} ${turn.prompt}` : "", turn.report ?? ""].filter(Boolean).join("\n\n"), hash: turn.to ?? turn.from, session: turn.session };
   return (
-    <ChangeScopeContext.Provider value={scope}>
+    <ScopeProvider scope={scope} patch={patch} files={files} meta={dirqMeta}>
       <Section
         title={turn.to ? t("What {who} did in turn {n}", { who: props.who, n: turn.n }) : t("What {who} is doing in turn {n}", { who: props.who, n: turn.n })}
         note={turn.to ? t("done {time}", { time: clock(turn.at) }) : t("still working")}
         aside={
           <>
             <AttachChange />
-            <DirqButton patch={patch} meta={{ subject: `${t("Turn {n}", { n: turn.n })} · ${mark?.title ?? props.who} · ${repo.name}`, author: mark ? `${mark.title ?? props.who} (${mark.short})` : props.who, at: turn.at, body: [turn.prompt ? `${t("You asked:")} ${turn.prompt}` : "", turn.report ?? ""].filter(Boolean).join("\n\n"), hash: turn.to ?? turn.from }} />
+            <DirqButton truncated={patch?.truncated} />
             <Tooltip content={<span>{t("Shows the point this turn began at. From there you can put the files back as they were.")}</span>}>
               <button type="button" onClick={props.onStart} className="flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-[12px] text-slate-300 hover:bg-raised hover:text-slate-100">
                 <Undo2 className="size-3" />
@@ -533,7 +534,7 @@ function TurnChanges(props: {
         )}
       </div>
       </NoteSessionContext.Provider>
-    </ChangeScopeContext.Provider>
+    </ScopeProvider>
   );
 }
 
@@ -550,9 +551,17 @@ function LookedCount({ repo, files }: { repo: RepoStatus; files: FileDiff[] }) {
 }
 
 function ModeSwitch({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }) {
+  const dirq = useDirq();
   const options: [Mode, typeof ListTree, string, string][] = [
-    ["structure", ListTree, t("Structure"), t("Which files and folders are new, deleted, moved, renamed or changed, as a tree. Click a file for its diff.")],
-    ["code", Code, t("Code"), t("Every changed line, file after file")],
+    [
+      "structure",
+      ListTree,
+      t("Structure"),
+      dirq
+        ? t("Which files and folders are new, deleted, moved, renamed or changed, as a tree. Double click a file to open its diff in Dirq.")
+        : t("Which files and folders are new, deleted, moved, renamed or changed, as a tree. Click a file for its diff."),
+    ],
+    ["code", Code, t("Code"), dirq ? t("Every changed file, one after the other; double click one to read it in Dirq") : t("Every changed line, file after file")],
   ];
   return (
     <div className="ml-auto flex rounded-md border border-line p-0.5" role="radiogroup" aria-label={t("Show changes as")}>
@@ -642,8 +651,9 @@ function RepoChanges(props: {
   // Before the first commit there is no HEAD: everything is new against the empty tree
   const scope: ChangeScope = { repo, range: ["diff", repo.head ? "HEAD" : EMPTY_TREE], label: `Uncommitted changes${inRepo(repo)}`, shown: `${t("Uncommitted changes")}${inRepoShown(repo)}`, worktree: true };
 
+  const dirqMeta: DirqMeta = { subject: `${t("Uncommitted changes")} · ${repo.name}${repo.branch ? ` · ${repo.branch}` : ""}` };
   return (
-    <ChangeScopeContext.Provider value={scope}>
+    <ScopeProvider scope={scope} patch={patch} files={files} meta={dirqMeta}>
     <section>
       <header className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
         {several && <FolderGit2 className="size-4 self-center text-slate-400" />}
@@ -659,7 +669,7 @@ function RepoChanges(props: {
         {files.length > 0 && (
           <span className="ml-auto flex items-center gap-2 self-center">
             <AttachChange />
-            <DirqButton patch={patch} meta={{ subject: `${t("Uncommitted changes")} · ${repo.name}${repo.branch ? ` · ${repo.branch}` : ""}` }} />
+            <DirqButton truncated={patch?.truncated} />
           </span>
         )}
       </header>
@@ -689,7 +699,7 @@ function RepoChanges(props: {
         </div>
       )}
     </section>
-    </ChangeScopeContext.Provider>
+    </ScopeProvider>
   );
 }
 
@@ -806,8 +816,9 @@ function CommitChanges(props: {
   const files = useMemo(() => (patch ? parsePatch(patch.text) : []), [patch]);
   const [editing, setEditing] = useState(false);
   const scope: ChangeScope = { repo: props.repo, range: ["show", short(c.hash)], label: `Commit ${c.short} "${c.subject}"${inRepo(props.repo)}`, shown: `${t("Commit")} ${c.short} "${c.subject}"${inRepoShown(props.repo)}`, worktree: false };
+  const dirqMeta: DirqMeta = { subject: c.subject, author: c.author, at: c.at, body: c.body, hash: c.hash, id: `commit ${c.hash}` };
   return (
-    <ChangeScopeContext.Provider value={scope}>
+    <ScopeProvider scope={scope} patch={patch} files={files} meta={dirqMeta}>
     <div className="p-4">
       <header className="group mb-3">
         {editing ? (
@@ -861,7 +872,7 @@ function CommitChanges(props: {
           <span>{new Date(c.at * 1000).toLocaleString(LOCALE)}</span>
           {c.unpushed && <span className="text-changed">{t("not pushed yet")}</span>}
           <AttachChange />
-          <DirqButton patch={patch} meta={{ subject: c.subject, author: c.author, at: c.at, body: c.body, hash: c.hash, id: `commit ${c.hash}` }} />
+          <DirqButton truncated={patch?.truncated} />
           <button
             type="button"
             onClick={props.onShowNow}
@@ -885,7 +896,7 @@ function CommitChanges(props: {
         </div>
       )}
     </div>
-    </ChangeScopeContext.Provider>
+    </ScopeProvider>
   );
 }
 
@@ -942,8 +953,9 @@ function SnapshotChanges(props: {
     }
   };
 
+  const dirqMeta: DirqMeta = { subject: `${t("Changes since the snapshot \"{name}\"", { name: snapshotLabel(s.label) })} · ${repo.name}`, author: mark?.title ?? undefined, at: s.at, hash: s.hash, session: s.session };
   return (
-    <ChangeScopeContext.Provider value={scope}>
+    <ScopeProvider scope={scope} patch={patch} files={files} meta={dirqMeta}>
     <div className="p-4">
       <header className="mb-3">
         <div className="flex items-start gap-2">
@@ -981,7 +993,7 @@ function SnapshotChanges(props: {
           )}
           {s.tool && <code className="font-mono text-[11px] text-slate-500">{s.tool}</code>}
           {changed > 0 && <AttachChange />}
-          <DirqButton patch={patch} meta={{ subject: `${t("Changes since the snapshot \"{name}\"", { name: snapshotLabel(s.label) })} · ${repo.name}`, author: mark?.title ?? undefined, at: s.at, hash: s.hash }} />
+          <DirqButton truncated={patch?.truncated} />
           <button
             type="button"
             onClick={props.onShowNow}
@@ -1051,7 +1063,7 @@ function SnapshotChanges(props: {
         </div>
       )}
     </div>
-    </ChangeScopeContext.Provider>
+    </ScopeProvider>
   );
 }
 
@@ -1087,8 +1099,9 @@ function CompareChanges(props: {
       <div className={`truncate ${p.snapshot ? "text-slate-400 italic" : "text-slate-100"}`}>{p.snapshot ? snapshotLabel(p.title) : p.title}</div>
     </div>
   );
+  const dirqMeta: DirqMeta = { subject: `${props.from.title} → ${props.to.title} · ${repo.name}`, at: props.to.at };
   return (
-    <ChangeScopeContext.Provider value={scope}>
+    <ScopeProvider scope={scope} patch={patch} files={files} meta={dirqMeta}>
     <div className="p-4">
       <header className="mb-3">
         <div className="flex items-stretch gap-2">
@@ -1101,7 +1114,7 @@ function CompareChanges(props: {
           {patch && <span>{plural(patch.changes.length, "file")} changed</span>}
           <span className="text-slate-500">{t("Ctrl+click another point to compare with that one instead")}</span>
           <AttachChange />
-          <DirqButton patch={patch} meta={{ subject: `${props.from.title} → ${props.to.title} · ${repo.name}`, at: props.to.at }} />
+          <DirqButton truncated={patch?.truncated} />
           <button
             type="button"
             onClick={props.onShowNow}
@@ -1122,28 +1135,60 @@ function CompareChanges(props: {
         </div>
       )}
     </div>
+    </ScopeProvider>
+  );
+}
+
+/**
+ * The scope of a change for everything inside it, and where the change opens in Dirq when it is
+ * installed: then the files' rows open it there (double click) instead of showing their diff here.
+ */
+function ScopeProvider(props: { scope: ChangeScope; patch: Patch | null; files: FileDiff[]; meta: DirqMeta; children: ReactNode }) {
+  const installed = useDirq();
+  const { scope, patch, files, meta } = props;
+  const dirq: DirqTarget | null = installed && patch?.text ? { open: (path) => openInDirq(patch, files, meta, scope, path) } : null;
+  return (
+    <ChangeScopeContext.Provider value={scope}>
+      <DirqContext.Provider value={dirq}>{props.children}</DirqContext.Provider>
     </ChangeScopeContext.Provider>
   );
 }
 
+/**
+ * Shows the whole patch in Dirq, at the start of one file's part if `path` (repository-relative) is
+ * given. Dirq may read the repository for more lines around a change; only a patch of the working
+ * tree may be commented (Qiew docs/ANNOTATE.md, 4): its line numbers are those of the files on
+ * disk, so a comment from Dirq points at the right line.
+ */
+function openInDirq(patch: Patch, files: FileDiff[], meta: DirqMeta, scope: ChangeScope, path?: string) {
+  const annotate = scope.worktree;
+  const shown = annotate ? meta : { ...meta, session: undefined };
+  const start = path === undefined ? undefined : files.find((f) => f.path === path)?.start;
+  return showPatch(withHeader(patch.text, shown), dirqId(shown), {
+    line: start === undefined ? undefined : lineBehindHeader(shown, start),
+    annotate,
+    repo: scope.repo.path,
+  });
+}
+
 /** Opens the patch in Dirq, side by side; only offered when Dirq is installed. */
-function DirqButton({ patch, meta }: { patch: Patch | null; meta?: DirqMeta }) {
-  const installed = useDirq();
+function DirqButton({ truncated }: { truncated?: boolean }) {
+  const dirq = useContext(DirqContext);
   const [failed, setFailed] = useState<string | null>(null);
-  if (!installed || !patch || !patch.text) return null;
+  if (!dirq) return null;
   return (
     <Tooltip
       content={
         <>
           <span>{t("Open in Dirq, old and new side by side")}</span>
-          {patch.truncated && <span className="text-changed">{t("Only the part shown here: the diff is very long")}</span>}
+          {truncated && <span className="text-changed">{t("Only the part shown here: the diff is very long")}</span>}
           {failed && <span className="text-problem">{failed}</span>}
         </>
       }
     >
       <button
         type="button"
-        onClick={() => showPatch(meta ? withHeader(patch.text, meta) : patch.text, meta && dirqId(meta)).then(() => setFailed(null), (e) => setFailed(String(e)))}
+        onClick={() => dirq.open().then(() => setFailed(null), (e) => setFailed(String(e)))}
         className="flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-slate-300 hover:bg-raised hover:text-slate-100"
       >
         <ExternalLink className="size-3" />
@@ -1230,8 +1275,12 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
   const lookedKey = reviewKey(repo.path, file.path, file);
   const looked = useReviewed()(lookedKey);
   const slot = reviewSlot(useChangeScope(), lookedKey);
+  // With Dirq the diff is read there: a click does nothing, a double click opens it at this file
+  const dirq = useContext(DirqContext);
+  const [failed, setFailed] = useState<string | null>(null);
   // Viewed already: it opens closed
-  const [open, setOpen] = useState(size <= LONG_DIFF && !looked);
+  const [folded, setOpen] = useState(size <= LONG_DIFF && !looked);
+  const open = folded && !dirq;
   const state = working?.status?.state ?? file.status;
   const slash = file.path.lastIndexOf("/");
   const Chevron = open ? ChevronDown : ChevronRight;
@@ -1243,12 +1292,15 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
       <header className="group flex h-8 items-center gap-2 pr-2 pl-2">
         <button
           type="button"
-          // A click only folds, at once: viewing and editing are in the row's tools (no double click to wait for)
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
+          // Without Dirq a click only folds, at once (no double click to wait for). With Dirq there is
+          // nothing to fold: a double click opens the change there, at this file (user, 2026-11-22)
+          onClick={() => !dirq && setOpen((o) => !o)}
+          onDoubleClick={() => dirq?.open(file.path).then(() => setFailed(null), (e) => setFailed(String(e)))}
+          aria-expanded={dirq ? undefined : open}
+          title={dirq ? t("Double click: open in Dirq") : undefined}
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
-          <Chevron className="size-3.5 shrink-0 text-slate-500" />
+          {dirq ? <Columns2 className="size-3.5 shrink-0 text-slate-500" /> : <Chevron className="size-3.5 shrink-0 text-slate-500" />}
           <Tooltip
             content={<span>{t(stateMeaning[state])}{working?.status?.staged ? ` · ${t("staged for the next commit")}` : ""}</span>}
             className="flex shrink-0"
@@ -1263,6 +1315,7 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
           <ChangedSinceViewed show={changedSinceViewed(lookedKey, slot)} />
           <LineCounts added={file.added} removed={file.removed} />
           {working?.status?.staged && <span className="shrink-0 text-[11px] text-slate-500">{t("staged")}</span>}
+          {failed && <span className="shrink-0 truncate text-[11px] text-problem" title={failed}>{t("Dirq: {error}", { error: failed })}</span>}
         </button>
         {/* On hover, left of what always shows (who changed it, the paperclip of an attached change) */}
         <FileTools path={file.path} projectPath={projectPath} patch={file.patch} added={file.status === "A"} from={file.from} working={working} />
@@ -1278,7 +1331,7 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
         />
       </header>
       {open && <DiffBody file={file} notePath={file.status === "D" ? undefined : toProject(repo, file.path)} />}
-      {!open && size > LONG_DIFF && (
+      {!open && !dirq && size > LONG_DIFF && (
         <button
           type="button"
           onClick={() => setOpen(true)}
