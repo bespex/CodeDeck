@@ -10,7 +10,7 @@ import { SessionBadge } from "./SessionBadge";
 import { HoverTools, Tool, ToolGap } from "./RowTools";
 import { plural, t } from "../i18n";
 import { loadCollapsed, nameIn, saveCollapsed, sectionsOf } from "../groups";
-import { HOME_URL, MANUAL_URL } from "./Dialogs";
+import { HOME_URL, manualUrl } from "./Dialogs";
 import { copyDiagnostics, reportProblem } from "./HeaderBar";
 
 // The overview of all projects (docs/UEBERSICHT.md): one window for every project, always there.
@@ -889,7 +889,7 @@ function MoreMenu({ inWindow = false }: { inWindow?: boolean }) {
             {t("Keyboard shortcuts")}
           </button>
           <div className="my-1 h-px bg-overlay-line" />
-          <button type="button" className={item} onClick={() => void openUrl(MANUAL_URL)}>
+          <button type="button" className={item} onClick={() => void openUrl(manualUrl())}>
             {t("Manual")}
           </button>
           <button type="button" className={item} onClick={() => void openUrl(HOME_URL)}>

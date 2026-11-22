@@ -16,8 +16,8 @@ import { AttentionChoice, QuietChoice } from "./AttentionChoice";
 /** The page of the app; bespex.run/codedeck once the website has moved to bespex.run. */
 export const HOME_URL = "https://bespex.github.io/codedeck/";
 export const SOURCE_URL = "https://github.com/bespex/CodeDeck";
-/** The manual on the website. Only in German so far; the English one follows at /codedeck/manual/en/. */
-export const MANUAL_URL = "https://bespex.run/codedeck/manual/de/";
+/** The manual on the website, in the language of the interface. */
+export const manualUrl = () => `https://bespex.run/codedeck/manual/${lang}/`;
 
 /** The open dialog, over the whole window. */
 export function Dialogs({ assistant }: { assistant: AssistantState }) {

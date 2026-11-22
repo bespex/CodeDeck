@@ -1480,7 +1480,8 @@ export function gitCompare(repo: string, from: string, to: string): Promise<Patc
 /** Whether Dirq, the diff viewer of be spex, is installed. */
 export function hasDiffViewer(): Promise<boolean> {
   if (live) return invoke("has_diff_viewer");
-  return Promise.resolve(true);
+  // The preview has Dirq, unless ?platform=nodirq: then diffs show in CodeDeck itself
+  return Promise.resolve(!(new URLSearchParams(window.location.search).get("platform") ?? "").split(",").includes("nodirq"));
 }
 
 /**
@@ -1825,7 +1826,7 @@ export function checkup(fresh: boolean): Promise<Check[]> {
     { id: "windows", kind: "windows", name: "X11 / Wayland", url: null, status: p.raiseWindows ? "found" : "limited", detail: p.wayland ? "Wayland" : "X11", urgency: "helpful", install: null },
     { id: "tray", kind: "tray", name: "Tray", url: null, status: p.tray ? "found" : "missing", detail: null, urgency: "helpful", install: null },
     viewer("Marq", "marq", true),
-    viewer("Dirq", "dirq", true),
+    viewer("Dirq", "dirq", !off.includes("nodirq")),
     viewer("Hyqe", "hyqe", false),
     viewer("Jayq", "jayq", true),
     viewer("Xaq", "xaq", false),
@@ -1923,7 +1924,7 @@ export function platform(): Promise<Platform> {
 }
 
 function mockPlatform(): Platform {
-  // In the preview `?platform=wayland,notmux,noterminal,notray` shows what CodeDeck does without them
+  // In the preview `?platform=wayland,notmux,noterminal,notray,nodirq` shows what CodeDeck does without them
   const off = (new URLSearchParams(window.location.search).get("platform") ?? "").split(",");
   const wayland = off.includes("wayland");
   return {

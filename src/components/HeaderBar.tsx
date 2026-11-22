@@ -25,7 +25,7 @@ import { useAttentionSettings } from "../attention";
 import { openDialog } from "../dialogs";
 import { lang, t } from "../i18n";
 import { AttentionChoice, isQuiet, QuietChoice } from "./AttentionChoice";
-import { HOME_URL, MANUAL_URL, SOURCE_URL } from "./Dialogs";
+import { HOME_URL, manualUrl, SOURCE_URL } from "./Dialogs";
 import { usePopover, type OpenProject } from "./ProjectHeader";
 import { useProjectAccount, useProjectLook } from "../projectLook";
 import { AccountMark } from "./ProjectMark";
@@ -352,7 +352,7 @@ export function AppMenu({ assistant, onColor = false }: { assistant: AssistantSt
             <Item icon={<Keyboard className="size-4" />} label={t("Tutorial: keyboard shortcuts")} onClick={run(() => openDialog({ kind: "shortcuts" }))} />
           </div>
           <div className="border-t border-overlay-line p-1">
-            <Item icon={<BookOpen className="size-4" />} label={t("Manual")} onClick={run(() => void openUrl(MANUAL_URL))} />
+            <Item icon={<BookOpen className="size-4" />} label={t("Manual")} onClick={run(() => void openUrl(manualUrl()))} />
             <Item icon={<Globe className="size-4" />} label={t("Website")} onClick={run(() => void openUrl(HOME_URL))} />
           </div>
           <div className="border-t border-overlay-line p-1">
