@@ -1,6 +1,7 @@
 // Groups of projects in the overview (docs/UEBERSICHT.md): the folder a project lies in, below the
 // folder all my projects share. With projects in ~/projects/bespex/… and ~/projects/tsobss/… the
-// groups are "bespex" and "tsobss"; a project right in ~/projects has none. Nothing to set up: the
+// groups are "bespex" and "tsobss"; a project right in ~/projects has none, unless it is the group's own
+// folder (~/projects/bespex itself): that one joins its group. Nothing to set up: the
 // groups are the user's own filing. A group of one is no group.
 
 /** The folder every path lies in, as path segments; the paths are absolute, `/`-separated. */
@@ -16,10 +17,16 @@ function shared(paths: string[]): string[] {
   return parents[0].slice(0, n);
 }
 
-/** The group of a project: the first folder below `root` on its way, if it does not lie right in `root`. */
-function groupIn(path: string, root: string[]): string | null {
+/**
+ * The group of a project: the first folder below `root` on its way, if it does not lie right in `root`.
+ * A project that is the group's folder itself (~/projects/bespex next to ~/projects/bespex/Qiew) belongs
+ * to that group too, as the cross-cutting project of it; `all` tells whether other projects lie below it.
+ */
+function groupIn(path: string, root: string[], all: string[]): string | null {
   const parts = path.split("/").filter(Boolean);
-  return parts.length - 1 > root.length ? parts[root.length] : null;
+  if (parts.length - 1 > root.length) return parts[root.length];
+  if (parts.length - 1 === root.length && all.some((o) => o.startsWith(`${path}/`))) return parts[root.length];
+  return null;
 }
 
 /** A project's name in its group: without the group's name in front, "tsobss-nms" in "tsobss" is "nms". */
@@ -33,6 +40,8 @@ export interface Section<T> {
   /** The group's name; `null` for the projects without one */
   group: string | null;
   items: T[];
+  /** The path of the project that is the group's own folder: it stands first, set apart */
+  umbrella: string | null;
 }
 
 /**
@@ -43,7 +52,8 @@ export interface Section<T> {
 export function sectionsOf<T extends { path: string; listed: boolean }>(projects: T[]): Section<T>[] {
   const mine = projects.filter((p) => p.listed);
   const root = shared(mine.map((p) => p.path));
-  const groupOf = new Map(mine.map((p) => [p.path, groupIn(p.path, root)]));
+  const paths = mine.map((p) => p.path);
+  const groupOf = new Map(mine.map((p) => [p.path, groupIn(p.path, root, paths)]));
   const size = new Map<string, number>();
   for (const g of groupOf.values()) if (g) size.set(g, (size.get(g) ?? 0) + 1);
   // A group of one: that project stands with those without a group
@@ -59,10 +69,14 @@ export function sectionsOf<T extends { path: string; listed: boolean }>(projects
     else groups.set(g, [...(groups.get(g) ?? []), p]);
   }
   const sections: Section<T>[] = [];
-  if (loose.length) sections.push({ group: null, items: loose });
-  for (const [g, items] of groups) sections.push({ group: g, items });
+  if (loose.length) sections.push({ group: null, items: loose, umbrella: null });
+  for (const [g, items] of groups) {
+    // The project whose folder holds the others always comes first, whatever its place on my list
+    const top = items.find((p) => items.some((o) => o !== p && o.path.startsWith(`${p.path}/`)));
+    sections.push({ group: g, items: top ? [top, ...items.filter((p) => p !== top)] : items, umbrella: top?.path ?? null });
+  }
   const others = projects.filter((p) => !p.listed);
-  if (others.length) sections.push({ group: null, items: others });
+  if (others.length) sections.push({ group: null, items: others, umbrella: null });
   return sections;
 }
 

@@ -11,7 +11,7 @@ import { switchAttachments, useAttachments } from "./attachments";
 import { useDirqComments } from "./dirqComments";
 import { recall, remember, showProject, switchTook } from "./projectMemory";
 import { useGit } from "./git";
-import { SessionMarksContext, sessionMarks, touchedFiles, useAssistant } from "./assistant";
+import { SessionMarksContext, sessionMarks, elsewhereOf, touchedFiles, useAssistant } from "./assistant";
 import { RepoActions, type Anchor } from "./components/RepoActions";
 import { useAttention } from "./attention";
 import { setNewsProject } from "./news";
@@ -21,7 +21,7 @@ import { revealInTree } from "./fileView";
 import { projectSwitched } from "./windowIcon";
 import { useLayout, useProjectsFolded } from "./layout";
 import { ProjectsPanel } from "./components/ProjectsPanel";
-import { recentOf } from "./components/OverviewApp";
+import { recentOf, useOverview } from "./components/OverviewApp";
 import { Splitter } from "./components/Splitter";
 
 // The preview starts with something attached, to show what that looks like
@@ -39,7 +39,12 @@ export default function App() {
   useAttention(assistant, git.runs, project?.name);
   // The session the mouse is on in the list: its snapshots and files stand out everywhere
   const [hoveredSession, setHoveredSession] = useState<string | null>(null);
-  const marks = useMemo(() => sessionMarks(assistant, hoveredSession, setHoveredSession), [assistant, hoveredSession]);
+  // Sessions of a project below or above this one (an umbrella) are marked as such
+  const [listedProjects] = useOverview();
+  const marks = useMemo(
+    () => sessionMarks(assistant, hoveredSession, setHoveredSession, (cwd) => (project ? elsewhereOf(project.path, cwd, listedProjects) : null)),
+    [assistant, hoveredSession, project, listedProjects],
+  );
   // Attachments follow what the backend says (receipts, whether the tool takes them)
   useAttachments();
   // Comments written in Dirq become line comments of the next prompt, like those written here

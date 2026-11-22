@@ -46,8 +46,11 @@ pub struct Session {
     /// What is possible with this session: its tool's, less what needs it to report as long
     /// as it is known from its log only
     capabilities: Capabilities,
-    /// Where it runs: project-relative, or absolute when outside the project
+    /// Where it runs now: project-relative, or absolute when outside the project. Follows a `cd`
     cwd: String,
+    /// Where it was started, same form: the folder it belongs to, whatever it changes into later.
+    /// From its start event; else the first folder heard of (a session found in a log)
+    home: Option<String>,
     /// The tool's account it runs in (for Claude Code its configuration folder), if it told: the
     /// usage is the account's
     account: Option<String>,
@@ -1083,6 +1086,10 @@ impl Inner {
         let session = self.sessions.get_mut(&e.session).expect("just looked up");
         if let Some(c) = &cwd {
             session.cwd = relative(root, c).unwrap_or_else(|| c.display().to_string());
+            // Only the start event is sure to come from the folder it started in
+            if session.home.is_none() || e.kind == EventKind::SessionStarted {
+                session.home = Some(session.cwd.clone());
+            }
         }
         session.last = now;
         if e.account.is_some() {
@@ -1249,6 +1256,9 @@ impl Inner {
             if session.cwd.is_empty() {
                 session.cwd = relative(root, c).unwrap_or_else(|| c.display().to_string());
             }
+            if session.home.is_none() {
+                session.home = Some(relative(root, c).unwrap_or_else(|| c.display().to_string()));
+            }
         }
         session.last = session.last.max(info.last);
         self.apply(&id, info, harness, root);
@@ -1297,6 +1307,7 @@ fn new_session(id: &str, harness: &dyn Harness) -> Session {
         // Until it reports itself
         capabilities: harness.capabilities().from_log_only(),
         cwd: String::new(),
+        home: None,
         account: None,
         color: 0,
         short: String::new(),
@@ -1535,6 +1546,21 @@ mod tests {
         // Another pane is another tmux session: its name is not known yet
         let moved = step(r#"{"who":"a1","did":"done","in":"/p"}"#, Place { tmux: Some(Tmux { pane: "%9".into(), session: None }), ..first }, 30);
         assert_eq!(moved.tmux.unwrap().session, None);
+    }
+
+    #[test]
+    fn a_session_keeps_the_folder_it_started_in() {
+        let root = Path::new("/p");
+        let mut inner = Inner::default();
+        let mut hear = |raw: &str, now: u64| {
+            let event = Fake.translate(&serde_json::from_str(raw).unwrap()).unwrap();
+            inner.take_in(&event, &Fake, root, Vec::new, now);
+        };
+        // It starts in a project below, then changes into another folder: its place follows, its home does not
+        hear(r#"{"who":"a1","did":"asked","in":"/p/sub","text":"Go"}"#, 10);
+        hear(r#"{"who":"a1","did":"wrote","in":"/p/other","path":"/p/other/a","with":"Write"}"#, 20);
+        let s = &inner.sessions["a1"];
+        assert_eq!((s.cwd.as_str(), s.home.as_deref()), ("other", Some("sub")));
     }
 
     #[test]

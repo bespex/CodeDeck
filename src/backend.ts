@@ -732,6 +732,8 @@ export interface Session {
   short: string;
   /** Where it runs: project-relative (`""` is the root), or absolute outside the project */
   cwd: string;
+  /** Where it was started, in the same form: the project it belongs to, whatever it changes into later */
+  home?: string | null;
   /** The tool's account it runs in, if it told: the usage is the account's */
   account?: string | null;
   /** working; waiting for an answer or a permission; idle: its turn is over; ended */
@@ -1004,7 +1006,8 @@ const mockAssistant: AssistantState = {
       color: 2,
       short: "C",
       renamed: false,
-      cwd: "",
+      // A session of the umbrella project above: shown with a ring at the badge
+      cwd: "/home/me/projects/acme",
       status: "idle",
       started: Date.now() - 70 * 60_000,
       last: Date.now() - 6 * 60_000,
@@ -1963,6 +1966,8 @@ export const isSettings = new URLSearchParams(window.location.search).get("view"
 export const panelView = ((v) => (v === "about" || v === "shortcuts" ? v : null))(new URLSearchParams(window.location.search).get("view"));
 
 const mockOverview = (): Omit<OverviewProject, "recent">[] => [
+  // The umbrella project of the "acme" group: it holds the others, and sees a session of billing-ui
+  { label: "w0", name: "acme", path: "/home/me/projects/acme", color: "#4aa3a0", state: { ...mockAssistant, sessions: mockAssistant.sessions.slice(0, 1).map((s) => ({ ...s, cwd: "billing-ui" })) }, summary: null, front: false, listed: true, visible: true, daily: false, account: null, mark: null },
   { label: "w1", name: "acme-orbit-api", path: "/home/me/projects/acme/acme-orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", uncommitted: 3, next: mockAssistant.attachments.length, news: 0 }, front: true, listed: true, visible: true, daily: true, account: "/home/me/.claude", mark: { kind: "icon", value: "satellite" } },
   {
     label: "w2",

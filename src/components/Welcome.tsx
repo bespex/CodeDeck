@@ -23,7 +23,20 @@ function nameOf(c: Check): string {
   return c.name;
 }
 
-/** What it does for CodeDeck, in a sentence or two. */
+/** A text in paragraphs: what the program is, then (after a blank line) what it does in CodeDeck. */
+function Paragraphs({ text }: { text: string }) {
+  return (
+    <>
+      {text.split("\n\n").map((p, i) => (
+        <span key={i} className={i ? "mt-1.5" : undefined}>
+          {p}
+        </span>
+      ))}
+    </>
+  );
+}
+
+/** What it does for CodeDeck, in a sentence or two; a second paragraph for what it does there. */
 function purposeOf(c: Check): string {
   switch (c.kind) {
     case "tool":
@@ -41,14 +54,14 @@ function purposeOf(c: Check): string {
     case "viewer":
       return (
         {
-          marq: t("Shows Markdown documents and an AI session's closing words as a formatted page (“Read in Marq”)."),
-          dirq: t("Shows a commit, a snapshot or a comparison side by side (“Open in Dirq”)."),
-          hyqe: t("Shows HTML pages an AI session wrote, rendered, without a browser."),
-          jayq: t("CodeDeck shows JSON files in it, pretty-printed and foldable, with a jq filter."),
-          xaq: t("CodeDeck shows XML files in it, pretty-printed and foldable."),
-          cusq: t("CodeDeck shows CSV and TSV files in it as a table to sort and filter, e.g. test data in the scratch folder."),
-          maiqe: t("Shows Mermaid diagrams an AI session drew, one card each, to zoom and export."),
-          trisq: t("Runs a React component (TSX/JSX) an AI session wrote as a mock-up, without a project."),
+          marq: t("A viewer for Markdown: documents as a formatted page.\n\nIn CodeDeck, “Read in Marq” opens a document or an AI session's closing words there, with an optimized view and extra functions, such as commenting on blocks."),
+          dirq: t("A viewer for diffs: old and new side by side, easy to read.\n\nIn the “Changes” tab, a double click on a file opens its diff in Dirq, with an optimized view and extra functions, such as commenting on lines. Without Dirq, CodeDeck shows the diffs itself."),
+          hyqe: t("A viewer for HTML pages: rendered, without a browser.\n\nCodeDeck shows the pages an AI session wrote in it."),
+          jayq: t("A viewer for JSON: pretty-printed and foldable, with a jq filter.\n\nCodeDeck shows JSON files in it."),
+          xaq: t("A viewer for XML: pretty-printed and foldable.\n\nCodeDeck shows XML files in it."),
+          cusq: t("A viewer for CSV and TSV: a table to sort and filter.\n\nCodeDeck shows such files in it, e.g. test data in the scratch folder."),
+          maiqe: t("A viewer for Mermaid diagrams: one card each, to zoom and export.\n\nCodeDeck shows the diagrams an AI session drew in it."),
+          trisq: t("Runs a React component (TSX/JSX) as a mock-up, without a project.\n\nCodeDeck shows the components an AI session wrote in it."),
         }[c.id] ?? ""
       );
   }
@@ -280,7 +293,7 @@ function Row({ check: c }: { check: Check }) {
         <span className={`rounded px-1.5 py-0.5 text-[11px] whitespace-nowrap ${urgency.className}`} title={urgency.means()}>
           {urgency.label()}
         </span>
-        <Tooltip content={purposeOf(c)} className="ml-auto flex" delay={0}>
+        <Tooltip content={<Paragraphs text={purposeOf(c)} />} className="ml-auto flex" delay={0}>
           <Info className="size-4 text-slate-500 hover:text-slate-200" aria-label={t("What it does for CodeDeck")} />
         </Tooltip>
       </div>

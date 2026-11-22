@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { History, AppWindow, ChevronRight, ChevronsDownUp, ChevronsUpDown, Shapes, Eye, EyeOff, ListX, Loader, Check, Copy, Ellipsis, FolderPlus, FolderTree, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
 import { openPanel, openSettings, openUrl, openWelcome, isTerminalDoor, forgetRecent, toggleOverview, onTodayStarted, sessionCommands, pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
+import { elsewhereOf, type Elsewhere, type SessionMark } from "../assistant";
 import { accountLook, useAccounts } from "../accounts";
 import { usePending } from "../pending";
 import { AccountMark, MarkPicker, ProjectMark as SharedMark } from "./ProjectMark";
@@ -45,6 +46,8 @@ export const START_PAGE: InWindow = {
       .catch((e) => tell(String(e))),
 };
 const InWindowContext = createContext<InWindow | null>(null);
+/** Every project, for rows that tell sessions of another project apart (`elsewhereOf`) */
+const AllProjectsContext = createContext<OverviewProject[]>([]);
 
 /** How many projects "Recently" shows, the one shown here among them: enough for the two or three one
  *  moves between (user, 2026-11-19) */
@@ -116,7 +119,7 @@ function moved(paths: string[], from: string, to: string, line: "before" | "afte
 }
 
 const titleOf = (s: Session) => s.title ?? t("Session {id}", { id: s.id.slice(0, 8) });
-const markOf = (s: Session) => ({ color: `var(--color-session-${s.color})`, short: s.short, title: s.title });
+const markOf = (s: Session, elsewhere: Elsewhere | null = null): SessionMark => ({ color: `var(--color-session-${s.color})`, short: s.short, title: s.title, elsewhere });
 
 /** What a session is doing, in one word and its colour. */
 function statusOf(s: Session): { word: string; className: string } {
@@ -471,8 +474,9 @@ interface RowDrag {
   group: string;
 }
 
-function ProjectRow({ project, name, drag, inRecent = false }: { project: OverviewProject; name: string; drag?: RowDrag; inRecent?: boolean }) {
+function ProjectRow({ project, name, drag, inRecent = false, umbrella = false }: { project: OverviewProject; name: string; drag?: RowDrag; inRecent?: boolean; umbrella?: boolean }) {
   const inWindow = useContext(InWindowContext);
+  const all = useContext(AllProjectsContext);
   const now = useNow();
   const sessions = (project.state?.sessions ?? []).filter((s) => relevant(s, now));
   const label = project.label;
@@ -506,7 +510,7 @@ function ProjectRow({ project, name, drag, inRecent = false }: { project: Overvi
     openSession(project.path, s.id, door).catch((e) => tell(String(e)));
   };
   return (
-    <li data-project={drag ? project.path : undefined} data-group={drag?.group} className={`relative border-t border-line/40 py-1 first:border-t-0 ${drag?.dragged ? "opacity-35" : ""}`}>
+    <li data-project={drag ? project.path : undefined} data-group={drag?.group} className={`relative border-t border-line/40 py-1 first:border-t-0 ${drag?.dragged ? "opacity-35" : ""} ${umbrella ? "bg-raised/35 [&+li]:border-line" : ""}`}>
       {/* Where the dragged project would land */}
       {drag?.line && <span className={`pointer-events-none absolute right-2 left-2 z-10 h-0.5 rounded-full bg-ai ${drag.line === "before" ? "-top-px" : "-bottom-px"}`} />}
       <div
@@ -552,6 +556,11 @@ function ProjectRow({ project, name, drag, inRecent = false }: { project: Overvi
         <span title={name === project.name ? undefined : project.name} className={`min-w-0 truncate text-[14px] ${label || inWindow ? "font-semibold text-slate-100" : "text-slate-400"}`}>
           {name}
         </span>
+        {umbrella && (
+          <span title={t("Lies in the folder of this group and holds its projects")} className="shrink-0 text-[12px] text-slate-400">
+            {t("all")}
+          </span>
+        )}
         {project.account && (
           <span title={`${t("AI configuration")}: ${look(project.account).name}`} className="flex shrink-0">
             <AccountMark account={look(project.account)} size={16} />
@@ -658,7 +667,7 @@ function ProjectRow({ project, name, drag, inRecent = false }: { project: Overvi
                   .join(" · ")}
                 className="group/s flex h-7 cursor-default items-center gap-2 pr-2 pl-9 text-[12px] hover-session"
               >
-                <SessionBadge mark={markOf(s)} />
+                <SessionBadge mark={markOf(s, elsewhereOf(project.path, s.home ?? s.cwd, all))} />
                 <span className="min-w-0 flex-1 truncate text-slate-200">{titleOf(s)}</span>
                 {wrongAccount(s) && (
                   <span title={t("Runs with {account}; the project is set to {project}", { account: look(s.account!).name, project: look(project.account!).name })}>
@@ -741,7 +750,7 @@ function Waiting({ projects }: { projects: OverviewProject[] }) {
                   {asks ? (s.message ?? t("Waits for your answer")) : t("Waits for your next prompt")}
                 </span>
               </span>
-              <SessionBadge mark={markOf(s)} />
+              <SessionBadge mark={markOf(s, elsewhereOf(project.path, s.home ?? s.cwd, projects))} />
             </li>
           );
         })}
@@ -1019,6 +1028,7 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
   );
   return (
     <InWindowContext.Provider value={inWindow ?? null}>
+    <AllProjectsContext.Provider value={projects}>
     <div className={`flex flex-col bg-panel text-[13px] ${inWindow ? "min-h-0 flex-1" : "h-screen"}`}>
       {/* In a project window the project bar is above; here only the list's own tools, in one row */}
       <header className={`flex shrink-0 items-center gap-1 border-b border-line pr-2 pl-3 ${inProject ? "h-9" : "zone-tabs area-ai h-10"}`}>
@@ -1083,7 +1093,7 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
               ) : (
                 <GroupSection key={`g:${section.group}`} group={section.group} projects={section.items} first={i === 0} folded={collapsed.has(section.group)} onFold={() => fold(section.group!)}>
                   {section.items.map((p) => (
-                    <ProjectRow key={p.path} project={p} name={nameIn(p.name, section.group)} drag={dragOf(p, section.group)} />
+                    <ProjectRow key={p.path} project={p} name={nameIn(p.name, section.group)} umbrella={p.path === section.umbrella} drag={p.path === section.umbrella ? undefined : dragOf(p, section.group)} />
                   ))}
                 </GroupSection>
               ),
@@ -1109,6 +1119,7 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
         />
       )}
     </div>
+    </AllProjectsContext.Provider>
     </InWindowContext.Provider>
   );
 }

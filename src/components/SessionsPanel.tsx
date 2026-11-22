@@ -40,7 +40,7 @@ import { StartCommand, useSessionCommands } from "./SessionCommands";
 import { HoverTools, Tool, ToolGap } from "./RowTools";
 import { useContextMenu } from "./ContextMenu";
 import { mainHarness, shortId, useConnections, useSessionMarks, type SessionMark } from "../assistant";
-import { SessionBadge } from "./SessionBadge";
+import { SessionBadge, otherLine } from "./SessionBadge";
 import { HeaderBar } from "./HeaderBar";
 import { SidebarSummary } from "./SidebarSummary";
 import type { GitView } from "../git";
@@ -538,6 +538,17 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
               {status.words}
             </span>
           </span>
+          {/* A session of another project (umbrella above or below): the badge's corner, in words */}
+          {mark.elsewhere && (
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-300">
+              <span
+                aria-hidden
+                style={mark.elsewhere.where === "below" ? { background: mark.elsewhere.color } : { borderColor: mark.elsewhere.color }}
+                className={`size-2 shrink-0 rounded-full ${mark.elsewhere.where === "above" ? "border-[1.5px]" : ""}`}
+              />
+              {otherLine(mark.elsewhere.where, mark.elsewhere.name)}
+            </span>
+          )}
           {/* What counts now, in full width: the question and what it is about; the turn's last words; the step */}
           {s.status === "waiting" ? (
             <span className="flex flex-col gap-1 text-[12px]">

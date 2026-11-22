@@ -125,7 +125,13 @@ arbeitet, nicht nur die gerade offenen:
   bleibt die Reihenfolge. Neue Projekte kommen ans Ende.
 - **Gruppen** (2026-11-18, `src/groups.ts`): die Ordner, in denen die Projekte liegen, unterhalb des Ordners,
   den alle teilen (bei `~/projects/bespex/…` und `~/projects/tsobss/…` die Gruppen „bespex“ und „tsobss“).
-  Nichts einzustellen; eine Gruppe aus einem Projekt ist keine. Projekte ohne Gruppe stehen oben, die Gruppen
+  Nichts einzustellen; eine Gruppe aus einem Projekt ist keine. Ein Projekt, dessen Ordner selbst der Gruppenordner ist
+  (`~/projects/bespex` neben `~/projects/bespex/Qiew`), gehört zu dieser Gruppe (das übergreifende Projekt, Stand 2026-11-22).
+  Es steht immer als erste Zeile der Gruppe (nicht ziehbar), mit „alle“ hinter dem Namen, etwas hellerem Grund
+  und kräftigerer Trennlinie darunter. Es sieht auch die Sitzungen der Projekte darunter, und diese die des
+  übergeordneten; solche Sitzungen tragen am Sitzungssymbol (`SessionBadge`, `elsewhereOf` in `src/assistant.ts`)
+  die Farbe des Projekts, in dem sie laufen: gefüllter Punkt unten rechts = läuft in einem Unterprojekt, hohler
+  Ring oben rechts = läuft im übergeordneten Projekt; auf der Karte zusätzlich eine Zeile („Läuft in …“). Projekte ohne Gruppe stehen oben, die Gruppen
   folgen in der Reihenfolge ihres ersten Projekts. In der Gruppe fällt der Gruppenname vorn weg
   („tsobss-nms“ → „nms“). Der Gruppenkopf ist eine Zwischenüberschrift (Akzentfarbe, eigenes Band) mit Pfeil
   zum Zuklappen; zugeklappt trägt er Pille (fragt) und Punkt (fertig) wie die Icons. Zugeklappt wird je

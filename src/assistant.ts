@@ -87,6 +87,41 @@ export interface SessionMark {
   color: string;
   short: string;
   title: string | null;
+  /** The other listed project the session runs in; `null` for one of this project's own. An umbrella
+   *  project like ~/projects/bespex sees the sessions of the projects below it (`below`), and a project
+   *  below it those of the umbrella (`above`) */
+  elsewhere?: Elsewhere | null;
+}
+
+export interface Elsewhere {
+  name: string;
+  color: string;
+  where: "below" | "above";
+}
+
+/** A project that may hold sessions of projects below it: what is needed to tell them apart. */
+export interface SubCandidate {
+  path: string;
+  name: string;
+  color: string;
+  listed: boolean;
+}
+
+/**
+ * The other listed project a session runs in, from its folder (project-relative, or absolute when
+ * outside `root`): one below `root` (the innermost) or, failing that, one above it. `null` when it
+ * runs in `root` itself.
+ */
+export function elsewhereOf(root: string, cwd: string, projects: SubCandidate[]): Elsewhere | null {
+  if (!cwd) return null;
+  const at = cwd.startsWith("/") ? cwd : `${root}/${cwd}`;
+  const holds = (p: SubCandidate) => at === p.path || at.startsWith(`${p.path}/`);
+  const longest = (list: SubCandidate[]) => list.sort((a, b) => b.path.length - a.path.length)[0];
+  const listed = projects.filter((p) => p.listed && p.path !== root);
+  const below = longest(listed.filter((p) => p.path.startsWith(`${root}/`) && holds(p)));
+  if (below) return { name: below.name, color: below.color, where: "below" };
+  const above = longest(listed.filter((p) => root.startsWith(`${p.path}/`) && holds(p)));
+  return above ? { name: above.name, color: above.color, where: "above" } : null;
 }
 
 /** The sessions' marks for every component, and the session the mouse is on in the list. */
@@ -104,10 +139,17 @@ const NO_MARKS: SessionMarks = { of: () => null, writer: () => null, hovered: nu
 export const SessionMarksContext = createContext<SessionMarks>(NO_MARKS);
 export const useSessionMarks = () => useContext(SessionMarksContext);
 
-export function sessionMarks(state: AssistantState, hovered: string | null, hover: (id: string | null) => void): SessionMarks {
+export function sessionMarks(state: AssistantState, hovered: string | null, hover: (id: string | null) => void, elsewhereIn: (cwd: string) => Elsewhere | null = () => null): SessionMarks {
   const marks = new Map<string, SessionMark>(
     state.identities.map((i) => [i.id, { color: `var(--color-session-${i.color})`, short: i.short, title: i.title }]),
   );
+  // Only sessions still listed know their folder
+  for (const s of state.sessions) {
+    const elsewhere = elsewhereIn(s.home ?? s.cwd);
+    if (!elsewhere) continue;
+    const m = marks.get(s.id) ?? { color: `var(--color-session-${s.color})`, short: s.short, title: s.title };
+    marks.set(s.id, { ...m, elsewhere });
+  }
   const writers = new Map<string, { session: string; at: number }>();
   for (const s of state.sessions) {
     for (const t of s.touched) {
