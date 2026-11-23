@@ -35,7 +35,7 @@
     "homepage": "https://github.com/bespex/CodeDeck",
     "category": "Development",
     "shortDescription": "AI session radar for Linux – be spex",
-    "longDescription": "CodeDeck runs beside your AI coding sessions: it shows what each session is doing and what it changed, keeps a snapshot before every turn to go back to, and attaches exactly what you choose to your next prompt. It is not an editor: files open in small external viewers. The command is codeck.",
+    "longDescription": "CodeDeck runs beside your AI coding sessions: it shows what each session is\ndoing or asking, and what it changed, file by file and turn by turn.\n\nBefore every turn it keeps a snapshot to go back to, and it attaches exactly\nwhat you choose to your next prompt: files, changes, line comments and @ai\nhints. It is not an editor: files open in small viewers such as Marq and Dirq.\n\nPart of be spex – apps for the way you work: https://bespex.github.io",
     "linux": {
       "deb": {
         "desktopTemplate": "codedeck.desktop"
