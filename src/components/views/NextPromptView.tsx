@@ -6,7 +6,7 @@ import { Section, Toolbar } from "../blocks";
 import { known, T, t } from "../../i18n";
 import { SessionBadge } from "../SessionBadge";
 import { AttachTarget, TargetLost } from "../AttachTarget";
-import { AttachmentSections, NothingAttached, useAttachedCount } from "../AttachmentList";
+import { AttachmentSections, HintsToAttach, NothingAttached, useAttachedCount } from "../AttachmentList";
 import { LOCALE } from "../Trail";
 
 const time = (ms: number) => new Date(ms).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
@@ -65,6 +65,7 @@ export function NextPromptView({ assistant }: { assistant: AssistantState }) {
         ) : (
           <NothingAttached tool={harness.shortName} />
         )}
+        <HintsToAttach />
 
         {assistant.preview && (
           <Section

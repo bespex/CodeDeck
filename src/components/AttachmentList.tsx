@@ -17,7 +17,10 @@ import { revealInTree } from "../fileView";
 import { files, pinDetail, type Pin } from "../files";
 import { changes } from "../changes";
 import { notes, removeNote } from "../notes";
-import { markerKey, markers } from "../markers";
+import { markerKey, markers, useMarkers } from "../markers";
+import { openFile } from "../backend";
+import { useAttachEnabled } from "../attachments";
+import { useConnections } from "../assistant";
 import { openView, type ViewId } from "../view";
 import { t } from "../i18n";
 import { Row, Rows, Section } from "./blocks";
@@ -106,6 +109,77 @@ export function AttachmentSections() {
         </Kind>
       )}
     </>
+  );
+}
+
+/**
+ * The `@ai` hints in the project's files that are not attached: offered here, where everything that
+ * can go to the assistant is (docs/KONZEPT.md, scene 6), but not sent on their own. A hint stays in
+ * its file and may be meant for later, so it goes only when attached (user, 2026-11-23); a line
+ * comment, which lives nowhere else, is attached as it is written. Not counted with what is attached.
+ */
+export function HintsToAttach() {
+  const { markers: found } = useMarkers();
+  const attached = markers.use();
+  const enabled = useAttachEnabled();
+  const { connected } = useConnections();
+  const keys = new Set(attached.map(markerKey));
+  const open = (found ?? []).filter((m) => !keys.has(markerKey(m)));
+  if (open.length === 0 || !enabled || !connected) return null;
+  return (
+    <Section
+      title={t("Hints in your files")}
+      note={t("{n} not attached", { n: open.length })}
+      aside={
+        <>
+          <button
+            type="button"
+            onClick={() => openView("workbench")}
+            className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[12px] text-slate-400 hover:bg-raised hover:text-slate-100"
+          >
+            {t("In the Workbench")}
+            <ArrowUpRight className="size-3.5" />
+          </button>
+          {open.length > 1 && (
+            <button
+              type="button"
+              onClick={() => markers.add(open)}
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px] text-slate-400 hover:bg-raised hover:text-slate-100"
+            >
+              <Paperclip className="size-3.5" /> {t("attach all")}
+            </button>
+          )}
+        </>
+      }
+    >
+      <Rows>
+        {open.map((m) => (
+          <Row
+            key={markerKey(m)}
+            className="min-h-12 gap-3 py-2"
+            onDoubleClick={() => void openFile(m.path, "view", m.line)}
+            title={t("Double-click: view at this line")}
+          >
+            <AtSign className="size-4 shrink-0 text-slate-600" />
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="truncate text-[13px] text-slate-400">{m.text}</span>
+              <span className="truncate font-mono text-[12px] text-slate-500">
+                {m.path}:{m.line}
+              </span>
+            </div>
+            <button
+              type="button"
+              aria-label={t("Attach hint in {path}, line {n}", { path: m.path, n: m.line })}
+              title={t("Attach to next prompt")}
+              onClick={() => markers.add([m])}
+              className="shrink-0 rounded p-1 text-slate-500 hover:bg-raised hover:text-slate-100"
+            >
+              <Paperclip className="size-4" />
+            </button>
+          </Row>
+        ))}
+      </Rows>
+    </Section>
   );
 }
 
@@ -209,7 +283,7 @@ export function NothingAttached({ tool }: { tool: string }) {
     [Paperclip, t("Files"), t("the paperclip in the file list, or drag them onto Next prompt in the AI session list")],
     [GitCompareArrows, t("Changes"), t("the paperclip at a turn, commit or file in Changes")],
     [MessageSquare, t("Line comments"), t("the speech bubble at a line of a diff")],
-    [AtSign, t("Hints"), t("write @ai into a file, then attach it in the Workbench")],
+    [AtSign, t("Hints"), t("write @ai into a file, then attach it below or in the Workbench")],
   ];
   return (
     <div className="mx-4 mt-5 rounded-lg border border-dashed border-slate-600/70 px-5 py-4 text-[13px]">

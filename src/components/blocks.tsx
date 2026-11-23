@@ -107,9 +107,9 @@ export function Rows({ children }: { children: ReactNode }) {
   return <ul className="divide-y divide-line/70 border-y border-line/70">{children}</ul>;
 }
 
-export function Row(props: { selected?: boolean; className?: string; children: ReactNode; onContextMenu?: (e: ReactMouseEvent) => void }) {
+export function Row(props: { selected?: boolean; className?: string; children: ReactNode; onContextMenu?: (e: ReactMouseEvent) => void; onDoubleClick?: () => void; title?: string }) {
   return (
-    <li onContextMenu={props.onContextMenu} className={`group flex min-h-8 items-center gap-2 px-1 py-1 ${props.selected ? "bg-raised" : ""} ${props.className ?? ""}`}>
+    <li onContextMenu={props.onContextMenu} onDoubleClick={props.onDoubleClick} title={props.title} className={`group flex min-h-8 items-center gap-2 px-1 py-1 ${props.selected ? "bg-raised" : ""} ${props.className ?? ""}`}>
       {props.children}
     </li>
   );
