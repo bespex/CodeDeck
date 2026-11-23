@@ -75,9 +75,16 @@ impl Watch {
                         ) else {
                             continue;
                         };
-                        let target = if rel.starts_with(crate::prompts::DIR) { &mut own } else { &mut change };
-                        target.paths.insert(rel);
-                        target.dirs.insert(dir);
+                        // A folder on the way to the prompts (`.scratch` made new) is news for both
+                        let on_the_way = !rel.is_empty() && Path::new(crate::prompts::DIR).starts_with(&rel);
+                        if rel.starts_with(crate::prompts::DIR) || on_the_way {
+                            own.paths.insert(rel.clone());
+                            own.dirs.insert(dir.clone());
+                        }
+                        if !rel.starts_with(crate::prompts::DIR) {
+                            change.paths.insert(rel);
+                            change.dirs.insert(dir);
+                        }
                     }
                 };
                 add(first);

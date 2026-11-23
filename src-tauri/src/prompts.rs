@@ -34,10 +34,15 @@ fn folder(project: &Project) -> PathBuf {
     project.root.join(DIR)
 }
 
-/// The prepared prompts, last changed first, and the folder (to be watched) if it is there.
+/// The prepared prompts, last changed first, and the folder to watch: the prompts' own, else the
+/// nearest one above it that is there, so that the folder's making is seen. A prompt laid into a new
+/// `.scratch/prompts/` from outside (by a session, another program) did not show (user, 2026-11-23).
 pub fn list(project: &Project) -> (Vec<Prompt>, Option<PathBuf>) {
     let dir = folder(project);
-    let Ok(entries) = std::fs::read_dir(&dir) else { return (Vec::new(), None) };
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        let above = dir.ancestors().skip(1).take_while(|d| d.starts_with(&project.root)).find(|d| d.is_dir());
+        return (Vec::new(), above.map(PathBuf::from));
+    };
     let mut found: Vec<Prompt> = entries
         .flatten()
         .filter_map(|entry| {
@@ -148,7 +153,11 @@ mod tests {
     #[test]
     fn creates_writes_renames_and_lists() {
         let (p, root) = project();
-        assert!(list(&p).0.is_empty() && list(&p).1.is_none());
+        // No folder yet: the nearest one above is watched, so that its making is seen
+        assert!(list(&p).0.is_empty());
+        assert_eq!(list(&p).1.as_deref(), Some(root.as_path()));
+        std::fs::create_dir(root.join(".scratch")).unwrap();
+        assert_eq!(list(&p).1, Some(root.join(".scratch")));
         assert_eq!(create(&p, "Refactoring bridge").unwrap(), "Refactoring bridge");
         // A taken name gets a number; ".md" typed along is not doubled
         assert_eq!(create(&p, "Refactoring bridge.md").unwrap(), "Refactoring bridge 2");
