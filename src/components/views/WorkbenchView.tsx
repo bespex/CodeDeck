@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type HTMLAttributes, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
 import { NewsTag, newsClass } from "../News";
 import { markSeen, reportNews, scratchKey, useNews } from "../../news";
 import { Brush, Check, ChevronDown, ChevronRight, Eye, FileText, Folder, FolderOpen, FolderSearch, GripVertical, SquarePen, Trash2 } from "lucide-react";
@@ -216,7 +216,7 @@ function ScratchTile({ assistant }: { assistant: AssistantState }) {
 
 /**
  * Tidying up the scratch folder (src/tidy.ts): what can probably go (ticked), what to look at first
- * (not ticked), what stays (counted only), each with its reason. What is ticked goes to the trash.
+ * (not ticked), what stays (counted only), grouped by their reason. What is ticked goes to the trash.
  */
 function TidyPanel({ files, assistant, onCancel, onTrash }: { files: WorkFile[]; assistant: AssistantState; onCancel: () => void; onTrash: (paths: string[]) => void }) {
   const marks = useSessionMarks();
@@ -260,13 +260,14 @@ function TidyPanel({ files, assistant, onCancel, onTrash }: { files: WorkFile[];
       return next;
     });
   const now = Date.now();
+  // One line per file; why it is proposed stays out of the line (user, 2026-11-23: a reason under each
+  // file made the list long): its group says it once, the tooltip over the name says it for this file
   const row = (i: TidyItem) => (
-    <li key={i.file.path} className="flex items-start gap-2 py-0.5 text-[12px]">
-      <input type="checkbox" className="mt-0.5" checked={chosen.has(i.file.path)} onChange={() => toggle(i.file.path)} aria-label={i.file.path} />
-      <span className="min-w-0 flex-1">
-        <span className="font-mono text-slate-200">{i.file.path.slice(SCRATCH_DIR.length + 1)}</span>
-        <span className="block text-slate-500">{t(i.reason, { path: i.path ?? "" })}</span>
-      </span>
+    <li key={i.file.path} className="flex items-center gap-2 py-0.5 pl-5 text-[12px]">
+      <input type="checkbox" checked={chosen.has(i.file.path)} onChange={() => toggle(i.file.path)} aria-label={i.file.path} />
+      <Tooltip content={<span>{t(i.reason, { path: i.path ?? "" })}</span>} className="flex min-w-0 flex-1">
+        <span className="truncate font-mono text-slate-200">{i.file.path.slice(SCRATCH_DIR.length + 1)}</span>
+      </Tooltip>
       <span className="shrink-0 text-slate-500">{age(i.file.modified, now)}</span>
       <span className="w-16 shrink-0 text-right text-slate-500">{size(i.file.size)}</span>
       <button type="button" aria-label={t("View")} title={t("View")} onClick={() => openFile(i.file.path, "view")} className={ACTION}>
@@ -274,21 +275,38 @@ function TidyPanel({ files, assistant, onCancel, onTrash }: { files: WorkFile[];
       </button>
     </li>
   );
-  const group = (title: string, items: TidyItem[]) =>
+  const setAll = (items: TidyItem[], on: boolean) =>
+    setChosen((c) => {
+      const next = new Set(c);
+      for (const i of items) {
+        if (on) next.add(i.file.path);
+        else next.delete(i.file.path);
+      }
+      return next;
+    });
+  // What can go is ticked already and needs no look: its reasons start folded. What to look at
+  // first is there to be looked at: open
+  const group = (title: string, items: TidyItem[], folded: boolean) =>
     items.length > 0 && (
       <div className="mb-2">
         <div className="mb-0.5 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
           {title} <span className="font-normal tracking-normal normal-case">{plural(items.length, "file")} · {size(items.reduce((n, i) => n + i.file.size, 0))}</span>
         </div>
-        <ul>{items.map(row)}</ul>
+        <ul>
+          {byReason(items).map(([reason, list]) => (
+            <ReasonGroup key={reason} reason={reason} items={list} folded={folded} chosen={chosen} onAll={setAll}>
+              {list.map(row)}
+            </ReasonGroup>
+          ))}
+        </ul>
       </div>
     );
   const keep = of("keep");
   return (
     <div className="mb-3 rounded-md border border-line bg-raised/40 px-3 py-2">
       <p className="mb-2 text-[12px] text-slate-300">{t("A proposal from what CodeDeck knows about each file. What you tick goes to the trash, where it can still be brought back.")}</p>
-      {group(t("Can go"), of("away"))}
-      {group(t("Look first"), of("check"))}
+      {group(t("Can go"), of("away"), true)}
+      {group(t("Look first"), of("check"), false)}
       {keep.length > 0 && (
         <p className="mb-2 text-[12px] text-slate-500">
           {t("{files} stay: new, attached, changed today or in use by an AI session.", { files: plural(keep.length, "file") })}
@@ -310,6 +328,44 @@ function TidyPanel({ files, assistant, onCancel, onTrash }: { files: WorkFile[];
         </button>
       </div>
     </div>
+  );
+}
+
+/** The files of a group by their reason, in the order the reasons first come. */
+function byReason(items: TidyItem[]): [string, TidyItem[]][] {
+  const groups = new Map<string, TidyItem[]>();
+  for (const i of items) groups.set(i.reason, [...(groups.get(i.reason) ?? []), i]);
+  return [...groups];
+}
+
+/** A reason, once for all files it applies to: folds open, and its box ticks or unticks them all. */
+function ReasonGroup(props: { reason: string; items: TidyItem[]; folded: boolean; chosen: Set<string>; onAll: (items: TidyItem[], on: boolean) => void; children: ReactNode }) {
+  const [open, setOpen] = useState(!props.folded);
+  const box = useRef<HTMLInputElement>(null);
+  const ticked = props.items.filter((i) => props.chosen.has(i.file.path)).length;
+  const all = ticked === props.items.length;
+  useEffect(() => {
+    if (box.current) box.current.indeterminate = ticked > 0 && !all;
+  }, [ticked, all]);
+  const Chevron = open ? ChevronDown : ChevronRight;
+  // A reason with a path in it (the same file in the project) names it per file, in the tooltip
+  const said = props.reason.includes("{path}") ? t(props.reason.replace(/:\s*\{path\}$/, "")) : t(props.reason);
+  return (
+    <li>
+      <div className="flex items-center gap-1 py-0.5 text-[12px]">
+        <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="rounded p-0.5 text-slate-500 hover:bg-raised hover:text-slate-200">
+          <Chevron className="size-3.5" />
+        </button>
+        <input ref={box} type="checkbox" checked={all} onChange={() => props.onAll(props.items, !all)} aria-label={said} />
+        <button type="button" onClick={() => setOpen(!open)} className="min-w-0 flex-1 truncate text-left text-slate-300 hover:text-slate-100">
+          {said}
+        </button>
+        <span className="shrink-0 text-slate-500">
+          {plural(props.items.length, "file")} · {size(props.items.reduce((n, i) => n + i.file.size, 0))}
+        </span>
+      </div>
+      {open && <ul>{props.children}</ul>}
+    </li>
   );
 }
 

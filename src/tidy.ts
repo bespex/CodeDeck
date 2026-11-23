@@ -38,18 +38,28 @@ const DRAFT = /\.(md|markdown|html?|txt|py|sh|js|mjs|ts|tsx|rs|java|kt|go|rb|sql
 /** One file's group and why; the first rule that applies decides. */
 export function tidyOf(file: WorkFile, facts: TidyFacts): TidyItem {
   const age = facts.now - file.modified;
+  const old = age > 7 * DAY;
   const writer = facts.writer(file.path);
   const session = writer ? facts.session(writer) : undefined;
+  const ended = session?.status === "ended" && file.modified <= session.last;
   if (facts.attached.has(file.path)) return { file, group: "keep", reason: "attached to your next prompt" };
   if (session && (session.status === "working" || session.status === "waiting")) return { file, group: "keep", reason: "its AI session is at work" };
-  if (facts.unseen(file)) return { file, group: "keep", reason: "not seen yet" };
+  // Not seen stayed for good: a file nobody opened lay there for ever. Once old it is offered, unticked
+  if (facts.unseen(file)) return old ? { file, group: "check", reason: "never looked at, unchanged for more than 7 days" } : { file, group: "keep", reason: "not seen yet" };
   if (age < DAY) return { file, group: "keep", reason: "changed today" };
+  if (file.size === 0) return { file, group: "away", reason: "an empty file" };
   const twin = facts.twins.get(file.path);
   if (twin) return { file, group: "away", reason: "the same file is in the project: {path}", path: twin };
   if (OUTPUT.test(file.path)) return { file, group: "away", reason: "output that can be made again" };
-  if (DRAFT.test(file.path)) return { file, group: "check", reason: "a draft or script: look before it goes" };
-  if (age > 7 * DAY) return { file, group: "away", reason: "unchanged for more than 7 days" };
-  if (session?.status === "ended" && file.modified <= session.last) return { file, group: "away", reason: "its AI session has ended, unchanged since" };
+  // Drafts are looked at first, but why they may go is told apart: one reason each makes a group
+  // that can be ticked at once (user, 2026-11-23)
+  if (DRAFT.test(file.path)) {
+    if (ended) return { file, group: "check", reason: "a draft of an AI session that has ended" };
+    if (old) return { file, group: "check", reason: "a draft, unchanged for more than 7 days" };
+    return { file, group: "check", reason: "a draft or script: look before it goes" };
+  }
+  if (old) return { file, group: "away", reason: "unchanged for more than 7 days" };
+  if (ended) return { file, group: "away", reason: "its AI session has ended, unchanged since" };
   return { file, group: "check", reason: "not clear" };
 }
 
