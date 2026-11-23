@@ -1355,7 +1355,8 @@ export function startRules(): Promise<string> {
   return Promise.resolve(
     "Rules from CodeDeck, the app the user watches this project with. They are always the same and the user sees them there:\n" +
       "- Put drafts, mock-ups, throwaway scripts and test data into .scratch/ in this project, not into /tmp or your home folder. Git ignores that folder; the user sees it in CodeDeck.\n" +
-      "- When you publish a page somewhere else (a shared document, an artifact, a gist, a paste), say so in your answer and give its link.",
+      "- When you publish a page somewhere else (a shared document, an artifact, a gist, a paste), say so in your answer and give its link.\n" +
+      "- When you write a prompt for a later session, in this project or another one, save it as a Markdown file in .scratch/prompts/ of that project, named after what it asks for. The user finds it in CodeDeck under Prepared.",
   );
 }
 
