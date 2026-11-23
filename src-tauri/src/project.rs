@@ -52,11 +52,13 @@ pub struct PathStats {
 }
 
 impl Project {
-    /// The directory given as first argument, else the current directory.
-    pub fn from_args() -> Result<Self, String> {
+    /// The directory given as first argument; without one no project: CodeDeck shows the start page
+    /// (docs/UEBERSICHT.md "Start"). The current directory is no project of its own accord: started
+    /// from the menu it is the home folder, which then stood on the project list (user, 2026-11-23).
+    pub fn from_args() -> Result<Option<Self>, String> {
         match std::env::args_os().nth(1) {
-            Some(arg) => Self::open(Path::new(&arg)),
-            None => Self::open(&default_dir()?),
+            Some(arg) => Self::open(Path::new(&arg)).map(Some),
+            None => dev_dir().map(|dir| Self::open(&dir)).transpose(),
         }
     }
 
@@ -184,14 +186,11 @@ impl Project {
     }
 }
 
-fn default_dir() -> Result<PathBuf, String> {
-    let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
-    // `tauri dev` starts the binary inside src-tauri; open the repository instead.
-    #[cfg(debug_assertions)]
-    if cwd.ends_with("src-tauri") {
-        if let Some(parent) = cwd.parent() {
-            return Ok(parent.to_path_buf());
-        }
+/// `tauri dev` starts the debug binary inside src-tauri without an argument: it opens the repository.
+fn dev_dir() -> Option<PathBuf> {
+    if !cfg!(debug_assertions) {
+        return None;
     }
-    Ok(cwd)
+    let cwd = std::env::current_dir().ok()?;
+    cwd.ends_with("src-tauri").then(|| cwd.parent().map(PathBuf::from)).flatten()
 }

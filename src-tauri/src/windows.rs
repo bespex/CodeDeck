@@ -283,15 +283,24 @@ pub fn overview_changed(app: &AppHandle) {
 /// window used last to the front, or away when it is in front; without a project window the start page
 /// the same way. Hidden or covered, it comes forward; only in front it goes. Off the main thread.
 pub fn front_or_away(app: &AppHandle) -> Result<(), String> {
+    bring(app, true)
+}
+
+/// `codedeck` without a folder while CodeDeck runs: like `front_or_away`, but in front it stays.
+pub fn to_front(app: &AppHandle) -> Result<(), String> {
+    bring(app, false)
+}
+
+fn bring(app: &AppHandle, away: bool) -> Result<(), String> {
     use crate::window::{in_front, obey, Request};
     let project = crate::window::last_label(app)
         .and_then(|l| app.get_webview_window(&l))
         .or_else(|| app.state::<Windows>().all().iter().find_map(|w| app.get_webview_window(&w.label)));
     match project {
-        Some(window) if in_front(app, &window) => obey(&window, Request::Hide),
+        Some(window) if away && in_front(app, &window) => obey(&window, Request::Hide),
         Some(window) => obey(&window, Request::Front),
         None => match app.get_webview_window(OVERVIEW) {
-            Some(start) if in_front(app, &start) => {
+            Some(start) if away && in_front(app, &start) => {
                 let _ = start.hide();
             }
             Some(start) if start.is_visible().unwrap_or(false) => obey(&start, Request::Front),
@@ -333,6 +342,9 @@ pub fn closing(window: &tauri::Window) {
 }
 
 /// Shows the start page after the last project window closed, on that window's monitor.
+/// Whether the start page has been shown since CodeDeck started.
+static OVERVIEW_SHOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 pub fn start_page_after_close(app: &AppHandle) -> Result<(), String> {
     let monitor = CLOSED_ON.lock().ok().and_then(|mut m| m.take());
     show_overview(app, monitor)
@@ -353,6 +365,14 @@ fn show_overview(app: &AppHandle, monitor: Option<tauri::Monitor>) -> Result<(),
             // Back at the left edge of its monitor, as wide as the project list in a project window:
             // shown again, the window manager may put it elsewhere (user, 2026-11-17)
             let width = OVERVIEW_WIDTH;
+            // Shown the first time (made hidden at the start), it has stood nowhere yet: the window
+            // manager put the hidden window at 0,0, on whatever monitor that is, not the main one
+            // (user, 2026-11-23). Then it starts where a project window would
+            let monitor = match monitor {
+                Some(m) => Some(m),
+                None if !OVERVIEW_SHOWN.swap(true, Ordering::Relaxed) => crate::window::start_monitor(app),
+                None => None,
+            };
             let _ = window.show();
             let _ = window.unminimize();
             crate::window::set_compact(&window, &FullPlace::default(), true, width, monitor).map_err(|e| e.to_string())?;
@@ -372,7 +392,8 @@ fn show_overview(app: &AppHandle, monitor: Option<tauri::Monitor>) -> Result<(),
         .background_color(tauri::window::Color(2, 6, 23, 255))
         .build()
         .map_err(|e| e.to_string())?;
-    // At the right edge of the monitor, as high as the panels leave free: the sidebar's place
+    // At the left edge of the monitor, as high as the panels leave free: the project list's place
+    OVERVIEW_SHOWN.store(true, Ordering::Relaxed);
     crate::window::set_compact(&window, &FullPlace::default(), true, OVERVIEW_WIDTH, monitor.or_else(|| crate::window::start_monitor(app))).map_err(|e| e.to_string())?;
     crate::tray::refresh(app);
     Ok(())

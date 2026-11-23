@@ -40,6 +40,12 @@ struct Toggle {
 /// The argument for it.
 pub const TOGGLE: &str = "--toggle";
 
+/// `codedeck` without a folder while one runs: it comes to the front, like a launcher's second click.
+#[derive(Serialize, Deserialize)]
+struct Front {
+    front: bool,
+}
+
 pub struct Hub {
     socket: PathBuf,
     instance: Option<PathBuf>,
@@ -100,11 +106,17 @@ fn serve(app: &AppHandle, mut stream: UnixStream) {
         let _ = stream.write_all(reply.to_string().as_bytes());
         return;
     }
-    if let Ok(Toggle { toggle: true }) = serde_json::from_str::<Toggle>(&text) {
+    let away = match serde_json::from_str::<serde_json::Value>(&text) {
+        Ok(v) if v["toggle"] == true => Some(true),
+        Ok(v) if v["front"] == true => Some(false),
+        _ => None,
+    };
+    if let Some(away) = away {
         // Showing a window waits for the main thread: not on the socket's
         let app = app.clone();
         std::thread::spawn(move || {
-            if let Err(e) = crate::windows::front_or_away(&app) {
+            let shown = if away { crate::windows::front_or_away(&app) } else { crate::windows::to_front(&app) };
+            if let Err(e) = shown {
                 eprintln!("codedeck: to the front: {e}");
             }
         });
@@ -246,6 +258,12 @@ pub fn hand_over(folder: &Path) -> bool {
 /// whether one runs.
 pub fn toggle() -> bool {
     let line = serde_json::to_string(&Toggle { toggle: true }).unwrap_or_default();
+    ask_running(&line).is_some()
+}
+
+/// Asks a CodeDeck already running from this same program to come to the front; whether one runs.
+pub fn to_front() -> bool {
+    let line = serde_json::to_string(&Front { front: true }).unwrap_or_default();
     ask_running(&line).is_some()
 }
 

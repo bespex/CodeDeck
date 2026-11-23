@@ -1405,19 +1405,21 @@ pub fn run() {
         }
         None
     } else {
-        let project = match Project::from_args() {
-            Ok(project) => project,
+        match Project::from_args() {
+            // This program runs already: it opens the window, this start ends here
+            Ok(Some(project)) if hub::hand_over(&project.root) => return,
+            Ok(Some(project)) => Some(project),
+            // Without a folder (the menu, a launcher): the running one comes to the front, never away
+            Ok(None) if hub::to_front() => return,
+            Ok(None) => None,
             Err(message) => {
                 eprintln!("codedeck: {message}");
                 std::process::exit(2);
             }
-        };
-        // This program runs already: it opens the window, this start ends here
-        if hub::hand_over(&project.root) {
-            return;
         }
-        Some(project)
     };
+    // Without a project and not at login in the tray, the start page shows at once
+    let start_page = toggle || (!tray_only && project.is_none());
 
     tauri::Builder::default()
         .manage(Windows::default())
@@ -1495,7 +1497,7 @@ pub fn run() {
                 let made = windows::hidden_overview(&handle);
                 if let Err(e) = made {
                     eprintln!("codedeck: overview: {e}");
-                } else if toggle {
+                } else if start_page {
                     let _ = windows::front_or_away(&handle);
                 }
             });
