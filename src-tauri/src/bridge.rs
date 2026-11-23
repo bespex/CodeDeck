@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::git::{Git, GitRun};
 use crate::harness::{self, Capabilities, Event, EventKind, Harness, HarnessInfo, Parked, Place, SessionInfo};
@@ -755,7 +755,10 @@ impl Bridge {
         }
         let project = self.current.get();
         let root = &project.root;
-        let repos = || self.git.repos(&project).iter().map(|r| r.top.clone()).collect();
+        // A repository inside another project that hears its sessions is that project's to save:
+        // saved by every project above it too, each turn left two or three snapshots (user, 2026-11-23)
+        let inner_roots: Vec<PathBuf> = app.state::<crate::windows::Bridges>().roots().into_iter().filter(|r| r != root && r.starts_with(root)).collect();
+        let repos = || self.git.repos(&project).iter().map(|r| r.top.clone()).filter(|top| !inner_roots.iter().any(|r| top.starts_with(r))).collect();
         let todo = {
             let mut inner = self.inner.locked();
             inner.use_project(root);
@@ -1248,10 +1251,14 @@ impl Inner {
         let mut snapshot_repos = Vec::new();
         if e.kind == EventKind::BeforeWrite {
             let repos = repos();
-            let wanted: Vec<PathBuf> = match file.as_deref() {
-                Some(f) => repo_of(&repos, f).into_iter().collect(),
-                // Without a file (a shell command) anything in the project may change
-                None => repos,
+            // Without a file (a shell command): the repository the session works in. Every
+            // repository below the project was too many: a project above many repositories (the home
+            // folder) saved all of them for each command (user, 2026-11-23). Working above every
+            // repository, a command saves none; the files it writes with the tools still count
+            let wanted: Option<PathBuf> = match (file.as_deref(), cwd.as_deref()) {
+                (Some(f), _) => repo_of(&repos, f),
+                (None, Some(c)) => repo_of(&repos, c),
+                (None, None) => None,
             };
             let done = self.turn.entry(e.session.clone()).or_default();
             snapshot_repos = wanted.into_iter().filter(|top| done.insert(top.clone())).collect();
@@ -1651,6 +1658,25 @@ mod tests {
         let old = &inner.sessions["old"];
         assert!(old.capabilities.live_status && old.status == "working" && old.title.as_deref() == Some("Earlier work"));
         assert!(inner.heard && inner.attachments.len() == 1 && inner.sessions.len() == 2);
+    }
+
+    /// A shell command saves the repository the session works in, not every one in the project;
+    /// working above all of them, it saves none.
+    #[test]
+    fn a_command_saves_the_repository_it_runs_in() {
+        let root = Path::new("/p");
+        let repos = || vec![PathBuf::from("/p/a"), PathBuf::from("/p/b"), PathBuf::from("/p/b/inner")];
+        let mut inner = Inner::default();
+        let mut step = |raw: &str, now: u64| {
+            let event = Fake.translate(&serde_json::from_str(raw).unwrap()).unwrap();
+            inner.take_in(&event, &Fake, root, repos, now).unwrap()
+        };
+        step(r#"{"who":"a1","did":"asked","in":"/p/b/inner/src","text":"Go"}"#, 10);
+        assert_eq!(step(r#"{"who":"a1","did":"will-write","in":"/p/b/inner/src","with":"shell"}"#, 20).snapshot_repos, [PathBuf::from("/p/b/inner")]);
+        step(r#"{"who":"a2","did":"asked","in":"/p","text":"Go"}"#, 30);
+        assert!(step(r#"{"who":"a2","did":"will-write","in":"/p","with":"shell"}"#, 40).snapshot_repos.is_empty());
+        // Its files still count
+        assert_eq!(step(r#"{"who":"a2","did":"will-write","in":"/p","path":"/p/a/x.rs","with":"patch"}"#, 50).snapshot_repos, [PathBuf::from("/p/a")]);
     }
 
     /// A window restarted in the middle of a turn (an update, a rebuild) goes on with it: no

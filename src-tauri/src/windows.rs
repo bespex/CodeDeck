@@ -65,6 +65,11 @@ impl Bridges {
     pub fn all(&self) -> Vec<Arc<Bridge>> {
         self.0.locked().values().cloned().collect()
     }
+
+    /// The projects that hear their sessions: on my list or shown in a window.
+    pub fn roots(&self) -> Vec<std::path::PathBuf> {
+        self.0.locked().keys().cloned().collect()
+    }
 }
 
 /// The bridge of a project, made the first time it is asked for.
