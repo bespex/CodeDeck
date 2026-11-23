@@ -137,7 +137,9 @@ export function FileTools(props: { path: string; projectPath: string | null; pat
         </Tooltip>
       )}
       <HoverTools show={props.show}>
-        {/* Only what is done often (user, 2026-11-21): edit and attach; the rest in ⋯ */}
+        {/* Only what is done often (user, 2026-11-21): view, edit and attach; the rest in ⋯. View
+            joined them (user, 2026-11-23): a click on the row shows the diff, not the file */}
+        {opens && <Tool icon={Eye} label={t("View")} says={<T text="Opens it in {app}" app={<AppName path={projectPath} role="view" />} />} onClick={() => openAs(projectPath, "view")} />}
         {opens && <Tool icon={SquarePen} label={t("Edit")} says={<T text="Opens it in {app}" app={<AppName path={projectPath} role="edit" />} />} onClick={() => openAs(projectPath, "edit")} />}
         {attach && <Tool icon={Paperclip} label={attach.label} says={attach.says} hint={attach.hint} active={attach.on} onClick={attach.toggle} />}
         <Tool icon={Ellipsis} label={t("More (also right click)")} onClick={(e) => menu.open(e, path, items)} />
