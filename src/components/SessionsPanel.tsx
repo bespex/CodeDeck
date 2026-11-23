@@ -82,7 +82,10 @@ interface Props {
 export function SessionsPanel(props: Props) {
   // The prepared prompt open in its editor, kept per project; while one is, the Next prompt area takes more room
   const [openPrompt, setOpenPrompt] = usePerProject<string | null>("openPrompt", () => null);
-  const rows = openPrompt ? "grid-rows-[auto_auto_minmax(0,1fr)_minmax(0,1.5fr)]" : "grid-rows-[auto_auto_minmax(0,1fr)_fit-content(40%)]";
+  // Closed, the Next prompt area is as high as what it holds and the session list above gives way:
+  // capped at 40% as a whole, it cut its own text short, since the prepared prompts below it never
+  // shrink (user, 2026-11-23). What is attached has its own cap and scrolls
+  const rows = openPrompt ? "grid-rows-[auto_auto_minmax(0,1fr)_minmax(0,1.5fr)]" : "grid-rows-[auto_auto_minmax(0,1fr)_auto]";
   return (
     <aside data-tour="sessions" className={`zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] ${rows} border-r border-line bg-panel`}>
       <HeaderBar project={props.project} onOpenProject={props.onOpenProject} assistant={props.assistant} onToggleLog={props.onToggleLog} />
@@ -936,7 +939,7 @@ function NextPrompt({ assistant, onPin, openPrompt, onOpenPrompt }: Props & { op
         </button>
       </AreaHeader>
 
-      <div className={`flex min-h-0 flex-col gap-2 overflow-y-auto px-3 pt-0.5 pb-2.5 ${openPrompt ? "max-h-[30%] flex-none" : "flex-1"}`}>
+      <div className={`flex min-h-0 flex-col gap-2 overflow-y-auto px-3 pt-0.5 pb-2.5 ${openPrompt ? "max-h-[30%] flex-none" : "max-h-[35vh] flex-none"}`}>
         {/* Who it is for comes first: the numbers below read as what goes to them */}
         {count > 0 && attaches && assistant.held && <ChooseTarget state={assistant} />}
         {count > 0 && attaches && !assistant.held && (
