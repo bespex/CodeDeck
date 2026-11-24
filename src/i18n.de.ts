@@ -956,6 +956,7 @@ export const de: Record<string, string> = {
   "Clear the next prompt": "Nächsten Prompt leeren",
   "Clear": "Leeren",
   "Starting…": "Wird gestartet…",
+  "Already being continued in tmux: opens its terminal": "Wird schon in tmux fortgesetzt: öffnet ihr Terminal",
   "may be asking": "fragt vielleicht",
   "Nothing reported yet: it may ask a question, e.g. whether to trust the folder.": "Noch keine Meldung: vielleicht stellt sie eine Frage, z. B. ob dem Ordner vertraut wird.",
   "Double-click: open it in a terminal": "Doppelklick: im Terminal öffnen",

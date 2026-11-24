@@ -237,7 +237,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
   const [showEarlier, setShowEarlier] = useState<boolean | null>(null);
   const earlierOpen = showEarlier ?? current.length === 0;
   const Fold = earlierOpen ? ChevronDown : ChevronRight;
-  const pending = usePending(look?.path, state.sessions.map((s) => s.id));
+  const pending = usePending(look?.path, state.sessions);
   const waiting = useWaiting(state);
   const waits = new Map(waiting.map((s) => [s.id, needsYou(s) ?? undefined]));
   const asking = waiting.filter((s) => needsYou(s) === "asks").length;
@@ -258,6 +258,7 @@ function Sessions({ state, onShowFile }: { state: AssistantState; onShowFile: (p
         projectTool={mine.harness.id}
         projectAccount={mine.account?.dir}
         aimed={state.attachments.length > 0 && state.target === s.id}
+        starting={pending.some((p) => p.id === s.id)}
       />
     );
   };
@@ -396,7 +397,7 @@ function Receipt({ session: s, aimed }: { session: Session; aimed: boolean }) {
  * about, the turn's last words, the step it works on); then the way into it. `wait`: it waits for
  * you (asks, or finished a turn you have not seen) and stands out, raised; it keeps its place.
  */
-function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, toolName, toolShort, projectPath, projectTool, projectAccount, aimed }: { session: Session; wait?: "asks" | "done"; now: number; blockedUntil: number | null; onShowFile: (path: string) => void; toolName: string; toolShort: string; projectPath: string | undefined; projectTool: string; projectAccount: string | undefined; aimed: boolean }) {
+function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, toolName, toolShort, projectPath, projectTool, projectAccount, aimed, starting }: { session: Session; wait?: "asks" | "done"; now: number; blockedUntil: number | null; onShowFile: (path: string) => void; toolName: string; toolShort: string; projectPath: string | undefined; projectTool: string; projectAccount: string | undefined; aimed: boolean; starting: boolean }) {
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const marks = useSessionMarks();
@@ -629,11 +630,13 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
                 disabled={resuming}
                 onClick={(e) => (e.stopPropagation(), cancelFold(), resume())}
                 onDoubleClick={(e) => e.stopPropagation()}
-                title={t("Continue this conversation in a new process, in tmux")}
+                // Once started, a click shows its terminal (the backend starts no second process): the
+                // tool may wait for an answer there before it reports
+                title={starting ? t("Already being continued in tmux: opens its terminal") : t("Continue this conversation in a new process, in tmux")}
                 className="flex h-[20px] shrink-0 items-center gap-1 rounded border border-line px-1.5 leading-none font-medium text-slate-300 hover:bg-overlay-hover hover:text-slate-50 disabled:opacity-60"
               >
-                {resuming ? <Loader className="size-3 shrink-0 animate-spin" /> : <Play className="size-3 shrink-0" />}
-                {t("Continue")}
+                {resuming || starting ? <Loader className="size-3 shrink-0 animate-spin" /> : <Play className="size-3 shrink-0" />}
+                {starting ? t("Starting…") : t("Continue")}
               </button>
             ) : s.noContinue ? (
               // Said, not a button that is missing without a word

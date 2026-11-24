@@ -697,6 +697,13 @@ impl Bridge {
         self.inner.locked().sessions.contains_key(id)
     }
 
+    /// Whether a session was heard of at or after `since` (Unix ms). A conversation continued in
+    /// tmux keeps its id, so being known says nothing about the new process: until that one
+    /// reports, the card is the old one.
+    pub fn heard_since(&self, id: &str, since: u64) -> bool {
+        self.inner.locked().sessions.get(id).is_some_and(|s| s.last >= since)
+    }
+
     /// How many sessions ask something and how many finished a turn in the last `done_for` ms, as
     /// the overview counts them under "Waits for you" (without the turns put aside there).
     /// The ids of the sessions that ask something and of those that finished a turn in the last

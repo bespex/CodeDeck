@@ -500,7 +500,7 @@ function ProjectRow({ project, name, drag, inRecent = false, umbrella = false }:
   const closeMenu = useCallback(() => setMenu(false), []);
   // A session that runs with another configuration than the project's
   const wrongAccount = (s: Session) => !!project.account && !!s.account && s.account !== project.account;
-  const pending = usePending(project.path, (project.state?.sessions ?? []).map((s) => s.id), 5000);
+  const pending = usePending(project.path, project.state?.sessions ?? [], 5000);
   // What is offered comes from the backend, as on the session card (`doors`, `actions`, docs/SITZUNGEN-PRUEFUNG.md K2)
   const hasTerminal = (s: Session) => s.doors.some(isTerminalDoor);
   // Double click: the first way in, Desktop where the session is reachable there, else its terminal

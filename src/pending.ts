@@ -14,13 +14,15 @@ export type Pending = PendingSession & { waits: boolean };
 
 /** The pending sessions of a project, asked of tmux now and then (it is cheap, and a session
  *  leaves the list by itself once it reports) and at once when a session was started anywhere.
- *  `known` are the ids of the sessions already listed: one of them is no longer pending even
- *  before tmux is asked again, so it never shows twice, and a change among them asks again at once. */
-export function usePending(project: string | undefined, known: string[], every = 3000): Pending[] {
+ *  `known` are the sessions already listed: one heard of since its tmux session began is no longer
+ *  pending even before tmux is asked again, so it never shows twice, and a change among them asks
+ *  again at once. Heard of since, not just known: a continued conversation keeps its id, and while
+ *  its new process waits for an answer the card is still the ended one. */
+export function usePending(project: string | undefined, known: { id: string; last: number }[], every = 3000): Pending[] {
   const [list, setList] = useState<PendingSession[]>([]);
   // Moves on with every look, so that "starting" turns into "waits" in time
   const [now, setNow] = useState(() => Date.now());
-  const knownKey = known.join("\n");
+  const knownKey = known.map((k) => k.id).join("\n");
   useEffect(() => {
     if (!project) return;
     let alive = true;
@@ -41,5 +43,5 @@ export function usePending(project: string | undefined, known: string[], every =
       stop();
     };
   }, [project, every, knownKey]);
-  return list.filter((p) => !known.includes(p.id)).map((p) => ({ ...p, waits: now - p.since > STARTING_FOR }));
+  return list.filter((p) => !known.some((k) => k.id === p.id && k.last >= p.since)).map((p) => ({ ...p, waits: now - p.since > STARTING_FOR }));
 }

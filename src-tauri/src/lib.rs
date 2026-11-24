@@ -1118,6 +1118,13 @@ async fn resume_session(project: String, session: String, app: AppHandle) -> Res
     if !bridge.ways_of(&session).unwrap_or_default().actions.contains(&doors::Action::Continue) {
         return Err("this session cannot be continued from here".into());
     }
+    // Already being continued: a second process of the same conversation would only get in the
+    // way. Most likely the first waits for an answer before it reports, so show it instead
+    if let Some(running) = tmux::started_for(&root).into_iter().find(|s| s.id == session) {
+        let place = harness::Place { tmux: Some(harness::Tmux { pane: String::new(), session: Some(running.name.clone()) }), ..Default::default() };
+        doors::terminal(&place, None)?;
+        return Ok(running.name);
+    }
     // One the tool keeps in the background goes on there: joining it brings it back
     if let Some((tool, account, Some(place))) = bridge.session_place(&session).filter(|(_, _, p)| p.as_ref().is_some_and(|p| p.background.is_some())) {
         let job = place.background.clone().unwrap_or_default();
@@ -1234,7 +1241,9 @@ async fn pending_sessions(project: String, app: AppHandle) -> Vec<Pending> {
     let bridge = windows::bridge_for(&app, root);
     tmux::started_for(root)
         .into_iter()
-        .filter(|s| !bridge.knows(&s.id))
+        // Not `knows`: a continued conversation keeps its id, and its new process may wait for an
+        // answer (trust the folder?) while the card still shows the ended one
+        .filter(|s| !bridge.heard_since(&s.id, s.since))
         .map(|s| Pending { command: tmux::command_of(&s.name), name: s.name, id: s.id, since: s.since, door: platform::get().terminal.is_some() })
         .collect()
 }
