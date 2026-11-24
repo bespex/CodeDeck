@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { reportNews, scratchKey, useNews } from "../news";
-import { onFsChanged, reportSummary, scratchList, type AssistantState } from "../backend";
+import { onFsChanged, reportSummary, scratchList, type AssistantState, type ProjectInfo } from "../backend";
 import { aheadBehind, type GitView } from "../git";
 import { inScratch } from "../scratch";
 import { AssistantLine } from "./StatusBar";
@@ -34,12 +34,11 @@ function useNewScratch(): number {
 }
 
 /**
- * The line at the top of the session column: the state of the project's AI account, its usage first
- * (user, 2026-11-19: branch, turns and the last snapshot are not needed there; the branch is at the foot
- * of the file list, turns and snapshots on the trail). Unseen, it reports the project's summary to the
+ * The line under the session column's header: the project's AI account, new session, usage (the branch is at
+ * the head of the file list, turns and snapshots on the trail). Unseen, it reports the project's summary to the
  * overview and the project list (docs/UEBERSICHT.md) and counts the scratch folder for "new".
  */
-export function SidebarSummary({ git, assistant }: { git: GitView; assistant: AssistantState }) {
+export function SidebarSummary({ git, assistant, project }: { git: GitView; assistant: AssistantState; project: ProjectInfo | null }) {
   const root = git.rootRepo;
   const uncommitted = git.repos.reduce((n, r) => n + r.files.length, 0);
   const failed = git.repos.find((r) => r.error);
@@ -53,5 +52,5 @@ export function SidebarSummary({ git, assistant }: { git: GitView; assistant: As
   useEffect(() => {
     void reportSummary({ git: gitWords, gitFailed: !!failed, uncommitted, next, news: fresh });
   }, [gitWords, failed, uncommitted, next, fresh]);
-  return <AssistantLine assistant={assistant} />;
+  return <AssistantLine project={project} assistant={assistant} />;
 }

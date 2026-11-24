@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Gauge } from "lucide-react";
 import { setUsageConnection, type AssistantState, type Connection } from "../backend";
@@ -7,7 +7,6 @@ import { accountLook, useAccounts as useNamedAccounts } from "../accounts";
 import { useNow } from "../attention";
 import { LOCALE, t } from "../i18n";
 import { limitsOf, resetAt, span, STANDING_FILL, STANDING_TEXT, worst, type Limit } from "../usage";
-import { CLICKABLE } from "./StatusBar";
 
 /** A small square in the colour of the account's place in the list, to tell the accounts apart (the sessions' colours). */
 const mark = (i: number) => ({ background: `var(--color-session-${i % 6})` });
@@ -113,8 +112,10 @@ function Connect({ account, onDone }: { account: Connection; onDone: (c: Connect
  * that report, side by side when there is room; while there is none it falls back to the full list,
  * so that the first one can still be set up from there.
  */
-export function UsageCards({ assistant, onlySetUp = false }: { assistant: AssistantState; onlySetUp?: boolean }) {
-  const accounts = useAccounts(assistant);
+export function UsageCards({ assistant, onlySetUp = false, account }: { assistant: AssistantState; onlySetUp?: boolean; account?: string | null }) {
+  const every = useAccounts(assistant);
+  // `account`: the one account the caller is about (the pop-up of the project's account), once it is known
+  const accounts = account && every.some((c) => c.dir === account) ? every.filter((c) => c.dir === account) : every;
   const named = useNamedAccounts();
   const hooks = useConnections();
   const now = useNow();
@@ -161,7 +162,7 @@ export function UsageCards({ assistant, onlySetUp = false }: { assistant: Assist
     );
   };
   // The colour stays with the account, wherever it is listed
-  const indexed = accounts.map((c, i) => ({ c, i }));
+  const indexed = accounts.map((c) => ({ c, i: every.indexOf(c) }));
   const pending = indexed.filter(({ c }) => !c.usage);
   const active = indexed.filter(({ c }) => c.usage);
   // A band like the section headings, so the groups are told apart at a glance
@@ -191,11 +192,12 @@ export function UsageCards({ assistant, onlySetUp = false }: { assistant: Assist
 }
 
 /**
- * The usage in the status bar: "5h" and "wk" with their figures, coloured like the branch (bright,
- * amber when the pace would use a limit up before it starts over, red at the limit). A click opens
- * the details, the same as in Activity.
+ * The usage of the project's account as one small icon in the line under the session column's header,
+ * coloured like the branch (bright, amber when the pace would use a limit up before it starts over, red
+ * at the limit; grey while it is not set up or has no figures). A click opens the details of this
+ * account only (user, 2026-11-24: the bars moved into the pop-up), the same as in Activity.
  */
-export function UsageChip({ assistant, account, wide = false }: { assistant: AssistantState; account?: string | null; wide?: boolean }) {
+export function UsageChip({ assistant, account }: { assistant: AssistantState; account?: string | null }) {
   const all = useAccounts(assistant);
   // The project's account only, once it is known: the figures of another account say nothing here
   const accounts = account && all.some((c) => c.dir === account) ? all.filter((c) => c.dir === account) : all;
@@ -223,48 +225,25 @@ export function UsageChip({ assistant, account, wide = false }: { assistant: Ass
   }, [open]);
   if (accounts.length === 0) return null;
 
-  // The index is the account's place among all of them: its colour is the same as on its card
-  const shown = accounts
-    .map((c, i) => ({ c, i, limits: limitsOf(assistant.usage.find((u) => u.account === c.dir), now) }))
-    .filter((a) => a.c.usage && a.limits.length > 0);
-  // Two accounts fit; with more only the one that is tightest, the rest are in the pop-up
-  const tightest = [...shown].sort((a, b) => Number(worst(b.limits) > worst(a.limits)) - Number(worst(a.limits) > worst(b.limits)))[0];
-  const chips = shown.length > 2 ? [tightest] : shown;
-  const text = !accounts.some((c) => c.usage) ? t("usage: set up") : shown.length === 0 ? t("usage: no figures yet") : null;
+  const limits = accounts.flatMap((c) => (c.usage ? limitsOf(assistant.usage.find((u) => u.account === c.dir), now) : []));
+  const standing = worst(limits);
+  const words = !accounts.some((c) => c.usage)
+    ? t("usage: set up")
+    : limits.length === 0
+      ? t("usage: no figures yet")
+      : limits.map((l) => `${l.label}: ${Math.round(l.window.used)} %`).join(" · ");
 
   return (
-    // `wide`: the whole line under the session column's header, the bars share what is free (user, 2026-11-19)
-    <div ref={box} className={`relative ${wide ? "min-w-0 flex-1" : ""}`}>
-      <button type="button" aria-expanded={open} onClick={() => setAt(open ? null : (box.current?.getBoundingClientRect() ?? null))} className={`${wide ? `${CLICKABLE.replace("-mx-1 ", "")} w-full` : CLICKABLE} ${open ? "bg-raised" : ""}`}>
-        {text !== null ? (
-          <>
-            <Gauge className="size-3.5 text-slate-500" />
-            <span className="font-normal text-slate-500">{text}</span>
-          </>
-        ) : (
-          chips.map(({ c, i, limits }) => (
-            <span key={c.dir} className={`flex items-center gap-3 ${wide ? "min-w-0 flex-1" : ""}`}>
-              {accounts.length > 1 && <span className="size-2 rounded-[2px]" style={mark(i)} />}
-              {limits.map((l, n) => (
-                <Fragment key={l.key}>
-                {/* A rule between the limits: without it the left figure read as the right bar's (user, 2026-11-20) */}
-                {n > 0 && <span className="h-4 w-px shrink-0 bg-line" />}
-                <span
-                  title={`${l.label}: ${Math.round(l.window.used)} % · ${t("resets in {time} · {at}", { time: span(l.left), at: resetAt(l.window.resetsAt, now, LOCALE) })}`}
-                  className={`flex items-center gap-1.5 ${wide ? "min-w-0 flex-1" : ""} ${STANDING_TEXT[l.standing]}`}
-                >
-                  <span className="font-normal text-slate-500">{l.key}</span>
-                  {/* The bar with the marker for the time that is over, as in the details */}
-                  <UsageBar limit={l} className={wide ? "min-w-8 flex-1" : "w-16"} />
-                  {/* Left-aligned, right at its own bar; the width keeps the bars still as the figure changes */}
-                  <span className="w-8 tabular-nums">{Math.round(l.window.used)}%</span>
-                </span>
-                </Fragment>
-              ))}
-            </span>
-          ))
-        )}
-        {shown.length > chips.length && <span className="font-normal text-slate-500">+{shown.length - chips.length}</span>}
+    <div ref={box} className="relative shrink-0">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-label={t("AI usage")}
+        title={`${t("AI usage")}: ${words}`}
+        onClick={() => setAt(open ? null : (box.current?.getBoundingClientRect() ?? null))}
+        className={`flex items-center rounded-md p-1.5 hover:bg-raised ${open ? "bg-raised" : ""} ${limits.length ? STANDING_TEXT[standing] : "text-slate-500"}`}
+      >
+        <Gauge className="size-4" />
       </button>
       {/* Below the line, on the page itself: the column clips what is wider than it (the details are
           400 px, the column less), and WebKitGTK cuts a fixed element off inside a clipping container */}
@@ -279,7 +258,7 @@ export function UsageChip({ assistant, account, wide = false }: { assistant: Ass
             }}
             className="surface-overlay fixed z-40 flex w-[400px] max-w-[calc(100vw-1rem)] flex-col gap-2 overflow-y-auto rounded-lg p-3 text-[12px] whitespace-normal text-slate-300"
           >
-            <UsageCards assistant={assistant} />
+            <UsageCards assistant={assistant} account={account} />
             <span className="text-[11px] text-slate-500">{t("The same as under Activity. The white marker shows how much of the time is over: a bar beyond it means it is used faster than the time passes.")}</span>
           </div>,
           document.body,

@@ -2,10 +2,7 @@ import type { AssistantState, ProjectInfo } from "../backend";
 import OverviewApp, { ProjectsRail, type InWindow } from "./OverviewApp";
 import { PathBar } from "./ProjectHeader";
 import { AppMenu, QuickSettings } from "./HeaderBar";
-import { useProjectLook } from "../projectLook";
-import { inkOn, ProjectMark } from "./ProjectMark";
 import { Tooltip, ToolTipBody } from "./Tooltip";
-import { placeOf } from "./ProjectHeader";
 import { t } from "../i18n";
 
 interface Props {
@@ -19,31 +16,27 @@ interface Props {
 
 /**
  * The left column of a project window (docs/PLAN.md "Projektliste im Fenster statt Übersicht"): on top
- * the project shown, in its colour, with the menus about CodeDeck; below it all projects, as the
- * overview listed them, without their sessions. A click on the project's mark folds the column to a
- * rail of marks, where the same mark opens it again.
+ * the title CodeDeck with its menus; below it all projects, as the overview listed them, without
+ * their sessions. A click on the logo folds the column to a rail of marks, where the logo opens it again.
  */
 export function ProjectsPanel({ project, assistant, onOpen, folded, onFold }: Props) {
   const inWindow: InWindow = { current: project?.path ?? null, onOpen };
-  if (folded) return <FoldedProjects project={project} assistant={assistant} inWindow={inWindow} onOpen={() => onFold(false)} />;
+  if (folded) return <FoldedProjects assistant={assistant} inWindow={inWindow} onOpen={() => onFold(false)} />;
   return (
     <aside data-tour="projects" className="zone-side flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
-      <PathBar project={project} assistant={assistant} onFold={() => onFold(true)} foldLabel={t("Fold the project list")} />
+      <PathBar assistant={assistant} onFold={() => onFold(true)} foldLabel={t("Fold the project list")} />
       <OverviewApp inWindow={inWindow} />
     </aside>
   );
 }
 
-function FoldedProjects({ project, assistant, inWindow, onOpen }: { project: ProjectInfo | null; assistant: AssistantState; inWindow: InWindow; onOpen: () => void }) {
-  const look = useProjectLook(project?.path);
-  const fill = look ? (look.mark?.color ?? look.color) : null;
-  const name = project?.crumbs[project.crumbs.length - 1]?.label ?? project?.root ?? "";
+function FoldedProjects({ assistant, inWindow, onOpen }: { assistant: AssistantState; inWindow: InWindow; onOpen: () => void }) {
   return (
     <aside data-tour="projects" className="zone-side flex min-h-0 min-w-0 flex-col items-center border-r border-line bg-panel">
-      <Tooltip area className="block w-full shrink-0" content={<ToolTipBody says={project ? `${name} · ${placeOf(project.root)}` : t("No project open")} hint={t("Show the project list")} />}>
-        <header className="zone-tabs flex h-11 w-full items-center justify-center border-b border-line bg-panel" style={fill ? { background: fill, color: inkOn(fill) } : undefined}>
-          <button type="button" aria-label={t("Show the project list")} onClick={onOpen} className="rounded-md p-0.5 hover:bg-black/15">
-            {look && <ProjectMark mark={look.mark} color={look.color} name={look.name} size={28} shape="bare" />}
+      <Tooltip area className="block w-full shrink-0" content={<ToolTipBody says={t("All your projects")} hint={t("Show the project list")} />}>
+        <header className="zone-tabs flex h-11 w-full items-center justify-center border-b border-line bg-panel">
+          <button type="button" aria-label={t("Show the project list")} onClick={onOpen} className="rounded-md p-0.5 hover:bg-raised">
+            <img src="/codedeck.svg" alt="" className="size-6" />
           </button>
         </header>
       </Tooltip>

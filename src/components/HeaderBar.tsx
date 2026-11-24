@@ -12,6 +12,7 @@ import {
   Info,
   Keyboard,
   LayoutDashboard,
+  Menu,
   Settings,
   SlidersHorizontal,
   Sparkles,
@@ -25,40 +26,33 @@ import { openDialog } from "../dialogs";
 import { lang, t } from "../i18n";
 import { AttentionChoice, isQuiet, QuietChoice } from "./AttentionChoice";
 import { HOME_URL, manualUrl, SOURCE_URL } from "./Dialogs";
-import { usePopover, type OpenProject } from "./ProjectHeader";
+import { placeOf, usePopover } from "./ProjectHeader";
 import { useProjectAccount, useProjectLook } from "../projectLook";
-import { AccountMark } from "./ProjectMark";
-
-interface Props {
-  project: ProjectInfo | null;
-  onOpenProject: OpenProject;
-  assistant: AssistantState;
-  onToggleLog: () => void;
-}
+import { AccountMark, inkOn, ProjectMark } from "./ProjectMark";
 
 /**
- * The header of the right column, which stays in every form of CodeDeck (docs/KOPFLEISTE.md):
- * which AI account the project runs with (the project list folds with Ctrl+Shift+L). The project, quick settings
- * and the app menu are at the top of the file column (`PathBar`).
+ * The header of the session column, which stays in every form of CodeDeck: the project of this window,
+ * its mark, name and below it, quiet, where it lives, on the project's colour (user, 2026-11-24: it
+ * moved here from the head of the project list). The AI account is in the line below (`AssistantLine`).
  */
-export function HeaderBar(props: Props) {
+export function HeaderBar({ project }: { project: ProjectInfo | null }) {
+  const look = useProjectLook(project?.path);
+  const crumbs = project?.crumbs ?? [];
+  const name = crumbs[crumbs.length - 1]?.label ?? project?.root ?? "";
+  // The bar takes the project's colour: one look at the top says which project this is
+  const fill = look ? (look.mark?.color ?? look.color) : null;
   return (
-    // 43 px plus the border: the same 44 px as the headers beside it, so their lines meet
-    <Tooltip
-      area
-      className="block shrink-0"
-      content={
-        <ToolTipBody
-          says={t("The control room beside your coding agent. At the top you see the AI account of this project. Below: the AI sessions that wait for you, all sessions of the project with what they are doing, and a summary of what goes with your next prompt.")}
-          hint={t("The account at the top can be switched.")}
-        />
-      }
-    >
-    <header className="zone-tabs relative flex h-[44px] shrink-0 items-center gap-1 border-b border-line bg-panel pr-1.5 pl-1.5">
-      <AccountBlock project={props.project} assistant={props.assistant} />
-      <span className="flex-1" />
-      <StartButtons project={props.project} canStart={props.assistant.canStart} />
-    </header>
+    <Tooltip area className="block shrink-0" content={<ToolTipBody says={t("The project shown in this window and where it lives. Below: its AI sessions and what goes with your next prompt.")} />}>
+      {/* 43 px plus the border: the same 44 px as the headers beside it, so their lines meet */}
+      <header className="zone-tabs relative flex h-[44px] shrink-0 items-center gap-2.5 border-b border-line bg-panel pr-3 pl-3" style={fill ? { background: fill, color: inkOn(fill) } : undefined} title={project?.root}>
+        {look && <ProjectMark mark={look.mark} color={look.color} name={look.name} size={32} shape="bare" />}
+        {project && (
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className={`truncate text-[14px] font-semibold ${fill ? "" : "text-slate-100"}`}>{name}</span>
+            <span className={`truncate font-mono text-[11px] ${fill ? "opacity-70" : "text-slate-500"}`}>{placeOf(project.root)}</span>
+          </span>
+        )}
+      </header>
     </Tooltip>
   );
 }
@@ -166,7 +160,7 @@ export function QuickSettings({ onColor = false }: { onColor?: boolean }) {
  * new tmux session (nothing starts while one runs there already), ＋ begins a new conversation.
  * Both start with the project's account and Remote Control, as in the overview.
  */
-function StartButtons({ project, canStart }: { project: ProjectInfo | null; canStart: boolean }) {
+export function StartButtons({ project, canStart }: { project: ProjectInfo | null; canStart: boolean }) {
   const [note, setNote] = useState<string | null>(null);
   useEffect(() => {
     if (!note) return;
@@ -196,7 +190,7 @@ function StartButtons({ project, canStart }: { project: ProjectInfo | null; canS
  * one account; a click offers the others. Sessions still running with the old one go on until they
  * end (or are stopped here); new ones start with the new one. The model belongs to each session.
  */
-function AccountBlock({ project, assistant }: { project: ProjectInfo | null; assistant: AssistantState }) {
+export function AccountBlock({ project, assistant }: { project: ProjectInfo | null; assistant: AssistantState }) {
   const menu = usePopover<HTMLDivElement>();
   const look = useProjectLook(project?.path);
   const { account, harness } = useProjectAccount(assistant, look);
@@ -235,16 +229,11 @@ function AccountBlock({ project, assistant }: { project: ProjectInfo | null; ass
         aria-expanded={menu.open}
         title={account ? `${account.name} · ${account.dir}` : t("No AI account known for this project yet")}
         onClick={() => (menu.open ? close() : menu.setOpen(true))}
-        className={`flex min-w-0 items-center gap-2.5 rounded-md px-1.5 py-1 text-left hover:bg-raised ${menu.open ? "bg-raised" : ""}`}
+        className={`flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-[13px] font-semibold text-slate-100 hover:bg-raised ${menu.open ? "bg-raised" : ""}`}
       >
-        {account ? <AccountMark account={account} size={28} /> : <Sparkles className="size-6 text-slate-500" />}
-        <span className="flex min-w-0 flex-col leading-tight">
-          <span className="flex items-center gap-1 truncate text-[14px] font-semibold text-slate-100">
-            {account?.name ?? harness.name}
-            <ChevronDown className="size-3 shrink-0 text-slate-500" />
-          </span>
-          <span className="truncate text-[11px] text-slate-500">{account ? harness.name : t("no account chosen")}</span>
-        </span>
+        {account ? <AccountMark account={account} size={18} /> : <Sparkles className="size-4 shrink-0 text-slate-500" />}
+        <span className="min-w-0 truncate">{account?.name ?? harness.name}</span>
+        <ChevronDown className="size-3 shrink-0 text-slate-500" />
       </button>
       {menu.open && (
         <div role="menu" className="surface-overlay absolute top-full left-1.5 z-30 mt-1 w-[300px] overflow-hidden rounded-lg p-1 text-[13px]">
@@ -334,8 +323,8 @@ export function AppMenu({ assistant, onColor = false }: { assistant: AssistantSt
   return (
     <div ref={menu.ref}>
       <button type="button" aria-haspopup="menu" aria-expanded={menu.open} title={t("CodeDeck menu")} onClick={() => menu.setOpen(!menu.open)} className={iconButton(menu.open, onColor)}>
-        {/* The logo, not a second ⋯: the project list has its own ⋯ menu right below (user, 2026-11-21) */}
-        <img src="/codedeck.svg" alt="" className="size-[18px]" />
+        {/* Not ⋯ (the project list has its own right below) and not the logo, which folds the column (user, 2026-11-24) */}
+        <Menu className="size-4" />
       </button>
       {menu.open && (
         <Panel width="w-[270px]">

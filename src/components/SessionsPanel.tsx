@@ -88,8 +88,8 @@ export function SessionsPanel(props: Props) {
   const rows = openPrompt ? "grid-rows-[auto_auto_minmax(0,1fr)_minmax(0,1.5fr)]" : "grid-rows-[auto_auto_minmax(0,1fr)_auto]";
   return (
     <aside data-tour="sessions" className={`zone-side grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] ${rows} border-r border-line bg-panel`}>
-      <HeaderBar project={props.project} onOpenProject={props.onOpenProject} assistant={props.assistant} onToggleLog={props.onToggleLog} />
-      <SidebarSummary git={props.git} assistant={props.assistant} />
+      <HeaderBar project={props.project} />
+      <SidebarSummary git={props.git} assistant={props.assistant} project={props.project} />
       <Sessions state={props.assistant} onShowFile={props.onShowFile} />
       <NextPrompt {...props} openPrompt={openPrompt} onOpenPrompt={setOpenPrompt} />
     </aside>

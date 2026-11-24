@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Anchor, ArrowLeft, ArrowRight, ArrowUpRight, AtSign, Bell, ChevronDown, CircleCheck, Ellipsis, Globe, Keyboard, MessageSquarePlus, MousePointerClick, Paperclip, Plus, Reply, SlidersHorizontal, Users } from "lucide-react";
+import { Anchor, ArrowLeft, ArrowRight, ArrowUpRight, AtSign, Bell, ChevronDown, CircleCheck, Ellipsis, Globe, Keyboard, Menu, MessageSquarePlus, MousePointerClick, Paperclip, Plus, Reply, SlidersHorizontal, Users } from "lucide-react";
 import { machineSettings, setMachineSetting, windowHelp, type AssistantState } from "../backend";
 import { closeDialog, openDialog } from "../dialogs";
 import { t } from "../i18n";
@@ -55,9 +55,10 @@ const STEPS: Step[] = [
     area: () => rectOf("projects"),
     title: () => t("Your projects"),
     question: () => t("Where am I, and is something going on elsewhere?"),
-    says: () => t("At the top is the *name of the project* of this window.\n\nBelow it you see the *list of all your projects*. It also shows what is happening in the other projects: whether an AI session there asks you something, is working or has finished.\n\nA click on a project shows it in this window; *Ctrl+Tab* takes you back to the previous one."),
+    says: () => t("Here you see the *list of all your projects*. It also shows what is happening in the other projects: whether an AI session there asks you something, is working or has finished.\n\nA click on a project shows it in this window; *Ctrl+Tab* takes you back to the previous one."),
     points: () => [
-      [logo, t("The CodeDeck logo opens the CodeDeck menu: welcome, this tour, keyboard shortcuts, manual, close project")],
+      [logo, t("The CodeDeck logo folds the list and opens it again")],
+      [icon(Menu), t("The CodeDeck menu: welcome, this tour, keyboard shortcuts, manual, close project")],
       [icon(SlidersHorizontal), t("Quick settings: do not disturb, notifications, all settings")],
       [icon(Ellipsis), t("With ⋯ beside “Projects” you add projects and sort them")],
       [icon(Keyboard), <>{key(t("Ctrl+Shift+L"))} {t("folds the column and opens it again")}</>],
@@ -72,10 +73,10 @@ const STEPS: Step[] = [
     },
     title: () => t("Start an AI session"),
     question: () => t("How do I get the AI working, and what is it doing?"),
-    says: () => t("Here you see all *AI sessions* of this project with their status, in the order they were started.\n\nYou start a session with the *buttons at the top*, or as usual in your terminal. Either way it shows up here with its first step.\n\nEach session shows whether it is working, asks you something or has finished its turn, together with its question or what it said last. Sessions that have ended are under *“Earlier”*."),
+    says: () => t("Here you see all *AI sessions* of this project with their status, in the order they were started.\n\nYou start a session with the *plus button* below the project name, or as usual in your terminal. Either way it shows up here with its first step.\n\nEach session shows whether it is working, asks you something or has finished its turn, together with its question or what it said last. Sessions that have ended are under *“Earlier”*."),
     points: () => [
       [icon(Plus), t("starts an AI session with a new conversation")],
-      [icon(ChevronDown), t("Beside the coding agent's name you choose the coding agent and the account the AI sessions run with.")],
+      [icon(ChevronDown), t("Beside the account's name you choose the account the AI sessions run with.")],
       [icon(Reply), t("When an AI session asks, “Answer” takes you to where it runs, the terminal or the desktop app. When a turn is done, “See the turn” shows what it changed. “Continue” takes up an ended conversation again.")],
     ],
     extra: (assistant) => (assistant.sessions.length === 0 ? <SampleSession /> : null),

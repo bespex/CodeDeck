@@ -1,9 +1,7 @@
 import { Tooltip, ToolTipBody } from "./Tooltip";
 import { useEffect, useRef, useState } from "react";
-import type { AssistantState, ProjectInfo } from "../backend";
+import type { AssistantState } from "../backend";
 import { AppMenu, QuickSettings } from "./HeaderBar";
-import { useProjectLook } from "../projectLook";
-import { inkOn, ProjectMark } from "./ProjectMark";
 import { t } from "../i18n";
 
 /** Where a project lives: the folders above it, the home folder as ~. */
@@ -35,57 +33,29 @@ export function usePopover<T extends HTMLElement>() {
 }
 
 /**
- * Head of the file list, the counterpart of the account block on the right: the project's mark, its
- * name and below it, quiet, where it lives; at the right the menus about CodeDeck itself (quick
- * settings, the app menu). Projects are opened in the overview.
+ * Head of the project list: the product's title with the menus about CodeDeck itself (quick settings,
+ * the app menu). The logo folds the column to its rail (docs/KONZEPT.md 4.7 rule 4). The project of the
+ * window is at the top of the session column (`ProjectBlock`). Plain for now; its look is still to be
+ * designed (user, 2026-11-24).
  */
-export function PathBar({ project, assistant, onFold, foldLabel }: { project: ProjectInfo | null; assistant: AssistantState; onFold: () => void; foldLabel: string }) {
-  const crumbs = project?.crumbs ?? [];
-  const look = useProjectLook(project?.path);
-  const name = crumbs[crumbs.length - 1]?.label ?? project?.root ?? "";
-  // Where it lives: the folders above it, the home folder as ~
-  // The bar takes the project's colour: one look at the top left says which project this is
-  const fill = look ? (look.mark?.color ?? look.color) : null;
-  const ink = fill ? inkOn(fill) : undefined;
-  const where = placeOf(project?.root ?? "");
+export function PathBar({ assistant, onFold, foldLabel }: { assistant: AssistantState; onFold: () => void; foldLabel: string }) {
   return (
     <Tooltip
       area
       className="block shrink-0"
-      content={
-        <ToolTipBody
-          says={t("The project shown in this window and where it lives; below it all your projects. A click on one shows it here.")}
-          hint={t("A click on the mark folds the list.")}
-        />
-      }
+      content={<ToolTipBody says={t("All your projects. A click on one shows it in this window.")} hint={t("A click on the logo folds the list.")} />}
     >
     {/* `zone-tabs`: the row of headers across the window is one region, the controls (docs/STYLING.md, `zones`) */}
-    <header className="zone-tabs relative shrink-0 border-b border-line bg-panel" style={fill ? { background: fill, color: ink } : undefined}>
+    <header className="zone-tabs relative shrink-0 border-b border-line bg-panel">
       {/* 43 px plus the border: the same 44 px as the headers beside it, so their lines meet */}
       <div className="flex h-[43px] items-center gap-1 pr-1.5 pl-3">
-        {project && (
-          <span className="flex min-w-0 items-center gap-2.5" title={project.root}>
-            {/* The mark folds the column it heads to its rail, where the same mark opens it again (docs/KONZEPT.md 4.7 rule 4) */}
-            {look && (
-              <button
-                type="button"
-                aria-label={foldLabel}
-                title={foldLabel}
-                onClick={onFold}
-                className="shrink-0 rounded-md hover:bg-black/15"
-              >
-                <ProjectMark mark={look.mark} color={look.color} name={look.name} size={32} shape="bare" />
-              </button>
-            )}
-            <span className="flex min-w-0 flex-col leading-tight">
-              <span className={`truncate text-[14px] font-semibold ${fill ? "" : "text-slate-100"}`}>{name}</span>
-              <span className={`truncate font-mono text-[11px] ${fill ? "opacity-70" : "text-slate-500"}`}>{where}</span>
-            </span>
-          </span>
-        )}
+        <button type="button" aria-label={foldLabel} title={foldLabel} onClick={onFold} className="shrink-0 rounded-md p-0.5 hover:bg-raised">
+          <img src="/codedeck.svg" alt="" className="size-6" />
+        </button>
+        <span className="min-w-0 truncate text-[14px] font-semibold text-slate-100">CodeDeck</span>
         <span className="flex-1" />
-        <QuickSettings onColor={!!fill} />
-        <AppMenu assistant={assistant} onColor={!!fill} />
+        <QuickSettings />
+        <AppMenu assistant={assistant} />
       </div>
     </header>
     </Tooltip>

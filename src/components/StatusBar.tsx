@@ -3,9 +3,10 @@ import { changeSummary, type GitView } from "../git";
 import { Tooltip, TooltipHint } from "./Tooltip";
 import { RepoTooltip } from "./RepoTooltip";
 import { GitInitButton, lacksGit } from "./GitInit";
-import { openSettings, type AssistantState, type GitRun, type RepoStatus } from "../backend";
+import { openSettings, type AssistantState, type GitRun, type ProjectInfo, type RepoStatus } from "../backend";
 import { useProjectAccount, useProjectLook, type ProjectAccount } from "../projectLook";
 import { UsageChip } from "./UsagePanel";
+import { AccountBlock, StartButtons } from "./HeaderBar";
 import { plural, t } from "../i18n";
 
 interface GitProps {
@@ -133,15 +134,22 @@ export function GitStatusBar({ git, logOpen, onToggleLog, recent }: GitProps) {
   );
 }
 
-/** The line under the session column's header, as high as the bars under the other headers (h-9): the state of the project's AI account, usage first.
- *  (It was the bar at the column's foot; user, 2026-11-19: up there instead of branch and time.) */
-export function AssistantLine({ assistant }: { assistant: AssistantState }) {
+/**
+ * The line under the session column's header, as high as the bars under the other headers (h-9): the
+ * project's AI account at the left (a click offers the others), at the right the button for a new
+ * session and a small icon for the state of the usage, whose details open on a click (user, 2026-11-24).
+ */
+export function AssistantLine({ project, assistant }: { project: ProjectInfo | null; assistant: AssistantState }) {
   const look = useProjectLook(undefined);
   const mine = useProjectAccount(assistant, look);
+  // `relative`: the account's menu and the note of the start button hang under this line
   return (
-    <section aria-label={t("AI usage")} className="flex h-9 shrink-0 items-center gap-3 overflow-x-clip border-b border-line px-3 text-[12px] whitespace-nowrap text-slate-500">
-      <UsageChip assistant={assistant} account={mine.account?.dir} wide />
+    <section aria-label={t("AI usage")} className="relative flex h-9 shrink-0 items-center gap-1 border-b border-line px-1.5 text-[12px] whitespace-nowrap text-slate-500">
+      <AccountBlock project={project} assistant={assistant} />
       <NotConnected mine={mine} />
+      <span className="flex-1" />
+      <StartButtons project={project} canStart={assistant.canStart} />
+      <UsageChip assistant={assistant} account={mine.account?.dir} />
     </section>
   );
 }
@@ -205,7 +213,7 @@ function NotConnected({ mine: { account, harness } }: { mine: ProjectAccount }) 
       className={`${CLICKABLE} text-changed`}
     >
       <Plug className="size-3.5" />
-      {account.name}: {t("not connected")}
+      {t("not connected")}
     </button>
   );
 }
