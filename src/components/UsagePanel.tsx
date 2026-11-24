@@ -38,7 +38,7 @@ function UsageBar({ limit: l, className = "" }: { limit: Limit; className?: stri
 }
 
 function LimitRow({ limit: l, now }: { limit: Limit; now: number }) {
-  const note = l.standing === "limit" ? t("limit reached") : l.standing === "pace" ? t("at this pace used up before the reset") : "";
+  const note = l.standing === "limit" ? t("limit reached") : l.standing === "pace" ? t("at this pace used up before the reset") : l.standing === "near" ? t("almost used up") : "";
   return (
     <div className="flex flex-col gap-1">
       <div className="flex justify-between gap-3">

@@ -555,11 +555,8 @@ function AccountRow({ account, profiles, connection, hasProfiles }: { account: A
           onBlur={() => name !== account.name && void setAccount(account.dir, "name", name)}
           onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
           aria-label={t("Name")}
-          className="w-40 rounded-md border border-overlay-line bg-base px-2 py-0.5 text-slate-100 outline-none focus:border-slate-500"
+          className="w-full max-w-[14rem] min-w-0 rounded-md border border-overlay-line bg-base px-2 py-0.5 text-slate-100 outline-none focus:border-slate-500"
         />
-        <span className="truncate font-mono text-[12px] text-slate-500" title={account.dir}>
-          {home(account.dir)}
-        </span>
         <span className="ml-auto flex shrink-0 items-center gap-2">
           {/* Said in words: the button names the action, the dot and word the state */}
           <span className={`flex items-center gap-1.5 text-[11px] font-medium ${account.connected ? "text-added" : "text-slate-400"}`}>
@@ -584,6 +581,13 @@ function AccountRow({ account, profiles, connection, hasProfiles }: { account: A
       </div>
       {connection?.other && <p className="pl-8 text-[11px] text-changed">{t("runs another CodeDeck: {other}", { other: connection.other })}</p>}
       {error && <p className="selectable pl-8 text-[12px] text-problem">{error}</p>}
+      {/* Its own line: beside the name the folder was cut off or covered (user, 2026-11-24) */}
+      <p className="flex items-baseline gap-2 pl-8 text-[12px] text-slate-400">
+        <span className="shrink-0">{t("Configuration folder")}</span>
+        <span className="selectable min-w-0 break-all font-mono text-slate-300" title={t("Where the hooks are put in: {file}", { file: `${account.dir}/settings.json` })}>
+          {home(account.dir)}
+        </span>
+      </p>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pl-8">
         {hasProfiles && (
         <label className="flex items-center gap-2 text-[12px] text-slate-400">

@@ -6,7 +6,7 @@
 import type { AccountUsage, UsageWindow } from "./backend";
 import { plural, t } from "./i18n";
 
-export type Standing = "fine" | "pace" | "limit";
+export type Standing = "fine" | "near" | "pace" | "limit";
 
 /** The length of the limits, in seconds. */
 const FIVE_HOURS = 5 * 3600;
@@ -29,11 +29,13 @@ export interface Limit {
 /**
  * How a limit stands. "limit" at 100 %. "pace" when what is used so far, spread over the time that is
  * over, would use everything up before the reset, and a good part is gone already (below 60 %
- * an early burst says little). Else "fine": 88 % shortly before the reset is nothing to warn of.
+ * an early burst says little). "near" from 90 % whatever the time (user, 2026-11-24: at 99 % the week
+ * looked as calm as at 10 %). Else "fine".
  */
 export function standingOf(used: number, elapsed: number): Standing {
   if (used >= 100) return "limit";
-  return used >= 60 && used / Math.max(elapsed, 0.02) >= 100 ? "pace" : "fine";
+  if (used >= 60 && used / Math.max(elapsed, 0.02) >= 100) return "pace";
+  return used >= 90 ? "near" : "fine";
 }
 
 function limit(key: Limit["key"], length: number, window: UsageWindow | null, nowSec: number): Limit | null {
@@ -50,12 +52,12 @@ export function limitsOf(usage: AccountUsage | undefined, now: number): Limit[] 
   return [limit("5h", FIVE_HOURS, usage?.fiveHour ?? null, sec), limit("wk", SEVEN_DAYS, usage?.sevenDay ?? null, sec)].filter((l): l is Limit => l !== null);
 }
 
-const RANK: Record<Standing, number> = { fine: 0, pace: 1, limit: 2 };
+const RANK: Record<Standing, number> = { fine: 0, near: 1, pace: 1, limit: 2 };
 export const worst = (limits: Limit[]): Standing => limits.reduce<Standing>((w, l) => (RANK[l.standing] > RANK[w] ? l.standing : w), "fine");
 
 /** Colour classes of a standing: bright like the branch when fine, amber, red. */
-export const STANDING_TEXT: Record<Standing, string> = { fine: "text-slate-200", pace: "text-changed", limit: "text-problem" };
-export const STANDING_FILL: Record<Standing, string> = { fine: "bg-ai", pace: "bg-changed", limit: "bg-problem" };
+export const STANDING_TEXT: Record<Standing, string> = { fine: "text-slate-200", near: "text-changed", pace: "text-changed", limit: "text-problem" };
+export const STANDING_FILL: Record<Standing, string> = { fine: "bg-ai", near: "bg-changed", pace: "bg-changed", limit: "bg-problem" };
 
 /** `3 h 5 min`, `22 min`, `3 d 1 h`: the time until a reset. */
 export function span(seconds: number): string {
