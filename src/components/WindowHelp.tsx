@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Anchor, ArrowLeft, ArrowRight, ArrowUpRight, AtSign, Bell, ChevronDown, CircleCheck, Ellipsis, Globe, Keyboard, MessageSquarePlus, MousePointerClick, Paperclip, Play, Plus, Reply, SlidersHorizontal, Users } from "lucide-react";
+import { Anchor, ArrowLeft, ArrowRight, ArrowUpRight, AtSign, Bell, ChevronDown, CircleCheck, Ellipsis, Globe, Keyboard, MessageSquarePlus, MousePointerClick, Paperclip, Plus, Reply, SlidersHorizontal, Users } from "lucide-react";
 import { machineSettings, setMachineSetting, windowHelp, type AssistantState } from "../backend";
 import { closeDialog, openDialog } from "../dialogs";
 import { t } from "../i18n";
@@ -38,7 +38,7 @@ function around(...marks: string[]): DOMRect | null {
   return new DOMRect(left, top, Math.max(...all.map((r) => r.right)) - left, Math.max(...all.map((r) => r.bottom)) - top);
 }
 
-const icon = (Icon: typeof Play) => <Icon className="size-3.5" />;
+const icon = (Icon: typeof Plus) => <Icon className="size-3.5" />;
 const key = (k: string) => <kbd className="rounded border border-line bg-base px-1 font-mono text-[10px] text-slate-300">{k}</kbd>;
 
 const logo = <img src="/codedeck.svg" alt="" className="size-3.5" />;
@@ -75,7 +75,6 @@ const STEPS: Step[] = [
     says: () => t("Here you see all *AI sessions* of this project with their status, in the order they were started.\n\nYou start a session with the *buttons at the top*, or as usual in your terminal. Either way it shows up here with its first step.\n\nEach session shows whether it is working, asks you something or has finished its turn, together with its question or what it said last. Sessions that have ended are under *“Earlier”*."),
     points: () => [
       [icon(Plus), t("starts an AI session with a new conversation")],
-      [icon(Play), t("continues the last conversation in a new AI session. While a session is still running, it starts nothing.")],
       [icon(ChevronDown), t("Beside the coding agent's name you choose the coding agent and the account the AI sessions run with.")],
       [icon(Reply), t("When an AI session asks, “Answer” takes you to where it runs, the terminal or the desktop app. When a turn is done, “See the turn” shows what it changed. “Continue” takes up an ended conversation again.")],
     ],

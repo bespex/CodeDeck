@@ -5,7 +5,6 @@ import {
   BookOpen,
   Bug,
   Check,
-  Play,
   Plus,
   ChevronDown,
   Globe,
@@ -174,19 +173,17 @@ function StartButtons({ project, canStart }: { project: ProjectInfo | null; canS
     const timer = setTimeout(() => setNote(null), 5000);
     return () => clearTimeout(timer);
   }, [note]);
-  const start = (fresh: boolean) =>
+  // Only new conversations start here; an ended one is continued on its own card, where it is clear which
+  const start = () =>
     project &&
-    startSession(project.path, fresh)
+    startSession(project.path, true)
       .then((name) => setNote(name ? t("Started in tmux {name}", { name }) : t("A session runs there already")))
       .catch((e) => setNote(String(e)));
   // The backend knows: the project's tool starts sessions, and tmux is there (the bell says what lacks)
   if (!canStart) return null;
   return (
     <>
-      <button type="button" disabled={!project} title={t("Continue the last conversation in a new AI session (nothing starts while one runs)")} aria-label={t("Continue session")} onClick={() => void start(false)} className={iconButton(false)}>
-        <Play className="size-4" />
-      </button>
-      <button type="button" disabled={!project} title={t("Start a new conversation")} aria-label={t("New session")} onClick={() => void start(true)} className={iconButton(false)}>
+      <button type="button" disabled={!project} title={t("Start a new conversation")} aria-label={t("New session")} onClick={() => void start()} className={iconButton(false)}>
         <Plus className="size-4" />
       </button>
       {note && <p className="selectable surface-overlay absolute top-full right-1.5 z-30 mt-1 max-w-[340px] rounded-md px-2.5 py-1.5 text-[12px] text-slate-200">{note}</p>}

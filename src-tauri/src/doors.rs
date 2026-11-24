@@ -22,6 +22,11 @@ pub fn terminal(place: &Place, attach: Option<Launched>) -> Result<(), String> {
             // A pane that is gone still leaves its tmux session to attach to
             let _ = crate::tmux::show_pane(&tmux.pane);
         }
+        // Shown in a terminal already: that one comes to the front, as the desktop app's window
+        // does, instead of a second terminal on the same session (X11 only; elsewhere a new one)
+        if crate::platform::get().x11 && crate::tmux::clients_of(&target).into_iter().any(raise_window_of) {
+            return Ok(());
+        }
         return crate::terminal::open(&["tmux", "attach-session", "-t", &target]);
     }
     let pid = place.pid.ok_or("CodeDeck does not know where this session runs")?;
@@ -138,6 +143,18 @@ pub enum Action {
     Stop,
 }
 
+/// Why an ended session offers no "Continue".
+#[derive(serde::Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum NoContinue {
+    /// Its tool cannot start a conversation again (or join one in the background) from here
+    NoTool,
+    /// tmux is missing, where a continued session runs
+    NoTmux,
+    /// It lives on in the background, and no terminal program was found to join it
+    NoTerminal,
+}
+
 /// Why a running session has no door: said on its card instead of a button that fails.
 #[derive(serde::Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -157,6 +174,8 @@ pub struct Ways {
     pub doors: Vec<Door>,
     pub actions: Vec<Action>,
     pub no_door: Option<NoDoor>,
+    /// Why an ended session cannot be continued: said on its card instead of a missing button
+    pub no_continue: Option<NoContinue>,
 }
 
 /// What [`ways`] looks at.
@@ -182,6 +201,15 @@ pub fn ways(f: &Facts, platform: &crate::platform::Platform) -> Ways {
         let can = if background { c.background && terminal } else { c.launch && platform.tmux.is_some() };
         if can && !f.moved {
             w.actions.push(Action::Continue);
+        } else if !f.moved {
+            // (A moved one says where it went on, on its card)
+            w.no_continue = Some(if background {
+                if !c.background { NoContinue::NoTool } else { NoContinue::NoTerminal }
+            } else if !c.launch {
+                NoContinue::NoTool
+            } else {
+                NoContinue::NoTmux
+            });
         }
         return w;
     }
@@ -290,6 +318,12 @@ mod ways_tests {
         let wayland = ways(&facts(Some(&place), "idle", Some(true)), &machine(true, true, false));
         assert!(wayland.doors.is_empty());
         assert_eq!(wayland.no_door, Some(NoDoor::OwnTerminal));
+    }
+
+    #[test]
+    fn a_missing_continue_says_why() {
+        let w = ways(&facts(None, "ended", None), &machine(false, true, true));
+        assert_eq!((w.actions.is_empty(), w.no_continue), (true, Some(NoContinue::NoTmux)));
     }
 
     #[test]

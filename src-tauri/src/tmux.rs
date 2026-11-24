@@ -108,6 +108,15 @@ pub fn show_pane(pane: &str) -> Result<(), String> {
     run(Command::new("tmux").args(["select-pane", "-t", pane]))
 }
 
+/// The processes of the tmux clients attached to a session (`target` as tmux names it): the
+/// terminals that show it now.
+pub fn clients_of(target: &str) -> Vec<u32> {
+    let Ok(out) = Command::new("tmux").args(["list-clients", "-t", target, "-F", "#{client_pid}"]).output() else {
+        return Vec::new();
+    };
+    String::from_utf8_lossy(&out.stdout).lines().filter_map(|l| l.trim().parse().ok()).collect()
+}
+
 /// The tmux sessions CodeDeck started for a project that still run, with the session id each
 /// carries. They count even before the tool inside has reported: it may wait for a question (e.g.
 /// whether to trust the folder) and say nothing until it is answered. What marks one as ours is the

@@ -510,7 +510,7 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
       }
       // `data-event`: a theme can make the reason stand out in its colour (docs/STYLING.md, `events`)
       data-event={wait === "asks" ? "waiting" : wait}
-      className={`group/session rounded-md ${
+      className={`group/session @container/card rounded-md ${
         wait
           ? `event-row wait-card bg-raised ${wait === "asks" ? "wait-card-asks" : ""} ${waitsSince(s) > OPENED_AT ? "attention-new" : ""}`
           : open
@@ -572,7 +572,7 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
           {s.continues && <Related id={s.continues} words={t("Continues")} />}
           {/* The way into it, always in sight; the rarer tools while the mouse is on it. One height with or
               without them, so nothing moves */}
-          <span className="flex h-[22px] items-center gap-1.5 text-[11px] text-slate-500">
+          <span className="flex h-[22px] min-w-0 items-center gap-1.5 overflow-hidden text-[11px] text-slate-500">
             <Chevron className="size-3.5 shrink-0 text-slate-500" />
             {background && (
               // Why there is no terminal to go back to: its tool keeps it, a terminal opens it there
@@ -593,7 +593,8 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
                 className="flex h-[20px] shrink-0 items-center gap-1 rounded px-1 text-slate-300 hover:bg-overlay-hover hover:text-slate-50"
               >
                 <GitCompareArrows className="size-3.5 shrink-0" />
-                {t("See the turn")}
+                {/* Narrow column: the icon alone (its title says the rest) */}
+                <span className="hidden @[17rem]/card:inline">{t("See the turn")}</span>
               </button>
             )}
             <Receipt session={s} aimed={aimed} />
@@ -634,6 +635,20 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
                 {resuming ? <Loader className="size-3 shrink-0 animate-spin" /> : <Play className="size-3 shrink-0" />}
                 {t("Continue")}
               </button>
+            ) : s.noContinue ? (
+              // Said, not a button that is missing without a word
+              <span
+                title={
+                  s.noContinue === "noTmux"
+                    ? t("This conversation could be continued in tmux, but tmux was not found on this computer (see About CodeDeck)")
+                    : s.noContinue === "noTerminal"
+                      ? t("No terminal program was found on this computer (see About CodeDeck)")
+                      : t("Its AI tool cannot continue a conversation from here")
+                }
+                className="shrink-0 text-[11px] text-slate-500"
+              >
+                {s.noContinue === "noTmux" ? t("needs tmux to continue") : s.noContinue === "noTerminal" ? t("no terminal found") : t("cannot continue here")}
+              </span>
             ) : !door && !s.noDoor ? null : !door ? (
               // No way in from here on this computer (e.g. its own terminal under Wayland): said, not offered
               s.noDoor === "noTerminal" ? (
@@ -646,20 +661,29 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
                 </span>
               )
             ) : (
-              // Going into the session is what one comes for most (user, 2026-11-20): always in sight, not
-              // only on a double click; while it asks, as the answer it waits for
-              <button
-                type="button"
-                onClick={(e) => (e.stopPropagation(), cancelFold(), go("auto"))}
-                onDoubleClick={(e) => e.stopPropagation()}
-                title={door === "desktop" ? t("Open in the desktop app") : background ? t("Open it in a terminal; it keeps running in the background") : t("Open in a terminal")}
-                className={`flex h-[20px] shrink-0 items-center gap-0.5 rounded px-1.5 leading-none font-medium ${
-                  s.status === "waiting" ? "bg-changed text-[var(--t-on-wait,var(--color-base))] hover:brightness-110" : "border border-line text-slate-300 hover:bg-overlay-hover hover:text-slate-50"
-                }`}
-              >
-                {s.status === "waiting" ? t("Answer") : door === "desktop" ? t("Desktop") : t("Terminal")}
-                <ArrowUpRight className="size-3 shrink-0" />
-              </button>
+              // Going in is a double click; the tools on hover hold the same ways as buttons. So at rest only
+              // a marker says what the double click does (user, 2026-11-24: the button was unusable under
+              // the hover tools). While it asks, "Answer" stays a button: it is what the card waits for
+              s.status === "waiting" ? (
+                <button
+                  type="button"
+                  onClick={(e) => (e.stopPropagation(), cancelFold(), go("auto"))}
+                  onDoubleClick={(e) => e.stopPropagation()}
+                  title={door === "desktop" ? t("Open in the desktop app") : background ? t("Open it in a terminal; it keeps running in the background") : t("Open in a terminal")}
+                  className="flex h-[20px] shrink-0 items-center gap-0.5 rounded bg-changed px-1.5 leading-none font-medium text-[var(--t-on-wait,var(--color-base))] group-hover/session:hidden group-has-[:focus-visible]/session:hidden hover:brightness-110"
+                >
+                  {t("Answer")}
+                  <ArrowUpRight className="size-3 shrink-0" />
+                </button>
+              ) : (
+                <span
+                  title={door === "desktop" ? t("Double-click opens it in the desktop app") : t("Double-click opens it in a terminal")}
+                  className="flex h-[18px] shrink-0 items-center gap-1 rounded border border-line px-1 leading-none text-slate-400 group-hover/session:hidden group-has-[:focus-visible]/session:hidden"
+                >
+                  {door === "desktop" ? <Monitor className="size-3 shrink-0" /> : <SquareTerminal className="size-3 shrink-0" />}
+                  <span className="hidden @[17rem]/card:inline">{door === "desktop" ? t("Desktop") : t("Terminal")}</span>
+                </span>
+              )
             )}
           </span>
         </span>

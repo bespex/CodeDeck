@@ -587,7 +587,7 @@ function ProjectRow({ project, name, drag, inRecent = false, umbrella = false }:
         {/* At the right edge, always there (user, 2026-11-19): AI and status icons stay right after the name */}
         <HoverTools show="group-hover/row:flex" open={menu}>
           {/* In a project window and on the start page (user, 2026-11-19): no sessions are started from
-              the list, that is the session column's ▶ and + for the project shown */}
+              the list, that is the session column's + for the project shown */}
           {inWindow ? (
             <>
               <Tool icon={AppWindow} label={t("Open in a new window")} hint={t("Also: Ctrl+click or middle click")} onClick={() => here(true)} />
@@ -598,15 +598,6 @@ function ProjectRow({ project, name, drag, inRecent = false, umbrella = false }:
           <>
           {project.state?.canStart && (
           <>
-          <Tool
-            icon={Play}
-            label={t("Start AI session (continues the last one)")}
-            onClick={() =>
-              void startSession(project.path, false)
-                .then((name) => tell(name ? t("Started in tmux {name}", { name }) : t("A session runs there already")))
-                .catch((e) => tell(String(e)))
-            }
-          />
           <Tool
             icon={Plus}
             label={t("New session")}

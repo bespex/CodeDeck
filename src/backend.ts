@@ -856,6 +856,8 @@ export interface Session {
   actions: SessionAction[];
   /** Why a running session has no way in: no terminal program, or its own terminal window cannot be raised here */
   noDoor: "noTerminal" | "ownTerminal" | null;
+  /** Why an ended session has no "Continue": its tool cannot, tmux is missing, or no terminal to join it in the background */
+  noContinue?: "noTool" | "noTmux" | "noTerminal" | null;
 }
 
 /** Where a session runs. Only observed so far; groundwork for starting and finding sessions (`docs/SITZUNGEN.md`) */
@@ -969,7 +971,7 @@ const MINIMAL: Capabilities = { liveStatus: false, beforeWrite: false, attach: "
 const withMinimal = new URLSearchParams(window.location.search).get("tool") === "minimal";
 
 /** The mock's stand-in for `doors.rs` `ways`: what is offered for a session on the preview's computer. */
-function mockWays(s: Session, p: Platform): Pick<Session, "doors" | "actions" | "noDoor"> {
+function mockWays(s: Session, p: Platform): Pick<Session, "doors" | "actions" | "noDoor" | "noContinue"> {
   const c = s.capabilities;
   const background = !!s.place?.background;
   const over = s.status === "ended" || s.alive === false || (!c.liveStatus && s.alive !== true);
@@ -977,7 +979,8 @@ function mockWays(s: Session, p: Platform): Pick<Session, "doors" | "actions" | 
   const none = { doors: [] as Door[], actions: [] as SessionAction[], noDoor: null };
   if (over) {
     const can = background ? c.background && !!p.terminal : c.launch && !!p.tmux;
-    return { ...none, actions: can && !moved ? ["continue"] : [] };
+    const noContinue = can || moved ? null : background ? (c.background ? "noTerminal" : "noTool") : c.launch ? "noTmux" : "noTool";
+    return { ...none, actions: can && !moved ? ["continue"] : [], noContinue } as ReturnType<typeof mockWays>;
   }
   if (moved || !s.place) return none;
   const place = s.place;
