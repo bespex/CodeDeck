@@ -1,5 +1,15 @@
 # Styling: Farbschemata zum Auswählen
 
+**Stand 2026-11-25: umgestellt auf das be spex kit** (`@bespex/themes`, `../kit`, dort `PLAN.md` K5 U1 und
+`themes/README.md`). Farbthema und Stil sind getrennt wählbar und kommen aus dem Kit, dieselbe Auswahl wie in
+jeder be spex-App; `palette.ts`, `src/themes/*.json` und `npm run themes` sind entfallen, die Prüfung läuft im
+Kit. Die Rollen heißen `--sx-*`, CodeDecks eigene Stufen `--cd-*` (`src/index.css`). Die Eingriffe dieses
+Dokuments gehen so auf: `radius` → Stilachse `shape`, `lines`/`depth` → `structure`, `zones`/`areaTint` →
+`color`, `glow`/`glass`/`gradient`/`backdrop`/`motion` → `effects`; `events` bleibt CodeDecks eigene
+Einstellung „Ereignisse“; `font` und `surfaceTint` gibt es vorerst nicht. Alte Wahlen werden übersetzt
+(`codedeck` → Graphit, `fancy` → Neon, `src/theme.ts` `LEGACY`). Der Rest dieses Dokuments beschreibt den
+Stand davor und bleibt als Herkunft.
+
 **Stand 2026-11-17: S.1 und S.2 gebaut, Familie aus neun Themes (B7)** (auf Wunsch des Nutzers vorgezogen): vier Themes, Wahl im
 Einstellungsdialog mit Vorschau beim Überfahren, Glas, Verläufe, Hintergrundschimmer, „Reduce transparency“, Prüfung
 `npm run themes`. Noch offen: durchscheinendes Fenster (Spike, B4a), Eingriff `selection`, „dem System folgen“,

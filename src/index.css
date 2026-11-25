@@ -1,20 +1,23 @@
 @import "tailwindcss";
+@import "@bespex/themes/sx.css";
 
 /*
- * Colours and a few steps come from the theme (src/theme.ts, docs/STYLING.md): it sets `--t-…` on
- * <html>. Every role below falls back to the default theme "CodeDeck", so the page looks right before
- * any script ran and in a theme that does not set a role. Components use only the roles.
+ * Colours come from the be spex kit (@bespex/themes, ../kit): src/theme.ts puts the chosen colour theme
+ * and style on <html> as data-sx-theme and data-sx-<axis>, and the kit's stylesheet turns them into the
+ * roles `--sx-…`. CodeDeck's own steps (`--cd-…`, below) follow the style axes. Every role falls back
+ * to the default (Graphite), so the page looks right before any script ran. Components use only the
+ * Tailwind colours defined here.
  */
 @theme {
-  --font-sans: var(--t-font, system-ui, "Inter", "Noto Sans", "Ubuntu", sans-serif);
+  --font-sans: var(--cd-font, system-ui, "Inter", "Noto Sans", "Ubuntu", sans-serif);
   --font-mono: ui-monospace, "JetBrains Mono", "Fira Code", "DejaVu Sans Mono", monospace;
 
   /* Corners follow the theme's `radius` step */
-  --radius-xs: calc(0.125rem * var(--t-radius, 1));
-  --radius-sm: calc(0.25rem * var(--t-radius, 1));
-  --radius-md: calc(0.375rem * var(--t-radius, 1));
-  --radius-lg: calc(0.5rem * var(--t-radius, 1));
-  --radius-xl: calc(0.75rem * var(--t-radius, 1));
+  --radius-xs: calc(0.125rem * var(--cd-radius, 1));
+  --radius-sm: calc(0.25rem * var(--cd-radius, 1));
+  --radius-md: calc(0.375rem * var(--cd-radius, 1));
+  --radius-lg: calc(0.5rem * var(--cd-radius, 1));
+  --radius-xl: calc(0.75rem * var(--cd-radius, 1));
 
   /*
    * In "CodeDeck" the colours come from the logo: its grey tile, its indigo layers and its orange top layer.
@@ -28,75 +31,132 @@
    * ground itself. So a light theme turns it round and the components stay as they are.
    * 500 is quiet text (times, counts, notes), at least 4 : 1 on every surface; 600 is decoration only.
    */
-  --color-slate-50: var(--t-n50, #f5f6f7);
-  --color-slate-100: var(--t-n100, #e8eaec);
-  --color-slate-200: var(--t-n200, #d2d6da);
-  --color-slate-300: var(--t-n300, #b9bec4);
-  --color-slate-400: var(--t-n400, #a9afb5);
-  --color-slate-500: var(--t-n500, #959ca4);
-  --color-slate-600: var(--t-n600, #757c84);
-  --color-slate-700: var(--t-n700, #3a3f46);
-  --color-slate-800: var(--t-n800, #30343a);
-  --color-slate-900: var(--t-n900, #282b31);
-  --color-slate-950: var(--t-n950, #1b1e22);
+  --color-slate-50: var(--sx-n-50, #f5f6f7);
+  --color-slate-100: var(--sx-n-100, #e8eaec);
+  --color-slate-200: var(--sx-n-200, #d2d6da);
+  --color-slate-300: var(--sx-n-300, #b9bec4);
+  --color-slate-400: var(--sx-n-400, #a9afb5);
+  --color-slate-500: var(--sx-n-500, #959ca4);
+  --color-slate-600: var(--sx-n-600, #757c84);
+  --color-slate-700: var(--sx-n-700, #3a3f46);
+  --color-slate-800: var(--sx-n-800, #30343a);
+  --color-slate-900: var(--sx-n-900, #282b31);
+  --color-slate-950: var(--sx-n-950, #1b1e22);
 
   /* Surfaces, darkest in the middle: the deck is the stage, the side columns stand in front of it */
-  --color-base: var(--t-base, #1b1e22);
-  --color-panel: var(--t-panel, #24272c);
-  --color-raised: var(--t-raised, #2e3238);
-  --color-line: var(--t-line, #3a3f46);
+  --color-base: var(--sx-bg, #1b1e22);
+  --color-panel: var(--sx-panel, #24272c);
+  --color-raised: var(--sx-raised, #2e3238);
+  --color-line: var(--sx-divider, #3a3f46);
 
   /* Floating surfaces (menus, popups, tooltips) sit one step closer to you: lighter, with a
      lighter edge and a deep shadow, so they never blend into the panel below */
-  --color-overlay: var(--t-overlay, #32373e);
-  --color-overlay-hover: var(--t-overlay-hover, #424850);
-  --color-overlay-line: var(--t-overlay-line, #4d545c);
+  --color-overlay: var(--sx-overlay, #32373e);
+  --color-overlay-hover: var(--sx-overlay-hover, #424850);
+  --color-overlay-line: var(--sx-overlay-line, #4d545c);
 
   /* Accent: you, and your one main action */
-  --color-brand: var(--t-accent, #f26500);
-  --color-brand-soft: var(--t-accent-soft, #ff8a3c);
+  --color-brand: var(--sx-accent, #f26500);
+  --color-brand-soft: var(--sx-accent-ink, #ff8a3c);
   /* As a filled button: deep enough that its label reads (4.5 : 1) */
-  --color-brand-fill: var(--t-accent-fill, #bd4f00);
-  --color-brand-fill-hover: var(--t-accent-fill-hover, #a94600);
-  --color-on-accent: var(--t-on-accent, #ffffff);
+  --color-brand-fill: var(--sx-accent-fill, #bd4f00);
+  --color-brand-fill-hover: var(--sx-accent-fill-hover, #a94600);
+  --color-on-accent: var(--sx-on-accent, #ffffff);
 
   /* The assistant */
-  --color-ai: var(--t-ai, #818cf8);
+  --color-ai: var(--sx-ai, #818cf8);
 
   /*
    * Status: Git state, warnings, errors. Together with the accent and the assistant's colour they are
    * all the colour there is; a status shows as a symbol in its tone, the label beside it stays neutral.
    */
-  --color-changed: var(--t-wait, #e0a868); /* modified, needs attention */
-  --color-added: var(--t-added, #9cc39a); /* new, untracked, fine */
-  --color-problem: var(--t-problem, #e66a78); /* deleted, conflict, failed */
-  --color-moved: var(--t-moved, #8fb1cf); /* renamed, moved, copied: the same content in another place */
+  --color-changed: var(--sx-warn, #e0a868); /* modified, needs attention */
+  --color-added: var(--sx-ok, #9cc39a); /* new, untracked, fine */
+  --color-problem: var(--sx-danger, #e66a78); /* deleted, conflict, failed */
+  --color-moved: var(--sx-info, #8fb1cf); /* renamed, moved, copied: the same content in another place */
+}
+
+/*
+ * CodeDeck's own steps, from the kit's style axes: corners (`shape`), how overlays float (`structure`),
+ * glow, light from above and the edge's glow (`effects`), the areas' tint (`color`). How strongly a
+ * new event flashes follows CodeDeck's setting "events" (classes theme-events-…, src/theme.ts).
+ */
+:root {
+  --cd-radius: 1;
+  --cd-glow: 4px;
+  --cd-edge-glow: 10px;
+  --cd-light: 0%;
+  --cd-light-from: #ffffff;
+  --cd-area: 6%;
+  --cd-flash: 22%;
+  --cd-shadow: 0 14px 36px -6px var(--sx-shadow, rgb(0 0 0 / 0.45)), 0 2px 6px var(--sx-shadow, rgb(0 0 0 / 0.45));
+  --cd-edge: color-mix(in srgb, var(--sx-n-50, #f5f6f7) 13%, transparent);
+  --cd-edge-quiet: color-mix(in srgb, var(--sx-n-50, #f5f6f7) 5%, transparent);
+  --cd-accent-fill-2: var(--sx-accent-fill, #bd4f00);
+}
+[data-sx-shape="sharp"] {
+  --cd-radius: 0.35;
+}
+[data-sx-shape="round"] {
+  --cd-radius: 1.8;
+}
+[data-sx-structure="lines"] {
+  --cd-shadow: 0 6px 18px -6px var(--sx-shadow);
+}
+[data-sx-effects="subtle"] {
+  --cd-glow: 6px;
+  --cd-edge-glow: 10px;
+  --cd-light: 4%;
+}
+[data-sx-effects="rich"] {
+  --cd-glow: 12px;
+  --cd-edge-glow: 28px;
+  --cd-light: 8%;
+}
+[data-sx-color="neutral"] {
+  --cd-area: 4%;
+}
+[data-sx-color="colorful"] {
+  --cd-area: 12%;
+}
+.theme-events-clear {
+  --cd-flash: 30%;
+}
+.theme-events-focus {
+  --cd-flash: 34%;
+}
+.theme-events-loud {
+  --cd-flash: 42%;
+}
+/* "Reduce transparency" (a setting of the user): glass stays opaque whatever the style says */
+.theme-opaque {
+  --sx-glass: 100% !important;
 }
 
 /* Not in the theme above: Tailwind drops theme variables no utility uses, and these are used inline */
 :root {
   /* Native controls (select lists, checkboxes, scrollbars) follow the theme */
-  color-scheme: var(--t-scheme, dark);
+  color-scheme: var(--sx-scheme, dark);
   /*
    * Sessions: six tones to tell them apart wherever they show up. They keep clear of the accent
    * (your action), the warm tone (needs you) and red (a problem), which mean something.
    */
-  --color-session-0: var(--t-session-0, #7f95ff);
-  --color-session-1: var(--t-session-1, #c08cf5);
-  --color-session-2: var(--t-session-2, #4fc9bd);
-  --color-session-3: var(--t-session-3, #e391d0);
-  --color-session-4: var(--t-session-4, #62b6ee);
-  --color-session-5: var(--t-session-5, #c3cf6c);
+  --color-session-0: var(--sx-series-1, #7f95ff);
+  --color-session-1: var(--sx-series-2, #c08cf5);
+  --color-session-2: var(--sx-series-3, #4fc9bd);
+  --color-session-3: var(--sx-series-4, #e391d0);
+  --color-session-4: var(--sx-series-5, #62b6ee);
+  --color-session-5: var(--sx-series-6, #c3cf6c);
 
   /*
    * Areas: a quiet ground tone each, and the tone means something. Grey is the project (files,
    * trail, deck), the assistant's colour its sessions, the accent your action (what you hand over).
-   * How strong: the theme's `areaTint` (6 % in "CodeDeck": 5 / 6 / 9 %).
+   * How strong: `--cd-area`, after the style axis `color` (6 % when tinted: 5 / 6 / 9 %).
    */
-  --color-area-ai: color-mix(in srgb, var(--color-ai) calc(var(--t-area, 6%) * 0.85), var(--color-panel));
-  --color-area-you: color-mix(in srgb, var(--color-brand) var(--t-area, 6%), var(--color-panel));
+  --color-area-ai: color-mix(in srgb, var(--color-ai) calc(var(--cd-area, 6%) * 0.85), var(--color-panel));
+  --color-area-you: color-mix(in srgb, var(--color-brand) var(--cd-area, 6%), var(--color-panel));
   /* The warm tone of "waits for you": there only while something waits */
-  --color-area-wait: color-mix(in srgb, var(--color-changed) calc(var(--t-area, 6%) * 1.5), var(--color-panel));
+  --color-area-wait: color-mix(in srgb, var(--color-changed) calc(var(--cd-area, 6%) * 1.5), var(--color-panel));
 }
 
 /*
@@ -104,17 +164,17 @@
  * dims. Derived the same way for every theme: each colour with meaning half mixed with quiet grey.
  */
 :root.inactive {
-  --color-brand: color-mix(in oklch, var(--t-accent, #f26500) 45%, var(--color-slate-500));
-  --color-brand-soft: color-mix(in oklch, var(--t-accent-soft, #ff8a3c) 45%, var(--color-slate-500));
-  --color-brand-fill: color-mix(in oklch, var(--t-accent-fill, #bd4f00) 45%, var(--color-slate-600));
+  --color-brand: color-mix(in oklch, var(--sx-accent, #f26500) 45%, var(--color-slate-500));
+  --color-brand-soft: color-mix(in oklch, var(--sx-accent-ink, #ff8a3c) 45%, var(--color-slate-500));
+  --color-brand-fill: color-mix(in oklch, var(--sx-accent-fill, #bd4f00) 45%, var(--color-slate-600));
   --color-brand-fill-hover: var(--color-brand-fill);
-  --color-ai: color-mix(in oklch, var(--t-ai, #818cf8) 45%, var(--color-slate-500));
-  --color-session-0: color-mix(in oklch, var(--t-session-0, #7f95ff) 45%, var(--color-slate-500));
-  --color-session-1: color-mix(in oklch, var(--t-session-1, #c08cf5) 45%, var(--color-slate-500));
-  --color-session-2: color-mix(in oklch, var(--t-session-2, #4fc9bd) 45%, var(--color-slate-500));
-  --color-session-3: color-mix(in oklch, var(--t-session-3, #e391d0) 45%, var(--color-slate-500));
-  --color-session-4: color-mix(in oklch, var(--t-session-4, #62b6ee) 45%, var(--color-slate-500));
-  --color-session-5: color-mix(in oklch, var(--t-session-5, #c3cf6c) 45%, var(--color-slate-500));
+  --color-ai: color-mix(in oklch, var(--sx-ai, #818cf8) 45%, var(--color-slate-500));
+  --color-session-0: color-mix(in oklch, var(--sx-series-1, #7f95ff) 45%, var(--color-slate-500));
+  --color-session-1: color-mix(in oklch, var(--sx-series-2, #c08cf5) 45%, var(--color-slate-500));
+  --color-session-2: color-mix(in oklch, var(--sx-series-3, #4fc9bd) 45%, var(--color-slate-500));
+  --color-session-3: color-mix(in oklch, var(--sx-series-4, #e391d0) 45%, var(--color-slate-500));
+  --color-session-4: color-mix(in oklch, var(--sx-series-5, #62b6ee) 45%, var(--color-slate-500));
+  --color-session-5: color-mix(in oklch, var(--sx-series-6, #c3cf6c) 45%, var(--color-slate-500));
 }
 
 /* A fine edge around the whole window: on a dark desktop it keeps the window apart from the dark
@@ -125,17 +185,17 @@ body::after {
   inset: 0;
   z-index: 100;
   pointer-events: none;
-  border: 1px solid var(--t-edge, rgb(255 255 255 / 0.13));
+  border: 1px solid var(--cd-edge, rgb(255 255 255 / 0.13));
   transition: border-color 150ms;
 }
 :root.inactive body::after {
-  border-color: var(--t-edge-quiet, rgb(255 255 255 / 0.05));
+  border-color: var(--cd-edge-quiet, rgb(255 255 255 / 0.05));
 }
 
 @utility surface-overlay {
-  background: color-mix(in srgb, var(--color-overlay) var(--t-glass, 100%), transparent);
+  background: color-mix(in srgb, var(--color-overlay) var(--sx-glass, 100%), transparent);
   border: 1px solid var(--color-overlay-line);
-  box-shadow: var(--t-shadow, 0 14px 36px -6px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.35));
+  box-shadow: var(--cd-shadow, 0 14px 36px -6px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.35));
 }
 
 /* Plain `rounded` is a fixed value in Tailwind; outside its layers this rule wins, so it follows the
@@ -162,19 +222,19 @@ body::after {
  */
 /* Glass: floating surfaces let a blurred picture of what is behind them through */
 .theme-glass .surface-overlay {
-  backdrop-filter: blur(var(--t-glass-blur, 10px));
+  backdrop-filter: blur(var(--sx-glass-blur, 10px));
 }
 /* Gradients: the main button from the accent to its second tone, light from above on the panels,
    the areas running out, the mark of the open tab */
 .theme-gradient .bg-brand-fill {
-  background-image: linear-gradient(135deg, var(--color-brand-fill), var(--t-accent-fill-2, var(--color-brand-fill)));
+  background-image: linear-gradient(135deg, var(--color-brand-fill), var(--cd-accent-fill-2, var(--color-brand-fill)));
 }
 .theme-gradient .bg-brand-fill:hover {
   background-image: none;
 }
 .theme-gradient .bg-panel {
   /* Light from above, whatever colour the panel has in its region */
-  background-image: linear-gradient(180deg, color-mix(in srgb, var(--t-light-from, var(--color-slate-50)) var(--t-light, 3%), transparent), transparent 70%);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--cd-light-from, var(--color-slate-50)) var(--cd-light, 3%), transparent), transparent 70%);
 }
 .theme-gradient .area-ai,
 .theme-gradient .area-you,
@@ -183,7 +243,7 @@ body::after {
 }
 .theme-gradient [role="tab"][aria-selected="true"] {
   box-shadow: none;
-  background-image: linear-gradient(90deg, var(--color-brand), var(--t-accent-2, var(--color-brand)));
+  background-image: linear-gradient(90deg, var(--color-brand), var(--sx-accent-2, var(--color-brand)));
   background-size: 100% 2px;
   background-position: bottom;
   background-repeat: no-repeat;
@@ -194,20 +254,20 @@ body::after {
  * Files are the project, the tabs the deck, the right column the assistant, the bar below you.
  */
 .theme-zones .zone-files {
-  --color-panel: var(--t-zone-files);
+  --color-panel: var(--sx-area-1-bg);
 }
 .theme-zones .zone-tabs {
-  --color-panel: var(--t-zone-tabs);
+  --color-panel: var(--sx-area-2-bg);
 }
 .theme-zones .zone-side {
-  --color-panel: var(--t-zone-side);
+  --color-panel: var(--sx-area-3-bg);
   /* The areas mix with the panel; computed at the root they would keep the grey one */
-  --color-area-ai: color-mix(in srgb, var(--color-ai) calc(var(--t-area, 6%) * 0.85), var(--t-zone-side));
-  --color-area-you: color-mix(in srgb, var(--color-brand) var(--t-area, 6%), var(--t-zone-side));
-  --color-area-wait: color-mix(in srgb, var(--color-changed) calc(var(--t-area, 6%) * 1.5), var(--t-zone-side));
+  --color-area-ai: color-mix(in srgb, var(--color-ai) calc(var(--cd-area, 6%) * 0.85), var(--sx-area-3-bg));
+  --color-area-you: color-mix(in srgb, var(--color-brand) var(--cd-area, 6%), var(--sx-area-3-bg));
+  --color-area-wait: color-mix(in srgb, var(--color-changed) calc(var(--cd-area, 6%) * 1.5), var(--sx-area-3-bg));
 }
 .theme-zones .zone-bar {
-  --color-panel: var(--t-zone-bar);
+  --color-panel: var(--sx-area-4-bg);
 }
 .theme-zones :is(.zone-files, .zone-tabs, .zone-side, .zone-bar) {
   --color-raised: color-mix(in oklch, var(--color-panel), var(--color-slate-50) 7%);
@@ -219,10 +279,10 @@ body::after {
  * flash in their colour and the window's edge light up while something waits.
  */
 :is(.theme-events-clear, .theme-events-focus, .theme-events-loud) .event-row[data-event="done"] {
-  --flash: var(--t-done);
+  --flash: var(--sx-done);
 }
 :is(.theme-events-clear, .theme-events-focus, .theme-events-loud) .event-chip[data-event="done"] {
-  color: var(--t-done);
+  color: var(--sx-done);
 }
 :is(.theme-events-clear, .theme-events-focus, .theme-events-loud) .event-chip[data-event="working"] {
   color: var(--color-ai);
@@ -248,25 +308,25 @@ body::after {
   padding: 0 7px;
 }
 .theme-events-loud .event-chip[data-event="done"] {
-  background-color: var(--t-done);
-  color: var(--t-on-done);
-  box-shadow: 0 0 var(--t-glow, 6px) color-mix(in srgb, var(--t-done) 60%, transparent);
+  background-color: var(--sx-done);
+  color: var(--sx-on-done);
+  box-shadow: 0 0 var(--cd-glow, 6px) color-mix(in srgb, var(--sx-done) 60%, transparent);
 }
 .theme-events-loud .event-chip[data-event="waiting"],
 .theme-events-focus .event-chip[data-event="waiting"] {
   background-color: var(--color-changed);
-  color: var(--t-on-wait);
-  box-shadow: 0 0 var(--t-glow, 6px) color-mix(in srgb, var(--color-changed) 60%, transparent);
+  color: var(--sx-on-warn);
+  box-shadow: 0 0 var(--cd-glow, 6px) color-mix(in srgb, var(--color-changed) 60%, transparent);
 }
 .theme-events-loud .event-chip[data-event="working"] {
   background-color: color-mix(in srgb, var(--color-ai) 18%, transparent);
 }
 .theme-events-clear .event-row[data-event="done"] {
-  background-color: color-mix(in srgb, var(--t-done) 6%, transparent);
+  background-color: color-mix(in srgb, var(--sx-done) 6%, transparent);
 }
 .theme-events-loud .event-row[data-event="done"] {
-  background-color: color-mix(in srgb, var(--t-done) 13%, transparent);
-  box-shadow: inset 2px 0 0 var(--t-done);
+  background-color: color-mix(in srgb, var(--sx-done) 13%, transparent);
+  box-shadow: inset 2px 0 0 var(--sx-done);
 }
 .theme-events-loud .event-row[data-event="waiting"] {
   background-color: color-mix(in srgb, var(--color-changed) 14%, transparent);
@@ -279,8 +339,8 @@ body::after {
 /* Backdrop: a soft glow of the assistant's colour and the theme's tint behind the deck, mood only */
 .theme-backdrop .deck-stage {
   background-image:
-    radial-gradient(55% 45% at 85% 8%, color-mix(in srgb, var(--color-ai) var(--t-backdrop, 0%), transparent), transparent 70%),
-    radial-gradient(50% 55% at 8% 95%, color-mix(in srgb, var(--t-tint, var(--color-ai)) var(--t-backdrop, 0%), transparent), transparent 70%);
+    radial-gradient(55% 45% at 85% 8%, color-mix(in srgb, var(--color-ai) var(--sx-backdrop, 0%), transparent), transparent 70%),
+    radial-gradient(50% 55% at 8% 95%, color-mix(in srgb, var(--sx-tint, var(--color-ai)) var(--sx-backdrop, 0%), transparent), transparent 70%);
 }
 
 html,
@@ -322,7 +382,7 @@ body {
   height: 6px;
   border-radius: 9999px;
   background: var(--dot, var(--color-ai));
-  box-shadow: 0 0 var(--t-glow, 6px) 1px color-mix(in srgb, var(--dot, var(--color-ai)) 70%, transparent);
+  box-shadow: 0 0 var(--cd-glow, 6px) 1px color-mix(in srgb, var(--dot, var(--color-ai)) 70%, transparent);
   animation: ai-pulse 2.4s ease-in-out infinite;
 }
 
@@ -361,7 +421,7 @@ body {
     box-shadow:
       inset 0 0 0 1px var(--flash, var(--color-changed)),
       0 0 0 3px color-mix(in srgb, var(--flash, var(--color-changed)) 35%, transparent),
-      0 0 18px color-mix(in srgb, var(--flash, var(--color-changed)) var(--t-flash, 22%), transparent);
+      0 0 18px color-mix(in srgb, var(--flash, var(--color-changed)) var(--cd-flash, 22%), transparent);
   }
 }
 .attention-new {
@@ -413,13 +473,13 @@ body {
 /* The window's edge lights up while something waits (`events: loud`), also when another window has the
    focus: that is when it matters. A question wins over a finished turn. */
 .theme-events-loud.attn-done body::after {
-  border-color: var(--t-done);
-  box-shadow: inset 0 0 var(--t-edge-glow, 24px) -8px var(--t-done);
+  border-color: var(--sx-done);
+  box-shadow: inset 0 0 var(--cd-edge-glow, 24px) -8px var(--sx-done);
 }
 .theme-events-loud.attn-asks body::after,
 .theme-events-focus.attn-asks body::after {
   border-color: var(--color-changed);
-  box-shadow: inset 0 0 var(--t-edge-glow, 28px) -8px var(--color-changed);
+  box-shadow: inset 0 0 var(--cd-edge-glow, 28px) -8px var(--color-changed);
 }
 
 /* The overview: a project's mark opens and closes its window. On hover a ring runs round it once

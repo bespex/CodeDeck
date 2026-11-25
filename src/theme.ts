@@ -1,94 +1,135 @@
-// The theme of this machine (docs/STYLING.md): which one is chosen, putting it on the page, trying one
-// out while the pointer is on it. Like the language, the choice lives in the machine settings that every
-// window shares; `localStorage` keeps the variables last put on the page, so that the first picture of
-// the next start is already in the theme (see the script in index.html).
+// How this machine's CodeDeck looks (docs/STYLING.md): a colour theme and a style from the be spex kit
+// (@bespex/themes, the same choice as in every be spex app), and CodeDeck's own setting how loud events
+// are. Like the language, the choice lives in the machine settings that every window shares;
+// `localStorage` keeps what was last put on the page, so that the first picture of the next start is
+// already right (public/theme-early.js).
 
 import { useEffect, useState } from "react";
+import { apply, normalize, resolveStyle, type Appearance, type Axis, type Style } from "@bespex/themes";
 import { machineSettings, onSettingsChanged, setMachineSetting } from "./backend";
-import { cssOf, derive, type Roles, type Theme } from "./palette";
 
-/** The shipped themes, in the order they are offered: the default first. */
-const files = import.meta.glob<Theme>("./themes/*.json", { eager: true, import: "default" });
-const ORDER = ["codedeck", "paper", "colorful", "moon", "forest", "elegance", "fancy", "terminal", "contrast"];
-export const THEMES: Theme[] = Object.values(files).sort((a, b) => rank(a.id) - rank(b.id));
-function rank(id: string) {
-  const i = ORDER.indexOf(id);
-  return i < 0 ? ORDER.length : i;
-}
-export const DEFAULT_THEME = "codedeck";
+/** How much events stand out: a session done or asking, work going on, new entries. `focus`: only what
+ *  needs the user is loud (a question, waiting for you), the rest as with `clear`. */
+export type Events = "quiet" | "clear" | "focus" | "loud";
+export const EVENTS: Events[] = ["quiet", "clear", "focus", "loud"];
 
-/** What index.html reads before anything else runs: `{ vars, classes }` */
+/** The default: Graphite (the former theme "CodeDeck"), soft corners, tinted regions. */
+export const DEFAULT_APPEARANCE: Appearance = normalize({ theme: "graphite", style: "calm" });
+export const DEFAULT_EVENTS: Events = "focus";
+
+/** The style axes that change something in CodeDeck; the picker offers only these. CodeDeck marks no
+ *  bars or emphasis zones and keeps its own density. */
+export const AXES_USED: Axis[] = ["shape", "structure", "color", "effects"];
+
+/** A colour theme with the steps that differ from the default style. */
+const look = (theme: string, style: Partial<Style> = {}): Appearance => normalize({ theme, style });
+
+/** The themes before the kit (machine setting `theme`), each as colour theme, style and events. */
+const LEGACY: Record<string, { appearance: Appearance; events: Events }> = {
+  codedeck: { appearance: DEFAULT_APPEARANCE, events: "focus" },
+  paper: { appearance: look("paper", { shape: "round", color: "tinted", effects: "subtle" }), events: "focus" },
+  colorful: { appearance: look("colorful", { shape: "round", color: "colorful", effects: "rich" }), events: "loud" },
+  moon: { appearance: look("moon", { shape: "round", structure: "depth", effects: "subtle" }), events: "focus" },
+  forest: { appearance: look("forest", { shape: "round" }), events: "focus" },
+  elegance: { appearance: look("elegance", { shape: "round", effects: "subtle" }), events: "focus" },
+  fancy: { appearance: look("neon", { color: "neutral", effects: "rich" }), events: "loud" },
+  terminal: { appearance: look("terminal", { shape: "sharp", structure: "lines", color: "neutral" }), events: "focus" },
+  contrast: { appearance: look("contrast", { shape: "sharp", structure: "lines", color: "neutral" }), events: "loud" },
+};
+
+/** What index.html reads before anything else runs: `{ attrs, classes }` */
 const CACHE = "codedeck.theme";
 
-let chosen = DEFAULT_THEME;
+let appearance = DEFAULT_APPEARANCE;
+let events: Events = DEFAULT_EVENTS;
 let reduce = false;
 const listeners = new Set<() => void>();
 
-const byId = (id: string) => THEMES.find((t) => t.id === id) ?? THEMES.find((t) => t.id === DEFAULT_THEME)!;
-
-/** The roles of a theme, for previews (the colour strip in the list). */
-const roles = new Map<string, Roles>();
-export function rolesOf(theme: Theme): Roles {
-  let r = roles.get(theme.id);
-  if (!r) roles.set(theme.id, (r = derive(theme)));
-  return r;
-}
-
 let applied: string[] = [];
-/** Puts a theme on the page; `keep` also remembers it for the next start. */
-function put(theme: Theme, keep: boolean) {
-  const { vars, classes } = cssOf(rolesOf(theme), { reduceTransparency: reduce });
+/** Puts the choice on the page and remembers it for the next start. */
+function put() {
   const root = document.documentElement;
-  for (const name of [...root.style].filter((p) => p.startsWith("--t-"))) root.style.removeProperty(name);
-  for (const [name, value] of Object.entries(vars)) root.style.setProperty(name, value);
+  apply(appearance, root);
+  const style = resolveStyle(appearance.style);
+  // Steps that switch rules on in index.css
+  const classes: string[] = [];
+  if (style.effects !== "none") classes.push("theme-gradient", "theme-glass");
+  if (style.effects === "rich") classes.push("theme-backdrop");
+  if (style.color !== "neutral") classes.push("theme-zones");
+  if (events !== "quiet") classes.push(`theme-events-${events}`);
+  if (reduce) classes.push("theme-opaque");
   root.classList.remove(...applied);
   root.classList.add(...classes);
   applied = classes;
-  if (keep) localStorage.setItem(CACHE, JSON.stringify({ vars, classes }));
+  const attrs = Object.fromEntries([...root.attributes].filter((a) => a.name.startsWith("data-sx-")).map((a) => [a.name, a.value]));
+  localStorage.setItem(CACHE, JSON.stringify({ attrs, classes }));
 }
 
-/** Chooses a theme for this machine, in every window. */
-export function setTheme(id: string) {
-  chosen = byId(id).id;
-  put(byId(chosen), true);
+const changed = () => {
+  put();
   listeners.forEach((l) => l());
-  void setMachineSetting("theme", chosen === DEFAULT_THEME ? null : chosen);
+};
+
+/** Chooses colour theme and style for this machine, in every window. */
+export function setAppearance(value: Appearance) {
+  appearance = normalize(value);
+  changed();
+  void setMachineSetting("appearance", appearance);
+  void setMachineSetting("theme", null);
 }
 
-/** Glass becomes opaque whatever the theme says (a setting of the user, not of the theme). */
+/** Only the colour theme, the style stays (for `tools/shot.mjs`: `eval:theme("paper")`). */
+export function setTheme(id: string) {
+  setAppearance({ ...appearance, theme: LEGACY[id]?.appearance.theme ?? id });
+}
+
+export function setEvents(value: Events) {
+  events = EVENTS.includes(value) ? value : DEFAULT_EVENTS;
+  changed();
+  void setMachineSetting("events", events === DEFAULT_EVENTS ? null : events);
+}
+
+/** Glass becomes opaque whatever the style says (a setting of the user, not of the style). */
 export function setReduceTransparency(on: boolean) {
   reduce = on;
-  put(byId(chosen), true);
-  listeners.forEach((l) => l());
+  changed();
   void setMachineSetting("reduceTransparency", on || null);
 }
 
-/** The chosen theme and the transparency setting; draws again when either changes, here or in another window. */
-export function useTheme(): { theme: string; reduceTransparency: boolean } {
+/** The choice; draws again when it changes, here or in another window. */
+export function useTheme(): { appearance: Appearance; events: Events; reduceTransparency: boolean } {
   const [, redraw] = useState(0);
   useEffect(() => {
     const listener = () => redraw((n) => n + 1);
     listeners.add(listener);
     return () => void listeners.delete(listener);
   }, []);
-  return { theme: chosen, reduceTransparency: reduce };
+  return { appearance, events, reduceTransparency: reduce };
+}
+
+/** The choice from the machine settings; a theme chosen before the kit is translated. */
+export function fromSettings(settings: Record<string, unknown>): { appearance: Appearance; events: Events } {
+  const legacy = typeof settings.theme === "string" ? LEGACY[settings.theme] : undefined;
+  const stored = settings.events;
+  return {
+    appearance: settings.appearance ? normalize(settings.appearance) : (legacy?.appearance ?? DEFAULT_APPEARANCE),
+    events: EVENTS.includes(stored as Events) ? (stored as Events) : (legacy?.events ?? DEFAULT_EVENTS),
+  };
 }
 
 /** The machine settings at start, and again when another window changed them. */
 async function follow() {
   const settings = await machineSettings().catch(() => ({}) as Record<string, unknown>);
-  const id = typeof settings.theme === "string" ? byId(settings.theme).id : DEFAULT_THEME;
-  const off = settings.reduceTransparency === true;
-  if (id === chosen && off === reduce && applied.length + document.documentElement.style.length > 0) return;
-  chosen = id;
-  reduce = off;
-  put(byId(chosen), true);
-  listeners.forEach((l) => l());
+  const next = fromSettings(settings);
+  appearance = next.appearance;
+  events = next.events;
+  reduce = settings.reduceTransparency === true;
+  changed();
 }
 
 if (typeof window !== "undefined") {
   // For checking themes in the preview from outside (tools/shot.mjs `eval:`), like `missingTranslations`
-  (window as unknown as { theme: (id: string) => void }).theme = setTheme;
+  Object.assign(window, { theme: setTheme, look: setAppearance });
   void follow();
   onSettingsChanged(() => void follow());
 }

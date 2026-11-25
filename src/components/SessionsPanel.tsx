@@ -104,7 +104,7 @@ const markOf = (s: Session, known: SessionMark | null): SessionMark =>
 /** The heading of an area: small capitals, as quiet as the area itself. */
 function AreaHeader({ title, count, hint, asks, children }: { title: string; count?: number; hint?: string; asks?: boolean; children?: ReactNode }) {
   // The count is amber only while a session asks; finished turns alone are no call for attention
-  const badge = `rounded-full px-1.5 text-[11px] font-semibold ${asks ? "bg-changed text-[var(--t-on-wait,var(--color-base))]" : "bg-raised text-slate-200"}`;
+  const badge = `rounded-full px-1.5 text-[11px] font-semibold ${asks ? "bg-changed text-[var(--sx-on-warn,var(--color-base))]" : "bg-raised text-slate-200"}`;
   return (
     <header className="flex h-9 shrink-0 items-center gap-2 px-3">
       <h2 className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{title}</h2>
@@ -673,7 +673,7 @@ function SessionItem({ session: s, wait, now, blockedUntil: reset, onShowFile, t
                   onClick={(e) => (e.stopPropagation(), cancelFold(), go("auto"))}
                   onDoubleClick={(e) => e.stopPropagation()}
                   title={door === "desktop" ? t("Open in the desktop app") : background ? t("Open it in a terminal; it keeps running in the background") : t("Open in a terminal")}
-                  className="flex h-[20px] shrink-0 items-center gap-0.5 rounded bg-changed px-1.5 leading-none font-medium text-[var(--t-on-wait,var(--color-base))] group-hover/session:hidden group-has-[:focus-visible]/session:hidden hover:brightness-110"
+                  className="flex h-[20px] shrink-0 items-center gap-0.5 rounded bg-changed px-1.5 leading-none font-medium text-[var(--sx-on-warn,var(--color-base))] group-hover/session:hidden group-has-[:focus-visible]/session:hidden hover:brightness-110"
                 >
                   {t("Answer")}
                   <ArrowUpRight className="size-3 shrink-0" />

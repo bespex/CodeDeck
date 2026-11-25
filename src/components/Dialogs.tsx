@@ -9,7 +9,7 @@ import { AccountMark, MarkPicker } from "./ProjectMark";
 import { useConnections } from "../assistant";
 import { closeDialog, useDialog, type SettingsSection } from "../dialogs";
 import { lang, setLang, t, T } from "../i18n";
-import { ReduceTransparency, ThemeChoice } from "./ThemeChoice";
+import { EventsChoice, ReduceTransparency, ThemeChoice } from "./ThemeChoice";
 import { useWindowHelp, WindowHelp } from "./WindowHelp";
 import { AttentionChoice, QuietChoice } from "./AttentionChoice";
 
@@ -437,7 +437,7 @@ function General() {
   );
 }
 
-/** How CodeDeck looks and speaks: language, theme, transparency. */
+/** How CodeDeck looks and speaks: language, colour theme and style, events, transparency. */
 function Interface() {
   return (
     <>
@@ -458,10 +458,13 @@ function Interface() {
           ))}
         </div>
       </Setting>
-      <Setting label={t("Theme")} note={t("A click chooses it. Colours keep their meaning in every theme.")} scope="machine">
+      <Setting label={t("Theme")} note={t("Colour theme and style, the same as in every be spex app. A click chooses; colours keep their meaning in every theme.")} scope="machine">
         <ThemeChoice />
       </Setting>
-      <Setting label={t("Transparency")} note={t("Menus and popups of some themes let a blurred picture of what is behind them through.")} scope="machine">
+      <Setting label={t("Events")} note={t("How much a session that asks or is done stands out. Focus: only what needs you is loud.")} scope="machine">
+        <EventsChoice />
+      </Setting>
+      <Setting label={t("Transparency")} note={t("Menus and popups of some styles let a blurred picture of what is behind them through.")} scope="machine">
         <ReduceTransparency />
       </Setting>
     </>
