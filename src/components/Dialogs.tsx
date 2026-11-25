@@ -9,7 +9,7 @@ import { AccountMark, MarkPicker } from "./ProjectMark";
 import { useConnections } from "../assistant";
 import { closeDialog, useDialog, type SettingsSection } from "../dialogs";
 import { lang, setLang, t, T } from "../i18n";
-import { EventsChoice, ReduceTransparency, ThemeChoice } from "./ThemeChoice";
+import { EventsChoice, ThemeChoice } from "./ThemeChoice";
 import { useWindowHelp, WindowHelp } from "./WindowHelp";
 import { AttentionChoice, QuietChoice } from "./AttentionChoice";
 
@@ -212,6 +212,7 @@ export function Shortcuts() {
 const SECTIONS: [SettingsSection, string][] = [
   ["general", "General"],
   ["interface", "Interface"],
+  ["theme", "Theme"],
   ["notifications", "Notifications"],
   ["files", "Files and folders"],
   ["tools", "Coding agents"],
@@ -250,6 +251,7 @@ export function SettingsWindow() {
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
           {section === "general" && <General />}
           {section === "interface" && <Interface />}
+          {section === "theme" && <ThemeSettings />}
           {section === "notifications" && <Notifications />}
           {section === "files" && <FilesAndFolders />}
           {section === "tools" && <Tools harnesses={harnesses} />}
@@ -437,7 +439,7 @@ function General() {
   );
 }
 
-/** How CodeDeck looks and speaks: language, colour theme and style, events, transparency. */
+/** How CodeDeck speaks: the language. How it looks has an area of its own (Theme). */
 function Interface() {
   return (
     <>
@@ -458,15 +460,27 @@ function Interface() {
           ))}
         </div>
       </Setting>
-      <Setting label={t("Theme")} note={t("Colour theme and style, the same as in every be spex app. A click chooses; colours keep their meaning in every theme.")} scope="machine">
-        <ThemeChoice />
-      </Setting>
-      <Setting label={t("Events")} note={t("How much a session that asks or is done stands out. Focus: only what needs you is loud.")} scope="machine">
-        <EventsChoice />
-      </Setting>
-      <Setting label={t("Transparency")} note={t("Menus and popups of some styles let a blurred picture of what is behind them through.")} scope="machine">
-        <ReduceTransparency />
-      </Setting>
+    </>
+  );
+}
+
+/**
+ * How CodeDeck looks: colour theme and style (the kit's picker, the same in every be spex app, its own
+ * headings instead of a label beside it), then how loud events are.
+ */
+function ThemeSettings() {
+  return (
+    <>
+      <h3 className="mb-1 font-semibold text-slate-100">{t("Theme")}</h3>
+      <p className="mb-1 text-[12px] text-slate-500">
+        {t("The same choice as in every be spex app. A click applies it at once; colours keep their meaning in every theme. For this computer.")}
+      </p>
+      <ThemeChoice />
+      <div className="mt-3">
+        <Setting label={t("Events")} note={t("How much a session that asks or is done stands out.")} scope="machine">
+          <EventsChoice />
+        </Setting>
+      </div>
     </>
   );
 }

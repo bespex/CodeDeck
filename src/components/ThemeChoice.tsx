@@ -1,7 +1,7 @@
 import "@bespex/themes/appearance";
 import { useEffect, useRef } from "react";
 import type { Appearance } from "@bespex/themes";
-import { AXES_USED, EVENTS, setAppearance, setEvents, setReduceTransparency, useTheme, type Events } from "../theme";
+import { AXES_USED, EVENTS, setAppearance, setEvents, useTheme, type Events } from "../theme";
 import { lang, t } from "../i18n";
 
 /**
@@ -22,10 +22,10 @@ export function ThemeChoice() {
   useEffect(() => {
     if (ref.current) ref.current.value = appearance;
   }, [appearance]);
-  return <sx-appearance ref={ref} layout="compact" lang={lang} axes={AXES_USED.join(" ")} class="block w-[300px] max-w-full" />;
+  return <sx-appearance ref={ref} lang={lang} axes={AXES_USED.join(" ")} class="block max-w-[640px]" />;
 }
 
-const EVENT_LABELS: Record<Events, string> = { quiet: "Quiet", clear: "Distinct", focus: "Focus", loud: "Loud" };
+const EVENT_LABELS: Record<Events, string> = { quiet: "Quiet", clear: "Distinct", loud: "Loud" };
 
 /** How much events stand out: CodeDeck's own, beside the style. */
 export function EventsChoice() {
@@ -48,23 +48,11 @@ export function EventsChoice() {
   );
 }
 
-/** Glass opaque, whatever the style says. */
-export function ReduceTransparency() {
-  const { reduceTransparency } = useTheme();
-  return (
-    <label className="flex items-center gap-2 text-[12px] text-slate-200">
-      <input type="checkbox" checked={reduceTransparency} onChange={(e) => setReduceTransparency(e.target.checked)} className="accent-[var(--color-ai)]" />
-      {t("Reduce transparency")}
-    </label>
-  );
-}
-
 declare module "react" {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
     interface IntrinsicElements {
       "sx-appearance": React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
-        layout?: string;
         lang?: string;
         axes?: string;
         class?: string;

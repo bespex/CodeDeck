@@ -8,14 +8,13 @@ import { useEffect, useState } from "react";
 import { apply, normalize, resolveStyle, type Appearance, type Axis, type Style } from "@bespex/themes";
 import { machineSettings, onSettingsChanged, setMachineSetting } from "./backend";
 
-/** How much events stand out: a session done or asking, work going on, new entries. `focus`: only what
- *  needs the user is loud (a question, waiting for you), the rest as with `clear`. */
-export type Events = "quiet" | "clear" | "focus" | "loud";
-export const EVENTS: Events[] = ["quiet", "clear", "focus", "loud"];
+/** How much events stand out: a session done or asking, work going on, new entries. */
+export type Events = "quiet" | "clear" | "loud";
+export const EVENTS: Events[] = ["quiet", "clear", "loud"];
 
 /** The default: Graphite (the former theme "CodeDeck"), soft corners, tinted regions. */
 export const DEFAULT_APPEARANCE: Appearance = normalize({ theme: "graphite", style: "calm" });
-export const DEFAULT_EVENTS: Events = "focus";
+export const DEFAULT_EVENTS: Events = "clear";
 
 /** The style axes that change something in CodeDeck; the picker offers only these. CodeDeck marks no
  *  bars or emphasis zones and keeps its own density. */
@@ -26,14 +25,14 @@ const look = (theme: string, style: Partial<Style> = {}): Appearance => normaliz
 
 /** The themes before the kit (machine setting `theme`), each as colour theme, style and events. */
 const LEGACY: Record<string, { appearance: Appearance; events: Events }> = {
-  codedeck: { appearance: DEFAULT_APPEARANCE, events: "focus" },
-  paper: { appearance: look("paper", { shape: "round", color: "tinted", effects: "subtle" }), events: "focus" },
+  codedeck: { appearance: DEFAULT_APPEARANCE, events: "clear" },
+  paper: { appearance: look("paper", { shape: "round", color: "tinted", effects: "subtle" }), events: "clear" },
   colorful: { appearance: look("colorful", { shape: "round", color: "colorful", effects: "rich" }), events: "loud" },
-  moon: { appearance: look("moon", { shape: "round", structure: "depth", effects: "subtle" }), events: "focus" },
-  forest: { appearance: look("forest", { shape: "round" }), events: "focus" },
-  elegance: { appearance: look("elegance", { shape: "round", effects: "subtle" }), events: "focus" },
+  moon: { appearance: look("moon", { shape: "round", structure: "depth", effects: "subtle" }), events: "clear" },
+  forest: { appearance: look("forest", { shape: "round" }), events: "clear" },
+  elegance: { appearance: look("elegance", { shape: "round", effects: "subtle" }), events: "clear" },
   fancy: { appearance: look("neon", { color: "neutral", effects: "rich" }), events: "loud" },
-  terminal: { appearance: look("terminal", { shape: "sharp", structure: "lines", color: "neutral" }), events: "focus" },
+  terminal: { appearance: look("terminal", { shape: "sharp", structure: "lines", color: "neutral" }), events: "clear" },
   contrast: { appearance: look("contrast", { shape: "sharp", structure: "lines", color: "neutral" }), events: "loud" },
 };
 
@@ -42,7 +41,6 @@ const CACHE = "codedeck.theme";
 
 let appearance = DEFAULT_APPEARANCE;
 let events: Events = DEFAULT_EVENTS;
-let reduce = false;
 const listeners = new Set<() => void>();
 
 let applied: string[] = [];
@@ -57,7 +55,6 @@ function put() {
   if (style.effects === "rich") classes.push("theme-backdrop");
   if (style.color !== "neutral") classes.push("theme-zones");
   if (events !== "quiet") classes.push(`theme-events-${events}`);
-  if (reduce) classes.push("theme-opaque");
   root.classList.remove(...applied);
   root.classList.add(...classes);
   applied = classes;
@@ -89,28 +86,22 @@ export function setEvents(value: Events) {
   void setMachineSetting("events", events === DEFAULT_EVENTS ? null : events);
 }
 
-/** Glass becomes opaque whatever the style says (a setting of the user, not of the style). */
-export function setReduceTransparency(on: boolean) {
-  reduce = on;
-  changed();
-  void setMachineSetting("reduceTransparency", on || null);
-}
-
 /** The choice; draws again when it changes, here or in another window. */
-export function useTheme(): { appearance: Appearance; events: Events; reduceTransparency: boolean } {
+export function useTheme(): { appearance: Appearance; events: Events } {
   const [, redraw] = useState(0);
   useEffect(() => {
     const listener = () => redraw((n) => n + 1);
     listeners.add(listener);
     return () => void listeners.delete(listener);
   }, []);
-  return { appearance, events, reduceTransparency: reduce };
+  return { appearance, events };
 }
 
 /** The choice from the machine settings; a theme chosen before the kit is translated. */
 export function fromSettings(settings: Record<string, unknown>): { appearance: Appearance; events: Events } {
   const legacy = typeof settings.theme === "string" ? LEGACY[settings.theme] : undefined;
-  const stored = settings.events;
+  // "focus" (loud only for what needs you) left the choice; it reads as "clear"
+  const stored = settings.events === "focus" ? "clear" : settings.events;
   return {
     appearance: settings.appearance ? normalize(settings.appearance) : (legacy?.appearance ?? DEFAULT_APPEARANCE),
     events: EVENTS.includes(stored as Events) ? (stored as Events) : (legacy?.events ?? DEFAULT_EVENTS),
@@ -123,7 +114,6 @@ async function follow() {
   const next = fromSettings(settings);
   appearance = next.appearance;
   events = next.events;
-  reduce = settings.reduceTransparency === true;
   changed();
 }
 

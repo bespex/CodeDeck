@@ -6,7 +6,8 @@ jeder be spex-App; `palette.ts`, `src/themes/*.json` und `npm run themes` sind e
 Kit. Die Rollen heißen `--sx-*`, CodeDecks eigene Stufen `--cd-*` (`src/index.css`). Die Eingriffe dieses
 Dokuments gehen so auf: `radius` → Stilachse `shape`, `lines`/`depth` → `structure`, `zones`/`areaTint` →
 `color`, `glow`/`glass`/`gradient`/`backdrop`/`motion` → `effects`; `events` bleibt CodeDecks eigene
-Einstellung „Ereignisse“; `font` und `surfaceTint` gibt es vorerst nicht. Alte Wahlen werden übersetzt
+Einstellung „Ereignisse“ (seit 2026-11-26 nur Ruhig, Deutlich, Laut; „Fokus“ liest sich als Deutlich), „Reduce
+transparency“ ist entfallen; `font` und `surfaceTint` gibt es vorerst nicht. Alte Wahlen werden übersetzt
 (`codedeck` → Graphit, `fancy` → Neon, `src/theme.ts` `LEGACY`). Der Rest dieses Dokuments beschreibt den
 Stand davor und bleibt als Herkunft.
 

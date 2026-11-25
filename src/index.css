@@ -128,10 +128,6 @@
 .theme-events-loud {
   --cd-flash: 42%;
 }
-/* "Reduce transparency" (a setting of the user): glass stays opaque whatever the style says */
-.theme-opaque {
-  --sx-glass: 100% !important;
-}
 
 /* Not in the theme above: Tailwind drops theme variables no utility uses, and these are used inline */
 :root {
@@ -341,6 +337,13 @@ body::after {
   background-image:
     radial-gradient(55% 45% at 85% 8%, color-mix(in srgb, var(--color-ai) var(--sx-backdrop, 0%), transparent), transparent 70%),
     radial-gradient(50% 55% at 8% 95%, color-mix(in srgb, var(--sx-tint, var(--color-ai)) var(--sx-backdrop, 0%), transparent), transparent 70%);
+}
+
+/* The headings inside the kit's theme picker look like the settings' own */
+sx-appearance::part(label) {
+  margin: 14px 0 6px;
+  font-weight: 600;
+  color: var(--color-slate-100);
 }
 
 html,

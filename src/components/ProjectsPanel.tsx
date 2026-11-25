@@ -23,7 +23,7 @@ export function ProjectsPanel({ project, assistant, onOpen, folded, onFold }: Pr
   const inWindow: InWindow = { current: project?.path ?? null, onOpen };
   if (folded) return <FoldedProjects assistant={assistant} inWindow={inWindow} onOpen={() => onFold(false)} />;
   return (
-    <aside data-tour="projects" className="zone-side flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
+    <aside data-tour="projects" className="zone-files flex min-h-0 min-w-0 flex-col border-r border-line bg-panel">
       <PathBar assistant={assistant} onFold={() => onFold(true)} foldLabel={t("Fold the project list")} />
       <OverviewApp inWindow={inWindow} />
     </aside>
@@ -32,7 +32,7 @@ export function ProjectsPanel({ project, assistant, onOpen, folded, onFold }: Pr
 
 function FoldedProjects({ assistant, inWindow, onOpen }: { assistant: AssistantState; inWindow: InWindow; onOpen: () => void }) {
   return (
-    <aside data-tour="projects" className="zone-side flex min-h-0 min-w-0 flex-col items-center border-r border-line bg-panel">
+    <aside data-tour="projects" className="zone-files flex min-h-0 min-w-0 flex-col items-center border-r border-line bg-panel">
       <Tooltip area className="block w-full shrink-0" content={<ToolTipBody says={t("All your projects")} hint={t("Show the project list")} />}>
         <header className="zone-tabs flex h-11 w-full items-center justify-center border-b border-line bg-panel">
           <button type="button" aria-label={t("Show the project list")} onClick={onOpen} className="rounded-md p-0.5 hover:bg-raised">
