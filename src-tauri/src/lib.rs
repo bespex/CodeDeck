@@ -539,6 +539,12 @@ fn path_create(dir: String, name: String, folder: bool, window: WebviewWindow) -
     fileops::create(&*project_of(&window)?, &dir, &name, folder)
 }
 
+/// Moves files or folders of the project into another of its folders; their new paths.
+#[tauri::command]
+fn path_move(paths: Vec<String>, dir: String, window: WebviewWindow) -> Result<Vec<String>, String> {
+    fileops::move_into(&*project_of(&window)?, &paths, &dir)
+}
+
 /// Moves files or folders of the project to the trash.
 #[tauri::command]
 fn path_trash(paths: Vec<String>, window: WebviewWindow) -> Result<(), String> {
@@ -1545,6 +1551,7 @@ pub fn run() {
             set_file_mark,
             path_rename,
             path_create,
+            path_move,
             path_trash,
             open_terminal_in,
             project_files,

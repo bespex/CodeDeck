@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
 import {
   Braces,
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   CodeXml,
   File,
   FileText,
@@ -36,7 +38,7 @@ import {
   LocateFixed,
   FilterX,
 } from "lucide-react";
-import { onFsChanged, openPath, openSettings, openTerminalIn, pathCreate, pathRename, pathStats, pathTrash, projectFiles, readDir, showInFileManager, tokensFor, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
+import { onFsChanged, openPath, openSettings, openTerminalIn, pathCreate, pathMove, pathRename, pathStats, pathTrash, projectFiles, readDir, showInFileManager, tokensFor, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
 import { hiddenBy, isImportant, onReveal, under, useFileMarks, useFileSettings, type FileSettings } from "../fileView";
 import type { FileMarks } from "../backend";
 import { useHintFiles } from "../markers";
@@ -60,6 +62,28 @@ import { FilesRail } from "./FilesRail";
 import { usePerProject } from "../projectMemory";
 import { inScratch, moveIntoProject, SCRATCH_DRAG } from "../scratch";
 import { plural, T, t } from "../i18n";
+
+/** Entries of the tree being dragged to another folder of it: their paths, as JSON. */
+const TREE_DRAG = "application/x-codedeck-paths";
+/** The paths of the drag under way, for the folders to tell while it passes whether they take it
+ * (the data itself is only readable on the drop) */
+let dragged: string[] = [];
+const parentOf = (path: string) => (path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
+/** A drag from the tree may go into `dir`: not into itself or below, not where it already is. */
+const treeTakes = (e: DragEvent, dir: string) =>
+  e.dataTransfer.types.includes(TREE_DRAG) && dragged.length > 0 && dragged.every((path) => !under(dir, path) && parentOf(path) !== dir);
+/** At most this many folders open with "Expand all": a big project would take too long. */
+const EXPAND_MAX = 300;
+
+/** Moves entries of the tree into a folder (`""`: the top) and shows where the first one went. */
+function moveInTree(paths: string[], dir: string, tree: TreeState) {
+  pathMove(paths, dir)
+    .then((moved) => {
+      [...new Set([...paths.map(parentOf), dir])].forEach(tree.reload);
+      if (moved[0]) setTimeout(() => revealInTree(moved[0]), 50);
+    })
+    .catch((e) => tree.fail(String(e)));
+}
 
 /** MIME type used when dragging a file or folder onto the context area. */
 export const DRAG_TYPE = "application/x-codedeck-entry";
@@ -169,6 +193,29 @@ export function FilesPanel(props: Props) {
     next.add(dir);
     setOpen(next);
     if (!loaded.current.has(dir)) load(dir);
+  };
+
+  // Every folder down from the top, as far as they are shown: hidden ones (git-ignored, the
+  // defaults, the user's) stay closed, and at most EXPAND_MAX open
+  const expandAll = async () => {
+    const found: Listings = {};
+    const opened: string[] = [];
+    let level = [""];
+    while (level.length > 0 && opened.length < EXPAND_MAX) {
+      const read = await Promise.all(level.map((dir) => readDir(dir).then((entries) => [dir, entries] as const, () => null)));
+      level = [];
+      for (const [dir, entries] of read.filter((r) => r !== null)) {
+        found[dir] = entries;
+        loaded.current.add(dir);
+        for (const e of entries) {
+          if (!e.isDir || hiddenBy(e.path, fileSettings, marks, ignored) || opened.length >= EXPAND_MAX) continue;
+          opened.push(e.path);
+          level.push(e.path);
+        }
+      }
+    }
+    setListings((current) => ({ ...current, ...found }));
+    setOpen((current) => new Set([...current, ...opened]));
   };
 
   const [fileSettings, changeFileSettings] = useFileSettings();
@@ -288,6 +335,23 @@ export function FilesPanel(props: Props) {
       setChips([]);
     },
   };
+  // The project's top folder: from ⋯ beside the search and from the empty space of the tree
+  const createAtTop = (folder: boolean) => {
+    tree.leaveList();
+    setEditing({ kind: "create", dir: "", folder });
+    document.querySelector("[data-file-rows]")?.scrollTo({ top: 0 });
+  };
+  const failed = (e: unknown) => setProblem(String(e));
+  const topItems = (): MenuItem[] => [
+    { icon: FilePlus, label: t("New file…"), run: () => createAtTop(false) },
+    { icon: FolderPlus, label: t("New folder…"), run: () => createAtTop(true) },
+    { icon: ChevronsUpDown, label: t("Expand all"), divider: true, run: () => void expandAll().catch(failed) },
+    { icon: ChevronsDownUp, label: t("Collapse all"), run: () => setOpen(new Set()) },
+    { icon: FolderSearch, label: t("Show in file manager"), hint: t("top folder"), divider: true, run: () => void openPath("").catch(failed) },
+    { icon: SquareTerminal, label: t("Open in terminal"), hint: t("top folder"), run: () => void openTerminalIn("").catch(failed) },
+  ];
+  const topTitle = props.project?.name ?? t("Files");
+
   // What the keys move over, top to bottom: the found list, or the tree as far as it is open
   const rows = (): Entry[] => {
     if (listMode) return results;
@@ -408,7 +472,8 @@ export function FilesPanel(props: Props) {
       </header>
 
       <div className="px-2 pt-2">
-        <label className="flex items-center gap-2 rounded-md border border-line bg-base px-2 py-1.5 focus-within:border-ai">
+        <div className="flex items-center gap-1">
+        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-line bg-base px-2 py-1.5 focus-within:border-ai">
           <Search className="size-3.5 text-slate-500" />
           <input
             value={query}
@@ -430,6 +495,21 @@ export function FilesPanel(props: Props) {
             </button>
           )}
         </label>
+          <button
+            type="button"
+            aria-label={t("More for the project's top folder")}
+            title={t("More for the project's top folder")}
+            onClick={(e) => {
+              // Opens below the button, like a menu of the header; the menu keeps itself inside the window
+              const r = e.currentTarget.getBoundingClientRect();
+              const at = { preventDefault() {}, stopPropagation() {}, clientX: r.left, clientY: r.bottom + 4 } as unknown as MouseEvent;
+              contextMenu.open(at, topTitle, topItems());
+            }}
+            className="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-raised hover:text-slate-100"
+          >
+            <Ellipsis className="size-4" />
+          </button>
+        </div>
         <Chips chips={chips} onChange={setChips} />
       </div>
 
@@ -440,20 +520,27 @@ export function FilesPanel(props: Props) {
         data-file-rows
         tabIndex={0}
         onKeyDown={onKey}
-        // A scratch file dropped here, not on a folder: into the project root
+        // A scratch file or an entry of the tree dropped here, not on a folder: into the project root
         onDragOver={(e) => {
-          if (!e.dataTransfer.types.includes(SCRATCH_DRAG)) return;
+          if (!e.dataTransfer.types.includes(SCRATCH_DRAG) && !treeTakes(e, "")) return;
           e.preventDefault();
           e.dataTransfer.dropEffect = "move";
           setRootDrop(true);
         }}
         onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setRootDrop(false)}
         onDrop={(e) => {
-          if (!e.dataTransfer.types.includes(SCRATCH_DRAG)) return;
-          e.preventDefault();
-          setRootDrop(false);
-          void moveIntoProject(e.dataTransfer.getData(SCRATCH_DRAG), "");
+          if (e.dataTransfer.types.includes(SCRATCH_DRAG)) {
+            e.preventDefault();
+            setRootDrop(false);
+            void moveIntoProject(e.dataTransfer.getData(SCRATCH_DRAG), "");
+          } else if (treeTakes(e, "")) {
+            e.preventDefault();
+            setRootDrop(false);
+            moveInTree(JSON.parse(e.dataTransfer.getData(TREE_DRAG)) as string[], "", tree);
+          }
         }}
+        // The empty space below the entries stands for the top folder (a row opens its own menu)
+        onContextMenu={(e) => !(e.target instanceof HTMLInputElement) && contextMenu.open(e, topTitle, topItems())}
       >
         {problem && (
           <p className="selectable mx-1 mb-1 flex items-start gap-2 rounded-md bg-problem/10 px-2 py-1 text-[12px] text-problem">
@@ -535,7 +622,6 @@ function Rows({ dir, depth, tree }: { dir: string; depth: number; tree: TreeStat
       </div>
     );
   }
-  const parentOf = (path: string) => (path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
   const ghosts = tree.needle ? [] : tree.deleted.filter((path) => parentOf(path) === dir && !entries.some((e) => e.path === path));
   const creating = tree.editing?.kind === "create" && tree.editing.dir === dir ? tree.editing : null;
   return (
@@ -579,7 +665,10 @@ function Row({ entry, depth, tree, flat = false }: { entry: Entry; depth: number
   // A scratch file can be dropped on a folder of the project, to move it in there
   const [dropping, setDropping] = useState(false);
   const opening = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const takes = (e: DragEvent) => entry.isDir && !inScratch(entry.path) && e.dataTransfer.types.includes(SCRATCH_DRAG);
+  // An entry of the tree goes into a folder, or dropped on a file into that file's folder
+  const dropDir = entry.isDir ? entry.path : flat ? null : parentOf(entry.path);
+  const takes = (e: DragEvent) =>
+    (entry.isDir && !inScratch(entry.path) && e.dataTransfer.types.includes(SCRATCH_DRAG)) || (dropDir !== null && treeTakes(e, dropDir));
   const leave = () => {
     clearTimeout(opening.current);
     setDropping(false);
@@ -598,15 +687,22 @@ function Row({ entry, depth, tree, flat = false }: { entry: Entry; depth: number
         aria-expanded={entry.isDir ? isOpen : undefined}
         draggable
         onDragStart={(e) => {
+          // Onto the next prompt it is attached (copy), onto a folder of the tree it moves there; a
+          // row of several chosen takes them all along
           e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(entry));
-          e.dataTransfer.effectAllowed = "copy";
+          dragged = tree.chosen.size > 1 && tree.chosen.has(entry.path) ? [...tree.chosen] : [entry.path];
+          e.dataTransfer.setData(TREE_DRAG, JSON.stringify(dragged));
+          e.dataTransfer.effectAllowed = "copyMove";
         }}
+        onDragEnd={() => (dragged = [])}
         onDragOver={(e) => {
-          if (!takes(e)) return;
+          // A row that does not take an entry of the tree (itself, its own place) is no way through
+          // to the empty space below, which would move it to the top
+          if (!takes(e)) return void (e.dataTransfer.types.includes(TREE_DRAG) && e.stopPropagation());
           e.preventDefault();
           e.stopPropagation();
           e.dataTransfer.dropEffect = "move";
-          if (!dropping) {
+          if (!dropping && entry.isDir) {
             setDropping(true);
             // Resting on a closed folder opens it, to get deeper while dragging
             if (!isOpen) opening.current = setTimeout(() => tree.toggle(entry.path), 700);
@@ -614,11 +710,12 @@ function Row({ entry, depth, tree, flat = false }: { entry: Entry; depth: number
         }}
         onDragLeave={leave}
         onDrop={(e) => {
-          if (!takes(e)) return;
+          if (!takes(e)) return void (e.dataTransfer.types.includes(TREE_DRAG) && e.stopPropagation());
           e.preventDefault();
           e.stopPropagation();
           leave();
-          void moveIntoProject(e.dataTransfer.getData(SCRATCH_DRAG), entry.path);
+          if (e.dataTransfer.types.includes(SCRATCH_DRAG)) void moveIntoProject(e.dataTransfer.getData(SCRATCH_DRAG), entry.path);
+          else if (dropDir !== null) moveInTree(JSON.parse(e.dataTransfer.getData(TREE_DRAG)) as string[], dropDir, tree);
         }}
         onClick={(e) => {
           if (e.ctrlKey || e.metaKey) return tree.choose(entry.path, "toggle");

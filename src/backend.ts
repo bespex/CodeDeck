@@ -353,6 +353,13 @@ export function pathCreate(dir: string, name: string, folder: boolean): Promise<
   return Promise.resolve(dir ? `${dir}/${name}` : name);
 }
 
+/** Moves files or folders into the folder `dir` (`""`: the top), keeping their names; their new paths. */
+export function pathMove(paths: string[], dir: string): Promise<string[]> {
+  if (live) return invoke("path_move", { paths, dir });
+  console.info("move", paths, "into", dir || "(top)");
+  return Promise.resolve(paths.map((p) => (dir ? `${dir}/${p.split("/").pop()}` : (p.split("/").pop() ?? p))));
+}
+
 /** Moves files or folders of the project to the trash. */
 export function pathTrash(paths: string[]): Promise<void> {
   if (live) return invoke("path_trash", { paths });
