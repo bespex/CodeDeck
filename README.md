@@ -134,12 +134,13 @@ menu (developer tools).
 Tauri 2 (Rust) with React, TypeScript, Vite and Tailwind CSS.
 
 ```sh
-./dev                  # start from source, opens the directory you are in
-./dev ~/projects/foo   # open another project
-./dev --link           # once: makes `codedeck-dev` available in every directory
+./run.sh                  # start from source, opens the directory you are in
+./run.sh ~/projects/foo   # open another project
+./run.sh --release        # optimized build without packaging, then start it
+./run.sh --link           # once: makes `codedeck-dev` available in every directory
 ```
 
-`./dev` installs dependencies when needed and starts with hot reload: frontend changes appear
+`./run.sh` installs dependencies when needed and starts with hot reload: frontend changes appear
 immediately, Rust changes rebuild and restart the window.
 
 ```sh
