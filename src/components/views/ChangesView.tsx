@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Anchor, ArrowRight, Check, ChevronDown, ChevronRight, Code, Columns2, ExternalLink, Filter, Flag, FolderGit2, GitBranch, ListTree, Pencil, Sparkles, Undo2, X } from "lucide-react";
+import { Anchor, ArrowRight, Check, ChevronDown, ChevronRight, Code, Columns2, ExternalLink, Eye, Filter, Flag, FolderGit2, GitBranch, ListTree, Pencil, Sparkles, Undo2, X } from "lucide-react";
 import {
   gitCommitDiff,
   gitCompare,
@@ -10,6 +10,7 @@ import {
   gitSnapshotDiff,
   gitWorkingDiff,
   onFsChanged,
+  openFile,
   sessionSeen,
   type AssistantState,
   type Commit,
@@ -1276,18 +1277,22 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
   const size = diffSize(file);
   const lookedKey = reviewKey(repo.path, file.path, file);
   const looked = useReviewed()(lookedKey);
-  const slot = reviewSlot(useChangeScope(), lookedKey);
+  const scope = useChangeScope();
+  const slot = reviewSlot(scope, lookedKey);
   // With Dirq the diff is read there: a click does nothing, a double click opens it at this file
   const dirq = useContext(DirqContext);
   const [failed, setFailed] = useState<string | null>(null);
   // Viewed already: it opens closed
   const [folded, setOpen] = useState(size <= LONG_DIFF && !looked);
-  const open = folded && !dirq;
   const state = working?.status?.state ?? file.status;
   const slash = file.path.lastIndexOf("/");
-  const Chevron = open ? ChevronDown : ChevronRight;
   // A deleted file is not there to open
   const projectPath = file.status === "D" ? null : toProject(repo, file.path);
+  // A binary file has no lines to compare: in the working tree the file on disk is the state the row
+  // means, so a click shows it in its viewer instead. Older scopes would need the blob from Git (PLAN.md)
+  const viewer = file.binary && scope?.worktree && projectPath ? projectPath : null;
+  const open = folded && !dirq && !viewer;
+  const Chevron = open ? ChevronDown : ChevronRight;
 
   return (
     <article id={id} className="scroll-mt-2 overflow-hidden rounded-lg border border-line bg-panel">
@@ -1296,13 +1301,24 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
           type="button"
           // Without Dirq a click only folds, at once (no double click to wait for). With Dirq there is
           // nothing to fold: a double click opens the change there, at this file (user, 2026-11-22)
-          onClick={() => !dirq && setOpen((o) => !o)}
-          onDoubleClick={() => dirq?.open(file.path).then(() => setFailed(null), (e) => setFailed(String(e)))}
-          aria-expanded={dirq ? undefined : open}
-          title={dirq ? t("Double click: open in Dirq") : undefined}
+          // A binary file opens in its viewer on the first click; the second of a double click is ignored
+          onClick={(e) => {
+            if (viewer) {
+              if (e.detail <= 1) openFile(viewer, "view").then(() => setFailed(null), (err) => setFailed(String(err)));
+            } else if (!dirq) setOpen((o) => !o);
+          }}
+          onDoubleClick={() => !viewer && dirq?.open(file.path).then(() => setFailed(null), (e) => setFailed(String(e)))}
+          aria-expanded={dirq || viewer ? undefined : open}
+          title={viewer ? t("Click: view in its program") : dirq ? t("Double click: open in Dirq") : undefined}
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
-          {dirq ? <Columns2 className="size-3.5 shrink-0 text-slate-500" /> : <Chevron className="size-3.5 shrink-0 text-slate-500" />}
+          {viewer ? (
+            <Eye className="size-3.5 shrink-0 text-slate-500" />
+          ) : dirq ? (
+            <Columns2 className="size-3.5 shrink-0 text-slate-500" />
+          ) : (
+            <Chevron className="size-3.5 shrink-0 text-slate-500" />
+          )}
           <Tooltip
             content={<span>{t(stateMeaning[state])}{working?.status?.staged ? ` · ${t("staged for the next commit")}` : ""}</span>}
             className="flex shrink-0"
@@ -1317,7 +1333,7 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
           <ChangedSinceViewed show={changedSinceViewed(lookedKey, slot)} />
           <LineCounts added={file.added} removed={file.removed} />
           {working?.status?.staged && <span className="shrink-0 text-[11px] text-slate-500">{t("staged")}</span>}
-          {failed && <span className="shrink-0 truncate text-[11px] text-problem" title={failed}>{t("Dirq: {error}", { error: failed })}</span>}
+          {failed && <span className="shrink-0 truncate text-[11px] text-problem" title={failed}>{viewer ? failed : t("Dirq: {error}", { error: failed })}</span>}
         </button>
         {/* On hover, left of what always shows (who changed it, the paperclip of an attached change) */}
         <FileTools path={file.path} projectPath={projectPath} patch={file.patch} added={file.status === "A"} from={file.from} working={working} />

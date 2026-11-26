@@ -188,6 +188,14 @@ Umzug der Website `bespex.github.io/codedeck/manual/de/`. Menüpunkt „Handbuch
 - **Zweites KI-Werkzeug:** zuerst Codex CLI, dann opencode, je als Adapter (siehe unten). Erst dann zeigt
   sich, ob die Schnittstelle trägt.
 - **Erlaubnis aus CodeDeck** (D13), **Karte** (P9).
+- **Binärdateien in älteren Änderungen ansehen** ☐ (Nutzer, 2026-11-26): In „jetzt“ öffnet ein Klick auf eine
+  Binärdatei (PDF, Bild …; Git meldet „Binary files … differ“, `FileDiff.binary`) sie mit `openFile(…, "view")` statt
+  eines Diffs bzw. Dirq (`FileSection` in `ChangesView.tsx`, gebaut 2026-11-26). Offen sind Runde, Commit, Snapshot und
+  Vergleich: Dort ist die Datei auf der Platte nicht der gemeinte Stand. Dafür den Stand aus Git holen
+  (`git show <rev>:<pfad>` über `Git::run`) und als temporäre Datei mit gleicher Endung im Viewer öffnen; neuer
+  Befehl mit Mock in `backend.ts`. Dazu einen Knopf „vorher“, wenn es einen alten Stand gibt (vorher und nachher
+  nebeneinander, etwa zwei Bilder). Gelöschte Binärdateien (auch in „jetzt“) zeigen so den alten Stand. Ebenfalls zu
+  klären: ob der Knopf „Dirq“ Binärdateien aus dem Patch weglässt.
 - **„Woran habe ich am Tag X gearbeitet?“** (Idee des Nutzers, 2026-11-15): CodeDeck weiß mehr darüber als Git
   allein (Sitzungen mit Titel, Prompts, Zeiten, geschriebene Dateien, Sicherungspunkte, Commits je Projekt). Ein
   MCP-Server-Teil von CodeDeck könnte das einer KI bereitstellen, um Arbeitszeiten und -themen zu erkennen. Braucht

@@ -207,6 +207,7 @@ export const de: Record<string, string> = {
   "Which files and folders are new, deleted, moved, renamed or changed, as a tree. Double click a file to open its diff in Dirq.": "Welche Dateien und Ordner neu, gelöscht, verschoben, umbenannt oder geändert sind, als Baum. Doppelklick auf eine Datei öffnet ihren Diff in Dirq.",
   "Every changed file, one after the other; double click one to read it in Dirq": "Jede geänderte Datei, eine nach der anderen; Doppelklick öffnet sie in Dirq",
   "Double click: open in Dirq": "Doppelklick: in Dirq öffnen",
+  "Click: view in its program": "Klick: im passenden Programm ansehen",
   "double click": "Doppelklick",
   "Dirq: {error}": "Dirq: {error}",
   "Show changes as": "Änderungen zeigen als",
