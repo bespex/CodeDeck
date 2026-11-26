@@ -15,7 +15,7 @@ import {
   FolderPlus,
   type LucideIcon,
 } from "lucide-react";
-import type { Patch, RepoStatus } from "../../backend";
+import { openFile, type Patch, type RepoStatus } from "../../backend";
 import type { FileDiff } from "../../diff";
 import { toProject } from "../../history";
 import {
@@ -287,15 +287,20 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
   const key = `f:${file.path}`;
   // With Dirq the diff is read there: a click does nothing, a double click opens it at this file
   const dirq = useContext(DirqContext);
-  const isOpen = ctx.open.has(key) && !dirq;
   const c = file.change;
   const working = ctx.working?.(file.path);
   const look = fileLook(file);
   const lookedKey = reviewKey(ctx.repo.path, file.path, ctx.diffs.get(file.path), `${c.status}:${c.added}:${c.removed}`);
   const looked = ctx.reviewed(lookedKey);
-  const slot = reviewSlot(useChangeScope(), lookedKey);
+  const scope = useChangeScope();
+  const slot = reviewSlot(scope, lookedKey);
   // A deleted file is not there to open
   const projectPath = file.kind === "deleted" ? null : toProject(ctx.repo, file.path);
+  // A binary file has no lines to compare: in the working tree the file on disk is the state the row
+  // means, so a click shows it in its viewer instead (as FileSection in ChangesView)
+  const viewer = c.added === null && scope?.worktree && projectPath ? projectPath : null;
+
+  const isOpen = ctx.open.has(key) && !dirq && !viewer;
 
   const notes = [
     file.withFolder ? null : file.renamed ? t("was {name}", { name: nameOf(c.from!) }) : c.status === "R" ? movedNote(dirOf(c.from!), dirOf(c.path), nameOf(c.from!), file.name) : null,
@@ -312,9 +317,14 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
         style={{ paddingLeft: 8 + depth * 16 }}
         // Without Dirq a click only folds, at once (no double click to wait for); with Dirq a double
         // click opens the change there, at this file (user, 2026-11-22)
-        onClick={() => !dirq && ctx.toggle(key, !isOpen)}
-        onDoubleClick={() => void dirq?.open(file.path).catch((e) => console.error(e))}
-        title={dirq ? t("Double click: open in Dirq") : undefined}
+        // A binary file opens in its viewer on the first click; the second of a double click is ignored
+        onClick={(e) => {
+          if (viewer) {
+            if (e.detail <= 1) void openFile(viewer, "view").catch((err) => console.error(err));
+          } else if (!dirq) ctx.toggle(key, !isOpen);
+        }}
+        onDoubleClick={() => !viewer && void dirq?.open(file.path).catch((e) => console.error(e))}
+        title={viewer ? t("Click: view in its program") : dirq ? t("Double click: open in Dirq") : undefined}
         onContextMenu={(e) => {
           const path = toProject(ctx.repo, file.path);
           ctx.menu(e, path, pathItems(path, false, file.kind === "deleted"));
@@ -325,7 +335,7 @@ function FileRow({ file, depth, ctx }: { file: FileNode; depth: number; ctx: Ctx
         </Hint>
         <button
           type="button"
-          aria-expanded={dirq ? undefined : isOpen}
+          aria-expanded={dirq || viewer ? undefined : isOpen}
           className={`min-w-0 truncate text-left font-mono text-[12px] outline-none focus-visible:underline ${
             file.kind === "deleted" ? "text-slate-400 line-through decoration-problem/50" : looked ? "text-slate-400" : "text-slate-100"
           }`}
