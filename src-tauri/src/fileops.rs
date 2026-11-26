@@ -58,8 +58,9 @@ pub fn create(project: &Project, dir: &str, name: &str, folder: bool) -> Result<
 }
 
 /// Moves files and folders into the folder `dir` (`""`: the project's top), keeping their names;
-/// their new paths. Everything is checked before the first one moves, so a refusal moves nothing.
-pub fn move_into(project: &Project, paths: &[String], dir: &str) -> Result<Vec<String>, String> {
+/// what moved, old and new path. Everything is checked before the first one moves, so a refusal
+/// moves nothing.
+pub fn move_into(project: &Project, paths: &[String], dir: &str) -> Result<Vec<(String, String)>, String> {
     let target = if dir.is_empty() { project.root.clone() } else { changeable(project, dir)? };
     if !target.is_dir() {
         return Err(format!("{dir}: not a folder"));
@@ -76,15 +77,15 @@ pub fn move_into(project: &Project, paths: &[String], dir: &str) -> Result<Vec<S
         if to == full {
             continue;
         }
-        if to.exists() || moves.iter().any(|(_, t)| t == &to) {
+        if to.exists() || moves.iter().any(|(_, _, t)| t == &to) {
             return Err(format!("{}: there is one of that name already", name.to_string_lossy()));
         }
-        moves.push((full, to));
+        moves.push((path.clone(), full, to));
     }
     let mut moved = Vec::new();
-    for (from, to) in moves {
+    for (path, from, to) in moves {
         std::fs::rename(&from, &to).map_err(|e| format!("{}: {e}", from.display()))?;
-        moved.push(project.relative(&to).ok_or("outside the project")?);
+        moved.push((path, project.relative(&to).ok_or("outside the project")?));
     }
     Ok(moved)
 }
@@ -173,9 +174,9 @@ mod tests {
         let (p, root) = project();
         std::fs::create_dir_all(root.join("docs")).unwrap();
         std::fs::write(root.join("src/b.rs"), "b").unwrap();
-        assert_eq!(move_into(&p, &["src/b.rs".into()], "docs").unwrap(), vec!["docs/b.rs".to_string()]);
+        assert_eq!(move_into(&p, &["src/b.rs".into()], "docs").unwrap(), vec![("src/b.rs".to_string(), "docs/b.rs".to_string())]);
         assert!(root.join("docs/b.rs").is_file() && !root.join("src/b.rs").exists());
-        assert_eq!(move_into(&p, &["docs".into()], "").unwrap(), Vec::<String>::new());
+        assert_eq!(move_into(&p, &["docs".into()], "").unwrap(), vec![]);
         assert!(move_into(&p, &["docs".into()], "docs").unwrap_err().contains("itself"));
         assert!(move_into(&p, &["src".into()], "src/a.rs").unwrap_err().contains("not a folder"));
         std::fs::write(root.join("b.rs"), "").unwrap();
@@ -184,7 +185,7 @@ mod tests {
         assert!(move_into(&p, &[".git".into()], "src").is_err());
         assert!(move_into(&p, &["src/a.rs".into()], ".git").is_err());
         assert!(move_into(&p, &["../x".into()], "src").is_err());
-        assert_eq!(move_into(&p, &["src/a.rs".into(), "docs/b.rs".into()], "src").unwrap(), vec!["src/b.rs".to_string()]);
+        assert_eq!(move_into(&p, &["src/a.rs".into(), "docs/b.rs".into()], "src").unwrap(), vec![("docs/b.rs".to_string(), "src/b.rs".to_string())]);
         std::fs::remove_dir_all(&root).unwrap();
     }
 }

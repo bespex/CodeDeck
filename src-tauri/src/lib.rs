@@ -530,7 +530,13 @@ fn set_file_mark(kind: String, path: String, on: bool, window: WebviewWindow) ->
 /// Renames a file or folder of the project in place; its new path.
 #[tauri::command]
 fn path_rename(path: String, name: String, window: WebviewWindow) -> Result<String, String> {
-    fileops::rename(&*project_of(&window)?, &path, &name)
+    let project = project_of(&window)?;
+    let to = fileops::rename(&project, &path, &name)?;
+    // The marks in the file list go along; failing that, the file is renamed all the same
+    if let Err(e) = filemarks::moved(&project.root, &[(path, to.clone())]) {
+        eprintln!("codedeck: file marks after renaming: {e}");
+    }
+    Ok(to)
 }
 
 /// Makes an empty file or folder in a folder of the project; its path.
@@ -539,10 +545,16 @@ fn path_create(dir: String, name: String, folder: bool, window: WebviewWindow) -
     fileops::create(&*project_of(&window)?, &dir, &name, folder)
 }
 
-/// Moves files or folders of the project into another of its folders; their new paths.
+/// Moves files or folders of the project into another of its folders; what moved, old and new path.
+/// Their marks in the file list go along.
 #[tauri::command]
-fn path_move(paths: Vec<String>, dir: String, window: WebviewWindow) -> Result<Vec<String>, String> {
-    fileops::move_into(&*project_of(&window)?, &paths, &dir)
+fn path_move(paths: Vec<String>, dir: String, window: WebviewWindow) -> Result<Vec<(String, String)>, String> {
+    let project = project_of(&window)?;
+    let moved = fileops::move_into(&project, &paths, &dir)?;
+    if let Err(e) = filemarks::moved(&project.root, &moved) {
+        eprintln!("codedeck: file marks after moving: {e}");
+    }
+    Ok(moved)
 }
 
 /// Moves files or folders of the project to the trash.

@@ -73,6 +73,38 @@ fn set_in(file: &Path, root: &Path, kind: &str, path: &str, on: bool) -> Result<
     Ok(result)
 }
 
+/// Files and folders moved or renamed in the project (`from` → `to`, project-relative): their marks,
+/// and those of everything inside a folder, go along. Nothing to write when none is marked.
+pub fn moved(root: &Path, moves: &[(String, String)]) -> Result<(), String> {
+    moved_in(&crate::config::file("files.json").ok_or("no config directory")?, root, moves)
+}
+
+fn moved_in(file: &Path, root: &Path, moves: &[(String, String)]) -> Result<(), String> {
+    let mut all = load_from(file);
+    let Some(marks) = all.get_mut(&root.display().to_string()) else { return Ok(()) };
+    let relocate = |path: &String| {
+        moves.iter().fold(path.clone(), |path, (from, to)| match path.strip_prefix(from.as_str()) {
+            Some("") => to.clone(),
+            Some(rest) if rest.starts_with('/') => format!("{to}{rest}"),
+            _ => path,
+        })
+    };
+    let mut changed = false;
+    for list in [&mut marks.hidden, &mut marks.shown, &mut marks.important] {
+        let next: Vec<String> = list.iter().map(relocate).collect();
+        if next != *list {
+            *list = next;
+            list.sort();
+            changed = true;
+        }
+    }
+    if !changed {
+        return Ok(());
+    }
+    let bytes = serde_json::to_vec_pretty(&all).map_err(|e| e.to_string())?;
+    crate::config::write(file, &bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -92,6 +124,25 @@ mod tests {
         set_in(&file, a, "important", "docs", false).unwrap();
         // Nothing left: the project goes from the file
         assert!(!std::fs::read_to_string(&file).unwrap().contains("/p/a"));
+        let _ = std::fs::remove_file(&file);
+    }
+
+    #[test]
+    fn marks_follow_a_moved_file_or_folder() {
+        let file = std::env::temp_dir().join(format!("codedeck-files-moved-{}.json", std::process::id()));
+        let (a, b) = (Path::new("/p/a"), Path::new("/p/b"));
+        set_in(&file, a, "important", "docs/plan.md", true).unwrap();
+        set_in(&file, a, "hidden", "docs/old", true).unwrap();
+        set_in(&file, a, "important", "docsets", true).unwrap();
+        set_in(&file, b, "important", "docs/plan.md", true).unwrap();
+        moved_in(&file, a, &[("docs".into(), "notes/docs".into())]).unwrap();
+        assert_eq!(
+            of_in(&file, a),
+            FileMarks { hidden: vec!["notes/docs/old".into()], shown: vec![], important: vec!["docsets".into(), "notes/docs/plan.md".into()] }
+        );
+        assert_eq!(of_in(&file, b).important, vec!["docs/plan.md".to_string()], "another project keeps its marks");
+        moved_in(&file, a, &[("notes/docs/plan.md".into(), "plan.md".into())]).unwrap();
+        assert!(of_in(&file, a).important.contains(&"plan.md".to_string()));
         let _ = std::fs::remove_file(&file);
     }
 }

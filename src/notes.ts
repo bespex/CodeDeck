@@ -4,6 +4,7 @@ import { createContext } from "react";
 import { attachFor } from "./backend";
 import { plural } from "./git";
 import { createPart, lastState } from "./attachments";
+import { movedPath } from "./files";
 
 export interface Note {
   /** A number for comments written here, `dirq:<id>` for those written in Dirq */
@@ -41,6 +42,14 @@ export const NoteSessionContext = createContext<string | null>(null);
  * @param session who the comment is preferably for: with nothing attached and no session chosen yet,
  * the attachments are aimed at it, if it can take them. The user can change that in "Next prompt".
  */
+/** Line comments on files that moved or were renamed: they keep pointing at the file. */
+export function moveNotes(moves: [from: string, to: string][]) {
+  notes.update((note) => {
+    const path = moves.reduce((p, [from, to]) => movedPath(p, from, to), note.path);
+    return path === note.path ? note : { ...note, path };
+  });
+}
+
 export function addNote(path: string, line: number, code: string, text: string, session?: string | null, id?: string) {
   const state = lastState();
   const s = state?.sessions.find((x) => x.id === session);

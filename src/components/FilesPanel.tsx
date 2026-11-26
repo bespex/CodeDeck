@@ -61,6 +61,8 @@ import { BranchButton, GitStatusBar } from "./StatusBar";
 import { FilesRail } from "./FilesRail";
 import { usePerProject } from "../projectMemory";
 import { inScratch, moveIntoProject, SCRATCH_DRAG } from "../scratch";
+import { movePins } from "../files";
+import { moveNotes } from "../notes";
 import { plural, T, t } from "../i18n";
 
 /** Entries of the tree being dragged to another folder of it: their paths, as JSON. */
@@ -80,7 +82,8 @@ function moveInTree(paths: string[], dir: string, tree: TreeState) {
   pathMove(paths, dir)
     .then((moved) => {
       [...new Set([...paths.map(parentOf), dir])].forEach(tree.reload);
-      if (moved[0]) setTimeout(() => revealInTree(moved[0]), 50);
+      tree.followMoves(moved);
+      if (moved[0]) setTimeout(() => revealInTree(moved[0][1]), 50);
     })
     .catch((e) => tree.fail(String(e)));
 }
@@ -219,7 +222,7 @@ export function FilesPanel(props: Props) {
   };
 
   const [fileSettings, changeFileSettings] = useFileSettings();
-  const [marks, setMark] = useFileMarks(props.project?.path);
+  const [marks, setMark, rereadMarks] = useFileMarks(props.project?.path);
   const hints = useHintFiles();
   const ignored = useMemo(() => props.git.repos.flatMap((r) => r.ignored ?? []), [props.git.repos]);
   // Deleted and not committed: no longer on disk, still worth a grey line where they were
@@ -323,6 +326,13 @@ export function FilesPanel(props: Props) {
     flash,
     fail: setProblem,
     reload: (dir: string) => void load(dir),
+    // Attached files and line comments follow here; the marks were moved by the backend
+    followMoves: (moves) => {
+      if (moves.length === 0) return;
+      movePins(moves);
+      moveNotes(moves);
+      rereadMarks();
+    },
     openDir: (dir: string) => {
       if (!open.has(dir) && dir) toggle(dir);
     },
@@ -595,6 +605,8 @@ interface TreeState extends Props {
   flash: string | null;
   fail: (message: string) => void;
   reload: (dir: string) => void;
+  /** Files and folders moved or renamed: what hangs on their path goes along */
+  followMoves: (moves: [from: string, to: string][]) => void;
   openDir: (dir: string) => void;
   /** Chosen with Ctrl/Shift; empty: only `selected` */
   chosen: Set<string>;
@@ -775,7 +787,10 @@ function Row({ entry, depth, tree, flat = false }: { entry: Entry; depth: number
               if (name === entry.name) return;
               const parent = entry.path.includes("/") ? entry.path.slice(0, entry.path.lastIndexOf("/")) : "";
               pathRename(entry.path, name)
-                .then(() => tree.reload(parent))
+                .then((to) => {
+                  tree.reload(parent);
+                  tree.followMoves([[entry.path, to]]);
+                })
                 .catch((e) => tree.fail(String(e)));
             }}
           />

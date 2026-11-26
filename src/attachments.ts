@@ -19,6 +19,8 @@ export interface Part<T> {
   /** Adds what is not attached yet */
   add: (items: T[]) => void;
   remove: (ids: string[]) => void;
+  /** Replaces items, e.g. for a file that moved; one that comes back as another object counts as new */
+  update: (fn: (item: T) => T) => void;
   /** Removes them if all are attached, else attaches them */
   toggle: (items: T[]) => void;
   clear: () => void;
@@ -82,6 +84,13 @@ export function createPart<T>(
     remove: (gone) => {
       const set = new Set(gone);
       if (entries.some((e) => set.has(options.id(e.item)))) change(entries.filter((e) => !set.has(options.id(e.item))));
+    },
+    update: (fn) => {
+      const next = entries.map((e) => {
+        const item = fn(e.item);
+        return item === e.item ? e : { item, rev: rev + 1 };
+      });
+      if (next.some((e, i) => e !== entries[i])) change(next);
     },
     toggle: (list) => (list.every((i) => part.has(options.id(i))) ? part.remove(list.map(options.id)) : part.add(list)),
     clear: () => {

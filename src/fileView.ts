@@ -56,11 +56,14 @@ export function useFileSettings(): [FileSettings, (change: Partial<FileSettings>
 const NO_MARKS: FileMarks = { hidden: [], shown: [], important: [] };
 
 /** The project's marks, and a way to set one; read again when the project changes. */
-export function useFileMarks(project: string | undefined): [FileMarks, (kind: "hidden" | "shown" | "important", path: string, on: boolean) => void] {
+export function useFileMarks(
+  project: string | undefined,
+): [FileMarks, (kind: "hidden" | "shown" | "important", path: string, on: boolean) => void, () => void] {
   const [marks, setMarks] = useState<FileMarks>(NO_MARKS);
+  // Read again when the backend changed them itself (marks follow a moved or renamed file)
+  const [round, reread] = useState(0);
   useEffect(() => {
-    setMarks(NO_MARKS);
-    if (!project) return;
+    if (!project) return setMarks(NO_MARKS);
     let alive = true;
     fileMarks()
       .then((m) => alive && setMarks(m))
@@ -68,12 +71,13 @@ export function useFileMarks(project: string | undefined): [FileMarks, (kind: "h
     return () => {
       alive = false;
     };
-  }, [project]);
+  }, [project, round]);
+  useEffect(() => setMarks(NO_MARKS), [project]);
   const set = (kind: "hidden" | "shown" | "important", path: string, on: boolean) =>
     void setFileMark(kind, path, on)
       .then(setMarks)
       .catch((e) => console.error(e));
-  return [marks, set];
+  return [marks, set, () => reread((n) => n + 1)];
 }
 
 /** `path` is `base` or lies below it. */

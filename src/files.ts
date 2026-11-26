@@ -49,6 +49,25 @@ export async function pinFromEntry(entry: Entry): Promise<Pin> {
   return { id: entry.path, kind: "folder", label: `${entry.name}/`, detail: "", count, tokens: tokensFor(stats.bytes) };
 }
 
+/** `path` with the file or folder `from` moved to `to`, or as it was when it is not inside. */
+export const movedPath = (path: string, from: string, to: string) =>
+  path === from ? to : path.startsWith(`${from}/`) ? `${to}${path.slice(from.length)}` : path;
+
+/**
+ * Files and folders of the project moved or renamed in the file list: what was attached of them stays
+ * attached under the new path, so the prompt does not point at what is no longer there.
+ */
+export function movePins(moves: [from: string, to: string][]) {
+  files.update((pin) => {
+    if (pin.kind === "snippet") return pin;
+    const id = moves.reduce((path, [from, to]) => movedPath(path, from, to), pin.id);
+    if (id === pin.id) return pin;
+    const slash = id.lastIndexOf("/");
+    const name = id.slice(slash + 1);
+    return pin.kind === "folder" ? { ...pin, id, label: `${name}/` } : { ...pin, id, label: name, detail: slash < 0 ? "project root" : id.slice(0, slash) };
+  });
+}
+
 /** The part of the attachments that pinned files, folders and passages make. */
 export const FILES_KEY = "files";
 
