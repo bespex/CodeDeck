@@ -1,7 +1,7 @@
 {
   "name": "codedeck",
   "private": true,
-  "version": "0.4.13",
+  "version": "0.4.14",
   "description": "CodeDeck: a lightweight AI coding deck for Linux",
   "type": "module",
   "scripts": {
