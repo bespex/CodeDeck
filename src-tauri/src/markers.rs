@@ -10,6 +10,11 @@
 //! In Markdown, an HTML comment may also stand in a list item or a quote (`- <!-- @ai: … -->`,
 //! `> <!-- @ai: … -->`): that is where Marq puts a comment on such a block (Qiew, Marq started
 //! with `--annotate`). Such a comment may span lines; its whole text is read from the file.
+//!
+//! In HTML, a comment may also stand inside a line (`<li><!-- @ai: … --><p>`): that is where Hyqe
+//! puts a comment on an element whose start tag does not begin its line (Qiew, Hyqe started with
+//! `--annotate`). In HTML `<!--` is a comment wherever it stands, except in scripts: right after a
+//! quote, `=`, `(`, `+` or `,` it is taken for a string in code and does not count.
 
 use std::path::Path;
 
@@ -21,6 +26,9 @@ use crate::project::Project;
 /// A first cut for `git grep`: blanks, maybe some punctuation (also the quote and list markers of
 /// Markdown before a comment: `> - <!--`, `1. <!--`), then `@ai`. [`marker_text`] decides.
 const PATTERN: &str = r"^[[:space:]]*(([0-9]{1,9}[.)]|[^[:alnum:][:space:]]+)[[:space:]]*){0,6}@[aA][iI]";
+/// A second cut, for HTML: a comment with `@ai` anywhere in the line. [`html_marker_text`] decides
+/// (in any other file, [`marker_text`] still wants it at the start).
+const HTML_PATTERN: &str = r"<!--[[:space:]]*@[aA][iI]";
 /// More than this is a sign of something else than notes for the assistant.
 const LIMIT: usize = 500;
 
@@ -39,14 +47,14 @@ impl Git {
     pub fn markers(&self, report: Report, project: &Project) -> Vec<Marker> {
         let mut all = Vec::new();
         for repo in self.repos(project) {
-            let mut args = vec!["grep", "-n", "-I", "--untracked", "--null", "--no-color", "-E", "-e", PATTERN];
+            let mut args = vec!["grep", "-n", "-I", "--untracked", "--null", "--no-color", "-E", "-e", PATTERN, "-e", HTML_PATTERN];
             if !repo.prefix.is_empty() {
                 args.extend(["--", repo.prefix.as_str()]);
             }
             // Finding nothing is exit code 1: an answer, no failure in the log
             let Some(out) = self.ask(report, &repo, &args) else { continue };
             let mut found = parse(&String::from_utf8_lossy(&out));
-            in_markdown(&mut found, &repo.top);
+            in_documents(&mut found, &repo.top);
             for m in found {
                 let path = if repo.prefix.is_empty() {
                     if repo.path.is_empty() { m.path } else { format!("{}/{}", repo.path, m.path) }
@@ -70,7 +78,13 @@ fn parse(out: &str) -> Vec<Marker> {
         .filter_map(|l| {
             let mut f = l.splitn(3, '\0');
             let (path, line, content) = (f.next()?, f.next()?, f.next()?);
-            let text = if markdown(path) { markdown_marker_text(content) } else { marker_text(content) };
+            let text = if markdown(path) {
+                markdown_marker_text(content)
+            } else if html(path) {
+                html_marker_text(content)
+            } else {
+                marker_text(content)
+            };
             Some(Marker { path: path.to_string(), line: line.parse().ok()?, text: text? })
         })
         .collect()
@@ -118,6 +132,24 @@ fn markdown(path: &str) -> bool {
     [".md", ".markdown", ".mdx"].iter().any(|e| path.to_ascii_lowercase().ends_with(e))
 }
 
+fn html(path: &str) -> bool {
+    [".html", ".htm", ".xhtml"].iter().any(|e| path.to_ascii_lowercase().ends_with(e))
+}
+
+/// In HTML, where a marker comment starts in the line; not where it looks like a string in code.
+fn html_comment_start(line: &str) -> Option<&str> {
+    line.match_indices("<!--").map(|(i, _)| i).find_map(|i| {
+        let code = line[..i].trim_end().ends_with(['"', '\'', '`', '=', '(', '+', ',']);
+        let rest = &line[i..];
+        (!code && marker_text(rest).is_some()).then_some(rest)
+    })
+}
+
+/// In HTML, a marker comment may stand inside a line (Hyqe writes `<li><!-- @ai: … --><p>`).
+fn html_marker_text(line: &str) -> Option<String> {
+    marker_text(html_comment_start(line).unwrap_or(line))
+}
+
 /// In Markdown, the quote and list markers in front of an HTML comment belong to the document, not
 /// to the comment (Marq writes `- <!-- @ai: … -->` for a list item). Anything else in front still
 /// makes the line no marker: `- @ai` is a list item that begins with the word.
@@ -145,18 +177,22 @@ fn strip_containers(line: &str) -> &str {
     }
 }
 
-/// Markdown files are read once more: markers inside fenced code blocks are examples, not notes
-/// (dropped), and an HTML comment that goes on over further lines gets its whole text.
-fn in_markdown(found: &mut Vec<Marker>, top: &Path) {
-    let mut files: Vec<String> = found.iter().filter(|m| markdown(&m.path)).map(|m| m.path.clone()).collect();
+/// Markdown and HTML files are read once more: an HTML comment that goes on over further lines
+/// gets its whole text; in Markdown, markers inside fenced code blocks are examples, not notes
+/// (dropped).
+fn in_documents(found: &mut Vec<Marker>, top: &Path) {
+    let mut files: Vec<String> = found.iter().filter(|m| markdown(&m.path) || html(&m.path)).map(|m| m.path.clone()).collect();
     files.dedup();
     for file in files {
         let Ok(text) = std::fs::read_to_string(top.join(&file)) else { continue };
-        let fenced = fenced_lines(&text);
-        found.retain(|m| m.path != file || !fenced.contains(&m.line));
+        if markdown(&file) {
+            let fenced = fenced_lines(&text);
+            found.retain(|m| m.path != file || !fenced.contains(&m.line));
+        }
         let lines: Vec<&str> = text.lines().collect();
+        let is_html = html(&file);
         for m in found.iter_mut().filter(|m| m.path == file) {
-            if let Some(whole) = comment_text(&lines, m.line as usize) {
+            if let Some(whole) = comment_text(&lines, m.line as usize, is_html) {
                 m.text = whole;
             }
         }
@@ -164,9 +200,11 @@ fn in_markdown(found: &mut Vec<Marker>, top: &Path) {
 }
 
 /// The text of a comment marker that does not end on its line (`<!-- @ai: first line` … `-->`),
-/// joined into one line; `None` if it ends there or never does (within a few lines).
-fn comment_text(lines: &[&str], line: usize) -> Option<String> {
-    let first = strip_containers(lines.get(line.checked_sub(1)?)?);
+/// joined into one line; `None` if it ends there or never does (within a few lines). In HTML the
+/// comment may follow a tag on its first line.
+fn comment_text(lines: &[&str], line: usize, html: bool) -> Option<String> {
+    let first = lines.get(line.checked_sub(1)?)?;
+    let first = if html { html_comment_start(first)? } else { strip_containers(first) };
     if !first.starts_with("<!--") || first.contains("-->") {
         return None;
     }
@@ -312,16 +350,60 @@ mod tests {
         for line in ["- <!-- @ai: x -->", "> > - <!-- @ai: x -->", "12. <!-- @ai: x -->", "<!-- @ai: x -->", "@ai x", "  // @ai x"] {
             assert!(re(line), "{line}");
         }
+        let html = |line: &str| {
+            std::process::Command::new("grep")
+                .args(["-E", "-q", "-e", HTML_PATTERN])
+                .stdin(std::process::Stdio::piped())
+                .spawn()
+                .and_then(|mut c| {
+                    use std::io::Write;
+                    c.stdin.take().unwrap().write_all(format!("{line}\n").as_bytes())?;
+                    c.wait()
+                })
+                .is_ok_and(|s| s.success())
+        };
+        assert!(html("<li><!-- @ai: x --><p>") && html("  <td>a</td><!--@AI x -->"));
     }
 
     #[test]
     fn a_comment_over_several_lines_gives_its_whole_text() {
         let text = "Intro\n\n<!-- @ai: Mehrzeiliger\n     Kommentar -->\n\n- <!-- @ai: im Eintrag\n  zweite Zeile -->\n  Eintrag\n\n> <!-- @ai: im Zitat\n> weiter -->\n\n<!-- @ai: eine Zeile -->\n";
         let lines: Vec<&str> = text.lines().collect();
-        assert_eq!(comment_text(&lines, 3).as_deref(), Some("Mehrzeiliger Kommentar"));
-        assert_eq!(comment_text(&lines, 6).as_deref(), Some("im Eintrag zweite Zeile"));
-        assert_eq!(comment_text(&lines, 10).as_deref(), Some("im Zitat weiter"));
-        assert_eq!(comment_text(&lines, 13), None, "ends on its line: grep's text stands");
+        assert_eq!(comment_text(&lines, 3, false).as_deref(), Some("Mehrzeiliger Kommentar"));
+        assert_eq!(comment_text(&lines, 6, false).as_deref(), Some("im Eintrag zweite Zeile"));
+        assert_eq!(comment_text(&lines, 10, false).as_deref(), Some("im Zitat weiter"));
+        assert_eq!(comment_text(&lines, 13, false), None, "ends on its line: grep's text stands");
+    }
+
+    #[test]
+    fn in_html_a_marker_may_stand_inside_a_line() {
+        // where Hyqe writes them: a line of its own, or straight before a tag inside a line
+        let yes = [
+            ("    <!-- @ai: shorter -->", "shorter"),
+            ("<li><!-- @ai: bold --><p>Text</p>", "bold"),
+            ("  <tr><td>a</td><!-- @ai:x --><td>b</td>", "x"),
+            ("<p>Price <!-- @ai: bigger --><b>9 €</b></p>", "bigger"),
+        ];
+        for (line, text) in yes {
+            assert_eq!(html_marker_text(line).as_deref(), Some(text), "{line}");
+        }
+        let no = [
+            "  var s = \"<!-- @ai: in a string\";",
+            "  html += '<!-- @ai: built';",
+            "  el.innerHTML = `<!-- @ai: template`;",
+            "<!-- @ai#erledigt: done -->",
+            "<li><!-- @me: a note --><p>",
+            "<code>&lt;!-- @ai --&gt;</code>",
+        ];
+        for line in no {
+            assert_eq!(html_marker_text(line), None, "{line}");
+        }
+        // only HTML files: elsewhere a comment inside a line is text
+        let m = parse("page.html\x003\x00<li><!-- @ai: bold --><p>\nnotes.md\x001\x00<li><!-- @ai: bold -->\n");
+        assert_eq!(m.iter().map(|m| m.path.as_str()).collect::<Vec<_>>(), ["page.html"]);
+        // several lines, after a tag
+        let lines = ["<ul>", "  <li><!-- @ai: eins", "           zwei --><p>x</p></li>"];
+        assert_eq!(comment_text(&lines, 2, true).as_deref(), Some("eins zwei"));
     }
 
     #[test]
@@ -343,7 +425,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("a.md"), text).unwrap();
         let mut found = parse("a.md\x001\x00@ai real\na.md\x004\x00<!-- @ai: example -->\na.md\x009\x00@ai real again\nb.txt\x004\x00@ai other file\n");
-        in_markdown(&mut found, &dir);
+        in_documents(&mut found, &dir);
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(found.iter().map(|m| (m.path.as_str(), m.line)).collect::<Vec<_>>(), [("a.md", 1), ("a.md", 9), ("b.txt", 4)]);
     }

@@ -30,6 +30,11 @@ Qiew `crates/frame/src/launch.rs`); alles Zusätzliche wirkt nur, wenn CodeDeck 
   mehrere Zeilen kommt mit seinem ganzen Text. Abgehakte (`@ai#erledigt`) sind keine Hinweise. Der Auftrag an die KI
   sagt, dass ein solcher Kommentar dem folgenden Block gilt und danach entfernt wird (Nutzer, 2026-11-21: nicht
   abhaken, das ließe Unnützes im Text).
+- **Kommentare in Hyqe (`--annotate`, 2026-11-26):** Ebenso für HTML-Dateien: Hyqe schreibt Kommentare an Elemente
+  der Seite (`<!-- @ai: … -->` vor dem Start-Tag; Qiew `apps/hyqe/KOMMENTARE.md`). Beginnt das Tag keine Zeile, steht
+  der Kommentar mitten in der Zeile direkt davor (`<li><!-- @ai: … --><p>`); `markers.rs` nimmt ihn in HTML-Dateien
+  deshalb überall in der Zeile, nur nicht als Zeichenkette in Code (direkt nach `"`, `'`, `` ` ``, `=`, `(`, `+`, `,`),
+  auch über mehrere Zeilen. Der Auftrag an die KI (`src/markers.ts`) sagt, dass er dem Element gilt, dessen Start-Tag folgt.
 
 - **Dirq statt der eingebetteten Diffs (2026-11-22):** Ist Dirq installiert (`has_diff_viewer`, nur das Dasein zählt,
   keine Einstellung), zeigen Code- und Strukturansicht im Reiter Änderungen nur noch die Dateien. Ein Klick tut nichts,

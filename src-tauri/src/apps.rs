@@ -132,11 +132,12 @@ fn qiew_program(app: &gio::AppInfo) -> Option<(&'static str, std::path::PathBuf)
 }
 
 /// The options a be spex viewer gets beyond `how`: Marq may write comments on the blocks of a
-/// project file (`<!-- @ai: … -->`, `--annotate`, for this file only); CodeDeck finds the `@ai`
-/// ones as hints (`markers.rs`). Text shown from standard input never gets it (`pipe_to`).
+/// project file, Hyqe on the elements of an HTML page (`<!-- @ai: … -->`, `--annotate`, for this
+/// file only); CodeDeck finds the `@ai` ones as hints (`markers.rs`). Text shown from standard
+/// input never gets it (`pipe_to`).
 fn own_options(program: &str) -> &'static [&'static str] {
     match program {
-        "marq" => &["--annotate"],
+        "marq" | "hyqe" => &["--annotate"],
         _ => &[],
     }
 }
@@ -399,9 +400,10 @@ mod tests {
     }
 
     #[test]
-    fn only_marq_may_annotate_and_only_the_file_opened() {
+    fn only_marq_and_hyqe_may_annotate_and_only_the_file_opened() {
         assert_eq!(own_options("marq"), ["--annotate"]);
-        for other in ["jayq", "xaq", "hyqe", "cusq", "dirq", "maiqe", "trisq"] {
+        assert_eq!(own_options("hyqe"), ["--annotate"]);
+        for other in ["jayq", "xaq", "cusq", "dirq", "maiqe", "trisq"] {
             assert!(own_options(other).is_empty(), "{other}");
         }
     }

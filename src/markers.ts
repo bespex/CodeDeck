@@ -19,6 +19,7 @@ export function markerTask(markers: Marker[]): string {
   return [
     "Work in these comments that I left for you in files of this project (lines beginning with `@ai`, or with a comment that begins with it).",
     "In Markdown, a comment like `<!-- @ai: … -->` on a line of its own is about the block that follows it (a paragraph, a list item, a table …).",
+    "In HTML, such a comment is about the element whose start tag follows it (only blank space or other comments in between), also inside a line (`<li><!-- @ai: … --><p>`).",
     "Change the text around each one as it asks, then remove the comment. Leave a comment in place if you are unsure, and tell me why.",
     "",
     ...lines,
