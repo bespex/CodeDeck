@@ -103,3 +103,7 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
   und die Adresse `bespex.run/codedeck` (keine eigene Subdomain). `codeck` gibt es nur noch als Alias und Übergangspaket, nirgends im Text. Teile
   heißen nach dem, was sie sind (Übersicht, Projektfenster). Im Text „be spex“, nie „be-spex“.
 - Commits nur auf Wunsch, auf `main`, Englisch, Autor **Bert Speckels <skrrytch@speckels.net>** (lokale Repo-Config; nie die globale Arbeitsadresse), **ohne KI-Zeilen** (kein `Co-Authored-By`, kein `Claude-Session`, kein „Generated with Claude Code“; gilt für alle bespex-Projekte).
+
+## Aufgaben, Ideen, Roadmap
+
+Offene Punkte und geplante Aufgaben stehen in `TODO.md`, Ideen in `IDEAS.md`, eine von der KI geplante Roadmap (optional) in `ROADMAP.md` (Repository-Hauptordner; Aufbau und Regeln in `~/.claude/CLAUDE.md`). Alle drei landen im Git-Repository: keine Zugangsdaten, privaten Daten, internen URLs, Hostnamen oder IPs. Ideen aus `IDEAS.md` nur nach ausdrücklicher Freigabe umsetzen.
