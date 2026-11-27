@@ -1,6 +1,6 @@
 [package]
 name = "codedeck"
-version = "0.4.15"
+version = "0.4.16"
 description = "CodeDeck – AI session radar for Linux · be spex"
 authors = ["Skrrytch <skrrytch@speckels.net>"]
 edition = "2024"
