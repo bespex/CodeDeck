@@ -54,7 +54,7 @@ export function TodoZone({ marks, harness, plan }: { marks: Markers; harness: Ha
         return (
           <ZoneRow
             key={`h${markerKey(m)}`}
-            icon={<span className="rounded bg-raised px-1 font-mono text-[10px] leading-4 text-slate-300">@ai</span>}
+            icon={<span className="rounded bg-ai/15 px-1 font-mono text-[10px] leading-4 text-ai">@ai</span>}
             sub={
               <>
                 {m.path}:{m.line}
@@ -81,7 +81,7 @@ export function TodoZone({ marks, harness, plan }: { marks: Markers; harness: Ha
     ...comments.map((n) => (
       <ZoneRow
         key={`n${n.id}`}
-        icon={<MessageSquare className="size-4 text-slate-400" />}
+        icon={<MessageSquare className="size-4 text-moved" />}
         sub={`${n.path}:${n.line}`}
         title={t("Double-click: view at this line")}
         onDoubleClick={() => void openFile(n.path, "view", n.line)}
@@ -101,7 +101,7 @@ export function TodoZone({ marks, harness, plan }: { marks: Markers; harness: Ha
     ...questions.map((q) => (
       <ZoneRow
         key={`q${planKey(q)}`}
-        icon={<ListChecks className="size-4 text-slate-400" />}
+        icon={<ListChecks className="size-4 text-changed" />}
         title={t("Double-click: view at this line")}
         onDoubleClick={() => void openFile(q.path, "view", q.line)}
         aside={canAttach && <Clip on={planOn(q)} onClick={() => planItems.toggle([q])} label={t("Attach to next prompt")} />}

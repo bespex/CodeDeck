@@ -7,11 +7,10 @@ import { useConnections } from "../../assistant";
 import { plural, t } from "../../i18n";
 import { Tooltip } from "../Tooltip";
 
-// The state by shape, not colour (user, 2026-11-27): filled done, a ring with a centre in progress, an empty ring open
-const DOT: Record<PlanState, string> = { done: "bg-slate-400", active: "border-2 border-slate-400 bg-slate-400/30", open: "border border-slate-500" };
+const DOT: Record<PlanState, string> = { done: "bg-added", active: "bg-changed", open: "bg-slate-700" };
 const STATE_ICON: Record<PlanState, ReactNode> = {
-  done: <CircleCheck className="size-3.5 text-slate-400" />,
-  active: <CircleDot className="size-3.5 text-slate-300" />,
+  done: <CircleCheck className="size-3.5 text-added" />,
+  active: <CircleDot className="size-3.5 text-changed" />,
   open: <CircleDashed className="size-3.5 text-slate-500" />,
 };
 
@@ -188,7 +187,7 @@ function LooseCards({ plan, attached, canAttach }: { plan: Plan; attached: (i: P
   const Icon = { task: ListChecks, question: CircleDashed, idea: Lightbulb };
   return (
     <>
-      <div className="mt-2 mb-1.5 text-[10px] font-semibold tracking-wider text-slate-500 uppercase">{tasks ? t("Next from the TODO file") : t("Ideas: drafts, nothing is built without your approval")}</div>
+      <div className="mt-2 mb-1.5 text-[10px] font-semibold tracking-wider text-brand-soft uppercase">{tasks ? t("Next from the TODO file") : t("Ideas: drafts, nothing is built without your approval")}</div>
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-2">
         {cards.slice(0, CARDS).map(({ entry, path, kind }) => {
           const K = Icon[kind];
@@ -196,7 +195,7 @@ function LooseCards({ plan, attached, canAttach }: { plan: Plan; attached: (i: P
           return (
             <li key={`${kind}${entry.line}`} className="group flex min-w-0 flex-col rounded-md border border-line bg-raised/50 px-2.5 py-2">
               <div className="mb-1 flex items-center gap-1.5 text-[11px] text-slate-500">
-                <K className="size-3.5 text-slate-400" />
+                <K className="size-3.5 text-brand-soft" />
                 <span>{word[kind]}</span>
                 {item && (
                   <span className="ml-auto">
@@ -258,7 +257,7 @@ function NextStep({ text, item, attached, canAttach }: { text: string; item: Pla
   return (
     <div className="mt-3 flex items-start gap-3 rounded-md border border-line bg-raised/50 px-3 py-2">
       <div className="min-w-0 flex-1">
-        <div className="mb-0.5 text-[10px] font-semibold tracking-wider text-slate-500 uppercase">{t("Next")}</div>
+        <div className="mb-0.5 text-[10px] font-semibold tracking-wider text-brand-soft uppercase">{t("Next")}</div>
         <button type="button" onClick={() => void openFile(item.path, "view", item.line)} title={`${item.path}:${item.line}`} className="action-text block text-left">
           <span className="line-clamp-3 text-[14px] leading-snug text-slate-100">{text}</span>
         </button>

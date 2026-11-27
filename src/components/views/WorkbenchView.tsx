@@ -142,7 +142,7 @@ function KindsLine({ files, bytes }: { files: WorkFile[]; bytes: number }) {
         </span>
       )}
       {soon > 0 && (
-        <span className="flex items-center gap-1.5 font-medium text-slate-300" title={t("Old files go to the trash by the rules in the settings, unless kept, attached or named in a guide file.")}>
+        <span className="flex items-center gap-1.5 text-changed" title={t("Old files go to the trash by the rules in the settings, unless kept, attached or named in a guide file.")}>
           {t("{n} expire within 3 days", { n: soon })} {sep}
         </span>
       )}
@@ -504,7 +504,7 @@ function ScratchLine(props: {
       <span className="flex size-3.5 shrink-0 items-center justify-center">{props.lead}</span>
       {props.icon}
       <span className="flex min-w-0 flex-1 items-baseline gap-2">{props.name}</span>
-      <span title={props.whenTitle} className={`w-24 shrink-0 text-right text-[11px] whitespace-nowrap ${props.old ? "font-semibold text-slate-200" : "text-slate-500"}`}>{props.when}</span>
+      <span title={props.whenTitle} className={`w-24 shrink-0 text-right text-[11px] whitespace-nowrap ${props.old ? "text-changed" : "text-slate-500"}`}>{props.when}</span>
       <span className="w-16 shrink-0 text-right font-mono text-[11px] text-slate-500 tabular-nums">{size(props.size)}</span>
       <div className="ml-4 flex shrink-0 gap-0.5">{props.actions}</div>
     </li>

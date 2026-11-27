@@ -11,8 +11,8 @@ import { t } from "../../i18n";
 
 export type SectionId = "plan" | "todo" | "new";
 
-/** The symbol in a card's head: no colour (user, 2026-11-27: "no colour, but marks that structure"). */
-const GLYPH: Record<SectionId, string> = { plan: "text-slate-400", todo: "text-slate-400", new: "text-slate-400" };
+/** The symbol in a card's head carries the section's colour; the surfaces stay neutral (user, 2026-11-27). */
+const GLYPH: Record<SectionId, string> = { plan: "text-brand-soft", todo: "text-ai", new: "text-added" };
 const SectionContext = createContext<SectionId>("todo");
 
 /**
@@ -140,21 +140,20 @@ export function ZoneLine(props: {
 
 /** A short coloured word after a name: where a file lies when that is the news (outside the project). */
 export function ZoneTag({ tone = "changed", children }: { tone?: "changed" | "moved"; children: ReactNode }) {
-  // A frame, not a colour; `tone` is kept for the callers
-  void tone;
-  return <span className="rounded border border-line px-1 text-[10px] font-medium text-slate-300">{children}</span>;
+  const cls = tone === "changed" ? "bg-changed/15 text-changed" : "bg-moved/15 text-moved";
+  return <span className={`rounded px-1 py-px text-[10px] font-medium ${cls}`}>{children}</span>;
 }
 
 const KIND_ICON: Record<string, [LucideIcon, string]> = {
-  draft: [FileText, "text-slate-400"],
-  image: [FileImage, "text-slate-400"],
-  script: [FileCode, "text-slate-400"],
-  data: [FileSpreadsheet, "text-slate-400"],
+  draft: [FileText, "text-moved"],
+  image: [FileImage, "text-added"],
+  script: [FileCode, "text-ai"],
+  data: [FileSpreadsheet, "text-changed"],
   backup: [FileArchive, "text-slate-400"],
   other: [FileIcon, "text-slate-400"],
 };
 
-/** The symbol of a file by its kind: its shape tells pictures, code and data apart, without colour. */
+/** The symbol of a file by its kind, in the kind's colour: the eye finds pictures, code and data. */
 export function KindIcon({ path }: { path: string }) {
   const [Icon, tone] = KIND_ICON[scratchKind(path)] ?? KIND_ICON.other;
   return <Icon className={`size-4 ${tone}`} />;

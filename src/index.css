@@ -202,7 +202,7 @@ body::after {
 
 /* Text that does something when clicked, not a framed button (user, 2026-11-27: what can be clicked
    must look so, at least on hover): the same everywhere. A soft background and the full text colour
-   on hover; no colour of its own (user, 2026-11-27: structure, not colour). Padding with a negative margin of the same size,
+   on hover, its symbol always in the accent colour. Padding with a negative margin of the same size,
    so the hover surface does not move the text. */
 @utility action-text {
   border-radius: var(--radius-md);
@@ -215,6 +215,9 @@ body::after {
   &[aria-expanded="true"] {
     background-color: var(--color-raised);
     color: var(--color-slate-100);
+  }
+  & > svg {
+    color: var(--color-brand-soft);
   }
 }
 

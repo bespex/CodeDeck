@@ -106,7 +106,7 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
   `src/i18n.de.ts` (Schlüssel = englischer Text). Nicht übersetzt wird, was Claude bekommt (Startregeln, Text der
   Anhänge, Namen von Änderungen) und was in Git landet (Snapshot-Namen). Prüfen: Vorschau auf Deutsch, dann
   `window.missingTranslations()` in der Konsole (bzw. `eval:` in `tools/shot.mjs`).
-- Anklickbarer Text ohne eigenen Rahmen (Links, aufklappende Zahlen, Titel zum Öffnen) bekommt die Klasse `action-text` aus `src/index.css`: überall dieselbe Fläche beim Überfahren, ohne eigene Farbe (Nutzer, 2026-11-27: was man anklicken kann, muss so aussehen; Struktur statt Farbe). Nicht `hover:underline` oder nur eine Textfarbe.
+- Anklickbarer Text ohne eigenen Rahmen (Links, aufklappende Zahlen, Titel zum Öffnen) bekommt die Klasse `action-text` aus `src/index.css`: überall dieselbe Fläche beim Überfahren, sein Zeichen in der Akzentfarbe (Nutzer, 2026-11-27: was man anklicken kann, muss so aussehen). Nicht `hover:underline` oder nur eine Textfarbe.
 - Git nur über `Git::run`/`execute`, damit jeder Befehl im Log erscheint. Was etwas ändert, läuft über
   `execute` ohne Umgebungsvariablen und gilt dann als Änderung.
 - Jede neue Backend-Funktion bekommt in `backend.ts` einen Mock, sonst bricht die Vorschau.

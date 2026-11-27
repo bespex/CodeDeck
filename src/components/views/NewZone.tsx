@@ -149,7 +149,7 @@ function FolderRow({ folder, things }: { folder: string; things: ScratchThing[] 
   const { kept } = useContext(KeptContext);
   return (
     <ZoneLine
-      icon={backup ? <FileArchive className="size-4 text-slate-400" /> : <Folder className="size-4 text-slate-400" />}
+      icon={backup ? <FileArchive className="size-4 text-slate-400" /> : <Folder className="size-4 text-moved" />}
       name={`${name}/`}
       tag={<span className="text-[11px] text-slate-500">{plural(things.length, "new file")}</span>}
       rest={isKept(folder, kept) && <Bookmark className="size-3 fill-current text-slate-400" />}
@@ -331,7 +331,7 @@ function OutsideRow({ file, item }: { file: OutsideFile; item: NewsItem }) {
 function PageRow({ page, item }: { page: PublishedPage; item: NewsItem }) {
   return (
     <ZoneLine
-      icon={<Globe className="size-4 text-slate-400" />}
+      icon={<Globe className="size-4 text-moved" />}
       name={page.title}
       tag={<ZoneTag tone="moved">{t("online")}</ZoneTag>}
       title={page.url}
