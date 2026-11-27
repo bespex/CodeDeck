@@ -1,4 +1,4 @@
-// Prepared prompts in the Next prompt area (docs/PLAN.md, "Prompts vorbereiten"): a short list below
+// Prepared prompts in the Next prompt area (docs/UMSETZUNG.md, "Prompts vorbereiten"): a short list below
 // what is attached, quiet like the rest of the column. One prompt at a time opens in its editor right
 // there; the area grows for it, so it can stay open beside the deck and the file list while one looks
 // things up and copies them in. Handing a prompt over is copy and paste for now.

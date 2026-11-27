@@ -1289,7 +1289,7 @@ function FileSection({ id, repo, file, working, who }: { id: string; repo: RepoS
   // A deleted file is not there to open
   const projectPath = file.status === "D" ? null : toProject(repo, file.path);
   // A binary file has no lines to compare: in the working tree the file on disk is the state the row
-  // means, so a click shows it in its viewer instead. Older scopes would need the blob from Git (PLAN.md)
+  // means, so a click shows it in its viewer instead. Older scopes would need the blob from Git (TODO.md)
   const viewer = file.binary && scope?.worktree && projectPath ? projectPath : null;
   const open = folded && !dirq && !viewer;
   const Chevron = open ? ChevronDown : ChevronRight;

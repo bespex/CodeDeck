@@ -1,10 +1,11 @@
 # CodeDeck
 
 Tauri 2 (Rust, `src-tauri/`) + React/TS/Tailwind (`src/`). Läuft neben Claude Code als „stilles
-Radar“, hat keinen eigenen Editor. Die weitere Umsetzung steht in `docs/PLAN.md`: zuerst den Abschnitt
-„Einstieg für eine neue Session“ lesen, dann nur den Schritt der MVP-Phasen, an dem gearbeitet wird.
+Radar“, hat keinen eigenen Editor. Was ansteht, steht in `ROADMAP.md`: den nächsten offenen Schritt nehmen und nur die dort genannten
+Dateien lesen (Einzelheiten je Schritt in `docs/UMSETZUNG.md`, Entscheidungen in `docs/ENTSCHEIDUNGEN.md`,
+Erkenntnisse in `docs/NOTIZEN.md`).
 Das Zielbild zeigt der Click-Dummy in `design/click-dummy/`; er ist Vorlage, kein Bauplan (Abweichungen
-nach Rückfrage, siehe „So läuft jeder Schritt“ im Plan). `docs/KONZEPT.md` erklärt das Zusammenspiel für
+nach Rückfrage, siehe „So läuft jeder Schritt“ unten). `docs/KONZEPT.md` erklärt das Zusammenspiel für
 Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht.
 
 ## Karte (statt suchen)
@@ -77,7 +78,24 @@ Menschen, Teil 4 das Zielbild; nur die Abschnitte lesen, die ein Schritt braucht
 | `src/changes.ts` | Änderungen als Anhang (Git-Befehl statt Diff, neue Dateien als Pfad), `ChangeScopeContext` je Diff-Ansicht |
 | `src/turns.ts`, `src/notes.ts`, `src/reviewed.ts` | Runden aus Snapshots und laufenden Sitzungen, wer welche Datei geändert hat; Zeilenkommentare als Teil der Übergabe; „Viewed“ je Datei mit Stand beim Ansehen („seit dem Ansehen geändert“) |
 | `src/mock.ts` | Beispieldaten für die Vorschau; in `backend.ts` `?tool=minimal` (zweites Werkzeug mit wenig Fähigkeiten, `mockWays`), `?platform=…` und `?git=none` (Projekt ohne Repository) |
-| `design/click-dummy/` | Zielbild als Click-Dummy (Vorlage für `PLAN.md` „Zielbild“; README dort lesen, nicht die ganze `Main.dc.html`) |
+| `design/click-dummy/` | Zielbild als Click-Dummy (Vorlage für die MVP-Phasen in `ROADMAP.md`; README dort lesen, nicht die ganze `Main.dc.html`) |
+
+## So läuft jeder Schritt
+
+1. **Lesen:** die genannten Dateien (Karte in `CLAUDE.md`) und die genannte Stelle im Dummy.
+2. **Prüfen, bevor etwas gebaut wird**, in drei Richtungen:
+   - *Technik:* Liefern Hooks, Logs, Git oder tmux wirklich, was der Dummy zeigt? Unklares mit dem Agenten
+     `claude-code-guide` klären, nicht schätzen.
+   - *Bestand:* Was kann die betroffene Ansicht heute, das der Dummy nicht zeigt? Nichts davon darf
+     stillschweigend verschwinden. Bekannt sind: Kontextmenü und „Öffnen mit“ im Datei-Navigator, Ziehen
+     in den Fokus, Git-Aktionen je Repo (`RepoActions`), Git-Protokoll, mehrere Repos im Projekt mit
+     eigenem Trail, Remote-Chip, Vergleich zweier Trail-Punkte, Struktur-Ansicht der Änderungen,
+     „Open in Dirq“, Sitzungsfilter für Snapshots, gedimmtes Fenster ohne Fokus.
+   - *Gestaltung:* Passt es zu den Regeln in `KONZEPT.md` 4.7 und zu dem, was schon umgebaut ist?
+3. **Rückfrage:** Weicht das Ergebnis der Prüfung vom Dummy ab, oder gibt es mehr als einen sinnvollen
+   Weg, erst den Nutzer fragen, mit Vorschlag. Dann bauen.
+4. **Abschließen:** `cargo test`, `tsc`, Screenshot der Vorschau; Schritt in `ROADMAP.md` abhaken, Erkenntnisse in
+   einer Zeile unter „Notizen“ in `docs/NOTIZEN.md`; bei geänderter Bedienung `KONZEPT.md` nachziehen.
 
 ## Regeln
 

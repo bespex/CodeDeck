@@ -1,4 +1,4 @@
-// Prepared prompts (docs/PLAN.md, "Prompts vorbereiten"): named prompts written over time, one Markdown
+// Prepared prompts (docs/UMSETZUNG.md, "Prompts vorbereiten"): named prompts written over time, one Markdown
 // file each in `.scratch/prompts/` (`prompts.rs`). Listed in the Next prompt area of the session column;
 // one at a time is open in its editor there. Handing one over is copy and paste for now.
 

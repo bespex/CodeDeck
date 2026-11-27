@@ -1516,7 +1516,7 @@ pub fn run() {
             if let Some(project) = project {
                 windows::open(app.handle(), project)?;
             }
-            // The start page, the window without a project (docs/PLAN.md "Projektliste im Fenster statt
+            // The start page, the window without a project (docs/UMSETZUNG.md "Projektliste im Fenster statt
             // Übersicht", step c), is made hidden: every project window has the project list, the start
             // page shows only while none is open (the tray, the last project window closed)
             let handle = app.handle().clone();

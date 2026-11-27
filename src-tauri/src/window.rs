@@ -425,7 +425,7 @@ fn activate_as_pager(title: &str) -> Option<()> {
 }
 
 /// The shortcut was pressed: CodeDeck to the front from anywhere, or away when it is in front
-/// (docs/PLAN.md "Projektliste im Fenster statt Übersicht", step d).
+/// (docs/UMSETZUNG.md "Projektliste im Fenster statt Übersicht", step d).
 fn pressed(app: &AppHandle, shortcut: &Shortcut) {
     if shortcut.id() != parse(SIDEBAR).id() {
         return;

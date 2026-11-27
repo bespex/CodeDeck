@@ -2,7 +2,7 @@
 
 Stand 2026-11-21, auf Wunsch des Nutzers vor dem Handbuchkapitel 9 „Dateien und Commit“. Das hier ist eine
 Auswahlliste, kein beschlossener Plan: Der Nutzer wählt, was gebaut wird; danach wandert es als Schritt in
-`PLAN.md`. Maßstab sind die beiden Grundsätze aus `KONZEPT.md` (Sehen, Einfach bedienen), die Regel „kein Editor“
+`ROADMAP.md`. Maßstab sind die beiden Grundsätze aus `KONZEPT.md` (Sehen, Einfach bedienen), die Regel „kein Editor“
 (Dateien öffnen in eigenen Programmen und den Qiew-Betrachtern) und „keine reinen X11-Funktionen“.
 
 ## Teil A: Aufräumen in der Werkbank
@@ -82,7 +82,7 @@ ignorierte Ordner stehen gleichrangig im Baum.
 | B4 | **Mehrfachauswahl** (Strg/Umschalt+Klick) für Anhängen, Papierkorb, Pfade kopieren | Mehrere Dateien auf einmal an die KI | mittel |
 | B5 | **Kontextmenü erweitern**: Pfad kopieren (relativ, absolut), Umbenennen, Neue Datei/Neuer Ordner, In den Papierkorb, Im Terminal öffnen, Von Git ignorieren (`info/exclude` oder `.gitignore`, mit Nachfrage) | Die kleinen Handgriffe ohne Dateimanager; alles über `Git::execute` bzw. Papierkorb, nichts endgültig | mittel |
 | B6 | **Ziehen auf eine Session-Karte**: hängt für genau diese Session an | Ziel und Inhalt in einer Bewegung | klein |
-| B7 | **Aus dem Dateimanager hereinziehen**: Datei in einen Ordner des Projekts kopieren, oder als Kopie in `.scratch/` und anhängen (Idee „Externe Dateien anhängen“ aus `PLAN.md`) | Fremdes Material kommt ohne Umweg zur KI | mittel |
+| B7 | **Aus dem Dateimanager hereinziehen**: Datei in einen Ordner des Projekts kopieren, oder als Kopie in `.scratch/` und anhängen (Idee „Externe Dateien anhängen“ in `IDEAS.md`) | Fremdes Material kommt ohne Umweg zur KI | mittel |
 
 ### c) Übersicht und Auswertung
 

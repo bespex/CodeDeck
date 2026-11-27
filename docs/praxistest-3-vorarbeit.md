@@ -58,7 +58,7 @@ Befund:
 
 ## 4. Offene Praxistests aus MVP 2
 
-Erledigt: Beide gelten laut `PLAN.md` als bestanden (2026-11-17), hier nur nicht abgehakt.
+Erledigt: Beide gelten laut `docs/UMSETZUNG.md` als bestanden (2026-11-17), hier nur nicht abgehakt.
 
 - [x] **2.3d:** Nach mehreren Runden steht höchstens eine Desktop-Meldung je Sitzung da; die Zahl in der Taskleiste
       passt zu „Wartet auf dich“

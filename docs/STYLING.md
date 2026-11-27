@@ -1,6 +1,6 @@
 # Styling: Farbschemata zum Auswählen
 
-**Stand 2026-11-25: umgestellt auf das be spex kit** (`@bespex/themes`, `../kit`, dort `PLAN.md` K5 U1 und
+**Stand 2026-11-25: umgestellt auf das be spex kit** (`@bespex/themes`, `../kit`, dort `ROADMAP.md` K5 U1 und
 `themes/README.md`). Farbthema und Stil sind getrennt wählbar und kommen aus dem Kit, dieselbe Auswahl wie in
 jeder be spex-App; `palette.ts`, `src/themes/*.json` und `npm run themes` sind entfallen, die Prüfung läuft im
 Kit. Die Rollen heißen `--sx-*`, CodeDecks eigene Stufen `--cd-*` (`src/index.css`). Die Eingriffe dieses

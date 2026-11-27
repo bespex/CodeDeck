@@ -2,7 +2,7 @@
 //! them too early (in the tool, Enter sends). One Markdown file each in `.scratch/prompts/`, managed by
 //! CodeDeck alone: the Workbench's scratch tile leaves the folder out, the Next prompt area lists it.
 //! The file name is the prompt's name, so a prompt can also be opened in one's own editor.
-//! Handing a prompt to a session is copy and paste for now (docs/PLAN.md, "Prompts vorbereiten").
+//! Handing a prompt to a session is copy and paste for now (docs/UMSETZUNG.md, "Prompts vorbereiten").
 
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;

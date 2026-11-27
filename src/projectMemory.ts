@@ -1,4 +1,4 @@
-// What a window showed of a project, kept while it shows another one (docs/PLAN.md "Projektliste im
+// What a window showed of a project, kept while it shows another one (docs/UMSETZUNG.md "Projektliste im
 // Fenster statt Übersicht", step a): coming back, the project looks as it was left. In this window's
 // memory only; a new window starts fresh, as a restart does.
 

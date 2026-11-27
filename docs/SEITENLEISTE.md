@@ -165,4 +165,4 @@ Aufteilung in drei Schritte, jeder für sich nützlich:
 - **Dialoge** passen in die Leiste: Einstellungen mit den Bereichen als Reihe oben, jede Einstellung untereinander.
 - **Platz:** immer am rechten Rand des Bildschirms, auf dem CodeDeck ist, über die volle Höhe des Arbeitsbereichs,
   400 px breit (Nutzer, nach dem ersten Test). `Strg+Alt+C`: sichtbar → ausblenden, ausgeblendet → zurückholen
-  (statt „vorn“), Fokus über `_NET_ACTIVE_WINDOW`. Messungen und Gründe: Notizen in `PLAN.md`.
+  (statt „vorn“), Fokus über `_NET_ACTIVE_WINDOW`. Messungen und Gründe: Notizen in `docs/NOTIZEN.md`.

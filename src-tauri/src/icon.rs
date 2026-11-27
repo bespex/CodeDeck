@@ -3,7 +3,7 @@
 //! marked in the shapes and sizes every be spex app uses (Maillet's tray), in CodeDeck's colours: a
 //! pill with the number of sessions that ask, top right, in the amber of "asks", and a dot for a
 //! finished turn, bottom right, in the green of "done". Drawn here, no image files.
-//! Spike: whether the desktop's window list shows a window's own icon is to be tried (docs/PLAN.md).
+//! Spike: whether the desktop's window list shows a window's own icon is to be tried (docs/NOTIZEN.md).
 
 use std::path::Path;
 

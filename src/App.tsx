@@ -73,7 +73,7 @@ export default function App() {
           if (previous) void openRef.current(previous.path, false);
         });
       } else if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "w") {
-        // Close project: the window goes with it (docs/PLAN.md "Projektliste im Fenster statt Übersicht")
+        // Close project: the window goes with it (docs/UMSETZUNG.md "Projektliste im Fenster statt Übersicht")
         e.preventDefault();
         void closeWindow();
       } else if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") {
@@ -120,7 +120,7 @@ export default function App() {
   }, []);
 
   // How long a switch takes until files and git are there: the measure for keeping one web view per
-  // window (docs/PLAN.md "Projektliste im Fenster statt Übersicht", step a)
+  // window (docs/UMSETZUNG.md "Projektliste im Fenster statt Übersicht", step a)
   const switchStart = useRef<{ at: number; unloaded: boolean } | null>(null);
   useEffect(() => {
     const start = switchStart.current;

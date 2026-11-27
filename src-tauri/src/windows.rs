@@ -284,7 +284,7 @@ pub fn overview_changed(app: &AppHandle) {
     crate::tray::refresh(app);
 }
 
-/// The tray and `Ctrl+Alt+L` (docs/PLAN.md "Projektliste im Fenster statt Übersicht", step d): the project
+/// The tray and `Ctrl+Alt+L` (docs/UMSETZUNG.md "Projektliste im Fenster statt Übersicht", step d): the project
 /// window used last to the front, or away when it is in front; without a project window the start page
 /// the same way. Hidden or covered, it comes forward; only in front it goes. Off the main thread.
 pub fn front_or_away(app: &AppHandle) -> Result<(), String> {

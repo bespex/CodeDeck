@@ -1,6 +1,6 @@
 # Sitzungen: Prüfung, Konzept und Plan (2026-11-20)
 
-Prüfung des Stands nach „Sitzungsliste überarbeitet“ und „Sitzungen im Hintergrund“ (`docs/PLAN.md`, „Später“).
+Prüfung des Stands nach „Sitzungsliste überarbeitet“ und „Sitzungen im Hintergrund“ (`docs/UMSETZUNG.md`, „Später“; Stand in `ROADMAP.md` U3–U5).
 Drei Fragen des Nutzers:
 
 1. **IST:** Welche Wege gibt es, eine KI-Sitzung zu betreiben (vor allem in tmux)? Deckt CodeDeck sie ab, und zeigt es
@@ -221,7 +221,7 @@ dem einzigen, sonst mit der Rückfrage „Mit welchem Werkzeug?“. Werkzeuge oh
 
 ## Teil 5: Plan zur Überarbeitung
 
-Jeder Schritt einzeln, mit Praxistest, nach „So läuft jeder Schritt“ in `docs/PLAN.md`.
+Jeder Schritt einzeln, mit Praxistest, nach „So läuft jeder Schritt“ in `CLAUDE.md`.
 
 | Schritt | Inhalt | Dateien | Fertig, wenn |
 |---|---|---|---|

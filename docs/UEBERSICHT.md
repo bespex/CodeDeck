@@ -3,7 +3,7 @@
 > **Abgelöst (2026-11-19):** Die Übersicht als eigenes Fenster gibt es nicht mehr. Ihre Liste steht links in
 > jedem Projektfenster (Projektliste, ohne Sitzungen), ohne offenes Projektfenster als Startseite am linken
 > Bildschirmrand; Tray und `Ctrl+Alt+L` holen das zuletzt benutzte Projektfenster nach vorn. Siehe
-> `docs/PLAN.md` „Projektliste im Fenster statt Übersicht“. Was hier über Gruppen, Zeilenmenü, Marken, Ziehen
+> `docs/UMSETZUNG.md` „Projektliste im Fenster statt Übersicht“. Was hier über Gruppen, Zeilenmenü, Marken, Ziehen
 > und die Tagesliste steht, gilt für die Projektliste weiter; was über Fenster, Leistenform und Sitzungen in
 > der Liste steht, nicht mehr.
 

@@ -58,7 +58,7 @@ pub fn forget(keep: &[PathBuf]) {
 }
 
 /// The projects opened lately, newest first: their place gives each its rank in the project list's
-/// "Recently" (docs/PLAN.md "Projektliste im Fenster statt Übersicht").
+/// "Recently" (docs/UMSETZUNG.md "Projektliste im Fenster statt Übersicht").
 pub fn order() -> Vec<PathBuf> {
     file().map(|f| load(&f).into_iter().map(|entry| entry.path).collect()).unwrap_or_default()
 }

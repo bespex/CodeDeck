@@ -2,7 +2,7 @@
 
 > **Stand 2026-11-22:** Gebaut sind A1, A3, A6, A7, A8, B4 (Dirq-Seite, ohne Schalter in CodeDeck), B1 (Kommentare in Dirq
 > werden Zeilenkommentare, `--annotate`) und A9/B9 (`--repo`). Mit installiertem Dirq ersetzt es die eingebetteten Diffs im
-> Reiter Änderungen (Doppelklick auf eine Datei). Einzelheiten: `docs/QIEW.md`, Qiew `docs/ANNOTATE.md`, `apps/dirq/PLAN.md`.
+> Reiter Änderungen (Doppelklick auf eine Datei). Einzelheiten: `docs/QIEW.md`, Qiew `docs/ANNOTATE.md`, Qiew `TODO.md` und `IDEAS.md`.
 
 Stand 2026-11-21, auf Wunsch des Nutzers: Wie kann Dirq das Prüfen von Änderungen erheblich besser unterstützen, allein und
 mit CodeDeck? Auswahlliste, nichts davon ist beschlossen. Der Teil für Dirq allein gehört später ins Qiew-Repo.

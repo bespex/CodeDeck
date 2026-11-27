@@ -15,7 +15,7 @@ interface Props {
 }
 
 /**
- * The left column of a project window (docs/PLAN.md "Projektliste im Fenster statt Übersicht"): on top
+ * The left column of a project window (docs/UMSETZUNG.md "Projektliste im Fenster statt Übersicht"): on top
  * the title CodeDeck with its menus; below it all projects, as the overview listed them, without
  * their sessions. A click on the logo folds the column to a rail of marks, where the logo opens it again.
  */

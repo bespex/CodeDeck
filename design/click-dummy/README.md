@@ -1,7 +1,7 @@
 # Click-Dummy: das Zielbild von CodeDeck
 
 Abgestimmter Entwurf vom 2026-11-15. Er zeigt, wie CodeDeck später aussieht und bedient wird, und ist
-die **Vorlage** für den Stufenplan in `docs/PLAN.md` (Abschnitt „Zielbild“). Das Warum steht in
+die **Vorlage** für den Stufenplan in `ROADMAP.md` (Einzelheiten `docs/UMSETZUNG.md`). Das Warum steht in
 `docs/KONZEPT.md`, Teil 4.
 
 ## Ansehen

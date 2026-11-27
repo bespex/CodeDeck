@@ -18,7 +18,7 @@ import { copyDiagnostics, reportProblem } from "./HeaderBar";
 // open. Everything occasional appears on hover or sits behind an icon of the toolbar.
 
 /**
- * The list in a project window (docs/PLAN.md "Projektliste im Fenster statt Übersicht"): a click shows
+ * The list in a project window (docs/UMSETZUNG.md "Projektliste im Fenster statt Übersicht"): a click shows
  * the project in this window, Ctrl+click in a new one. No sessions in the list: those of the project
  * shown are in the session column beside it.
  */
@@ -31,7 +31,7 @@ export interface InWindow {
   full?: boolean;
 }
 
-/** The start page (docs/PLAN.md "Projektliste im Fenster statt Übersicht", step c): the window without a
+/** The start page (docs/UMSETZUNG.md "Projektliste im Fenster statt Übersicht", step c): the window without a
  *  project. A click brings the project's window to the front or opens it, and the start page steps back. */
 export const START_PAGE: InWindow = {
   current: null,
@@ -1124,7 +1124,7 @@ export default function OverviewApp({ inWindow }: { inWindow?: InWindow } = {}) 
 }
 
 /**
- * The folded project list (docs/PLAN.md "Projektliste im Fenster statt Übersicht"): one mark per
+ * The folded project list (docs/UMSETZUNG.md "Projektliste im Fenster statt Übersicht"): one mark per
  * project in the order of the list, marked as on the icons (a pill with the number that ask, a dot
  * for a finished turn), the one shown here on a band. A click shows it here, Ctrl+click in a new
  * window. Groups have no heading here; their projects follow each other.

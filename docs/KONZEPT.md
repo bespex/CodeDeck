@@ -2,7 +2,7 @@
 
 Dieses Dokument erklärt, was CodeDeck für dich als Anwender tut (Teil 1) und wie CodeDeck und
 Claude Code dafür zusammenarbeiten (Teil 2). Teil 3 nennt die Lücken des heutigen Stands, Teil 4
-beschreibt das abgestimmte Zielbild. Wie es umgesetzt wird, steht in `PLAN.md`; das hier ist das Warum
+beschreibt das abgestimmte Zielbild. Wie es umgesetzt wird, steht in `ROADMAP.md` und `docs/UMSETZUNG.md`; das hier ist das Warum
 und das Wie im Großen.
 
 Teil 1 und 2 beschreiben CodeDeck, wie es heute gebaut ist. Wo Teil 4 davon abweicht (Werkstatt,
@@ -484,7 +484,7 @@ unter den Tabellen.
 | „Go back“ mit Rückfrage und Rückweg | Vergleichen zweier Punkte geht nur mit Strg+Klick, was man nicht entdeckt |
 | Git-Befehl wird vor dem Ausführen gezeigt | Dass die Übergabe erst mit dem *nächsten Prompt* rausgeht, steht nur im Tooltip |
 
-So schließt das Zielbild diese Lücken (Schritte aus `PLAN.md`, „Zielbild: MVP-Phasen“):
+So schließt das Zielbild diese Lücken (Schritte aus `docs/UMSETZUNG.md`, MVP-Phasen):
 
 | Lücke | Schritt |
 |---|---|
@@ -579,7 +579,7 @@ steht links an einem Ort. Die Projektliste (300 px) zeigt oben das Projekt diese
 Farbe mit den Menüs, darunter alle Projekte ohne ihre Sitzungen und „Wartet in anderen Projekten“; ein
 Klick zeigt ein Projekt hier, Strg+Klick in einem neuen Fenster; oben stehen in einem eigenen Kasten „Zuletzt“
 die zuletzt gezeigten Projekte auf festen Plätzen, `Strg+Tab` springt zum vorigen zurück; ein Klick auf das Projektzeichen klappt
-sie auf eine Leiste mit den Zeichen zu (siehe `docs/PLAN.md` „Projektliste im Fenster statt Übersicht“).
+sie auf eine Leiste mit den Zeichen zu (siehe `docs/UMSETZUNG.md` „Projektliste im Fenster statt Übersicht“).
 Ohne offenes Projektfenster zeigt CodeDeck nur die Liste, als Startseite am linken Bildschirmrand; ein
 Projekt öffnet von dort maximiert. Eine eigene Übersicht aller Projekte gibt es nicht mehr: Tray-Symbol und
 `Strg+Alt+L` holen das zuletzt benutzte Projektfenster nach vorn (oder weg, wenn es vorn ist). Der Trail gehört zu den
@@ -636,7 +636,7 @@ keinen Schalter, und sie stehen wörtlich im Reiter Next prompt, getrennt von de
 ## 4.6 Andere KI-Werkzeuge
 
 Unterstützt wird heute nur Claude Code, aber alles Claude-Spezifische liegt hinter einer Schnittstelle
-(Architektur in `PLAN.md`, „Kapselung der KI-Anbindung“). Ein Konto ist deshalb allgemein „Werkzeug +
+(Architektur in `docs/KI-ANBINDUNG.md`). Ein Konto ist deshalb allgemein „Werkzeug +
 Startweise“, und die Oberfläche fragt nach Fähigkeiten statt nach dem Werkzeug: Kann es vor dem
 Schreiben Bescheid geben? Nimmt es Text zum nächsten Prompt an? Vorgemerkt zum späteren Einbinden und
 Testen sind **Codex CLI** (ähnlich gebaut, prüft den Schnitt) und **opencode** (Konto ist ein Anbieter
