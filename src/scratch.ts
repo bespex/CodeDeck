@@ -128,3 +128,9 @@ export function topFolderOf(path: string): string | null {
   const parts = path.split("/");
   return parts.length > 2 ? parts.slice(0, 2).join("/") : null;
 }
+
+/**
+ * A backup (a copied repository, a folder named like a backup): not shown in the Workbench, only
+ * tidied up and expired (user, 2026-11-27: "ignore them in what is shown, not when tidying").
+ */
+export const isBackup = (f: { path: string; files?: number }) => f.files !== undefined || unitOf(f.path) !== f.path;

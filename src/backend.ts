@@ -283,6 +283,8 @@ export interface WorkFile {
   size: number;
   /** Unix milliseconds of the last change */
   modified: number;
+  /** A backup folder listed as one entry: how many files it holds (size and time are its total and newest) */
+  files?: number;
 }
 
 const DAY = 24 * 3600_000;
@@ -290,8 +292,8 @@ let mockScratch: WorkFile[] = [
   // Icon variants a session just drew: the Workbench shows them as thumbnails
   ...["a", "b", "c", "d"].map((v, i) => ({ path: `.scratch/icons/icon-${v}.svg`, size: 900 + i * 40, modified: Date.now() - (6 + i) * 60_000 })),
   { path: ".scratch/werkbank-zonen.md", size: 3100, modified: Date.now() - 5 * 60_000 },
-  // A copy of a repository: hundreds of object files, one backup to the Workbench
-  ...Array.from({ length: 40 }, (_, i) => ({ path: `.scratch/backup-before-rewrite.git/objects/${(i * 37).toString(16).padStart(2, "0")}/${(i * 2654435761).toString(16)}`, size: 300 + i * 50, modified: Date.now() - 20 * 60_000 })),
+  // A copy of a repository: the backend lists it as one entry
+  { path: ".scratch/backup-before-rewrite.git", size: 2_100_000, modified: Date.now() - 20 * 60_000, files: 4059 },
   { path: ".scratch/bench_limiter.py", size: 2100, modified: Date.now() - 25 * 60_000 },
   { path: ".scratch/bench-results.csv", size: 14_300, modified: Date.now() - 24 * 60_000 },
   { path: ".scratch/load-test.log", size: 1_400_000, modified: Date.now() - 9 * DAY },

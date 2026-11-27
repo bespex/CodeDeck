@@ -605,15 +605,17 @@ was jedes KI-Werkzeug mit CodeDeck kann.
 Sitzungen legen Entwürfe, Mock-ups, Hilfsscripts und Messdaten gern außerhalb des Projekts ab: in
 temporären Ordnern oder als Seite auf claude.ai. Das blieb bisher unbemerkt.
 
-Der Reiter **Werkbank** sammelt das (D23), seit U8.4 in Zonen nach dem, was sie von dir wollen:
+Der Reiter **Werkbank** sammelt das (D23), seit U8.4 in Abschnitten nach dem, was sie von dir wollen. Jeder Abschnitt ist
+eine ruhige Karte mit feiner Linie; ihr Kopf nennt Titel, Zahl und in einem Satz, was darin steht; Farbe trägt nur das
+kleine Zeichen vor dem Titel, die einzige farbige Fläche ist „Weiter“ im Plan:
 
-- **Plan** oben, die einzige Fläche der Ansicht: was die Planungsdateien des Projekts sagen (laufende Etappe der
+- **Plan** oben über die ganze Breite: was die Planungsdateien des Projekts sagen (laufende Etappe der
   `ROADMAP.md` mit ihren Schritten, nächster Schritt mit „Für den nächsten Prompt“, offene Punkte und Aufgaben der
   `TODO.md`, Ideen der `IDEAS.md`). Ohne Roadmap zeigt er die nächsten drei Einträge der TODO-Datei (geplante
   Aufgaben vor offenen Punkten) als kleine Karten nebeneinander, ohne TODO ebenso die ersten Ideen: Karten statt
   Punkte und „Weiter“, weil solche Einträge nicht aufeinander aufbauen. Welche Dateien das sind, sagen die Leitdateien (Einstellungen → Dateien und
   Verzeichnisse).
-- **Zu tun** und **Neu** darunter in zwei Spalten ohne Rahmen (schmal untereinander). *Zu tun* ist alles, was du der
+- **Zu tun** und **Neu** darunter als zwei Karten nebeneinander (schmal untereinander). *Zu tun* ist alles, was du der
   KI aufgetragen hast und noch nicht erledigt ist: die `@ai`-Kommentare in deinen Dateien (sie verschwinden, wenn
   Claude erledigt hat, worum sie bitten), deine Zeilenkommentare und die offenen Punkte der TODO-Datei; jeder
   Eintrag sagt, ob er offen, angehängt oder übergeben ist. *Neu* ist, was seit deinem letzten Blick entstanden ist,

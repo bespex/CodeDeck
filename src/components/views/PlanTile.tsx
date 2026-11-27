@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleDot, Layers, Lightbulb, ListChecks, Map as MapIcon, Paperclip } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleDot, Layers, Lightbulb, ListChecks, Paperclip } from "lucide-react";
 import { openFile, type Plan, type PlanEntry, type PlanStage, type PlanState } from "../../backend";
 import { currentStage, planItems, planKey, stageWord, stepItem, type PlanItem } from "../../plan";
 import { useAttachEnabled } from "../../attachments";
@@ -7,10 +7,11 @@ import { useConnections } from "../../assistant";
 import { plural, t } from "../../i18n";
 import { Tooltip } from "../Tooltip";
 
-const DOT: Record<PlanState, string> = { done: "bg-added", active: "bg-changed", open: "bg-slate-700" };
+// The state by shape, not colour (user, 2026-11-27): filled done, a ring with a centre in progress, an empty ring open
+const DOT: Record<PlanState, string> = { done: "bg-slate-400", active: "border-2 border-slate-400 bg-slate-400/30", open: "border border-slate-500" };
 const STATE_ICON: Record<PlanState, ReactNode> = {
-  done: <CircleCheck className="size-3.5 text-added" />,
-  active: <CircleDot className="size-3.5 text-changed" />,
+  done: <CircleCheck className="size-3.5 text-slate-400" />,
+  active: <CircleDot className="size-3.5 text-slate-300" />,
   open: <CircleDashed className="size-3.5 text-slate-500" />,
 };
 
@@ -40,21 +41,8 @@ export function PlanTile({ plan }: { plan: Plan | null }) {
   const openTasks = (tasks?.questions.length ?? 0) + (tasks?.tasks.length ?? 0);
 
   return (
-    <section data-tour="plan" className="mx-4 mt-4 rounded-lg bg-raised/50 px-4 py-3">
-      <div className="flex items-center gap-2 text-[11px] font-medium tracking-wide text-slate-500 uppercase">
-        <MapIcon className="size-3.5" /> {t("Plan")}
-        {roadmap ? (
-          <button type="button" onClick={() => void openFile(roadmap.path, "view")} className="action-text font-normal tracking-normal normal-case">
-            {roadmap.asOf ? t("from {file} · as of {date}", { file: roadmap.path, date: roadmap.asOf }) : t("from {file}", { file: roadmap.path })}
-          </button>
-        ) : (
-          (tasks ?? ideas) && (
-            <button type="button" onClick={() => void openFile((tasks ?? ideas)!.path, "view")} className="action-text font-normal tracking-normal normal-case">
-              {t("from {file}", { file: (tasks ?? ideas)!.path })}
-            </button>
-          )
-        )}
-      </div>
+    // Inside the card "Plan" of the Workbench, whose head says where it comes from
+    <section data-tour="plan">
 
       {current ? (
         <>
@@ -200,15 +188,15 @@ function LooseCards({ plan, attached, canAttach }: { plan: Plan; attached: (i: P
   const Icon = { task: ListChecks, question: CircleDashed, idea: Lightbulb };
   return (
     <>
-      <div className="mt-2 mb-1.5 text-[11px] font-medium tracking-wide text-brand-soft uppercase">{tasks ? t("Next from the TODO file") : t("Ideas: drafts, nothing is built without your approval")}</div>
+      <div className="mt-2 mb-1.5 text-[10px] font-semibold tracking-wider text-slate-500 uppercase">{tasks ? t("Next from the TODO file") : t("Ideas: drafts, nothing is built without your approval")}</div>
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-2">
         {cards.slice(0, CARDS).map(({ entry, path, kind }) => {
           const K = Icon[kind];
           const item: PlanItem | null = kind === "idea" ? null : { kind, path, line: entry.line, text: entry.text };
           return (
-            <li key={`${kind}${entry.line}`} className="group flex min-w-0 flex-col rounded-md bg-brand/[0.07] px-2.5 py-2">
+            <li key={`${kind}${entry.line}`} className="group flex min-w-0 flex-col rounded-md border border-line bg-raised/50 px-2.5 py-2">
               <div className="mb-1 flex items-center gap-1.5 text-[11px] text-slate-500">
-                <K className="size-3.5 text-brand-soft" />
+                <K className="size-3.5 text-slate-400" />
                 <span>{word[kind]}</span>
                 {item && (
                   <span className="ml-auto">
@@ -225,6 +213,14 @@ function LooseCards({ plan, attached, canAttach }: { plan: Plan; attached: (i: P
       </ul>
     </>
   );
+}
+
+/** Where the plan comes from, for the head of a card: "from ROADMAP.md · as of …". */
+export function planSource(plan: Plan | null): string | undefined {
+  if (!plan) return undefined;
+  if (plan.roadmap) return plan.roadmap.asOf ? t("from {file} · as of {date}", { file: plan.roadmap.path, date: plan.roadmap.asOf }) : t("from {file}", { file: plan.roadmap.path });
+  const file = (plan.tasks ?? plan.ideas)?.path;
+  return file ? t("from {file}", { file }) : undefined;
 }
 
 function Heading({ children }: { children: ReactNode }) {
@@ -260,9 +256,9 @@ function Clip({ item, attached, canAttach, label }: { item: PlanItem; attached: 
  */
 function NextStep({ text, item, attached, canAttach }: { text: string; item: PlanItem; attached: (i: PlanItem) => boolean; canAttach: boolean }) {
   return (
-    <div className="mt-3 flex items-start gap-3 rounded-md bg-brand/[0.07] px-3 py-2">
+    <div className="mt-3 flex items-start gap-3 rounded-md border border-line bg-raised/50 px-3 py-2">
       <div className="min-w-0 flex-1">
-        <div className="mb-0.5 text-[11px] font-medium tracking-wide text-brand-soft uppercase">{t("Next")}</div>
+        <div className="mb-0.5 text-[10px] font-semibold tracking-wider text-slate-500 uppercase">{t("Next")}</div>
         <button type="button" onClick={() => void openFile(item.path, "view", item.line)} title={`${item.path}:${item.line}`} className="action-text block text-left">
           <span className="line-clamp-3 text-[14px] leading-snug text-slate-100">{text}</span>
         </button>

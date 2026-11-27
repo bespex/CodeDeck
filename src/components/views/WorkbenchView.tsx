@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
 import { NewsTag, newsClass } from "../News";
 import { markSeen, reportNews, scratchKey, useNews } from "../../news";
-import { Bookmark, Brush, Check, ChevronDown, ChevronRight, Eye, FileText, Folder, FolderOpen, FolderSearch, GripVertical, SquarePen, Trash2 } from "lucide-react";
+import { Bookmark, Brush, Map as MapIcon, Check, ChevronDown, ChevronRight, Eye, FileText, Folder, FolderOpen, FolderSearch, GripVertical, SquarePen, Trash2 } from "lucide-react";
 import { onFsChanged, openFile, showInFileManager, scratchList, scratchTrash, scratchTwins, type AssistantState, type WorkFile } from "../../backend";
 import { tidyPlan, type TidyGroup, type TidyItem } from "../../tidy";
 import { files as attachedFiles } from "../../files";
@@ -15,11 +15,12 @@ import { Section, useFold, useShowAll } from "../blocks";
 import { Tooltip, ToolTipBody } from "../Tooltip";
 import { AppName } from "../../apps";
 import { plural } from "../../git";
-import { expiresAt, inScratch, isKept, KeptContext, scratchKind, unitOf, useExpiry, useLastMove, SCRATCH_DIR, SCRATCH_DRAG, type ScratchKind } from "../../scratch";
+import { expiresAt, inScratch, isBackup, isKept, KeptContext, scratchKind, unitOf, useExpiry, useLastMove, SCRATCH_DIR, SCRATCH_DRAG, type ScratchKind } from "../../scratch";
 import { showScratchKind, useFileMarks } from "../../fileView";
 import { age, size } from "./units";
 import { OutsideTile } from "./FoundTiles";
-import { PlanTile } from "./PlanTile";
+import { PlanTile, planSource } from "./PlanTile";
+import { Zone, ZoneHead } from "./zones";
 import { plural as pluralOf, T, t } from "../../i18n";
 
 const DAY = 24 * 3600_000;
@@ -42,10 +43,17 @@ export function WorkbenchView({ marks, assistant }: { marks: Markers; assistant:
   return (
     <KeptContext.Provider value={kept}>
     <div className="@container flex min-h-full flex-col">
-      <PlanTile plan={plan} />
-      <div className="grid grid-cols-1 items-start gap-4 px-4 pt-4 pb-2 @2xl:grid-cols-2">
-        <TodoZone marks={marks} harness={mainHarness(assistant)} plan={plan} />
-        <NewZone files={scratch.files ?? []} outside={outside} pages={pages} />
+      <div className="flex flex-col gap-4 px-4 pt-4 pb-2">
+        {plan && (plan.roadmap || plan.tasks || plan.ideas) && (
+          <Zone section="plan">
+            <ZoneHead icon={MapIcon} title={t("Plan")} note={planSource(plan)} says={t("What is next by the project's ROADMAP, TODO and IDEAS")} />
+            <PlanTile plan={plan} />
+          </Zone>
+        )}
+        <div className="grid grid-cols-1 items-start gap-4 @2xl:grid-cols-2">
+          <TodoZone marks={marks} harness={mainHarness(assistant)} plan={plan} />
+          <NewZone files={(scratch.files ?? []).filter((f) => !isBackup(f))} outside={outside} pages={pages} />
+        </div>
       </div>
       <div className="mt-auto pt-4">
         {(outside.length > 0 || pages.length > 0) && <OutsideTile files={outside} pages={pages} />}
@@ -111,7 +119,7 @@ function KindsLine({ files, bytes }: { files: WorkFile[]; bytes: number }) {
   const now = Date.now();
   // A backup folder counts once, however many files a copy of a repository holds
   const count = new Map<ScratchKind, number>();
-  for (const unit of new Set(files.map((f) => unitOf(f.path)))) count.set(scratchKind(unit), (count.get(scratchKind(unit)) ?? 0) + 1);
+  for (const unit of new Set(files.filter((f) => !isBackup(f)).map((f) => unitOf(f.path)))) count.set(scratchKind(unit), (count.get(scratchKind(unit)) ?? 0) + 1);
   const keptCount = files.filter((f) => isKept(f.path, kept)).length;
   const soon = files.filter((f) => {
     const at = expiresAt(f.path, f.modified, rules);
@@ -134,7 +142,7 @@ function KindsLine({ files, bytes }: { files: WorkFile[]; bytes: number }) {
         </span>
       )}
       {soon > 0 && (
-        <span className="flex items-center gap-1.5 text-changed" title={t("Old files go to the trash by the rules in the settings, unless kept, attached or named in a guide file.")}>
+        <span className="flex items-center gap-1.5 font-medium text-slate-300" title={t("Old files go to the trash by the rules in the settings, unless kept, attached or named in a guide file.")}>
           {t("{n} expire within 3 days", { n: soon })} {sep}
         </span>
       )}
@@ -201,7 +209,8 @@ function ScratchTile({ assistant, scratch }: { assistant: AssistantState; scratc
   // new is under New (U8.4)
   const fold = useFold("scratch.zone", false);
 
-  const tree = useMemo(() => treeOf(files ?? []), [files]);
+  // Backups are tidied up and expire, but are not shown (isBackup)
+  const tree = useMemo(() => treeOf((files ?? []).filter((f) => !isBackup(f))), [files]);
   const now = Date.now();
 
   const trash = async (paths: string[], what: string) => {
@@ -495,7 +504,7 @@ function ScratchLine(props: {
       <span className="flex size-3.5 shrink-0 items-center justify-center">{props.lead}</span>
       {props.icon}
       <span className="flex min-w-0 flex-1 items-baseline gap-2">{props.name}</span>
-      <span title={props.whenTitle} className={`w-24 shrink-0 text-right text-[11px] whitespace-nowrap ${props.old ? "text-changed" : "text-slate-500"}`}>{props.when}</span>
+      <span title={props.whenTitle} className={`w-24 shrink-0 text-right text-[11px] whitespace-nowrap ${props.old ? "font-semibold text-slate-200" : "text-slate-500"}`}>{props.when}</span>
       <span className="w-16 shrink-0 text-right font-mono text-[11px] text-slate-500 tabular-nums">{size(props.size)}</span>
       <div className="ml-4 flex shrink-0 gap-0.5">{props.actions}</div>
     </li>

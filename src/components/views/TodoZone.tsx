@@ -54,7 +54,7 @@ export function TodoZone({ marks, harness, plan }: { marks: Markers; harness: Ha
         return (
           <ZoneRow
             key={`h${markerKey(m)}`}
-            icon={<span className="rounded bg-ai/15 px-1 font-mono text-[10px] leading-4 text-ai">@ai</span>}
+            icon={<span className="rounded bg-raised px-1 font-mono text-[10px] leading-4 text-slate-300">@ai</span>}
             sub={
               <>
                 {m.path}:{m.line}
@@ -81,7 +81,7 @@ export function TodoZone({ marks, harness, plan }: { marks: Markers; harness: Ha
     ...comments.map((n) => (
       <ZoneRow
         key={`n${n.id}`}
-        icon={<MessageSquare className="size-4 text-moved" />}
+        icon={<MessageSquare className="size-4 text-slate-400" />}
         sub={`${n.path}:${n.line}`}
         title={t("Double-click: view at this line")}
         onDoubleClick={() => void openFile(n.path, "view", n.line)}
@@ -101,7 +101,7 @@ export function TodoZone({ marks, harness, plan }: { marks: Markers; harness: Ha
     ...questions.map((q) => (
       <ZoneRow
         key={`q${planKey(q)}`}
-        icon={<ListChecks className="size-4 text-changed" />}
+        icon={<ListChecks className="size-4 text-slate-400" />}
         title={t("Double-click: view at this line")}
         onDoubleClick={() => void openFile(q.path, "view", q.line)}
         aside={canAttach && <Clip on={planOn(q)} onClick={() => planItems.toggle([q])} label={t("Attach to next prompt")} />}
@@ -120,10 +120,11 @@ export function TodoZone({ marks, harness, plan }: { marks: Markers; harness: Ha
   const count = hintRows.length + commentRows.length + questionRows.length;
 
   return (
-    <Zone>
+    <Zone section="todo">
       <ZoneHead
         icon={ListTodo}
         title={t("To do")}
+        says={t("What you asked of the AI and is not done yet")}
         count={count}
         note={waiting.length > 0 ? t("{n} handed over", { n: waiting.length }) : undefined}
         aside={
@@ -190,7 +191,7 @@ export function TodoZone({ marks, harness, plan }: { marks: Markers; harness: Ha
         .filter(([, list]) => list.length > 0)
         .map(([title, list]) => (
           <div key={title} className="mb-2 last:mb-0">
-            <h4 className="mb-0.5 px-1.5 text-[11px] font-medium text-slate-500">{title}</h4>
+            <h4 className="mb-1 px-1.5 text-[10px] font-semibold tracking-wider text-slate-500 uppercase">{title}</h4>
             <ul className="grid grid-cols-1 gap-x-5 @lg/zone:grid-cols-2">{all ? list : list.slice(0, SHOWN)}</ul>
           </div>
         ))}

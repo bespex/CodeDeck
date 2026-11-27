@@ -1461,4 +1461,8 @@ export const de: Record<string, string> = {
   "only the practical test is left": "nur der Praxistest ist offen",
   "next: {step}": "als Nächstes: {step}",
   "no open steps": "keine offenen Schritte",
+  // Sentences under the titles of the Workbench cards
+  "What you asked of the AI and is not done yet": "Was du der KI aufgetragen hast und noch offen ist",
+  "What AI sessions made since you last looked": "Was KI-Sessions seit deinem letzten Blick angelegt haben",
+  "What is next by the project's ROADMAP, TODO and IDEAS": "Was laut ROADMAP, TODO und IDEAS des Projekts als Nächstes ansteht",
 };

@@ -47,10 +47,11 @@ export function NewZone({ files, outside, pages }: { files: WorkFile[]; outside:
   const shown = all ? sorted : sorted.slice(0, GROUPS);
 
   return (
-    <Zone>
+    <Zone section="new">
       <ZoneHead
         icon={Sparkles}
         title={t("New")}
+        says={t("What AI sessions made since you last looked")}
         count={new Set(things.map((x) => (x.kind === "scratch" ? unitOf(x.file.path) : x.news.key))).size}
         note={things.length > 0 ? t("since you last looked") : undefined}
         help={<span>{t("What came up since you last looked at the Workbench, by the AI session that made it: files in the scratch folder, files left outside the project, pages published elsewhere. Pictures show as thumbnails. Everything stays in the scratch folder and in the lists below; to keep a file, drag it onto a folder of the file list.")}</span>}
@@ -113,7 +114,7 @@ function Group({ session, list }: { session: string | null; list: Thing[] }) {
     <div className="mb-3 last:mb-0">
       <div className="mb-1 flex min-w-0 items-center gap-2 px-1.5 text-[12px]">
         {mark ? <SessionBadge mark={mark} /> : <span className="size-4 shrink-0 rounded border border-dashed border-slate-600" />}
-        <span className="truncate font-medium text-slate-300">{session ? (mark?.title ?? t("session {id}", { id: shortId(session) })) : t("no session known")}</span>
+        <span className="truncate text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{session ? (mark?.title ?? t("session {id}", { id: shortId(session) })) : t("no session known")}</span>
         <span className="ml-auto shrink-0 text-[11px] text-slate-500">{age(list[0].time, now)}</span>
       </div>
       {shownPictures.length > 0 && (
@@ -148,7 +149,7 @@ function FolderRow({ folder, things }: { folder: string; things: ScratchThing[] 
   const { kept } = useContext(KeptContext);
   return (
     <ZoneLine
-      icon={backup ? <FileArchive className="size-4 text-slate-400" /> : <Folder className="size-4 text-moved" />}
+      icon={backup ? <FileArchive className="size-4 text-slate-400" /> : <Folder className="size-4 text-slate-400" />}
       name={`${name}/`}
       tag={<span className="text-[11px] text-slate-500">{plural(things.length, "new file")}</span>}
       rest={isKept(folder, kept) && <Bookmark className="size-3 fill-current text-slate-400" />}
@@ -330,7 +331,7 @@ function OutsideRow({ file, item }: { file: OutsideFile; item: NewsItem }) {
 function PageRow({ page, item }: { page: PublishedPage; item: NewsItem }) {
   return (
     <ZoneLine
-      icon={<Globe className="size-4 text-moved" />}
+      icon={<Globe className="size-4 text-slate-400" />}
       name={page.title}
       tag={<ZoneTag tone="moved">{t("online")}</ZoneTag>}
       title={page.url}

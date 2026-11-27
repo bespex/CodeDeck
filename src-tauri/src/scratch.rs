@@ -36,6 +36,43 @@ pub struct WorkFile {
     size: u64,
     /// Unix milliseconds of the last change
     modified: u64,
+    /// A backup folder listed as one entry (`unit_of`): how many files it holds; `size` and
+    /// `modified` are its total and its newest file
+    #[serde(skip_serializing_if = "Option::is_none")]
+    files: Option<usize>,
+}
+
+/// Files looked at inside one backup folder at most, to sum it up: a copied repository can be large.
+const BACKUP_WALK: usize = 200_000;
+
+/// Whether a folder is a backup, kept, shown and expired as one thing (the folder test of `unit_of`).
+fn is_backup_dir(name: &str) -> bool {
+    let lower = name.to_lowercase();
+    lower.contains("backup") || lower.ends_with(".git")
+}
+
+/// A backup folder summed up: its files, their total size and the newest change.
+fn backup_entry(project: &Project, dir: &Path) -> Option<WorkFile> {
+    let path = project.relative(dir)?;
+    let (mut files, mut size, mut modified) = (0usize, 0u64, 0u64);
+    let mut todo = vec![dir.to_path_buf()];
+    while let Some(d) = todo.pop() {
+        let Ok(entries) = std::fs::read_dir(&d) else { continue };
+        for entry in entries.flatten() {
+            let Ok(meta) = std::fs::symlink_metadata(entry.path()) else { continue };
+            if meta.is_dir() {
+                todo.push(entry.path());
+            } else if meta.is_file() {
+                files += 1;
+                size += meta.len();
+                modified = modified.max(meta.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_millis() as u64));
+                if files >= BACKUP_WALK {
+                    return Some(WorkFile { path, size, modified, files: Some(files) });
+                }
+            }
+        }
+    }
+    Some(WorkFile { path, size, modified, files: Some(files) })
 }
 
 impl Git {
@@ -101,14 +138,20 @@ pub fn list(project: &Project) -> (Vec<WorkFile>, Vec<PathBuf>) {
             // Links are not followed: they may point anywhere
             let Ok(meta) = std::fs::symlink_metadata(entry.path()) else { continue };
             if meta.is_dir() {
+                // A backup folder is one entry: its thousands of files would fill the list before
+                // the files that matter (user, 2026-11-27: a copied repository hid new screenshots)
+                if is_backup_dir(&entry.file_name().to_string_lossy()) {
+                    if let Some(backup) = backup_entry(project, &entry.path()) {
+                        files.push(backup);
+                    }
                 // Prepared prompts are CodeDeck's own and listed in the Next prompt area
-                if !crate::prompts::is_own(project, &entry.path()) {
+                } else if !crate::prompts::is_own(project, &entry.path()) {
                     todo.push(entry.path());
                 }
             } else if meta.is_file() && files.len() < LISTED {
                 let Some(path) = project.relative(&entry.path()) else { continue };
                 let modified = meta.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_millis() as u64);
-                files.push(WorkFile { path, size: meta.len(), modified });
+                files.push(WorkFile { path, size: meta.len(), modified, files: None });
             }
         }
     }
@@ -411,6 +454,22 @@ mod tests {
     }
 
     #[test]
+    fn a_backup_folder_is_one_entry_and_does_not_fill_the_list() {
+        let (p, root) = project();
+        let objects = root.join(".scratch/old.git/objects/aa");
+        std::fs::create_dir_all(&objects).unwrap();
+        for i in 0..(LISTED + 5) {
+            std::fs::write(objects.join(format!("{i}")), "x").unwrap();
+        }
+        std::fs::write(root.join(".scratch/new.png"), "png").unwrap();
+        let (files, _) = list(&p);
+        let backup = files.iter().find(|f| f.path == ".scratch/old.git").expect("the backup as one entry");
+        assert_eq!((backup.files, backup.size), (Some(LISTED + 5), (LISTED + 5) as u64));
+        assert!(files.iter().any(|f| f.path == ".scratch/new.png"), "a new file is listed though the backup is big");
+        assert_eq!(files.len(), 2);
+    }
+
+    #[test]
     fn lists_moves_and_guards_the_paths() {
         let (p, root) = project();
         std::fs::write(root.join(".scratch/a.md"), "draft").unwrap();
@@ -467,7 +526,7 @@ mod tests {
     fn expiry_goes_by_kind_and_spares_what_is_kept_named_or_protected() {
         const DAY: u64 = 24 * 3600_000;
         let now = 100 * DAY;
-        let f = |path: &str, age: u64| WorkFile { path: path.into(), size: 1, modified: now - age * DAY };
+        let f = |path: &str, age: u64| WorkFile { path: path.into(), size: 1, modified: now - age * DAY, files: None };
         let files = vec![
             f(".scratch/a.png", 8),
             f(".scratch/b.png", 6),

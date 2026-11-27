@@ -3,37 +3,54 @@
 // bring new lines); its heading has a symbol and a count, its rows a symbol per kind, the title in
 // full strength and what else there is to say quietly at the right.
 
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { CircleHelp, FileArchive, FileCode, FileImage, FileSpreadsheet, FileText, File as FileIcon, type LucideIcon } from "lucide-react";
 import { Tooltip } from "../Tooltip";
 import { scratchKind } from "../../scratch";
 import { t } from "../../i18n";
 
-export function Zone({ children }: { children: ReactNode }) {
-  // A container of its own: its lists go to two columns by the zone's width, not the window's
-  return <section className="@container/zone min-w-0 rounded-lg bg-raised/25 px-3 pt-2.5 pb-3">{children}</section>;
+export type SectionId = "plan" | "todo" | "new";
+
+/** The symbol in a card's head: no colour (user, 2026-11-27: "no colour, but marks that structure"). */
+const GLYPH: Record<SectionId, string> = { plan: "text-slate-400", todo: "text-slate-400", new: "text-slate-400" };
+const SectionContext = createContext<SectionId>("todo");
+
+/**
+ * A section of the Workbench as a card: a calm surface with a hairline and a light shadow, its head
+ * set off by a line, not by colour (look A of the sketch, user 2026-11-27: cards yes, but not colourful).
+ * A container of its own, so its lists go to two columns by the card's width, not the window's.
+ */
+export function Zone({ section = "todo", children }: { section?: SectionId; children: ReactNode }) {
+  return (
+    <SectionContext.Provider value={section}>
+      <section className="@container/zone min-w-0 overflow-hidden rounded-xl border border-line bg-panel px-3 pb-3 shadow-[0_1px_2px_rgb(0_0_0/0.06)]">{children}</section>
+    </SectionContext.Provider>
+  );
 }
 
-export function ZoneHead({ icon: Icon, title, count, note, aside, help }: { icon: LucideIcon; title: string; count?: number; note?: string; aside?: ReactNode; help?: ReactNode }) {
+/** The head of a card: symbol in the section's colour, title, count, where from, and one sentence on what is in it. */
+export function ZoneHead({ icon: Icon, title, count, note, says, aside, help }: { icon: LucideIcon; title: string; count?: number; note?: ReactNode; says?: string; aside?: ReactNode; help?: ReactNode }) {
+  const section = useContext(SectionContext);
   return (
-    <h3 className="mb-2 flex min-h-7 items-center gap-2">
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-ai/15 text-ai">
-        <Icon className="size-3.5" />
-      </span>
-      <span className="text-[14px] font-semibold text-slate-100">{title}</span>
-      {!!count && <span className="rounded-full bg-raised px-1.5 text-[11px] font-semibold text-slate-300 tabular-nums">{count}</span>}
-      {note && <span className="truncate text-[12px] font-normal text-slate-500">{note}</span>}
-      <span className="ml-auto flex shrink-0 items-center gap-1 font-normal">
-        {aside}
-        {help && (
-          <Tooltip content={<span className="flex flex-col">{help}</span>}>
-            <span className="rounded p-1 text-slate-500 hover:text-slate-200" aria-label={t("More about this")}>
-              <CircleHelp className="size-3.5" />
-            </span>
-          </Tooltip>
-        )}
-      </span>
-    </h3>
+    <div className="-mx-3 mb-2.5 border-b border-line/60 bg-raised/40 px-3 py-2.5">
+      <div className="flex min-h-7 items-center gap-2">
+        <Icon className={`size-4 shrink-0 ${GLYPH[section]}`} />
+        <span className="text-[15px] font-semibold text-slate-100">{title}</span>
+        {!!count && <span className="rounded-full bg-raised px-1.5 text-[11px] font-semibold text-slate-300 tabular-nums">{count}</span>}
+        {note && <span className="min-w-0 truncate text-[12px] text-slate-500">{note}</span>}
+        <span className="ml-auto flex shrink-0 items-center gap-1">
+          {aside}
+          {help && (
+            <Tooltip content={<span className="flex flex-col">{help}</span>}>
+              <span className="rounded p-1 text-slate-500 hover:text-slate-200" aria-label={t("More about this")}>
+                <CircleHelp className="size-3.5" />
+              </span>
+            </Tooltip>
+          )}
+        </span>
+      </div>
+      {says && <div className="pl-6 text-[12px] text-slate-500">{says}</div>}
+    </div>
   );
 }
 
@@ -123,20 +140,21 @@ export function ZoneLine(props: {
 
 /** A short coloured word after a name: where a file lies when that is the news (outside the project). */
 export function ZoneTag({ tone = "changed", children }: { tone?: "changed" | "moved"; children: ReactNode }) {
-  const cls = tone === "changed" ? "bg-changed/15 text-changed" : "bg-moved/15 text-moved";
-  return <span className={`rounded px-1 py-px text-[10px] font-medium ${cls}`}>{children}</span>;
+  // A frame, not a colour; `tone` is kept for the callers
+  void tone;
+  return <span className="rounded border border-line px-1 text-[10px] font-medium text-slate-300">{children}</span>;
 }
 
 const KIND_ICON: Record<string, [LucideIcon, string]> = {
-  draft: [FileText, "text-moved"],
-  image: [FileImage, "text-added"],
-  script: [FileCode, "text-ai"],
-  data: [FileSpreadsheet, "text-changed"],
+  draft: [FileText, "text-slate-400"],
+  image: [FileImage, "text-slate-400"],
+  script: [FileCode, "text-slate-400"],
+  data: [FileSpreadsheet, "text-slate-400"],
   backup: [FileArchive, "text-slate-400"],
   other: [FileIcon, "text-slate-400"],
 };
 
-/** The symbol of a file by its kind, in the kind's colour: the eye finds pictures, code and data. */
+/** The symbol of a file by its kind: its shape tells pictures, code and data apart, without colour. */
 export function KindIcon({ path }: { path: string }) {
   const [Icon, tone] = KIND_ICON[scratchKind(path)] ?? KIND_ICON.other;
   return <Icon className={`size-4 ${tone}`} />;

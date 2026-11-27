@@ -51,8 +51,8 @@ export function OutsideTile({ files, pages }: { files: OutsideFile[]; pages: Pub
   // The files not fetched yet want a decision: a coloured mark, not grey text (user, 2026-11-27)
   const note = (
     <span className="flex items-center gap-1.5">
-      {open > 0 && <span className="rounded bg-changed/15 px-1.5 py-px text-[11px] font-semibold text-changed">{t("{n} not fetched", { n: open })}</span>}
-      {pages.length > 0 && <span className="rounded bg-moved/15 px-1.5 py-px text-[11px] font-semibold text-moved">{t("{n} online", { n: pages.length })}</span>}
+      {open > 0 && <span className="rounded border border-line px-1.5 text-[11px] font-semibold text-slate-200">{t("{n} not fetched", { n: open })}</span>}
+      {pages.length > 0 && <span className="rounded border border-line px-1.5 text-[11px] font-semibold text-slate-200">{t("{n} online", { n: pages.length })}</span>}
       {open === 0 && pages.length === 0 && plural(files.length, "file")}
     </span>
   );
