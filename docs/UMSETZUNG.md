@@ -370,6 +370,55 @@ Umzug der Website `bespex.github.io/codedeck/manual/de/`. Menüpunkt „Handbuch
   - *Dateien:* `src-tauri/src/usage.rs`, `src/usage.ts`, `src-tauri/src/harness/claude.rs`, `src-tauri/src/hook.rs`,
     `src/components/SessionsPanel.tsx`, `src/components/views/ChangesView.tsx` (Kurzbericht), `src/components/AttachmentList.tsx`.
 
+## U8 und U9: Leitdateien und Werkbank
+
+Vom Nutzer gewünscht und freigegeben (2026-11-27). Hintergrund: Die globalen Regeln des Nutzers führen neben
+`CLAUDE.md` und `README.md` die Dateien `TODO.md`, `IDEAS.md` und `ROADMAP.md` mit festem Aufbau ein. Sie
+spielen in der Arbeit mit der KI eine eigene Rolle; CodeDeck nennt sie **Leitdateien**.
+
+**Leitdateien (U8.2).** Rollen: Anweisungen, Beschreibung, Aufgaben, Ideen, Etappen. Namensmuster je Rolle in
+den Rechner-Einstellungen, je Projekt überschreibbar in `files.json` (z. B. eine Roadmap unter anderem Namen).
+Die Namen der Anweisungsdateien liefert der Adapter (neue Methode am Trait `Harness`, z. B. `instruction_files`),
+damit „CLAUDE.md“ nur in `harness/claude.rs` steht. In der Dateiliste stehen Leitdateien oben bzw. haben ein
+eigenes Zeichen, ohne Markierung „wichtig“ von Hand.
+
+**Auslesen (U8.3).** Neues Modul `src-tauri/src/guides.rs` (Name vorläufig): liest das feste Format der Konvention (Etappen `## M1:`/`## U1:` mit `Status:`, Schritten `- [ ]`/`- [~]`/`- [x]`;
+TODO-Abschnitte „Offene Punkte“/„Geplante Aufgaben“; IDEAS-Titel `## …`), tolerant gegen Abweichungen
+(was nicht passt, fehlt, nichts bricht). Ein Befehl `guides_state` mit Mock. Anhänge über einen neuen Teil in
+`src/attachments.ts` (`createPart`), Text an die KI: Datei, Zeile, Wortlaut.
+
+**Werkbank in Zonen (U8.1, U8.4).** Reihenfolge nach Wichtigkeit: *Plan* (die einzige Fläche mit Hintergrund),
+darunter zwei Spalten ohne Rahmen *Zu tun* (alles an die KI Gerichtete, noch nicht Erledigte: `@ai`-Hinweise,
+Zeilenkommentare aus Changes und Dirq je Datei, offene Punkte aus TODO; Zustand offen / angehängt / übergeben mit
+KI-Session, gedämpft) und *Neu entstanden* (je Runde bzw. KI-Session, was sie in `.scratch/` und woanders abgelegt
+hat, dazu veröffentlichte Seiten; Bilder als Vorschaubilder in einer Reihe, HTML öffnet im Browser; Werkzeuge beim
+Überfahren: Ansehen, Anhängen, Behalten, Ins Projekt mit Ordnerwahl), unten *Scratch* als
+eine Zeile mit Arten (Entwürfe, Bilder, Skripte, Daten, Sicherungen, Behalten) und Ablauf; ein Klick auf eine Art filtert
+die Dateiliste darauf, neueste zuerst. Regeln gegen Unruhe: keine
+Rahmenlinien, gegliedert durch Schriftgröße, Abstand und Farbe der Überschrift; je Gruppe Überschrift, eine Zeile
+Zusammenfassung, höchstens drei Einträge, dann „alle (n)“; leere Gruppen verschwinden. Schmal (eine Spalte)
+stehen die beiden Spalten untereinander. Bestand, der nicht verschwinden darf: Ziehen aus Scratch in den
+Dateibaum, „Aufräumen…“, Papierkorb je Ordner, Zwillinge im Projekt, Kopieren der Hinweise als Aufgabe,
+„neu/geändert“ (`news.ts`).
+
+**Scratch-Ablauf (U8.5).** Jede Datei: *behalten* (angeheftet), *ins Projekt* (vorhanden) oder *läuft ab*. Ab
+in den Papierkorb, was nicht angeheftet, nicht angehängt, in keiner Leitdatei erwähnt und älter als N Tage
+ist; N je Art einstellbar (Bilder und Sicherungen kürzer als Markdown); Meldung in der Glocke, zurückholbar über
+den Papierkorb. Die Gründe kommen aus `tidyPlan`. Startregel (in `rules.rs`, englisch, für die KI): wegwerfbare
+Skripte und Testdaten nach Gebrauch selbst löschen. Offen: wo „angeheftet“ gespeichert wird (`files.json`?).
+
+**Aufträge im Nächsten Prompt (U9.1).** Eine Zeile „Projektdateien“ mit Chips, die nur erscheinen, wenn sie
+passen: *Neu lesen* (Anweisungsdatei geändert seit Start der KI-Session; vorher mit `claude-code-guide` klären,
+wann Claude Code sie von selbst neu liest, z. B. nach `/compact`), *Regel ergänzen…*, *Nächster Schritt*,
+TODO-Einträge zum Anhaken, *Stand nachziehen* (Runde änderte Code, aber nicht TODO/ROADMAP), *Freigeben…* /
+*Idee aufnehmen…*, *README nachziehen*. Die Texte an die KI sind fest und englisch.
+
+**Weiteres (U9.2–U9.6).** Kette der Anweisungsdateien mit Tokens (zusammen mit U7 „Kosten der Startregeln“);
+Zusammenfassung von Änderungen („TODO: 2 erledigt, 1 neu“) im Kurzbericht und in Activity; Prüfung auf IPs,
+Hostnamen, interne URLs und Schlüssel als Warnung in Changes; Formatpflege (abgehakt stehen gelassen, Status passt
+nicht zu den Schritten, altes „Stand:“); „Idee/Aufgabe notieren“ hängt eine Zeile an (der einzige Fall, in dem
+CodeDeck in eine Leitdatei schreibt); Vorlagen beim Anlegen; die Konvention als abschaltbare Startregel.
+
 ## Ältere Pakete (Nachschlagewerk)
 
 Die Reihenfolge bestimmen die MVP-Phasen oben. Diese Pakete liefern die Einzelheiten, auf die ein Schritt

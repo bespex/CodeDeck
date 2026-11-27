@@ -105,6 +105,35 @@ Voraussetzung: 2.4 (Nutzung aus der Statuszeile); vorher klären, welche Zahlen 
 
 Prüfung: Je Runde und Sitzung ist der Verbrauch sichtbar; eine gesperrte Datei wird nicht mehr gelesen. Einzelheiten in `docs/UMSETZUNG.md`, „Token sparen“.
 
+## U8: Werkbank neu: Plan, Neues, Scratch mit Ablauf
+Status: in Arbeit
+Ziel: Die Werkbank zeigt auf einen Blick, was ansteht (Plan aus den Leitdateien), was zu tun ist und was neu entstanden ist; der Scratch-Ordner räumt sich nach festen Regeln selbst auf (Nutzer, 2026-11-27).
+Voraussetzung: keine (vom Nutzer vorgezogen)
+
+- [x] U8.1 Skizze abgenommen (2026-11-27); die Skizze ist mit U8.4 entfernt.
+- [~] U8.2 Leitdateien erkennen: gebaut 2026-11-27 (`guides.rs`, `src/guides.ts`, Dateiliste, Einstellungen → Dateien und Verzeichnisse, Menü einer Datei „Leitdatei“) (in Arbeit: Praxistest offen).
+- [~] U8.3 Leitdateien auslesen: gebaut 2026-11-27 (`guides.rs` liest ROADMAP, TODO, IDEAS; Zone „Plan“ oben in der Werkbank, `PlanTile.tsx`; Anhangsteil „Aus dem Plan“, `src/plan.ts`; Zeile unter dem Namen in der Projektliste) (in Arbeit: Praxistest offen).
+- [~] U8.4 Werkbank in Zonen: gebaut 2026-11-27 (Plan, Zu tun, Neu nach KI-Session mit Vorschaubildern, Ablagen Außerhalb und Scratch zugeklappt; `TodoZone.tsx`, `NewZone.tsx`, `zones.tsx`, `scratch_thumbnail`) (in Arbeit: Praxistest offen; Filtern der Dateiliste nach Art kommt mit U8.5).
+- [~] U8.5 Scratch-Ablauf: gebaut 2026-11-27 (Behalten je Datei und Ordner, Papierkorb nach Tagen je Art, Vorgabe Entwürfe 30, Andere 14, sonst 7, abschaltbar; Schutz für Behaltenes, Angehängtes, Ungesehenes, Dateien laufender KI-Sessions und in Leitdateien Genanntes; Meldung in der Glocke; Arten filtern die Dateiliste; Startregel ergänzt; Sicherungsordner wie `*.git` als eine Einheit) (in Arbeit: Praxistest offen).
+- [ ] U8.7 Art und Einheit einer Scratch-Datei liefert das Backend mit jeder Datei (`WorkFile`), statt sie in `scratch.rs` und `src/scratch.ts` doppelt zu bestimmen.
+- [ ] U8.8 Prüfung „jeder `invoke` des Frontends hat einen registrierten Befehl“ als Skript neben `cargo test` und `tsc` (heute nur einmal von Hand; Rust-Seite prüft `registration::every_command_is_registered`).
+
+Prüfung: Praxistest: im Projekt CodeDeck zeigt die Werkbank Etappe und nächsten Schritt, die Runde von eben unter „Neu entstanden“, und eine alte, unbenutzte Scratch-Datei landet nach Ablauf im Papierkorb.
+
+## U9: Leitdateien pflegen
+Status: offen
+Ziel: Aufträge zu den Leitdateien gehen mit einem Klick an die KI, und was eine Runde an ihnen geändert hat, ist ohne Diff verständlich (Nutzer, 2026-11-27).
+Voraussetzung: U8.2, U8.3. Reihenfolge (2026-11-27): U9.6, U9.1, U9.3, U9.5, U9.4, U9.2.
+
+- [ ] U9.6 Die Konvention als abschaltbare Startregel für Nutzer ohne eigene Regeln (MVP 4), mit den eingestellten Namen der Leitdateien (z. B. „die Roadmap dieses Projekts ist docs/PLAN.md“).
+- [ ] U9.1 Aufträge im Nächsten Prompt: Chips je Leitdatei (neu lesen bei geänderter Anweisungsdatei, Regel ergänzen, nächster Schritt, Einträge, Stand nachziehen, Idee freigeben oder aufnehmen, README nachziehen); vorher mit `claude-code-guide` klären, wann Claude Code die Anweisungsdatei von selbst neu liest.
+- [ ] U9.3 Änderungen an Leitdateien als Zusammenfassung im Kurzbericht der Runde und in Activity.
+- [ ] U9.5 Schnell festhalten (Idee oder Aufgabe notieren von Startseite, Tray, Kürzel) und fehlende Leitdateien mit Vorlage anlegen (Plan ohne Leitdateien: „TODO.md anlegen?“).
+- [ ] U9.4 Prüfungen: sensible Inhalte in Leitdateien vor dem Commit, Formatpflege mit „Aufräumen lassen“.
+- [ ] U9.2 „Was die KI beim Start liest“: Kette der Anweisungsdateien mit Token-Zahl (zusammen mit U7).
+
+Prüfung: Praxistest: „Nächster Schritt“ startet eine Runde am richtigen Schritt, deren Kurzbericht „ROADMAP: … erledigt“ zeigt; eine IP in TODO.md wird vor dem Commit gemeldet.
+
 ## MVP 4: Für andere benutzbar
 Status: in Arbeit
 Ziel: Ein neuer Nutzer kommt ohne Vorwissen bis zur ersten Sitzung und findet ein Handbuch.

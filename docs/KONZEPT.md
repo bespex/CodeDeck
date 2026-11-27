@@ -605,29 +605,36 @@ was jedes KI-Werkzeug mit CodeDeck kann.
 Sitzungen legen Entwürfe, Mock-ups, Hilfsscripts und Messdaten gern außerhalb des Projekts ab: in
 temporären Ordnern oder als Seite auf claude.ai. Das blieb bisher unbemerkt.
 
-Der Reiter **Werkbank** sammelt das in Kacheln (D23):
+Der Reiter **Werkbank** sammelt das (D23), seit U8.4 in Zonen nach dem, was sie von dir wollen:
 
-- **Der Scratch-Ordner im Projekt**, `.scratch/` (seit Schritt 2.1, bis D23 `.workbench/`). Git ignoriert
-  ihn lokal: CodeDeck trägt ihn beim Öffnen eines Projekts in `.git/info/exclude` ein (nie in `.gitignore`,
-  die gehört dem Projekt), sichtbar im Git-Protokoll. Die Kachel zeigt Inhalt, Größe, Alter und welche
-  Sitzung eine Datei schrieb. Ins Projekt übernimmt man eine Datei, indem man sie auf einen Ordner im Dateibaum
-  zieht; aufgeräumt wird in den Papierkorb („Delete n older than 7 days“ oder einzeln). Im Dateibaum
-  steht der Ordner gedimmt. Snapshots enthalten ihn nicht, „Go back“ lässt ihn stehen.
-- **Hinweise in deinen Dateien:** die `@ai`-Kommentare. Auch sie gehören nicht für immer zum Projekt; sie
-  verschwinden, wenn Claude erledigt hat, worum sie bitten. Die Büroklammer an einem Hinweis hängt ihn an
-  den nächsten Prompt, wie im Dateibaum (beim Überfahren sichtbar, angehängt bleibt sie hell).
-- **Außerhalb des Projekts** ist eine Kachel mit zwei Gruppen, oben in der Werkbank, solange es etwas gibt.
-  **Online** (claude.ai, Gists, Pastes): Seiten bleiben, wo sie sind. CodeDeck merkt sich Titel, Link
-  und Sitzung, so wie die Sitzung den Link am Ende ihrer Runde nennt (das verlangt die Startregel). Kopiert wird
-  nicht, weil solche Seiten oft nur dort laufen. Das Konto kommt mit den Konten (3.2).
-- **Woanders abgelegt:** Was eine Sitzung trotzdem außerhalb ablegt (nicht in einem anderen Repo, nicht in den
-  eigenen Dateien des Werkzeugs), meldet CodeDeck mit einer Zahl am Reiter und bietet an, es in den
-  Scratch-Ordner zu holen. Geholt wird als Kopie, das Original bleibt.
+- **Plan** oben, die einzige Fläche der Ansicht: was die Planungsdateien des Projekts sagen (laufende Etappe der
+  `ROADMAP.md` mit ihren Schritten, nächster Schritt mit „Für den nächsten Prompt“, offene Punkte und Aufgaben der
+  `TODO.md`, Ideen der `IDEAS.md`). Ohne Roadmap zeigt er die nächsten drei Einträge der TODO-Datei (geplante
+  Aufgaben vor offenen Punkten) als kleine Karten nebeneinander, ohne TODO ebenso die ersten Ideen: Karten statt
+  Punkte und „Weiter“, weil solche Einträge nicht aufeinander aufbauen. Welche Dateien das sind, sagen die Leitdateien (Einstellungen → Dateien und
+  Verzeichnisse).
+- **Zu tun** und **Neu** darunter in zwei Spalten ohne Rahmen (schmal untereinander). *Zu tun* ist alles, was du der
+  KI aufgetragen hast und noch nicht erledigt ist: die `@ai`-Kommentare in deinen Dateien (sie verschwinden, wenn
+  Claude erledigt hat, worum sie bitten), deine Zeilenkommentare und die offenen Punkte der TODO-Datei; jeder
+  Eintrag sagt, ob er offen, angehängt oder übergeben ist. *Neu* ist, was seit deinem letzten Blick entstanden ist,
+  nach der Sitzung, die es gemacht hat: Dateien im Scratch-Ordner (Bilder als Vorschaubilder), Dateien außerhalb
+  des Projekts, veröffentlichte Seiten.
+- **Ablagen** unten, zugeklappt: *Außerhalb des Projekts* (solange es etwas gibt) mit den Gruppen **Online**
+  (claude.ai, Gists, Pastes: Seiten bleiben, wo sie sind; CodeDeck merkt sich Titel, Link und Sitzung, so wie die
+  Sitzung den Link am Ende ihrer Runde nennt) und **Woanders abgelegt** (Holen in den Scratch-Ordner als Kopie, das
+  Original bleibt), und der **Scratch-Ordner** `.scratch/`, zugeklappt eine Zeile mit den Arten (Entwürfe, Bilder,
+  Skripte, Daten, Sicherungen). Git ignoriert ihn lokal: CodeDeck trägt ihn beim Öffnen eines Projekts in
+  `.git/info/exclude` ein (nie in `.gitignore`), sichtbar im Git-Protokoll. Ins Projekt übernimmt man eine Datei,
+  indem man sie auf einen Ordner im Dateibaum zieht (auch aus *Neu*); aufgeräumt wird mit „Aufräumen…“ in den
+  Papierkorb, und seit U8.5 von selbst: Alte Dateien laufen nach Tagen je Art ab (einstellbar, abschaltbar) und kommen
+  in den Papierkorb, die Glocke meldet es. Es bleibt, was du *behältst* (Lesezeichen an Datei oder Ordner), anhängst,
+  noch nicht gesehen hast, was eine laufende Sitzung schrieb und was eine Leitdatei nennt. Ein Klick auf eine Art in
+  der Scratch-Zeile zeigt diese Dateien in der Dateiliste. Im Dateibaum steht der Ordner gedimmt. Snapshots enthalten ihn nicht, „Go back“ lässt ihn stehen.
 
 ## 4.5 Regeln, die jede Sitzung beim Start bekommt
 
 CodeDeck gibt jeder verbundenen Sitzung beim Start wenige kurze, feste Regeln mit: Temporäres gehört
-nach `.scratch/` (seit Schritt 2.1), und eine veröffentlichte Seite wird mit Link genannt (seit 1.6). Technisch gibt der Hook „Sitzung
+nach `.scratch/` (seit Schritt 2.1) und wird dort gelöscht, sobald es nicht mehr gebraucht wird (seit U8.5), und eine veröffentlichte Seite wird mit Link genannt (seit 1.6). Technisch gibt der Hook „Sitzung
 beginnt“ den Text aus, sofern ein CodeDeck-Fenster das Projekt offen hat; eine fortgesetzte Sitzung
 (`resume`) bekommt ihn nicht erneut, eine geleerte oder verdichtete (`clear`, `compact`) schon. Die Regeln sind immer an, es gibt
 keinen Schalter, und sie stehen wörtlich im Reiter Next prompt, getrennt von den Anhängen. Damit bleibt der Grundsatz gewahrt: Claude bekommt nichts, was du nicht siehst.

@@ -157,3 +157,12 @@ das ganze Projekt im Suchfeld (unscharf, Name vor Pfad, höchstens 300 Treffer, 
 Nutzer 2026-11-21: dafür gibt es andere Ansichten, und bei mehreren Sessions wird die Zeile zu eng). Mit Suche oder Chip
 zeigt die Liste flach, was gefunden wurde, mit dem Ordner daneben; „Im Baum zeigen“ führt zurück in den Baum.
 „Diese Runde“ als Chip ist nicht gebaut (die Runde kennt der Baum nicht).
+
+## Leitdateien, gebaut 2026-11-27 (Praxistest offen, Roadmap U8.2)
+
+Anweisungen für die KI, README, TODO, IDEAS und ROADMAP stehen im Hauptordner ganz oben, vor den Ordnern, in dieser
+Reihenfolge und mit dem Zeichen ihrer Rolle in der Farbe der KI; Anweisungsdateien in Unterordnern behalten ihren Platz
+und bekommen nur das Zeichen. Welche Namen zählen: Einstellungen → Dateien und Verzeichnisse → Leitdateien (dieser
+Rechner); ein Projekt wählt eigene über das Menü einer Datei → „Leitdatei“ (z. B. `docs/PLAN.md` als Roadmap), dort auch
+„Zurück zu den üblichen Namen“.
+

@@ -221,6 +221,8 @@ pub struct OverviewProject {
     pub mark: serde_json::Value,
     /// Its place among the projects shown lately, 0 the newest; `None` when not among them
     pub recent: Option<usize>,
+    /// What its planning files say, in one line (U8.3); `None` without any
+    pub plan: Option<crate::guides::PlanLine>,
 }
 
 /// The overview's view of my projects in their order, then open windows of projects not on the list.
@@ -246,6 +248,7 @@ pub fn overview_state(app: &AppHandle) -> Vec<OverviewProject> {
             mark: listed.and_then(|l| l.mark.clone()).unwrap_or(serde_json::Value::Null),
             visible: win.and_then(|w| app.get_webview_window(&w.label)).is_some_and(|w| w.is_visible().unwrap_or(false)),
             recent: recent.iter().position(|p| p == root),
+            plan: crate::guides::line_at(root),
         }
     };
     let window_of = |root: &Path| open.iter().find(|w| w.current.get().root == root);

@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { fileMarks, machineSettings, onSettingsChanged, setFileMark, setMachineSetting, type FileMarks } from "./backend";
+import type { ScratchKind } from "./scratch";
 
 export interface FileSettings {
   /** What git ignores counts as hidden */
@@ -58,7 +59,7 @@ const NO_MARKS: FileMarks = { hidden: [], shown: [], important: [] };
 /** The project's marks, and a way to set one; read again when the project changes. */
 export function useFileMarks(
   project: string | undefined,
-): [FileMarks, (kind: "hidden" | "shown" | "important", path: string, on: boolean) => void, () => void] {
+): [FileMarks, (kind: "hidden" | "shown" | "important" | "kept", path: string, on: boolean) => void, () => void] {
   const [marks, setMarks] = useState<FileMarks>(NO_MARKS);
   // Read again when the backend changed them itself (marks follow a moved or renamed file)
   const [round, reread] = useState(0);
@@ -73,7 +74,7 @@ export function useFileMarks(
     };
   }, [project, round]);
   useEffect(() => setMarks(NO_MARKS), [project]);
-  const set = (kind: "hidden" | "shown" | "important", path: string, on: boolean) =>
+  const set = (kind: "hidden" | "shown" | "important" | "kept", path: string, on: boolean) =>
     void setFileMark(kind, path, on)
       .then(setMarks)
       .catch((e) => console.error(e));
@@ -107,4 +108,16 @@ export function revealInTree(path: string) {
 export function onReveal(callback: (path: string) => void): () => void {
   revealers.add(callback);
   return () => void revealers.delete(callback);
+}
+
+const kindShowers = new Set<(kind: ScratchKind | null) => void>();
+
+/** The file list shows the scratch files of one kind, newest first (from the scratch line, U8.5). */
+export function showScratchKind(kind: ScratchKind | null) {
+  kindShowers.forEach((s) => s(kind));
+}
+
+export function onScratchKind(callback: (kind: ScratchKind | null) => void): () => void {
+  kindShowers.add(callback);
+  return () => void kindShowers.delete(callback);
 }

@@ -77,6 +77,11 @@ pub trait Harness: Send + Sync {
     fn is_own_file(&self, _path: &Path) -> bool {
         false
     }
+    /// The files the tool reads as standing instructions (U8.2, "guide files" of the role
+    /// `instructions`): a name counts in every folder of the project, a path with `/` only there.
+    fn instruction_files(&self) -> &'static [&'static str] {
+        &[]
+    }
     /// Hosts of the tool's maker where sessions publish pages; a link there at the end of a turn
     /// is kept as a published page.
     fn page_hosts(&self) -> &'static [&'static str] {

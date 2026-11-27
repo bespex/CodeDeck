@@ -231,6 +231,153 @@ fn checked(path: &str) -> Result<PathBuf, String> {
     Ok(p.to_path_buf())
 }
 
+/// Biggest picture shown as a thumbnail in the Workbench; bigger ones show as a line.
+const THUMB_MAX: u64 = 1_500_000;
+
+/// A picture of the scratch folder as a `data:` address, for a thumbnail in the Workbench (U8.4):
+/// the window may show `data:` images and nothing else from disk. `None` for other files and for
+/// pictures too big to send this way.
+pub fn thumbnail(project: &Project, path: &str) -> Result<Option<String>, String> {
+    if !path.starts_with(&format!("{DIR}/")) {
+        return Err(format!("{path}: not in the scratch folder"));
+    }
+    let full = project.resolve(path)?;
+    let ext = full.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let mime = match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "svg" => "image/svg+xml",
+        _ => return Ok(None),
+    };
+    if std::fs::metadata(&full).map_err(|e| e.to_string())?.len() > THUMB_MAX {
+        return Ok(None);
+    }
+    let bytes = std::fs::read(&full).map_err(|e| e.to_string())?;
+    Ok(Some(format!("data:{mime};base64,{}", base64(&bytes))))
+}
+
+fn base64(bytes: &[u8]) -> String {
+    const ABC: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let n = (chunk[0] as u32) << 16 | (*chunk.get(1).unwrap_or(&0) as u32) << 8 | *chunk.get(2).unwrap_or(&0) as u32;
+        for i in 0..4 {
+            if i <= chunk.len() {
+                out.push(ABC[(n >> (18 - 6 * i) & 63) as usize] as char);
+            } else {
+                out.push('=');
+            }
+        }
+    }
+    out
+}
+
+// ---------------------------------------------------------------------------------------------
+// Expiry (roadmap U8.5): a scratch folder does not tidy itself like /tmp. A file goes to the trash
+// once it is older than the days of its kind, unless it is kept (`files.json`), named in a guide file
+// of the project, or protected by the window (attached, not seen yet, written by a session still at
+// work). Machine setting `scratchExpiry`: `{ "on": bool, "days": { kind: days } }`.
+
+/// Days per kind when nobody chose others. Drafts are worth longer than pictures and test data.
+pub const EXPIRY_DAYS: &[(&str, u64)] = &[("draft", 30), ("image", 7), ("script", 7), ("data", 7), ("backup", 7), ("other", 14)];
+
+/// What a scratch file is, by its name; the same as `scratchKind` in `src/scratch.ts`.
+pub fn kind_of(path: &str) -> &'static str {
+    let lower = path.to_lowercase();
+    if lower.split('/').any(|part| part.contains("backup") || part.ends_with(".git")) {
+        return "backup";
+    }
+    let name = lower.rsplit('/').next().unwrap_or(&lower);
+    match name.rsplit_once('.').map(|(_, e)| e).unwrap_or("") {
+        "md" | "txt" | "html" | "htm" | "pdf" => "draft",
+        "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" => "image",
+        "py" | "sh" | "js" | "mjs" | "ts" | "rs" | "rb" => "script",
+        "csv" | "json" | "log" | "xml" | "yaml" | "yml" | "sql" | "tsv" => "data",
+        "bak" | "orig" | "patch" | "diff" => "backup",
+        _ => "other",
+    }
+}
+
+/// The unit a scratch file goes with: a backup folder (a copy of a repository, a folder named like a
+/// backup) is one thing, kept, counted and expired as a whole; any other file is a unit of its own.
+pub fn unit_of(path: &str) -> &str {
+    let mut end = 0;
+    for part in path.split('/') {
+        end += part.len();
+        let lower = part.to_lowercase();
+        if end < path.len() && (lower.contains("backup") || lower.ends_with(".git")) {
+            return &path[..end];
+        }
+        end += 1;
+    }
+    path
+}
+
+/// The days of each kind from the machine setting, or `None` when expiry is switched off.
+pub fn expiry_days(setting: &serde_json::Value) -> Option<std::collections::HashMap<&'static str, u64>> {
+    if setting.get("on").and_then(|v| v.as_bool()) == Some(false) {
+        return None;
+    }
+    let chosen = setting.get("days");
+    Some(EXPIRY_DAYS.iter().map(|(kind, days)| (*kind, chosen.and_then(|c| c.get(*kind)).and_then(|v| v.as_u64()).unwrap_or(*days))).collect())
+}
+
+/// What is due for the trash at `now`: files, and backup folders as a whole (`unit_of`), judged by
+/// their newest file. A unit stays when anything in it is kept, protected or named.
+pub fn due(files: &[WorkFile], now: u64, days: &std::collections::HashMap<&str, u64>, kept: &[String], mentioned: &[String], protected: &std::collections::HashSet<String>) -> Vec<String> {
+    const DAY: u64 = 24 * 3600_000;
+    let is_kept = |path: &str| kept.iter().any(|k| path == k || path.starts_with(&format!("{k}/")));
+    let is_named = |path: &str| mentioned.iter().any(|text| text.contains(path));
+    let mut units: Vec<(&str, u64, bool)> = Vec::new();
+    for f in files {
+        let unit = unit_of(&f.path);
+        let stays = is_kept(&f.path) || protected.contains(&f.path) || is_named(&f.path);
+        match units.iter_mut().find(|(u, _, _)| *u == unit) {
+            Some(entry) => {
+                entry.1 = entry.1.max(f.modified);
+                entry.2 |= stays;
+            }
+            None => units.push((unit, f.modified, stays || (unit != f.path && (is_kept(unit) || is_named(unit))))),
+        }
+    }
+    units
+        .into_iter()
+        .filter(|(unit, newest, stays)| {
+            let limit = days.get(kind_of(unit_file(unit, files))).copied().unwrap_or(14);
+            // 0 days: this kind never expires
+            !stays && limit > 0 && now.saturating_sub(*newest) > limit * DAY
+        })
+        .map(|(unit, _, _)| unit.to_string())
+        .collect()
+}
+
+/// A file of the unit, for its kind: a backup folder is a backup whatever lies in it.
+fn unit_file<'a>(unit: &'a str, files: &'a [WorkFile]) -> &'a str {
+    files.iter().find(|f| f.path == unit).map_or(unit, |f| f.path.as_str())
+}
+
+/// Moves what is due to the trash; what went. The guide files of the top folder count as "named".
+pub fn expire(project: &Project, protected: &[String], now: u64) -> Result<Vec<String>, String> {
+    let setting = crate::config::machine_settings().get("scratchExpiry").cloned().unwrap_or_default();
+    let Some(days) = expiry_days(&setting) else { return Ok(Vec::new()) };
+    let (files, _) = list(project);
+    let kept = crate::filemarks::of(&project.root).kept;
+    let mentioned = crate::guides::top_texts(&project.root);
+    let protected: std::collections::HashSet<String> = protected.iter().cloned().collect();
+    let gone = due(&files, now, &days, &kept, &mentioned, &protected);
+    // One that cannot be moved stays; the others go all the same
+    let mut moved = Vec::new();
+    for path in gone {
+        match trash(project, std::slice::from_ref(&path)) {
+            Ok(()) => moved.push(path),
+            Err(e) => eprintln!("codedeck: scratch expiry: {e}"),
+        }
+    }
+    Ok(moved)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -305,5 +452,47 @@ mod tests {
         let (files, _) = list(&p);
         assert_eq!(twins(&p, &files), vec![Twin { scratch: ".scratch/plan.md".into(), project: "docs/plan.md".into() }]);
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn base64_like_the_standard() {
+        assert_eq!(base64(b""), "");
+        assert_eq!(base64(b"f"), "Zg==");
+        assert_eq!(base64(b"fo"), "Zm8=");
+        assert_eq!(base64(b"foo"), "Zm9v");
+        assert_eq!(base64(b"foobar"), "Zm9vYmFy");
+    }
+
+    #[test]
+    fn expiry_goes_by_kind_and_spares_what_is_kept_named_or_protected() {
+        const DAY: u64 = 24 * 3600_000;
+        let now = 100 * DAY;
+        let f = |path: &str, age: u64| WorkFile { path: path.into(), size: 1, modified: now - age * DAY };
+        let files = vec![
+            f(".scratch/a.png", 8),
+            f(".scratch/b.png", 6),
+            f(".scratch/plan.md", 20),
+            f(".scratch/old.md", 31),
+            f(".scratch/keep/x.csv", 9),
+            f(".scratch/named.csv", 9),
+            f(".scratch/attached.csv", 9),
+            f(".scratch/repo-backup/HEAD", 9),
+            f(".scratch/old.git/objects/aa/1", 30),
+            f(".scratch/old.git/objects/bb/2", 30),
+            f(".scratch/young.git/objects/aa/1", 30),
+            f(".scratch/young.git/HEAD", 1),
+        ];
+        let protected = ["/x".to_string(), ".scratch/attached.csv".to_string()].into_iter().collect();
+        let keep = |list: &[&str]| list.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let gone = due(&files, now, &expiry_days(&serde_json::json!({ "days": { "backup": 0 } })).unwrap(), &keep(&[".scratch/keep"]), &["see .scratch/named.csv".into()], &protected);
+        assert_eq!(gone, vec![".scratch/a.png", ".scratch/old.md"]);
+        // A backup folder goes as a whole, judged by its newest file; a kept one stays
+        let gone = due(&files, now, &expiry_days(&serde_json::json!(null)).unwrap(), &keep(&[".scratch/keep", ".scratch/repo-backup"]), &["see .scratch/named.csv".into()], &protected);
+        assert_eq!(gone, vec![".scratch/a.png", ".scratch/old.md", ".scratch/old.git"]);
+        assert_eq!(unit_of(".scratch/old.git/objects/aa/1"), ".scratch/old.git");
+        assert_eq!(unit_of(".scratch/shots/a.png"), ".scratch/shots/a.png");
+        assert!(expiry_days(&serde_json::json!({ "on": false })).is_none());
+        assert_eq!(kind_of(".scratch/shots/A.PNG"), "image");
+        assert_eq!(kind_of(".scratch/repo.git/config"), "backup");
     }
 }

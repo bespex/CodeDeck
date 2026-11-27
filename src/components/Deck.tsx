@@ -7,6 +7,7 @@ import { ChangesView } from "./views/ChangesView";
 import { NextPromptView } from "./views/NextPromptView";
 import { NoticesPanel } from "./NoticesPanel";
 import { WorkbenchView } from "./views/WorkbenchView";
+import { useScratchExpiry } from "../scratchExpiry";
 import type { AssistantState } from "../backend";
 import { mainHarness } from "../assistant";
 import type { GitView } from "../git";
@@ -26,7 +27,7 @@ import type { Side } from "../layout";
 const views: { id: ViewId; label: string; question: (who: string) => string; story: () => { says: string; hint: string } }[] = [
   { id: "activity", label: "Activity", question: () => t("What are the sessions doing?"), story: () => ({ says: t("Your overview while the assistant works. Every AI session has a row on today's timeline: blue where it worked, a yellow frame where it waited for you, a small triangle where CodeDeck took a snapshot before it wrote. Below that: how safe your work is (what is not committed yet, what is committed but not pushed) and the documents the sessions wrote."), hint: t("Zoom the timeline with Ctrl and the mouse wheel; the ? beside its title explains every sign.") }) },
   { id: "changes", label: "Changes", question: (who) => t("What did {who} change?", { who }), story: () => ({ says: t("What the AI sessions did to your files, shown as a diff. Normally everything that is not yet saved in Git; with a point selected on the trail it is exactly what that turn, commit or snapshot changed. Files carry the colour of the session that wrote them."), hint: t("Comment on lines (they go with your next prompt), mark files as viewed once you have looked at them, save them in Git with a message, or go back to a snapshot if it was not what you wanted.") }) },
-  { id: "workbench", label: "Workbench", question: () => t("What else came up that is not part of the project yet?"), story: () => ({ says: t("Everything that came up around the project but is not part of it. The scratch folder holds drafts and throwaway files; below it are pages and files that AI sessions put elsewhere (a published page, a file in /tmp) and the @ai comments you left in your files as instructions."), hint: t("Open a file, drag it into the project if it is worth keeping, or attach it to your next prompt. An @ai comment disappears once the assistant has done what it asks.") }) },
+  { id: "workbench", label: "Workbench", question: () => t("What else came up that is not part of the project yet?"), story: () => ({ says: t("On top the plan from your planning files (ROADMAP, TODO, IDEAS). Below it what you asked of the AI and is not done yet, and what came up since you last looked. At the bottom the stores: what sessions put outside the project and the scratch folder with their drafts."), hint: t("Attach a step of the plan or a hint to your next prompt. Drag a new file onto a folder of the file list to keep it. An @ai comment disappears once the assistant has done what it asks.") }) },
   { id: "next", label: "Next prompt", question: () => t("What do you attach to your next prompt?"), story: () => ({ says: t("The last step before you write: what goes along with your next prompt. The files, changes, comments on lines and @ai hints you attached, each with where it comes from, and the exact text the assistant will receive. At the bottom are the start rules every new AI session gets once."), hint: t("Remove what should not go along. You write the prompt itself in the chat of the AI session; CodeDeck adds only what is listed here.") }) },
 ];
 
@@ -44,6 +45,8 @@ export function Deck({ git, selected, assistant, onResize }: Props) {
   // The point on the trail and the session filter come back with the project (projectMemory)
   const [point, setPoint] = usePerProject<Point>("point", () => ({ kind: "now" }));
   const [notices, setNotices] = useState(false);
+  // Old scratch files go to the trash by the rules, whether or not the Workbench is open (U8.5)
+  useScratchExpiry(assistant);
   const commits = useHistory(git.repos);
   const { snapshots, reload: reloadSnapshots } = useSnapshots(git.repos);
   const marks = useMarkers();

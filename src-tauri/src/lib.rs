@@ -15,6 +15,7 @@ mod filemarks;
 mod fileops;
 mod findings;
 mod git;
+mod guides;
 mod harness;
 mod history;
 mod icon;
@@ -527,6 +528,24 @@ fn set_file_mark(kind: String, path: String, on: bool, window: WebviewWindow) ->
     filemarks::set(&project_of(&window)?.root, &kind, &path, on)
 }
 
+/// What the project's planning files say (U8.3): roadmap stages and steps, open points and tasks, ideas.
+#[tauri::command]
+async fn guide_plan(window: WebviewWindow) -> Result<guides::Plan, String> {
+    let project = project_of(&window)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let found = guides::of(&project);
+        guides::plan_of(&project, &found)
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+/// Makes a file the project's guide file of a role, or with `role` null takes that choice back (U8.2).
+#[tauri::command]
+fn set_guide_role(path: String, role: Option<String>, window: WebviewWindow) -> Result<filemarks::FileMarks, String> {
+    filemarks::set_guide(&project_of(&window)?.root, role.as_deref(), &path)
+}
+
 /// Renames a file or folder of the project in place; its new path.
 #[tauri::command]
 fn path_rename(path: String, name: String, window: WebviewWindow) -> Result<String, String> {
@@ -570,6 +589,13 @@ async fn project_files(window: WebviewWindow) -> Result<Vec<String>, String> {
     tauri::async_runtime::spawn_blocking(move || fileops::all_files(&project)).await.map_err(|e| e.to_string())
 }
 
+/// The project's guide files with their role (U8.2): instructions, README, TODO, IDEAS, ROADMAP.
+#[tauri::command]
+async fn guide_files(window: WebviewWindow) -> Result<Vec<guides::Guide>, String> {
+    let project = project_of(&window)?;
+    tauri::async_runtime::spawn_blocking(move || guides::of(&project)).await.map_err(|e| e.to_string())
+}
+
 /// Opens a terminal in a folder of the project (for a file: its folder).
 #[tauri::command]
 fn open_terminal_in(path: String, window: WebviewWindow) -> Result<(), String> {
@@ -583,6 +609,26 @@ fn open_terminal_in(path: String, window: WebviewWindow) -> Result<(), String> {
 #[tauri::command]
 fn scratch_trash(paths: Vec<String>, window: WebviewWindow) -> Result<(), String> {
     scratch::trash(&*project_of(&window)?, &paths)
+}
+
+/// Old scratch files to the trash by the expiry rules (U8.5), sparing `protected` (what the window
+/// knows must stay: attached, not seen yet, in use); what went. A line in the journal tells it.
+#[tauri::command]
+async fn scratch_expire(protected: Vec<String>, window: WebviewWindow) -> Result<Vec<String>, String> {
+    let win = windows::of(&window)?;
+    let project = win.current.get();
+    let gone = tauri::async_runtime::spawn_blocking(move || scratch::expire(&project, &protected, bridge::now_ms())).await.map_err(|e| e.to_string())??;
+    if !gone.is_empty() {
+        win.bridge().note(&journal::Line::expired(bridge::now_ms(), &gone));
+    }
+    Ok(gone)
+}
+
+/// A picture of the scratch folder as a `data:` address for a thumbnail; `null` for other files or big ones.
+#[tauri::command]
+async fn scratch_thumbnail(path: String, window: WebviewWindow) -> Result<Option<String>, String> {
+    let project = project_of(&window)?;
+    tauri::async_runtime::spawn_blocking(move || scratch::thumbnail(&project, &path)).await.map_err(|e| e.to_string())?
 }
 
 /// Moves a file of the scratch folder into the project; the new project-relative path.
@@ -1567,6 +1613,11 @@ pub fn run() {
             path_trash,
             open_terminal_in,
             project_files,
+            guide_files,
+            set_guide_role,
+            guide_plan,
+            scratch_thumbnail,
+            scratch_expire,
             scratch_move,
             prompt_list,
             prompt_read,
@@ -1671,4 +1722,32 @@ pub fn run() {
                 }
             }
         });
+}
+
+#[cfg(test)]
+mod registration {
+    /// A `#[tauri::command]` left out of `generate_handler!` compiles without a word and fails only
+    /// in the app, where the preview's mocks hide it (U8: three commands were missing this way).
+    #[test]
+    fn every_command_is_registered() {
+        let src = include_str!("lib.rs");
+        let handler = &src[src.find("generate_handler![").expect("handler list")..];
+        let handler = &handler[..handler.find(']').unwrap()];
+        let listed: std::collections::HashSet<&str> = handler.trim_start_matches("generate_handler![").split(',').map(|n| n.trim().rsplit("::").next().unwrap_or("")).collect();
+        let mut missing = Vec::new();
+        let mut lines = src.lines().peekable();
+        while let Some(line) = lines.next() {
+            if line.trim() != "#[tauri::command]" {
+                continue;
+            }
+            let Some(next) = lines.peek() else { break };
+            let after = next.trim().trim_start_matches("pub ").trim_start_matches("async ");
+            if let Some(name) = after.strip_prefix("fn ").and_then(|r| r.split(['(', '<']).next()) {
+                if !listed.contains(name) {
+                    missing.push(name.to_string());
+                }
+            }
+        }
+        assert!(missing.is_empty(), "commands not in generate_handler!: {missing:?}");
+    }
 }

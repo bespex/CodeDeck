@@ -4,6 +4,7 @@ import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import {
   ArrowUpRight,
   AtSign,
+  Map as MapIcon,
   Check,
   ChevronDown,
   ChevronRight,
@@ -905,7 +906,7 @@ function NextPrompt({ assistant, onPin, openPrompt, onOpenPrompt }: Props & { op
   const now = useNow();
   const [over, setOver] = useState(false);
   const kinds = useAttachedKinds();
-  const count = kinds.files + kinds.changes + kinds.comments + kinds.hints;
+  const count = kinds.files + kinds.changes + kinds.comments + kinds.hints + kinds.plan;
   const share = Math.min(1, kinds.tokens / CONTEXT_TOKENS);
   const barColor = share > 0.5 ? "bg-problem" : share > 0.25 ? "bg-changed" : "bg-ai";
   const { connected } = useConnections();
@@ -922,6 +923,7 @@ function NextPrompt({ assistant, onPin, openPrompt, onOpenPrompt }: Props & { op
     [kinds.changes, "change", GitCompareArrows, t("Changes of a turn, commit or file: the paperclip in Changes")],
     [kinds.comments, "line comment", MessageSquare, t("Comments on diff lines: the speech bubble at a line in Changes")],
     [kinds.hints, "hint", AtSign, t("@ai hints from your files: the paperclip in the Workbench")],
+    [kinds.plan, "plan entry", MapIcon, t("Steps and tasks from your planning files: the paperclip at the plan in the Workbench")],
   ];
 
   const onDrop = (e: DragEvent) => {
@@ -997,7 +999,7 @@ function NextPrompt({ assistant, onPin, openPrompt, onOpenPrompt }: Props & { op
                     className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px] text-slate-400 hover:bg-raised/70 hover:text-slate-200"
                   >
                     <Icon className="size-3.5 text-slate-500" />
-                    <span className="text-slate-200">{plural(n, noun)}</span>
+                    <span className="text-slate-200">{noun === "plan entry" ? plural(n, noun, "plan entries") : plural(n, noun)}</span>
                   </button>
                 </Tooltip>
               ))}

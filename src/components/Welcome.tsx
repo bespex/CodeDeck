@@ -247,7 +247,7 @@ function ProjectsExplained() {
           </section>
         ))}
       </div>
-      <button type="button" onClick={() => void openUrl(HOME_URL)} className="self-start text-[12px] text-brand-soft hover:underline">
+      <button type="button" onClick={() => void openUrl(HOME_URL)} className="action-text self-start text-[12px] text-brand-soft">
         {t("More on the website")}
       </button>
     </div>
@@ -279,7 +279,7 @@ function Row({ check: c }: { check: Check }) {
       <div className="flex items-center gap-3">
         <span className="w-40 shrink-0 truncate">
           {c.url ? (
-            <button type="button" onClick={() => void openUrl(c.url!)} className="text-slate-100 hover:text-brand-soft hover:underline" title={c.url}>
+            <button type="button" onClick={() => void openUrl(c.url!)} className="action-text text-slate-100" title={c.url}>
               {nameOf(c)}
             </button>
           ) : (

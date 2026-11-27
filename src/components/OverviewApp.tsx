@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { History, AppWindow, ChevronRight, ChevronsDownUp, ChevronsUpDown, Shapes, Eye, EyeOff, ListX, Loader, Check, Copy, Ellipsis, FolderPlus, FolderTree, GitBranch, Inbox, Monitor, Paperclip, Play, Plus, Power, RotateCcw, SquareTerminal, TriangleAlert } from "lucide-react";
-import { openPanel, openSettings, openUrl, openWelcome, isTerminalDoor, forgetRecent, toggleOverview, onTodayStarted, sessionCommands, pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type ProjectSort, type Session } from "../backend";
+import { openPanel, openSettings, openUrl, openWelcome, isTerminalDoor, forgetRecent, toggleOverview, onTodayStarted, sessionCommands, pendingSession, addProject, addProjectsIn, focusProject, onOverviewChanged, openSession, overviewState, pickFolder, quit, removeProject, reorderProjects, setProject, showProject, sortProjects, startSession, startToday, stopSession, toggleProjectWindow, type OverviewProject, type PlanLine, type ProjectSort, type Session } from "../backend";
 import { elsewhereOf, type Elsewhere, type SessionMark } from "../assistant";
 import { accountLook, useAccounts } from "../accounts";
 import { usePending } from "../pending";
@@ -474,6 +474,18 @@ interface RowDrag {
   group: string;
 }
 
+/** `M2 Limits per client · 1 open question · 2 ideas`: empty when there is nothing to say. */
+function planLine(plan: PlanLine): string {
+  return [
+    plan.stage,
+    plan.questions > 0 && plural(plan.questions, "open question"),
+    plan.tasks > 0 && plural(plan.tasks, "task"),
+    plan.ideas > 0 && plural(plan.ideas, "idea"),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function ProjectRow({ project, name, drag, inRecent = false, umbrella = false }: { project: OverviewProject; name: string; drag?: RowDrag; inRecent?: boolean; umbrella?: boolean }) {
   const inWindow = useContext(InWindowContext);
   const all = useContext(AllProjectsContext);
@@ -526,7 +538,7 @@ function ProjectRow({ project, name, drag, inRecent = false, umbrella = false }:
         }}
         onKeyDown={(e) => e.key === "Enter" && (inWindow ? here(e.ctrlKey) : label ? front() : load())}
         title={inWindow ? t("Show it here · Ctrl+click or middle click: in a new window") : label ? t("Bring its window to the front") : t("Double-click: load its window")}
-        className={`group/row flex h-9 cursor-pointer items-center gap-2 border-l-2 pr-2 pl-3 select-none hover-project ${(inWindow ? shownHere : project.front && project.visible) ? "border-ai bg-raised" : "border-transparent"}`}
+        className={`group/row flex min-h-9 cursor-pointer items-center gap-2 py-0.5 border-l-2 pr-2 pl-3 select-none hover-project ${(inWindow ? shownHere : project.front && project.visible) ? "border-ai bg-raised" : "border-transparent"}`}
       >
         {/* The mark: a click hides or shows the loaded window, a double click loads it. A ring runs
             round it on hover, so it reads as a switch. In a project window it is part of the row */}
@@ -553,8 +565,16 @@ function ProjectRow({ project, name, drag, inRecent = false, umbrella = false }:
           <ProjectMark project={project} size={28} />
         </button>
         )}
-        <span title={name === project.name ? undefined : project.name} className={`min-w-0 truncate text-[14px] ${label || inWindow ? "font-semibold text-slate-100" : "text-slate-400"}`}>
-          {name}
+        {/* The name, and below it in quiet type what the planning files say (U8.3) */}
+        <span className="flex min-w-0 flex-col">
+          <span title={name === project.name ? undefined : project.name} className={`truncate text-[14px] leading-tight ${label || inWindow ? "font-semibold text-slate-100" : "text-slate-400"}`}>
+            {name}
+          </span>
+          {project.plan && planLine(project.plan) && (
+            <span title={`${t("From the project's planning files")}: ${planLine(project.plan)}`} className="truncate text-[11px] leading-tight text-slate-500">
+              {planLine(project.plan)}
+            </span>
+          )}
         </span>
         {umbrella && (
           <span title={t("Lies in the folder of this group and holds its projects")} className="shrink-0 text-[12px] text-slate-400">

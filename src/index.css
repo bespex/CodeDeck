@@ -200,6 +200,27 @@ body::after {
   border-radius: var(--radius-sm);
 }
 
+/* Text that does something when clicked, not a framed button (user, 2026-11-27: what can be clicked
+   must look so, at least on hover): the same everywhere. A soft background and the full text colour
+   on hover, its symbol always in the accent colour. Padding with a negative margin of the same size,
+   so the hover surface does not move the text. */
+@utility action-text {
+  border-radius: var(--radius-md);
+  padding: 0.125rem 0.375rem;
+  margin: -0.125rem -0.375rem;
+  cursor: pointer;
+  transition: background-color 120ms, color 120ms;
+  &:hover,
+  &:focus-visible,
+  &[aria-expanded="true"] {
+    background-color: var(--color-raised);
+    color: var(--color-slate-100);
+  }
+  & > svg {
+    color: var(--color-brand-soft);
+  }
+}
+
 /* The areas as utilities, so that a theme with gradients can let them run out (below) */
 @utility area-ai {
   background-color: var(--color-area-ai);

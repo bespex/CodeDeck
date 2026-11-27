@@ -8,6 +8,8 @@ import {
   CodeXml,
   File,
   FileText,
+  Check,
+  Undo2,
   Folder,
   FolderGit2,
   FolderInput,
@@ -39,7 +41,9 @@ import {
   FilterX,
 } from "lucide-react";
 import { onFsChanged, openPath, openSettings, openTerminalIn, pathCreate, pathMove, pathRename, pathStats, pathTrash, projectFiles, readDir, showInFileManager, tokensFor, type Entry, type ProjectInfo, type RepoStatus } from "../backend";
-import { hiddenBy, isImportant, onReveal, under, useFileMarks, useFileSettings, type FileSettings } from "../fileView";
+import { hiddenBy, isImportant, onReveal, onScratchKind, under, useFileMarks, useFileSettings, type FileSettings } from "../fileView";
+import { GUIDE_ROLES, rereadGuides, useGuides } from "../guides";
+import { setGuideRole, type GuideRole } from "../backend";
 import type { FileMarks } from "../backend";
 import { useHintFiles } from "../markers";
 import { search, type Chip } from "../fileFind";
@@ -60,7 +64,7 @@ import { type OpenProject } from "./ProjectHeader";
 import { BranchButton, GitStatusBar } from "./StatusBar";
 import { FilesRail } from "./FilesRail";
 import { usePerProject } from "../projectMemory";
-import { inScratch, moveIntoProject, SCRATCH_DRAG } from "../scratch";
+import { inScratch, moveIntoProject, scratchKind, SCRATCH_DRAG, type ScratchKind } from "../scratch";
 import { movePins } from "../files";
 import { moveNotes } from "../notes";
 import { plural, T, t } from "../i18n";
@@ -224,6 +228,8 @@ export function FilesPanel(props: Props) {
   const [fileSettings, changeFileSettings] = useFileSettings();
   const [marks, setMark, rereadMarks] = useFileMarks(props.project?.path);
   const hints = useHintFiles();
+  const guideList = useGuides(props.project?.path);
+  const guides = useMemo(() => new Map(guideList.map((g) => [g.path, g.role])), [guideList]);
   const ignored = useMemo(() => props.git.repos.flatMap((r) => r.ignored ?? []), [props.git.repos]);
   // Deleted and not committed: no longer on disk, still worth a grey line where they were
   const deleted = useMemo(() => props.git.repos.flatMap((r) => r.files.filter((f) => f.state === "D" && !f.dir).map((f) => f.path)), [props.git.repos]);
@@ -235,6 +241,8 @@ export function FilesPanel(props: Props) {
   const [anchor, setAnchor] = useState<string | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [chips, setChips] = usePerProject<Chip[]>("fileChips", () => []);
+  // The scratch files of one kind, asked for from the scratch line of the Workbench (U8.5)
+  const [kindFilter, setKindFilter] = useState<ScratchKind | null>(null);
   const [allFiles, setAllFiles] = useState<string[] | null>(null);
 
   // "Show in tree" from anywhere: the list opens, the folders on the way too, the entry lights up
@@ -254,9 +262,20 @@ export function FilesPanel(props: Props) {
     [load, fold, setOpen],
   );
 
+  useEffect(
+    () =>
+      onScratchKind((kind) => {
+        fold(false);
+        setQuery("");
+        setChips([]);
+        setKindFilter(kind);
+      }),
+    [fold, setQuery, setChips],
+  );
+
   const needle = query.trim().toLowerCase();
   // A search or a chip: a flat list of what is found in the whole project instead of the tree
-  const listMode = needle !== "" || chips.some((c) => CHIP_KINDS.flat().includes(c));
+  const listMode = needle !== "" || chips.some((c) => CHIP_KINDS.flat().includes(c)) || kindFilter !== null;
   useEffect(() => {
     if (!listMode) return;
     let timer: ReturnType<typeof setTimeout>;
@@ -278,6 +297,13 @@ export function FilesPanel(props: Props) {
     const state = new Map(gitFiles.map((f) => [f.path, f]));
     const untrackedDirs = gitFiles.filter((f) => f.dir && f.state === "?").map((f) => f.path);
     const files = new Set(allFiles ?? []);
+    // Scratch files of one kind: shown though the scratch folder is hidden, they were asked for
+    if (kindFilter) {
+      return [...files]
+        .filter((p) => inScratch(p) && scratchKind(p) === kindFilter)
+        .sort()
+        .map((path): Entry => ({ name: path.slice(path.lastIndexOf("/") + 1), path, isDir: false, size: 0 }));
+    }
     const universe = new Set<string>([...files, ...gitFiles.filter((f) => f.state === "D").map((f) => f.path), ...props.pinned, ...marks.important]);
     const test: Record<string, (path: string) => boolean> = {
       changed: (path) => state.has(path) || untrackedDirs.some((d) => under(path, d)),
@@ -296,7 +322,7 @@ export function FilesPanel(props: Props) {
     const kept = [...universe].filter(passes).filter((path) => !(fileSettings.look === "hide" && hiddenBy(path, fileSettings, marks, ignored)));
     const found = needle ? search(kept, needle) : kept.sort().slice(0, 300);
     return found.map((path): Entry => ({ name: path.slice(path.lastIndexOf("/") + 1), path, isDir: !files.has(path) && !state.has(path) ? true : !!state.get(path)?.dir, size: 0 }));
-  }, [listMode, needle, chips, allFiles, props.git.repos, props.pinned, marks, hints, fileSettings, ignored]);
+  }, [listMode, needle, chips, kindFilter, allFiles, props.git.repos, props.pinned, marks, hints, fileSettings, ignored]);
   // Changed on disk recently, or written by an assistant recently; with "keep the dots" every file
   // a session wrote that is still uncommitted
   const since = Date.now() - RECENT_MS;
@@ -319,6 +345,7 @@ export function FilesPanel(props: Props) {
     marks,
     setMark,
     hints,
+    guides,
     ignored,
     deleted,
     editing,
@@ -326,6 +353,13 @@ export function FilesPanel(props: Props) {
     flash,
     fail: setProblem,
     reload: (dir: string) => void load(dir),
+    setGuide: (path, role) =>
+      void setGuideRole(path, role)
+        .then(() => {
+          rereadMarks();
+          rereadGuides();
+        })
+        .catch((e) => setProblem(String(e))),
     // Attached files and line comments follow here; the marks were moved by the backend
     followMoves: (moves) => {
       if (moves.length === 0) return;
@@ -339,10 +373,12 @@ export function FilesPanel(props: Props) {
     chosen,
     cursor,
     listMode,
+    kindFilter,
     choose: (path: string, how: "single" | "toggle" | "range") => choose(path, how),
     leaveList: () => {
       setQuery("");
       setChips([]);
+      setKindFilter(null);
     },
   };
   // The project's top folder: from ⋯ beside the search and from the empty space of the tree
@@ -521,6 +557,18 @@ export function FilesPanel(props: Props) {
           </button>
         </div>
         <Chips chips={chips} onChange={setChips} />
+        {kindFilter && (
+          <div className="mt-1.5 flex">
+            <button
+              type="button"
+              onClick={() => setKindFilter(null)}
+              title={t("Back to the tree")}
+              className="flex items-center gap-1 rounded-full border border-ai/60 bg-ai/15 px-2 py-0.5 text-[11px] text-slate-100 hover:bg-ai/25"
+            >
+              {t("Scratch folder: {kind}", { kind: t(KIND_LABEL[kindFilter]) })} <span className="text-slate-400">×</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div
@@ -581,6 +629,8 @@ export function FilesPanel(props: Props) {
   );
 }
 
+const KIND_LABEL: Record<ScratchKind, string> = { draft: "drafts", image: "images", script: "scripts", data: "data files", backup: "backups", other: "other files" };
+
 /** A name being typed in the tree: a new one for a file or folder, or a new file or folder. */
 type Editing = { kind: "rename"; path: string } | { kind: "create"; dir: string; folder: boolean };
 
@@ -597,6 +647,10 @@ interface TreeState extends Props {
   setMark: (kind: "hidden" | "shown" | "important", path: string, on: boolean) => void;
   /** Path → number of @ai hints */
   hints: Map<string, number>;
+  /** Guide files (instructions, README, TODO, IDEAS, ROADMAP) and their role */
+  guides: Map<string, GuideRole>;
+  /** Makes a file this project's guide file of a role; `null` takes the project's choice back */
+  setGuide: (path: string, role: GuideRole | null) => void;
   ignored: string[];
   deleted: string[];
   editing: Editing | null;
@@ -613,6 +667,8 @@ interface TreeState extends Props {
   cursor: string | null;
   /** A search or a chip: the flat list is shown */
   listMode: boolean;
+  /** The scratch files of one kind are shown: asked for, so not faded though the folder is hidden */
+  kindFilter: ScratchKind | null;
   choose: (path: string, how: "single" | "toggle" | "range") => void;
   leaveList: () => void;
 }
@@ -635,11 +691,15 @@ function Rows({ dir, depth, tree }: { dir: string; depth: number; tree: TreeStat
     );
   }
   const ghosts = tree.needle ? [] : tree.deleted.filter((path) => parentOf(path) === dir && !entries.some((e) => e.path === path));
+  // In the top folder the guide files stand first, above the folders, in the order of their roles:
+  // they are what one opens most when working with the AI (U8.2)
+  const order = [...tree.guides.keys()];
+  const shown = dir === "" && order.length > 0 ? [...entries.filter((e) => tree.guides.has(e.path)).sort((a, b) => order.indexOf(a.path) - order.indexOf(b.path)), ...entries.filter((e) => !tree.guides.has(e.path))] : entries;
   const creating = tree.editing?.kind === "create" && tree.editing.dir === dir ? tree.editing : null;
   return (
     <>
       {creating && <NewRow dir={dir} folder={creating.folder} depth={depth} tree={tree} />}
-      {entries
+      {shown
         .filter((entry) => matches(entry, tree))
         // Hidden and set to "do not show": gone, unless "Show in tree" asks for it or something in it
         .filter((entry) => !(tree.fileSettings.look === "hide" && hiddenOf(entry.path, tree) && !(tree.flash && under(tree.flash, entry.path))))
@@ -672,7 +732,8 @@ function Row({ entry, depth, tree, flat = false }: { entry: Entry; depth: number
   const state = tree.git.stateOf(entry.path);
   // A plain folder has no symbol of its own: while closed, its name says that changes lie inside
   const inside = entry.isDir && !repo && !state && !isOpen ? tree.git.changesIn(entry.path) : 0;
-  const Icon = repo ? (repo.worktreeOf ? GitFork : FolderGit2) : entry.isDir ? (isOpen ? FolderOpen : Folder) : iconFor(entry.name);
+  const guide = entry.isDir ? undefined : tree.guides.get(entry.path);
+  const Icon = repo ? (repo.worktreeOf ? GitFork : FolderGit2) : entry.isDir ? (isOpen ? FolderOpen : Folder) : guide ? GUIDE_ROLES[guide].icon : iconFor(entry.name);
   const Chevron = isOpen ? ChevronDown : ChevronRight;
   // A scratch file can be dropped on a folder of the project, to move it in there
   const [dropping, setDropping] = useState(false);
@@ -685,7 +746,7 @@ function Row({ entry, depth, tree, flat = false }: { entry: Entry; depth: number
     clearTimeout(opening.current);
     setDropping(false);
   };
-  const hidden = hiddenOf(entry.path, tree);
+  const hidden = tree.kindFilter && flat ? null : hiddenOf(entry.path, tree);
   const important = isImportant(entry.path, tree.marks);
   const flashing = tree.flash === entry.path;
   const renaming = tree.editing?.kind === "rename" && tree.editing.path === entry.path;
@@ -775,7 +836,7 @@ function Row({ entry, depth, tree, flat = false }: { entry: Entry; depth: number
         )}
         {/* Important: the name bright and bold; a folder's symbol filled, the same shape (user, 2026-11-21) */}
         <Icon
-          className={`size-4 shrink-0 ${entry.isDir ? (important ? "text-slate-100" : "text-slate-300") : important ? "text-slate-300" : "text-slate-500"}`}
+          className={`size-4 shrink-0 ${entry.isDir ? (important ? "text-slate-100" : "text-slate-300") : guide ? "text-ai" : important ? "text-slate-300" : "text-slate-500"}`}
           fill={important && entry.isDir && !repo ? "currentColor" : "none"}
         />
         {renaming ? (
@@ -801,7 +862,7 @@ function Row({ entry, depth, tree, flat = false }: { entry: Entry; depth: number
         ) : (
           <span
             className={`truncate ${important ? "font-semibold text-slate-50" : ""}`}
-            title={important ? t("Marked as important") : hidden ? hiddenWhy(hidden) : undefined}
+            title={guide ? `${GUIDE_ROLES[guide].label()}: ${GUIDE_ROLES[guide].says()}` : important ? t("Marked as important") : hidden ? hiddenWhy(hidden) : undefined}
           >
             {entry.name}
           </span>
@@ -971,6 +1032,7 @@ function entryMenu(entry: Entry, tree: TreeState): MenuItem[] {
       run: () => (pinned ? tree.onUnpin(path) : tree.onPin(entry)),
     },
     { icon: Highlighter, label: important ? t("Remove the important mark") : t("Mark as important"), run: () => tree.setMark("important", path, !important) },
+    ...(entry.isDir ? [] : [guideItem(path, tree)]),
     why
       ? { icon: Eye, label: t("Show again"), hint: hiddenWhy(why), run: () => (why === "mark" ? tree.setMark("hidden", path, false) : tree.setMark("shown", path, true)) }
       : { icon: EyeOff, label: t("Hide"), run: () => tree.setMark("hidden", path, true) },
@@ -1001,6 +1063,33 @@ function entryMenu(entry: Entry, tree: TreeState): MenuItem[] {
     );
   }
   return items;
+}
+
+/**
+ * "Guide file": which role a file has for the work with the AI, and a way to give it one in this
+ * project (U8.2), e.g. a roadmap under another name. Chosen here, the choice can be taken back.
+ */
+function guideItem(path: string, tree: TreeState): MenuItem {
+  const role = tree.guides.get(path);
+  const own = Object.values(tree.marks.guides ?? {}).some((names) => names?.includes(path));
+  return {
+    icon: role ? GUIDE_ROLES[role].icon : FileText,
+    label: t("Guide file"),
+    hint: role ? GUIDE_ROLES[role].label() : undefined,
+    run: () => {},
+    more: async () => ({
+      title: t("What is {file} for the work with the AI?", { file: path.slice(path.lastIndexOf("/") + 1) }),
+      items: [
+        ...(Object.keys(GUIDE_ROLES) as GuideRole[]).map((r) => ({
+          icon: r === role ? Check : GUIDE_ROLES[r].icon,
+          label: GUIDE_ROLES[r].label(),
+          disabled: r === role,
+          run: () => tree.setGuide(path, r),
+        })),
+        ...(own ? [{ icon: Undo2, label: t("Back to the usual names"), hint: t("this project"), divider: true, run: () => tree.setGuide(path, null) }] : []),
+      ],
+    }),
+  };
 }
 
 /** For several chosen entries at once: attach, mark, hide, copy their paths, trash (asked first). */

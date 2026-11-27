@@ -454,6 +454,11 @@ impl Bridge {
             .collect()
     }
 
+    /// Writes a line of CodeDeck's own into the project's journal (e.g. scratch files that expired).
+    pub fn note(&self, line: &journal::Line) {
+        self.journal.write(&self.current.get().root, line, now_ms());
+    }
+
     pub fn state(&self) -> AssistantState {
         let inner = self.inner.locked();
         let harnesses = harness::all().iter().map(|h| HarnessInfo::of(*h)).collect();
@@ -1473,7 +1478,7 @@ fn save_open(file: &Path, root: &Path, open: &HashMap<String, Vec<OpenTurn>>, no
     std::fs::rename(&tmp, file)
 }
 
-fn now_ms() -> u64 {
+pub fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
 }
 

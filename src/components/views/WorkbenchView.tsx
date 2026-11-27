@@ -1,43 +1,145 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
 import { NewsTag, newsClass } from "../News";
 import { markSeen, reportNews, scratchKey, useNews } from "../../news";
-import { Brush, Check, ChevronDown, ChevronRight, Eye, FileText, Folder, FolderOpen, FolderSearch, GripVertical, SquarePen, Trash2 } from "lucide-react";
+import { Bookmark, Brush, Check, ChevronDown, ChevronRight, Eye, FileText, Folder, FolderOpen, FolderSearch, GripVertical, SquarePen, Trash2 } from "lucide-react";
 import { onFsChanged, openFile, showInFileManager, scratchList, scratchTrash, scratchTwins, type AssistantState, type WorkFile } from "../../backend";
 import { tidyPlan, type TidyGroup, type TidyItem } from "../../tidy";
 import { files as attachedFiles } from "../../files";
 import { mainHarness, shortId, useSessionMarks } from "../../assistant";
 import type { Markers } from "../../markers";
-import { HintsTile } from "./HintsTile";
+import { TodoZone } from "./TodoZone";
+import { NewZone } from "./NewZone";
+import { usePlan } from "../../plan";
+import { shownProject } from "../../projectMemory";
 import { Section, useFold, useShowAll } from "../blocks";
 import { Tooltip, ToolTipBody } from "../Tooltip";
 import { AppName } from "../../apps";
 import { plural } from "../../git";
-import { inScratch, useLastMove, SCRATCH_DIR, SCRATCH_DRAG } from "../../scratch";
+import { expiresAt, inScratch, isKept, KeptContext, scratchKind, unitOf, useExpiry, useLastMove, SCRATCH_DIR, SCRATCH_DRAG, type ScratchKind } from "../../scratch";
+import { showScratchKind, useFileMarks } from "../../fileView";
 import { age, size } from "./units";
 import { OutsideTile } from "./FoundTiles";
-import { T, t } from "../../i18n";
+import { PlanTile } from "./PlanTile";
+import { plural as pluralOf, T, t } from "../../i18n";
 
-/** Older than this, a file's age shows in amber: a hint to tidy up. */
-const OLD_DAYS = 7;
 const DAY = 24 * 3600_000;
-/** With more files than this the scratch folder starts closed, until opened once. */
-const SCRATCH_OPEN_UP_TO = 20;
 
 /**
- * What else came up that is not part of the project yet? (D23) The Workbench gathers it in tiles,
- * what wants a decision first: what sessions put outside the project (only while there is some),
- * the `@ai` hints left in files, then the scratch folder, the store. Each tile can be closed and
- * keeps its count in the heading; long lists show their first entries. They stand one below the other,
- * a hairline between: side by side each would be too narrow for its rows.
+ * What else came up that is not part of the project yet? (D23, roadmap U8.4) The Workbench in zones,
+ * by how much they want from you: on top the plan from the project's planning files, the one surface
+ * of the view; below in two columns without frames what you asked of the AI and is not done yet (To
+ * do) and what came up since you last looked (New); at the bottom, folded, the stores: what sessions
+ * put outside the project and the scratch folder, with everything they could do before.
  */
 export function WorkbenchView({ marks, assistant }: { marks: Markers; assistant: AssistantState }) {
   const { outside, pages } = assistant.found;
+  // A panel is made anew for each project: the one shown now is its project
+  const project = useRef(shownProject() ?? "preview").current;
+  const plan = usePlan(project);
+  const scratch = useScratchFiles();
+  const [fileMarks, setFileMark] = useFileMarks(project === "preview" ? "preview" : project);
+  const kept = useMemo(() => ({ kept: fileMarks.kept ?? [], keep: (path: string, on: boolean) => setFileMark("kept", path, on) }), [fileMarks.kept, setFileMark]);
   return (
-    <div className="flex min-h-full flex-col">
-      {(outside.length > 0 || pages.length > 0) && <OutsideTile files={outside} pages={pages} />}
-      <HintsTile marks={marks} harness={mainHarness(assistant)} />
-      <ScratchTile assistant={assistant} />
+    <KeptContext.Provider value={kept}>
+    <div className="@container flex min-h-full flex-col">
+      <PlanTile plan={plan} />
+      <div className="grid grid-cols-1 items-start gap-4 px-4 pt-4 pb-2 @2xl:grid-cols-2">
+        <TodoZone marks={marks} harness={mainHarness(assistant)} plan={plan} />
+        <NewZone files={scratch.files ?? []} outside={outside} pages={pages} />
+      </div>
+      <div className="mt-auto pt-4">
+        {(outside.length > 0 || pages.length > 0) && <OutsideTile files={outside} pages={pages} />}
+        <ScratchTile assistant={assistant} scratch={scratch} />
+      </div>
     </div>
+    </KeptContext.Provider>
+  );
+}
+
+/** The scratch folder's files, read again when something in or around it changes; once for the view. */
+function useScratchFiles(): { files: WorkFile[] | null; error: string | null; load: () => void } {
+  const [files, setFiles] = useState<WorkFile[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const moved = useLastMove();
+  const load = useCallback(() => {
+    scratchList()
+      .then((f) => {
+        setFiles(f);
+        setError(null);
+        reportNews("scratch", f.map(scratchItem));
+      })
+      .catch((e) => setError(String(e)));
+  }, []);
+  useEffect(() => {
+    load();
+    let timer: ReturnType<typeof setTimeout>;
+    // Anything in or around the scratch folder: read it again (a move out of it lands elsewhere)
+    const stop = onFsChanged((change) => {
+      if (![...change.dirs, ...change.paths].some((p) => inScratch(p) || p === "")) return;
+      clearTimeout(timer);
+      timer = setTimeout(load, 300);
+    });
+    return () => {
+      clearTimeout(timer);
+      stop();
+    };
+  }, [load]);
+  // A move is told by whoever did it; the list follows
+  useEffect(load, [moved, load]);
+  return { files, error, load };
+}
+
+const KIND_NOUN: [ScratchKind, string, string][] = [
+  ["draft", "draft", "drafts"],
+  ["image", "image", "images"],
+  ["script", "script", "scripts"],
+  ["data", "data file", "data files"],
+  ["backup", "backup", "backups"],
+  ["other", "other file", "other files"],
+];
+
+/** How soon counts as "soon" for expiry: said in the scratch line and in amber on a file. */
+const SOON_MS = 3 * DAY;
+
+/**
+ * `12 drafts · 20 images · 3 kept · 9 expire within 3 days · 3.1 MB`: what the scratch folder holds.
+ * A kind is a button: the file list shows those files (U8.5).
+ */
+function KindsLine({ files, bytes }: { files: WorkFile[]; bytes: number }) {
+  const { kept } = useContext(KeptContext);
+  const [rules] = useExpiry();
+  const now = Date.now();
+  // A backup folder counts once, however many files a copy of a repository holds
+  const count = new Map<ScratchKind, number>();
+  for (const unit of new Set(files.map((f) => unitOf(f.path)))) count.set(scratchKind(unit), (count.get(scratchKind(unit)) ?? 0) + 1);
+  const keptCount = files.filter((f) => isKept(f.path, kept)).length;
+  const soon = files.filter((f) => {
+    const at = expiresAt(f.path, f.modified, rules);
+    return at !== null && at - now < SOON_MS && !isKept(f.path, kept);
+  }).length;
+  const sep = <span className="text-slate-600">·</span>;
+  return (
+    <span className="flex min-w-0 flex-wrap items-center gap-x-1.5">
+      {KIND_NOUN.filter(([k]) => count.get(k)).map(([k, one, many]) => (
+        <span key={k} className="flex items-center gap-1.5">
+          <button type="button" onClick={() => showScratchKind(k)} title={t("Show them in the file list")} className="action-text">
+            {pluralOf(count.get(k)!, one, many)}
+          </button>
+          {sep}
+        </span>
+      ))}
+      {keptCount > 0 && (
+        <span className="flex items-center gap-1 text-slate-400">
+          <Bookmark className="size-3" /> {t("{n} kept", { n: keptCount })} {sep}
+        </span>
+      )}
+      {soon > 0 && (
+        <span className="flex items-center gap-1.5 text-changed" title={t("Old files go to the trash by the rules in the settings, unless kept, attached or named in a guide file.")}>
+          {t("{n} expire within 3 days", { n: soon })} {sep}
+        </span>
+      )}
+      <span>{size(bytes)}</span>
+    </span>
   );
 }
 
@@ -88,39 +190,16 @@ function treeOf(files: WorkFile[]): Dir {
  * long piece of work is one line; a folder goes to the trash as a whole. A file becomes part of the
  * project by dragging it onto a folder of the file list.
  */
-function ScratchTile({ assistant }: { assistant: AssistantState }) {
-  const [files, setFiles] = useState<WorkFile[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+function ScratchTile({ assistant, scratch }: { assistant: AssistantState; scratch: ReturnType<typeof useScratchFiles> }) {
+  const { files, load } = scratch;
+  const [failed, setError] = useState<string | null>(null);
+  const error = failed ?? scratch.error;
   const [cleared, setCleared] = useState<string | null>(null);
   const [tidying, setTidying] = useState(false);
   const moved = useLastMove();
-  const fold = useFold("scratch", (files?.length ?? 0) <= SCRATCH_OPEN_UP_TO);
-
-  const load = useCallback(() => {
-    scratchList()
-      .then((f) => {
-        setFiles(f);
-        setError(null);
-        reportNews("scratch", f.map(scratchItem));
-      })
-      .catch((e) => setError(String(e)));
-  }, []);
-  useEffect(() => {
-    load();
-    let timer: ReturnType<typeof setTimeout>;
-    // Anything in or around the scratch folder: read it again (a move out of it lands elsewhere)
-    const stop = onFsChanged((change) => {
-      if (![...change.dirs, ...change.paths].some((p) => inScratch(p) || p === "")) return;
-      clearTimeout(timer);
-      timer = setTimeout(load, 300);
-    });
-    return () => {
-      clearTimeout(timer);
-      stop();
-    };
-  }, [load]);
-  // A move is told by whoever did it; the list follows
-  useEffect(load, [moved, load]);
+  // One line at the bottom of the view until opened: the files are in the file list too, what is
+  // new is under New (U8.4)
+  const fold = useFold("scratch.zone", false);
 
   const tree = useMemo(() => treeOf(files ?? []), [files]);
   const now = Date.now();
@@ -144,7 +223,7 @@ function ScratchTile({ assistant }: { assistant: AssistantState }) {
           {t("Scratch folder")} <code className="ml-1 font-mono text-[12px] font-normal text-slate-400">{SCRATCH_DIR}/</code>
         </>
       }
-      note={files && files.length > 0 ? `${plural(files.length, "file")} · ${size(tree.size)}` : undefined}
+      note={files && files.length > 0 ? <KindsLine files={files} bytes={tree.size} /> : undefined}
       help={t("One folder in the project for drafts, mock-ups, throwaway scripts and test data. AI sessions are told to put such things here. Git ignores it, so nothing here is committed by accident. To make a file part of the project, drag it onto a folder in the file list. Double click views a file, middle click edits it.")}
       aside={
         <>
@@ -405,6 +484,7 @@ function ScratchLine(props: {
   name: ReactNode;
   when: string;
   old?: boolean;
+  whenTitle?: string;
   size: number;
   actions: ReactNode;
   rowProps?: HTMLAttributes<HTMLLIElement> & { draggable?: boolean };
@@ -415,7 +495,7 @@ function ScratchLine(props: {
       <span className="flex size-3.5 shrink-0 items-center justify-center">{props.lead}</span>
       {props.icon}
       <span className="flex min-w-0 flex-1 items-baseline gap-2">{props.name}</span>
-      <span className={`w-24 shrink-0 text-right text-[11px] whitespace-nowrap ${props.old ? "text-changed" : "text-slate-500"}`}>{props.when}</span>
+      <span title={props.whenTitle} className={`w-24 shrink-0 text-right text-[11px] whitespace-nowrap ${props.old ? "text-changed" : "text-slate-500"}`}>{props.when}</span>
       <span className="w-16 shrink-0 text-right font-mono text-[11px] text-slate-500 tabular-nums">{size(props.size)}</span>
       <div className="ml-4 flex shrink-0 gap-0.5">{props.actions}</div>
     </li>
@@ -457,6 +537,7 @@ function DirRow({ dir, depth, now, onTrash }: { dir: Dir; depth: number; now: nu
           <>
             <span className="size-[22px]" />
             <span className="size-[22px]" />
+            <KeepFolder path={dir.path} />
             <Tooltip content={<ToolTipBody label={t("Show in file manager")} says={t("Opens this folder in the file manager")} />}>
               <button type="button" aria-label={t("Show in file manager")} onClick={() => showInFileManager(dir.path)} className={ACTION}>
                 <FolderSearch className="size-3.5" />
@@ -480,6 +561,19 @@ function DirRow({ dir, depth, now, onTrash }: { dir: Dir; depth: number; now: nu
   );
 }
 
+/** Keeps a whole folder from expiry, e.g. a design worth looking at again. */
+function KeepFolder({ path }: { path: string }) {
+  const { kept, keep } = useContext(KeptContext);
+  const on = kept.includes(path);
+  return (
+    <Tooltip content={<ToolTipBody label={on ? t("Do not keep") : t("Keep")} says={on ? t("Its files may expire again by the rules") : t("Nothing in this folder goes to the trash by itself")} />}>
+      <button type="button" aria-label={on ? t("Do not keep") : t("Keep")} aria-pressed={on} onClick={() => keep(path, !on)} className={`${ACTION} ${on ? "text-slate-200" : ""}`}>
+        <Bookmark className={`size-3.5 ${on ? "fill-current" : ""}`} />
+      </button>
+    </Tooltip>
+  );
+}
+
 /** A scratch file as an entry of the Workbench for "new": changed when it was changed after it was seen. */
 const scratchItem = (f: WorkFile) => ({ key: scratchKey(f.path), time: f.modified, changes: true });
 /** All files below a folder. */
@@ -494,6 +588,10 @@ function FileRow({ file: f, depth, now, onTrash }: { file: WorkFile; depth: numb
   // One line only: who wrote it is in the tooltip
   const by = writer ? t("written by {who}", { who: mark?.title ?? t("session {id}", { id: shortId(writer) }) }) : "";
   const news = useNews().of(scratchItem(f));
+  const { kept, keep } = useContext(KeptContext);
+  const [rules] = useExpiry();
+  const isKeptHere = isKept(f.path, kept);
+  const expires = isKeptHere ? null : expiresAt(f.path, f.modified, rules);
   return (
     <ScratchLine
       depth={depth}
@@ -519,10 +617,12 @@ function FileRow({ file: f, depth, now, onTrash }: { file: WorkFile; depth: numb
             {name}
           </span>
           <NewsTag news={news} />
+          {isKeptHere && <Bookmark className="size-3 shrink-0 fill-current text-slate-400" aria-label={t("Kept")} />}
         </>
       }
       when={age(f.modified, now)}
-      old={now - f.modified > OLD_DAYS * DAY}
+      old={expires !== null && expires - now < SOON_MS}
+      whenTitle={expires !== null ? t("Goes to the trash {when}, unless kept", { when: new Date(expires).toLocaleDateString() }) : isKeptHere ? t("Kept: does not expire") : undefined}
       size={f.size}
       actions={
         <>
@@ -550,6 +650,11 @@ function FileRow({ file: f, depth, now, onTrash }: { file: WorkFile; depth: numb
           >
             <button type="button" aria-label={t("Edit")} onClick={() => openFile(f.path, "edit")} className={ACTION}>
               <SquarePen className="size-3.5" />
+            </button>
+          </Tooltip>
+          <Tooltip content={<ToolTipBody label={isKeptHere ? t("Do not keep") : t("Keep")} says={isKeptHere ? t("It may expire again by the rules") : t("Kept files never go to the trash by themselves")} />}>
+            <button type="button" aria-label={isKeptHere ? t("Do not keep") : t("Keep")} aria-pressed={isKeptHere} onClick={() => keep(f.path, !isKeptHere)} className={`${ACTION} ${isKeptHere ? "text-slate-200" : ""}`}>
+              <Bookmark className={`size-3.5 ${isKeptHere ? "fill-current" : ""}`} />
             </button>
           </Tooltip>
           <Tooltip content={<ToolTipBody label={t("Show in file manager")} says={t("Opens its folder in the file manager, with it selected")} />}>

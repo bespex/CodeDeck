@@ -12,12 +12,14 @@ import {
   X,
   type LucideIcon,
   LocateFixed,
+  Map as MapIcon,
 } from "lucide-react";
 import { revealInTree } from "../fileView";
 import { files, pinDetail, type Pin } from "../files";
 import { changes } from "../changes";
 import { notes, removeNote } from "../notes";
 import { markerKey, markers, useMarkers } from "../markers";
+import { planItems, planKey } from "../plan";
 import { openFile } from "../backend";
 import { useAttachEnabled } from "../attachments";
 import { useConnections } from "../assistant";
@@ -35,8 +37,28 @@ export function AttachmentSections() {
   const changed = changes.use();
   const comments = notes.use();
   const hints = markers.use();
+  const planned = planItems.use();
   return (
     <>
+      {planned.length > 0 && (
+        <Kind title={t("From the plan")} count={planned.length} onClear={planItems.clear} source={{ view: "workbench", label: t("In the Workbench") }}>
+          {planned.map((p) => (
+            <Item
+              key={planKey(p)}
+              icon={MapIcon}
+              name={`${p.path}:${p.line}`}
+              title={p.text}
+              detail={
+                <span className="font-mono">
+                  {p.path}:{p.line}
+                  {p.stage ? ` · ${p.stage}` : ""}
+                </span>
+              }
+              onRemove={() => planItems.remove([planKey(p)])}
+            />
+          ))}
+        </Kind>
+      )}
       {pins.length > 0 && (
         <Kind title={t("Files")} count={pins.length} onClear={files.clear}>
           {pins.map((pin) => (
@@ -185,7 +207,7 @@ export function HintsToAttach() {
 
 /** How many things are attached: every item counts, the same everywhere. */
 export function useAttachedCount(): number {
-  return files.use().length + changes.use().length + notes.use().length + markers.use().length;
+  return files.use().length + changes.use().length + notes.use().length + markers.use().length + planItems.use().length;
 }
 
 /** Per kind, for the summary in the right column. */
@@ -197,6 +219,7 @@ export function useAttachedKinds() {
     changes: changes.use().length,
     comments: notes.use().length,
     hints: markers.use().length,
+    plan: planItems.use().length,
   };
 }
 

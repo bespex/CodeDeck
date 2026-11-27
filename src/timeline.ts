@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { journalLines, type AssistantState, type JournalLine, type Session } from "./backend";
-import { t } from "./i18n";
+import { plural, t } from "./i18n";
 
 const HOUR = 3600_000;
 
@@ -235,7 +235,9 @@ export function noticesOf(lines: JournalLine[], who: (session: string) => string
                 ? t("{who} finished its turn", { who: name })
                 : l.kind === "session_ended"
                   ? t("{who} ended", { who: name })
-                  : null;
+                  : l.kind === "scratch_expired"
+                    ? t("{files} went to the trash, expired by the rules of the scratch folder", { files: plural(Number(l.text ?? 0), "old scratch file") })
+                    : null;
     if (text) out.push({ at: l.at, text });
   }
   flush();

@@ -13,7 +13,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 function listen<T>(event: EventName, handler: EventCallback<T>): Promise<UnlistenFn> {
   return getCurrentWebviewWindow().listen<T>(event, handler);
 }
-import { project as mockProject, tree as mockTree, type FileNode, type GitState } from "./mock";
+import { project as mockProject, tree as mockTree, plan as mockPlan, type FileNode, type GitState } from "./mock";
 
 /** The commit the mock's root repository is on. */
 const MOCK_ROOT_HEAD = "root0".padEnd(40, "0");
@@ -287,6 +287,11 @@ export interface WorkFile {
 
 const DAY = 24 * 3600_000;
 let mockScratch: WorkFile[] = [
+  // Icon variants a session just drew: the Workbench shows them as thumbnails
+  ...["a", "b", "c", "d"].map((v, i) => ({ path: `.scratch/icons/icon-${v}.svg`, size: 900 + i * 40, modified: Date.now() - (6 + i) * 60_000 })),
+  { path: ".scratch/werkbank-zonen.md", size: 3100, modified: Date.now() - 5 * 60_000 },
+  // A copy of a repository: hundreds of object files, one backup to the Workbench
+  ...Array.from({ length: 40 }, (_, i) => ({ path: `.scratch/backup-before-rewrite.git/objects/${(i * 37).toString(16).padStart(2, "0")}/${(i * 2654435761).toString(16)}`, size: 300 + i * 50, modified: Date.now() - 20 * 60_000 })),
   { path: ".scratch/bench_limiter.py", size: 2100, modified: Date.now() - 25 * 60_000 },
   { path: ".scratch/bench-results.csv", size: 14_300, modified: Date.now() - 24 * 60_000 },
   { path: ".scratch/load-test.log", size: 1_400_000, modified: Date.now() - 9 * DAY },
@@ -308,12 +313,38 @@ export function scratchList(): Promise<WorkFile[]> {
   return Promise.resolve([...mockScratch]);
 }
 
+/** Old scratch files to the trash by the expiry rules, sparing `protected`; what went (U8.5). */
+export function scratchExpire(protectedPaths: string[]): Promise<string[]> {
+  if (live) return invoke("scratch_expire", { protected: protectedPaths });
+  console.info("scratch expiry, protected:", protectedPaths.length);
+  return Promise.resolve([]);
+}
+
+/** A picture of the scratch folder as a `data:` address for a thumbnail; null for other files or big ones. */
+export function scratchThumbnail(path: string): Promise<string | null> {
+  if (live) return invoke("scratch_thumbnail", { path });
+  const m = path.match(/icon-([a-d])\.svg$/);
+  if (!m) return Promise.resolve(null);
+  const shapes: Record<string, string> = {
+    a: '<polygon points="32,8 54,20 54,44 32,56 10,44 10,20" fill="none" stroke="#f26500" stroke-width="6"/>',
+    b: '<circle cx="32" cy="32" r="22" fill="none" stroke="#7aa2f7" stroke-width="6"/>',
+    c: '<rect x="12" y="12" width="40" height="40" rx="6" fill="none" stroke="#9ece6a" stroke-width="6"/>',
+    d: '<polygon points="32,10 56,52 8,52" fill="none" stroke="#e0a868" stroke-width="6" stroke-linejoin="round"/>',
+  };
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">${shapes[m[1]]}</svg>`;
+  return Promise.resolve(`data:image/svg+xml;base64,${btoa(svg)}`);
+}
+
 /** What the user marked in the project's file list (`filemarks.rs`). */
 export interface FileMarks {
   hidden: string[];
   /** Hidden by default (the scratch folder, the list in the settings) and shown again */
   shown: string[];
   important: string[];
+  /** Scratch files and folders kept from expiry (U8.5) */
+  kept?: string[];
+  /** The project's own names of guide files per role, replacing the machine's */
+  guides?: Partial<Record<GuideRole, string[]>>;
 }
 
 let mockMarks: FileMarks = { hidden: [], shown: [], important: ["docs"] };
@@ -324,11 +355,15 @@ export function fileMarks(): Promise<FileMarks> {
 }
 
 /** Marks a path (`hidden`, `shown`, `important`) or takes the mark off; the marks afterwards. */
-export function setFileMark(kind: "hidden" | "shown" | "important", path: string, on: boolean): Promise<FileMarks> {
+export function setFileMark(kind: "hidden" | "shown" | "important" | "kept", path: string, on: boolean): Promise<FileMarks> {
   if (live) return invoke("set_file_mark", { kind, path, on });
   const without = (list: string[]) => list.filter((p) => p !== path);
   const add = (list: string[]) => (on ? [...list, path].sort() : list);
   let { hidden, shown, important } = mockMarks;
+  if (kind === "kept") {
+    mockMarks = { ...mockMarks, kept: add(without(mockMarks.kept ?? [])) };
+    return Promise.resolve(mockMarks);
+  }
   if (kind === "important") important = add(without(important));
   else {
     // Hiding takes it off the shown again, and the other way round
@@ -337,7 +372,7 @@ export function setFileMark(kind: "hidden" | "shown" | "important", path: string
     if (kind === "hidden") hidden = add(hidden);
     else shown = add(shown);
   }
-  mockMarks = { hidden, shown, important };
+  mockMarks = { ...mockMarks, hidden, shown, important };
   return Promise.resolve(mockMarks);
 }
 
@@ -370,7 +405,83 @@ export function pathTrash(paths: string[]): Promise<void> {
 /** Every file of the project, project-relative: the search over the whole project. */
 export function projectFiles(): Promise<string[]> {
   if (live) return invoke("project_files");
-  return Promise.resolve(mockTree.flatMap((n) => leaves(n)).map((f) => f.path).sort());
+  return Promise.resolve([...mockTree.flatMap((n) => leaves(n)).map((f) => f.path), ...mockScratch.map((f) => f.path)].sort());
+}
+
+/** The role of a guide file (`guides.rs`). */
+export type GuideRole = "instructions" | "readme" | "tasks" | "ideas" | "roadmap";
+
+/** A file that steers the work with the AI: instructions, README, TODO, IDEAS, ROADMAP (U8.2). */
+export interface Guide {
+  path: string;
+  role: GuideRole;
+}
+
+/** The project's guide files, top folder first in the order of the roles, then deeper instructions. */
+export function guideFiles(): Promise<Guide[]> {
+  if (live) return invoke("guide_files");
+  const roles: [GuideRole, string[]][] = [
+    ["instructions", ["CLAUDE.md", "AGENTS.md"]],
+    ["readme", ["README.md"]],
+    ["tasks", ["TODO.md"]],
+    ["ideas", ["IDEAS.md"]],
+    ["roadmap", ["ROADMAP.md"]],
+  ];
+  const files = mockTree.flatMap((n) => leaves(n)).map((f) => f.path);
+  const own = mockMarks.guides ?? {};
+  const named = roles.map(([role, names]): [GuideRole, string[]] => [role, role === "instructions" ? [...names, ...(own[role] ?? [])] : (own[role] ?? names)]);
+  const found = named.flatMap(([role, names]) => files.filter((f) => names.includes(f)).map((path) => ({ path, role })));
+  return Promise.resolve(found.filter((g, i) => found.findIndex((o) => o.path === g.path) === i));
+}
+
+/** Where an entry of a planning file stands. */
+export type PlanState = "open" | "active" | "done";
+
+/** One line of a planning file: its text as a title and where it is (line from 1). */
+export interface PlanEntry {
+  text: string;
+  line: number;
+  state: PlanState;
+}
+
+export interface PlanStage {
+  /** Before the colon of the heading: `M3`, `MVP 3`, `U8` */
+  id: string;
+  title: string;
+  state: PlanState;
+  goal: string | null;
+  line: number;
+  steps: PlanEntry[];
+}
+
+/** What the project's planning files say (`guides.rs`, U8.3); a part is null without its file. */
+export interface Plan {
+  roadmap: { path: string; title: string | null; goal: string | null; asOf: string | null; stages: PlanStage[]; later: number } | null;
+  tasks: { path: string; questions: PlanEntry[]; tasks: PlanEntry[] } | null;
+  ideas: { path: string; ideas: PlanEntry[] } | null;
+}
+
+export function guidePlan(): Promise<Plan> {
+  if (live) return invoke("guide_plan");
+  // `?plan=todo`: no roadmap; `?plan=ideas`: only ideas; `?plan=none`: no planning file
+  const which = new URLSearchParams(window.location.search).get("plan");
+  if (which === "todo") return Promise.resolve({ ...mockPlan, roadmap: null });
+  if (which === "ideas") return Promise.resolve({ ...mockPlan, roadmap: null, tasks: null });
+  if (which === "none") return Promise.resolve({ roadmap: null, tasks: null, ideas: null });
+  return Promise.resolve(mockPlan);
+}
+
+/** Makes a file the project's guide file of `role`, or with `null` takes that choice back; the marks afterwards. */
+export function setGuideRole(path: string, role: GuideRole | null): Promise<FileMarks> {
+  if (live) return invoke("set_guide_role", { path, role });
+  const guides: Partial<Record<GuideRole, string[]>> = {};
+  for (const [r, names] of Object.entries(mockMarks.guides ?? {}) as [GuideRole, string[]][]) {
+    const kept = names.filter((n) => n !== path);
+    if (kept.length) guides[r] = kept;
+  }
+  if (role) guides[role] = role === "instructions" ? [...(guides[role] ?? []), path] : [path];
+  mockMarks = { ...mockMarks, guides };
+  return Promise.resolve(mockMarks);
 }
 
 /** Opens a terminal in a folder of the project (for a file: its folder). */
@@ -1364,7 +1475,7 @@ export function startRules(): Promise<string> {
   if (live) return invoke("start_rules");
   return Promise.resolve(
     "Rules from CodeDeck, the app the user watches this project with. They are always the same and the user sees them there:\n" +
-      "- Put drafts, mock-ups, throwaway scripts and test data into .scratch/ in this project, not into /tmp or your home folder. Git ignores that folder; the user sees it in CodeDeck.\n" +
+      "- Put drafts, mock-ups, throwaway scripts and test data into .scratch/ in this project, not into /tmp or your home folder. Git ignores that folder; the user sees it in CodeDeck. Delete throwaway scripts and test data there once you no longer need them; keep what the user should look at.\n" +
       "- When you publish a page somewhere else (a shared document, an artifact, a gist, a paste), say so in your answer and give its link.\n" +
       "- When you write a prompt for a later session, in this project or another one, save it as a Markdown file in .scratch/prompts/ of that project, named after what it asks for. The user finds it in CodeDeck under Prepared.",
   );
@@ -1999,6 +2110,17 @@ export interface OverviewProject {
   mark: ProjectMarkSpec | null;
   /** Its place among the projects shown lately, 0 the newest; `null` when not among them */
   recent: number | null;
+  /** What its planning files say, in one line (U8.3); `null` without any */
+  plan?: PlanLine | null;
+}
+
+/** The plan of a project in one line, for the project list. */
+export interface PlanLine {
+  /** `M2 Limits per client`; null without a roadmap or with every stage done */
+  stage: string | null;
+  questions: number;
+  tasks: number;
+  ideas: number;
 }
 
 /** A project's mark (docs/UEBERSICHT.md): a Lucide icon, an emoji or its first letter, on a colour. */
@@ -2056,7 +2178,7 @@ export const panelView = ((v) => (v === "about" || v === "shortcuts" ? v : null)
 const mockOverview = (): Omit<OverviewProject, "recent">[] => [
   // The umbrella project of the "acme" group: it holds the others, and sees a session of billing-ui
   { label: "w0", name: "acme", path: "/home/me/projects/acme", color: "#4aa3a0", state: { ...mockAssistant, sessions: mockAssistant.sessions.slice(0, 1).map((s) => ({ ...s, cwd: "billing-ui" })) }, summary: null, front: false, listed: true, visible: true, daily: false, account: null, mark: null },
-  { label: "w1", name: "acme-orbit-api", path: "/home/me/projects/acme/acme-orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", uncommitted: 3, next: mockAssistant.attachments.length, news: 0 }, front: true, listed: true, visible: true, daily: true, account: "/home/me/.claude", mark: { kind: "icon", value: "satellite" } },
+  { label: "w1", name: "acme-orbit-api", path: "/home/me/projects/acme/acme-orbit-api", color: "#7f95ff", state: mockAssistant, summary: { git: "3 uncommitted · ↑2", uncommitted: 3, next: mockAssistant.attachments.length, news: 0 }, plan: { stage: "M2 Limits per client", questions: 1, tasks: 2, ideas: 2 }, front: true, listed: true, visible: true, daily: true, account: "/home/me/.claude", mark: { kind: "icon", value: "satellite" } },
   {
     label: "w2",
     name: "ai-driven-development",
@@ -2064,6 +2186,7 @@ const mockOverview = (): Omit<OverviewProject, "recent">[] => [
     color: "#4fc9bd",
     state: { ...mockAssistant, sessions: mockAssistant.sessions.slice(0, 1).map((s) => ({ ...s, id: "x1", title: "Kapitel 3 überarbeiten", status: "idle" as const, turnDone: Date.now() - 60_000 })), attachments: [] },
     summary: { git: "clean", news: 3 },
+    plan: { stage: null, questions: 0, tasks: 3, ideas: 0 },
     front: false,
     listed: true,
     visible: false,

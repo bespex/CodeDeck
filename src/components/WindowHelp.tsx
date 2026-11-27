@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Anchor, ArrowLeft, ArrowRight, ArrowUpRight, AtSign, Bell, ChevronDown, CircleCheck, Ellipsis, Globe, Keyboard, Menu, MessageSquarePlus, MousePointerClick, Paperclip, Plus, Reply, SlidersHorizontal, Users } from "lucide-react";
+import { Anchor, ArrowLeft, ArrowRight, ArrowUpRight, AtSign, Bell, ChevronDown, CircleCheck, Ellipsis, Globe, Keyboard, Map as MapIcon, Menu, MessageSquarePlus, MousePointerClick, Paperclip, Plus, Reply, SlidersHorizontal, Users } from "lucide-react";
 import { machineSettings, setMachineSetting, windowHelp, type AssistantState } from "../backend";
 import { closeDialog, openDialog } from "../dialogs";
 import { t } from "../i18n";
@@ -110,6 +110,7 @@ const STEPS: Step[] = [
     points: () => [
       [icon(Globe), t("You also see pages the AI sessions published and files they put elsewhere, such as in /tmp.")],
       [icon(AtSign), t("When you write @ai into a file, that is an instruction for the AI. Such hints are listed here, and the paperclip attaches them.")],
+      [icon(MapIcon), t("On top you see the plan from the project's ROADMAP, TODO and IDEAS files; its next step goes to your next prompt with one click.")],
     ],
   },
   {

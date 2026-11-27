@@ -1,8 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Copy, X } from "lucide-react";
-import { openWelcome, closeWindow, panelView, harnessList, onSettingsSection, type HarnessInfo, appInfo, autostartState, setAutostart, type AutostartState, machineSettings, setMachineSetting, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
+import { openWelcome, closeWindow, panelView, harnessList, onSettingsSection, type HarnessInfo, appInfo, autostartState, setAutostart, type AutostartState, machineSettings, setMachineSetting, onSettingsChanged, createDesktopProfile, desktopProfiles, setHarnessConnection, live, type Connection, globalShortcuts, onShortcutsChanged, openUrl, setAccount, trashAccount, type Account, type AppInfo, type AssistantState, type GlobalShortcut } from "../backend";
 import { useAccounts } from "../accounts";
 import { useFileSettings } from "../fileView";
+import { GUIDE_DEFAULTS, GUIDE_ROLES } from "../guides";
+import { useExpiry, type ScratchKind } from "../scratch";
+import type { GuideRole } from "../backend";
 import { usePlatform } from "../platform";
 import { PlatformFacts, platformFacts } from "./PlatformFacts";
 import { AccountMark, MarkPicker } from "./ProjectMark";
@@ -84,7 +87,7 @@ export function About() {
   }, []);
   const version = info ? `${info.version}${info.commit ? ` (${info.commit})` : ""}` : "…";
   const link = (label: string, url: string) => (
-    <button type="button" onClick={() => openUrl(url)} className="text-[12px] text-brand-soft hover:underline">
+    <button type="button" onClick={() => openUrl(url)} className="action-text text-[12px] text-brand-soft">
       {label}
     </button>
   );
@@ -411,7 +414,7 @@ function General() {
         <TodayAtStart />
       </Setting>
       <Setting label={t("Welcome")} note={t("What CodeDeck looked for on this computer and what it does for CodeDeck; shown at every start until you turn it off there.")} scope="machine">
-        <button type="button" onClick={() => void openWelcome()} className="rounded px-1.5 py-0.5 text-[12px] text-brand-soft hover:underline">
+        <button type="button" onClick={() => void openWelcome()} className="action-text text-[12px] text-brand-soft">
           {t("Show")}
         </button>
       </Setting>
@@ -531,6 +534,108 @@ function FilesAndFolders() {
       <Setting label={t("Mark files with @ai hints")} note={t("An @ beside files that hold hints for the AI.")} scope="machine">
         {check(settings.hints, () => change({ hints: !settings.hints }))}
       </Setting>
+      <ScratchExpiry />
+      <GuideNames />
+    </>
+  );
+}
+
+/**
+ * Expiry of scratch files (U8.5): whether old ones go to the trash by themselves, and after how many
+ * days per kind (0: never). Kept, attached, unseen files and those named in a guide file stay.
+ */
+function ScratchExpiry() {
+  const [rules, change] = useExpiry();
+  const kinds: [ScratchKind, string][] = [
+    ["draft", t("Drafts")],
+    ["image", t("Images")],
+    ["script", t("Scripts")],
+    ["data", t("Data")],
+    ["backup", t("Backups")],
+    ["other", t("Other files")],
+  ];
+  return (
+    <>
+      <Setting
+        label={t("Tidy up the scratch folder by itself")}
+        note={t("Old files go to the trash, where they can be brought back; the bell tells you. Files you keep, attach, have not seen yet or name in a guide file stay.")}
+        scope="machine"
+      >
+        <input type="checkbox" checked={rules.on} onChange={() => change({ ...rules, on: !rules.on })} />
+      </Setting>
+      {rules.on && (
+        <Setting label={t("After how many days")} note={t("Per kind of file; 0 means never.")} scope="machine">
+          <span className="grid grid-cols-[auto_auto] items-center gap-x-2 gap-y-1 text-[12px]">
+            {kinds.map(([kind, label]) => (
+              <label key={kind} className="contents">
+                <span className="text-slate-400">{label}</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={365}
+                  value={rules.days[kind]}
+                  onChange={(e) => change({ ...rules, days: { ...rules.days, [kind]: Math.max(0, Math.min(365, Number(e.target.value) || 0)) } })}
+                  className="w-16 rounded border border-overlay-line bg-base px-1.5 py-0.5 text-right tabular-nums"
+                />
+              </label>
+            ))}
+          </span>
+        </Setting>
+      )}
+    </>
+  );
+}
+
+/**
+ * Which names make a guide file (U8.2): per role, separated by commas; empty means the usual names.
+ * The AI tool's own instruction files always count. A project chooses its own from the file list.
+ */
+function GuideNames() {
+  const [names, setNames] = useState<Partial<Record<GuideRole, string[]>>>({});
+  useEffect(() => {
+    const read = () => void machineSettings().then((m) => setNames((m.guides as Partial<Record<GuideRole, string[]>> | undefined) ?? {})).catch(() => {});
+    read();
+    return onSettingsChanged(read);
+  }, []);
+  const save = (role: GuideRole, text: string) => {
+    const list = [...new Set(text.split(",").map((n) => n.trim()).filter(Boolean))];
+    const next = { ...names };
+    if (list.length) next[role] = list;
+    else delete next[role];
+    setNames(next);
+    void setMachineSetting("guides", Object.keys(next).length ? next : null);
+  };
+  return (
+    <>
+      <h4 className="mt-5 mb-0.5 font-semibold text-slate-100">{t("Guide files")}</h4>
+      <p className="mb-1 text-[12px] text-slate-500">
+        {t("Files that steer the work with the AI. They stand at the top of the file list with their own symbol. Names separated by commas; a name counts in the top folder, a path with a slash only there. A project chooses its own from the menu of a file.")}
+      </p>
+      {(Object.keys(GUIDE_ROLES) as GuideRole[]).map((role) => {
+        const Icon = GUIDE_ROLES[role].icon;
+        return (
+          <Setting
+            key={role}
+            label={GUIDE_ROLES[role].label()}
+            note={role === "instructions" ? `${GUIDE_ROLES[role].says()}. ${t("The files your AI tool reads always count; names here count in every folder.")}` : GUIDE_ROLES[role].says()}
+            scope="machine"
+          >
+            <label className="flex items-center gap-1.5">
+              <Icon className="size-4 text-ai" />
+              <input
+                key={(names[role] ?? []).join(",")}
+                defaultValue={(names[role] ?? []).join(", ")}
+                placeholder={GUIDE_DEFAULTS[role].join(", ")}
+                onBlur={(e) => e.target.value !== (names[role] ?? []).join(", ") && save(role, e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                spellCheck={false}
+                aria-label={GUIDE_ROLES[role].label()}
+                className="w-48 rounded border border-overlay-line bg-base px-1.5 py-0.5 font-mono text-[12px] placeholder:text-slate-600"
+              />
+            </label>
+          </Setting>
+        );
+      })}
     </>
   );
 }
@@ -629,7 +734,7 @@ function AccountRow({ account, profiles, connection, hasProfiles }: { account: A
             disabled={busy || !live}
             title={t("Starts the desktop app with a folder of its own. Sign in there with this account; CodeDeck keeps the profile for it.")}
             onClick={() => void run(() => createDesktopProfile(account.dir))}
-            className="text-[12px] text-slate-300 underline-offset-2 hover:text-slate-100 hover:underline disabled:opacity-40"
+            className="action-text text-[12px] text-slate-300 disabled:opacity-40"
           >
             {t("Create a new profile…")}
           </button>
@@ -646,7 +751,7 @@ function AccountRow({ account, profiles, connection, hasProfiles }: { account: A
               </button>
             </span>
           ) : (
-            <button type="button" onClick={() => setConfirm(true)} className="text-[12px] text-slate-400 underline-offset-2 hover:text-slate-100 hover:underline">
+            <button type="button" onClick={() => setConfirm(true)} className="action-text text-[12px] text-slate-400">
               {t("Delete folder…")}
             </button>
           ))}

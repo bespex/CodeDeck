@@ -312,6 +312,10 @@ impl Harness for Claude {
         &["claude.ai"]
     }
 
+    fn instruction_files(&self) -> &'static [&'static str] {
+        &["CLAUDE.md", "CLAUDE.local.md", ".claude/CLAUDE.md"]
+    }
+
     fn read_log(&self, log: &Path) -> Option<SessionInfo> {
         read(log)
     }

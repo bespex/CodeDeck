@@ -20,6 +20,12 @@ pub struct FileMarks {
     pub shown: Vec<String>,
     #[serde(default)]
     pub important: Vec<String>,
+    /// Scratch files and folders kept from expiry (U8.5)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub kept: Vec<String>,
+    /// The project's own names of guide files, per role (`guides.rs`): replace the machine's
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub guides: BTreeMap<String, Vec<String>>,
 }
 
 type All = BTreeMap<String, FileMarks>;
@@ -54,6 +60,7 @@ fn set_in(file: &Path, root: &Path, kind: &str, path: &str, on: bool) -> Result<
         "hidden" => (&mut marks.hidden, Some(&mut marks.shown)),
         "shown" => (&mut marks.shown, Some(&mut marks.hidden)),
         "important" => (&mut marks.important, None),
+        "kept" => (&mut marks.kept, None),
         _ => return Err(format!("{kind}: no such mark")),
     };
     list.retain(|p| p != path);
@@ -64,6 +71,45 @@ fn set_in(file: &Path, root: &Path, kind: &str, path: &str, on: bool) -> Result<
     if let Some(other) = other {
         other.retain(|p| p != path);
     }
+    let result = marks.clone();
+    if result == FileMarks::default() {
+        all.remove(&key);
+    }
+    let bytes = serde_json::to_vec_pretty(&all).map_err(|e| e.to_string())?;
+    crate::config::write(file, &bytes)?;
+    Ok(result)
+}
+
+/// Makes `path` the project's guide file of `role` (`guides.rs`), or with `None` takes it out of the
+/// project's own names again. A project has one file per role, so a new one replaces the old; only
+/// instructions add up, since a tool may read several. The marks afterwards.
+pub fn set_guide(root: &Path, role: Option<&str>, path: &str) -> Result<FileMarks, String> {
+    set_guide_in(&crate::config::file("files.json").ok_or("no config directory")?, root, role, path)
+}
+
+fn set_guide_in(file: &Path, root: &Path, role: Option<&str>, path: &str) -> Result<FileMarks, String> {
+    if path.is_empty() || path.starts_with('/') || path.split('/').any(|p| p == "..") {
+        return Err(format!("{path}: not a path in the project"));
+    }
+    if let Some(role) = role {
+        if !["instructions", "readme", "tasks", "ideas", "roadmap"].contains(&role) {
+            return Err(format!("{role}: no such role"));
+        }
+    }
+    let mut all = load_from(file);
+    let key = root.display().to_string();
+    let marks = all.entry(key.clone()).or_default();
+    for names in marks.guides.values_mut() {
+        names.retain(|n| n != path);
+    }
+    if let Some(role) = role {
+        let names = marks.guides.entry(role.to_string()).or_default();
+        if role != "instructions" {
+            names.clear();
+        }
+        names.push(path.to_string());
+    }
+    marks.guides.retain(|_, names| !names.is_empty());
     let result = marks.clone();
     if result == FileMarks::default() {
         all.remove(&key);
@@ -90,11 +136,19 @@ fn moved_in(file: &Path, root: &Path, moves: &[(String, String)]) -> Result<(), 
         })
     };
     let mut changed = false;
-    for list in [&mut marks.hidden, &mut marks.shown, &mut marks.important] {
+    for list in [&mut marks.hidden, &mut marks.shown, &mut marks.important, &mut marks.kept] {
         let next: Vec<String> = list.iter().map(relocate).collect();
         if next != *list {
             *list = next;
             list.sort();
+            changed = true;
+        }
+    }
+    // A guide file named by its path goes along too
+    for names in marks.guides.values_mut() {
+        let next: Vec<String> = names.iter().map(|n| if n.contains('/') { relocate(n) } else { n.clone() }).collect();
+        if next != *names {
+            *names = next;
             changed = true;
         }
     }
@@ -116,13 +170,33 @@ mod tests {
         set_in(&file, a, "shown", ".scratch", true).unwrap();
         set_in(&file, a, "important", "docs", true).unwrap();
         let marks = set_in(&file, a, "hidden", ".scratch", true).unwrap();
-        assert_eq!(marks, FileMarks { hidden: vec![".scratch".into()], shown: vec![], important: vec!["docs".into()] });
+        assert_eq!(marks, FileMarks { hidden: vec![".scratch".into()], shown: vec![], important: vec!["docs".into()], ..Default::default() });
         assert_eq!(of_in(&file, b), FileMarks::default());
         assert!(set_in(&file, a, "hidden", "../x", true).is_err());
         assert!(set_in(&file, a, "colour", "x", true).is_err());
         set_in(&file, a, "hidden", ".scratch", false).unwrap();
         set_in(&file, a, "important", "docs", false).unwrap();
         // Nothing left: the project goes from the file
+        assert!(!std::fs::read_to_string(&file).unwrap().contains("/p/a"));
+        let _ = std::fs::remove_file(&file);
+    }
+
+    #[test]
+    fn a_project_chooses_one_guide_file_per_role() {
+        let file = std::env::temp_dir().join(format!("codedeck-files-guides-{}.json", std::process::id()));
+        let a = Path::new("/p/a");
+        set_guide_in(&file, a, Some("roadmap"), "docs/PLAN.md").unwrap();
+        let marks = set_guide_in(&file, a, Some("roadmap"), "docs/STAGES.md").unwrap();
+        assert_eq!(marks.guides["roadmap"], vec!["docs/STAGES.md"]);
+        set_guide_in(&file, a, Some("instructions"), "RULES.md").unwrap();
+        let marks = set_guide_in(&file, a, Some("instructions"), "docs/RULES.md").unwrap();
+        assert_eq!(marks.guides["instructions"], vec!["RULES.md", "docs/RULES.md"]);
+        assert!(set_guide_in(&file, a, Some("diary"), "x.md").is_err());
+        moved_in(&file, a, &[("docs".into(), "notes".into())]).unwrap();
+        assert_eq!(of_in(&file, a).guides["roadmap"], vec!["notes/STAGES.md"]);
+        set_guide_in(&file, a, None, "notes/STAGES.md").unwrap();
+        set_guide_in(&file, a, None, "RULES.md").unwrap();
+        set_guide_in(&file, a, None, "notes/RULES.md").unwrap();
         assert!(!std::fs::read_to_string(&file).unwrap().contains("/p/a"));
         let _ = std::fs::remove_file(&file);
     }
@@ -138,7 +212,7 @@ mod tests {
         moved_in(&file, a, &[("docs".into(), "notes/docs".into())]).unwrap();
         assert_eq!(
             of_in(&file, a),
-            FileMarks { hidden: vec!["notes/docs/old".into()], shown: vec![], important: vec!["docsets".into(), "notes/docs/plan.md".into()] }
+            FileMarks { hidden: vec!["notes/docs/old".into()], shown: vec![], important: vec!["docsets".into(), "notes/docs/plan.md".into()], ..Default::default() }
         );
         assert_eq!(of_in(&file, b).important, vec!["docs/plan.md".to_string()], "another project keeps its marks");
         moved_in(&file, a, &[("notes/docs/plan.md".into(), "plan.md".into())]).unwrap();

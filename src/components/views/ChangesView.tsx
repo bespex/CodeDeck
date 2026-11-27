@@ -417,7 +417,7 @@ function Report({ turn, who }: { turn: Turn; who: string }) {
   ]
     .filter(Boolean)
     .join("\n\n");
-  const link = "text-[12px] text-ai hover:underline";
+  const link = "action-text text-[12px] text-ai";
   return (
     <div className="selectable border-l-2 border-ai/60 pl-3 text-slate-200">
       <p className="whitespace-pre-line">{all ? turn.report : lines.slice(0, REPORT_LINES).join("\n")}</p>

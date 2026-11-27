@@ -16,6 +16,9 @@ export function showProject(path: string | null) {
   shown = path;
 }
 
+/** The project the window shows (path), for a panel that reads something of it once it is made. */
+export const shownProject = () => shown;
+
 /** Keeps a value for a project. */
 export function remember(project: string | null, name: string, value: unknown) {
   if (!project) return;

@@ -55,6 +55,11 @@ impl Line {
         Line { at, kind, harness: Some(e.harness.clone()), session: Some(e.session.clone()), file, tool: e.tool.clone(), text, background: e.background.clone(), task_ended: e.task_ended.clone() }
     }
 
+    /// Old scratch files went to the trash (U8.5): `text` is how many, `file` the first of them.
+    pub fn expired(at: u64, files: &[String]) -> Self {
+        Line { at, kind: "scratch_expired".into(), harness: None, session: None, file: files.first().cloned(), tool: None, text: Some(files.len().to_string()), background: None, task_ended: None }
+    }
+
     pub fn opened(at: u64) -> Self {
         Line { at, kind: "opened".into(), harness: None, session: None, file: None, tool: None, text: None, background: None, task_ended: None }
     }
